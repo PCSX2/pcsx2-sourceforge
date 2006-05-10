@@ -1,0 +1,665 @@
+/*  Pcsx2 - Pc Ps2 Emulator
+ *  Copyright (C) 2002-2003  Pcsx2 Team
+ *
+ *  This program is free software; you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation; either version 2 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program; if not, write to the Free Software
+ *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ */
+
+#include <string.h>
+#include <stdlib.h>
+#include <malloc.h>
+
+#include "PsxCommon.h"
+
+
+int psxMemInit() {
+	int i;
+
+	psxMemRLUT = (uptr*)_aligned_malloc(0x10000 * sizeof(uptr),16);
+	psxMemWLUT = (uptr*)_aligned_malloc(0x10000 * sizeof(uptr),16);
+	memset(psxMemRLUT, 0, 0x10000 * sizeof(uptr));
+	memset(psxMemWLUT, 0, 0x10000 * sizeof(uptr));
+
+#ifndef WIN32_VIRTUAL_MEM
+	psxM = (char*)malloc(0x00200000);
+#endif
+	psxP = (char*)_aligned_malloc(0x00010000,16);
+	psxH = (char*)_aligned_malloc(0x00010000,16);
+	psxS = (char*)_aligned_malloc(0x00010000,16);
+	if (psxMemRLUT == NULL || psxMemWLUT == NULL || 
+		psxM == NULL || psxP == NULL || psxH == NULL) {
+		SysMessage(_("Error allocating memory")); return -1;
+	}
+
+	memset(psxM, 0, 0x00200000);
+	memset(psxP, 0, 0x00010000);
+	memset(psxH, 0, 0x00010000);
+	memset(psxS, 0, 0x00010000);
+
+
+// MemR
+	for (i=0; i<0x0080; i++) psxMemRLUT[i + 0x0000] = (uptr)&psxM[(i & 0x1f) << 16];
+	for (i=0; i<0x0080; i++) psxMemRLUT[i + 0x8000] = (uptr)&psxM[(i & 0x1f) << 16];
+	for (i=0; i<0x0080; i++) psxMemRLUT[i + 0xa000] = (uptr)&psxM[(i & 0x1f) << 16];
+
+	for (i=0; i<0x0001; i++) psxMemRLUT[i + 0x1f00] = (uptr)&psxP[i << 16];
+
+	for (i=0; i<0x0001; i++) psxMemRLUT[i + 0x1f80] = (uptr)&psxH[i << 16];
+	for (i=0; i<0x0001; i++) psxMemRLUT[i + 0xbf80] = (uptr)&psxH[i << 16];
+
+	for (i=0; i<0x0040; i++) psxMemRLUT[i + 0x1fc0] = (uptr)&PS2MEM_ROM[i << 16];
+	for (i=0; i<0x0040; i++) psxMemRLUT[i + 0x9fc0] = (uptr)&PS2MEM_ROM[i << 16];
+	for (i=0; i<0x0040; i++) psxMemRLUT[i + 0xbfc0] = (uptr)&PS2MEM_ROM[i << 16];
+
+	for (i=0; i<0x0004; i++) psxMemRLUT[i + 0x1e00] = (uptr)&PS2MEM_ROM1[i << 16];
+	for (i=0; i<0x0004; i++) psxMemRLUT[i + 0x9e00] = (uptr)&PS2MEM_ROM1[i << 16];
+	for (i=0; i<0x0004; i++) psxMemRLUT[i + 0xbe00] = (uptr)&PS2MEM_ROM1[i << 16];
+
+	for (i=0; i<0x0001; i++) psxMemRLUT[i + 0x1d00] = (uptr)&psxS[i << 16];
+	for (i=0; i<0x0001; i++) psxMemRLUT[i + 0xbd00] = (uptr)&psxS[i << 16];
+
+// MemW
+	for (i=0; i<0x0080; i++) psxMemWLUT[i + 0x0000] = (uptr)&psxM[(i & 0x1f) << 16];
+	for (i=0; i<0x0080; i++) psxMemWLUT[i + 0x8000] = (uptr)&psxM[(i & 0x1f) << 16];
+	for (i=0; i<0x0080; i++) psxMemWLUT[i + 0xa000] = (uptr)&psxM[(i & 0x1f) << 16];
+
+	for (i=0; i<0x0001; i++) psxMemWLUT[i + 0x1f00] = (uptr)&psxP[i << 16];
+
+	for (i=0; i<0x0001; i++) psxMemWLUT[i + 0x1f80] = (uptr)&psxH[i << 16];
+	for (i=0; i<0x0001; i++) psxMemWLUT[i + 0xbf80] = (uptr)&psxH[i << 16];
+
+//	for (i=0; i<0x0008; i++) psxMemWLUT[i + 0xbfc0] = (uptr)&psR[i << 16];
+
+//	for (i=0; i<0x0001; i++) psxMemWLUT[i + 0x1d00] = (uptr)&psxS[i << 16];
+//	for (i=0; i<0x0001; i++) psxMemWLUT[i + 0xbd00] = (uptr)&psxS[i << 16];
+
+	return 0;
+}
+
+void psxMemReset() {
+	memset(psxM, 0, 0x00200000);
+	memset(psxP, 0, 0x00010000);
+	memset(psxS, 0, 0x00010000);
+}
+
+void psxMemShutdown() {
+	
+#ifndef WIN32_VIRTUAL_MEM
+	free(psxM);
+#endif
+
+	_aligned_free(psxP);
+	_aligned_free(psxH);
+	_aligned_free(psxMemRLUT);
+	_aligned_free(psxMemWLUT);
+}
+
+static int writeok=1;
+static u32 writectrl;
+
+u8 psxMemRead8(u32 mem) {
+	char *p;
+	u32 t;
+
+	t = (mem >> 16) & 0x1fff;
+	if (t == 0x1f80) {
+		mem&= 0x1fffffff;
+		if (mem < 0x1f801000)
+			return psxHu8(mem);
+		else
+			return psxHwRead8(mem);
+	} else
+	if (t == 0x1f40) {
+		mem&= 0x1fffffff;
+		return psxHw4Read8(mem);
+	} else {
+		p = (char *)(psxMemRLUT[mem >> 16]);
+		if (p != NULL) {
+			return *(u8 *)(p + (mem & 0xffff));
+		} else {
+			if (t == 0x1000) return DEV9read8(mem & 0x1FFFFFFF);
+#ifdef PSXMEM_LOG
+			PSXMEM_LOG("err lb %8.8lx\n", mem);
+#endif
+			return 0;
+		}
+	}
+}
+
+u16 psxMemRead16(u32 mem) {
+	char *p;
+	u32 t;
+
+	t = (mem >> 16) & 0x1fff;
+	if (t == 0x1f80) {
+		mem&= 0x1fffffff;
+		if (mem < 0x1f801000)
+			return psxHu16(mem);
+		else
+			return psxHwRead16(mem);
+	} else {
+		p = (char *)(psxMemRLUT[mem >> 16]);
+		if (p != NULL) {
+			if (t == 0x1d00) {
+				u16 ret;
+				switch(mem & 0xF0)
+				{
+				case 0x00:
+					ret= psHu16(0x1000F200);
+					break;
+				case 0x10:
+					ret= psHu16(0x1000F210);
+					break;
+				case 0x40:
+					ret= psHu16(0x1000F240) | 0x0002;
+					break;
+				case 0x60:
+					ret = 0;
+					break;
+				default:
+					ret = psxHu16(mem);
+					break;
+				}
+#ifdef SIF_LOG
+				SIF_LOG("Sif reg read %x value %x\n", mem, ret);			
+#endif
+				return ret;
+			}
+			return *(u16 *)(p + (mem & 0xffff));
+		} else {
+			if (t == 0x1F90){
+				//SysPrintf("SPU2Reaad psxmem16 %x val %x\n", mem, SPU2read(mem & 0xFFFF));
+				return SPU2read(mem & 0xFFFF);
+			}
+			if (t == 0x1000) return DEV9read16(mem & 0x1FFFFFFF);
+#ifdef PSXMEM_LOG
+			PSXMEM_LOG("err lh %8.8lx\n", mem);
+#endif
+			return 0;
+		}
+	}
+}
+
+u32 psxMemRead32(u32 mem) {
+	char *p;
+	u32 t;
+	t = (mem >> 16) & 0x1fff;
+	if (t == 0x1f80) {
+		mem&= 0x1fffffff;
+		if (mem < 0x1f801000)
+			return psxHu32(mem);
+		else
+			return psxHwRead32(mem);
+	} else {
+		//see also Hw.c
+		p = (char *)(psxMemRLUT[mem >> 16]);
+		if (p != NULL) {
+			if (t == 0x1d00) {
+				u32 ret;
+				switch(mem & 0xF0)
+				{
+				case 0x00:
+					ret= psHu32(0x1000F200);
+					break;
+				case 0x10:
+					ret= psHu32(0x1000F210);
+					break;
+				case 0x20:
+					ret= psHu32(0x1000F220);
+					break;
+				case 0x30:	// EE Side
+					ret= psHu32(0x1000F230);
+					break;
+				case 0x40:
+					ret= psHu32(0x1000F240) | 0xF0000002;
+					break;
+				case 0x60:
+					ret = 0;
+					break;
+				default:
+					ret = psxHu32(mem);
+					break;
+				}
+#ifdef SIF_LOG
+				SIF_LOG("Sif reg read %x value %x\n", mem, ret);			
+#endif
+				return ret;
+			}
+			return *(u32 *)(p + (mem & 0xffff));
+		} else {
+			if (t == 0x1000) return DEV9read32(mem & 0x1FFFFFFF);
+			
+			if (mem != 0xfffe0130) {
+#ifdef PSXMEM_LOG
+				if (writeok) PSXMEM_LOG("err lw %8.8lx\n", mem);
+#endif
+			} else {
+				return writectrl;
+			}
+			return 0;
+		}
+	}
+}
+
+void psxRecMemWrite8(u32 mem, u8 value) {
+	char *p;
+	u32 t;
+
+	t = (mem >> 16) & 0x1fff;
+	if (t == 0x1f80) {
+		mem&= 0x1fffffff;
+		if (mem < 0x1f801000)
+			psxHu8(mem) = value;
+		else
+			psxHwWrite8(mem, value);
+	} else
+	if (t == 0x1f40) {
+		mem&= 0x1fffffff;
+		psxHw4Write8(mem, value);
+	} else {
+		p = (char *)(psxMemWLUT[mem >> 16]);
+		if (p != NULL) {
+			*(u8  *)(p + (mem & 0xffff)) = value;
+			PSXREC_CLEARM(mem&~3);
+		} else {
+			if ((t & 0x1FFF)==0x1D00) SysPrintf("sw8 [0x%08X]=0x%08X\n", mem, value);
+			if (t == 0x1d00) {
+				psxSu8(mem) = value; return;
+			}
+			if (t == 0x1000) {
+				DEV9write8(mem & 0x1fffffff, value); return;
+			}
+#ifdef PSXMEM_LOG
+			PSXMEM_LOG("err sb %8.8lx = %x\n", mem, value);
+#endif
+		}
+	}
+}
+
+void psxMemWrite8(u32 mem, u8 value) {
+	char *p;
+	u32 t;
+
+	t = (mem >> 16) & 0x1fff;
+	if (t == 0x1f80) {
+		mem&= 0x1fffffff;
+		if (mem < 0x1f801000)
+			psxHu8(mem) = value;
+		else
+			psxHwWrite8(mem, value);
+	} else
+	if (t == 0x1f40) {
+		mem&= 0x1fffffff;
+		psxHw4Write8(mem, value);
+	} else {
+		p = (char *)(psxMemWLUT[mem >> 16]);
+		if (p != NULL) {
+			*(u8  *)(p + (mem & 0xffff)) = value;
+			psxCpu->Clear(mem&~3, 1);
+		} else {
+			if ((t & 0x1FFF)==0x1D00) SysPrintf("sw8 [0x%08X]=0x%08X\n", mem, value);
+			if (t == 0x1d00) {
+				psxSu8(mem) = value; return;
+			}
+			if (t == 0x1000) {
+				DEV9write8(mem & 0x1fffffff, value); return;
+			}
+#ifdef PSXMEM_LOG
+			PSXMEM_LOG("err sb %8.8lx = %x\n", mem, value);
+#endif
+		}
+	}
+}
+
+void psxRecMemWrite16(u32 mem, u16 value) {
+	char *p;
+	u32 t;
+
+	t = (mem >> 16) & 0x1fff;
+	if (t == 0x1f80) {
+		mem&= 0x1fffffff;
+		if (mem < 0x1f801000)
+			psxHu16(mem) = value;
+		else
+			psxHwWrite16(mem, value);
+	} else {
+		p = (char *)(psxMemWLUT[mem >> 16]);
+		if (p != NULL) {
+			if ((t & 0x1FFF)==0x1D00) SysPrintf("sw16 [0x%08X]=0x%08X\n", mem, value);
+			*(u16 *)(p + (mem & 0xffff)) = value;
+			PSXREC_CLEARM(mem&~3);
+		} else {
+			if (t == 0x1d00) {
+				switch (mem & 0xf0) {
+					case 0x10:
+						// write to ps2 mem
+						psHu16(0x1000F210) = value;
+						return;
+					case 0x40:
+					{
+						u32 temp = value & 0xF0;
+						// write to ps2 mem
+						if(value & 0x20 || value & 0x80)
+						{
+							psHu16(0x1000F240) &= ~0xF000;
+							psHu16(0x1000F240) |= 0x2000;
+						}
+							
+						if(psHu16(0x1000F240) & temp) psHu16(0x1000F240) &= ~temp;
+						else psHu16(0x1000F240) |= temp;
+						return;
+					}
+					case 0x60:
+						psHu32(0x1000F260) = 0;
+						return;
+				}
+				psxSu16(mem) = value; return;
+			}
+			if (t == 0x1F90) {
+				SPU2write(mem & 0x1FFFFFFF, value); return;
+			}
+			if (t == 0x1000) {
+				DEV9write16(mem & 0x1fffffff, value); return;
+			}
+#ifdef PSXMEM_LOG
+			PSXMEM_LOG("err sh %8.8lx = %x\n", mem, value);
+#endif
+		}
+	}
+}
+
+void psxMemWrite16(u32 mem, u16 value) {
+	char *p;
+	u32 t;
+
+	t = (mem >> 16) & 0x1fff;
+	if (t == 0x1f80) {
+		mem&= 0x1fffffff;
+		if (mem < 0x1f801000)
+			psxHu16(mem) = value;
+		else
+			psxHwWrite16(mem, value);
+	} else {
+		p = (char *)(psxMemWLUT[mem >> 16]);
+		if (p != NULL) {
+			if ((t & 0x1FFF)==0x1D00) SysPrintf("sw16 [0x%08X]=0x%08X\n", mem, value);
+			*(u16 *)(p + (mem & 0xffff)) = value;
+			psxCpu->Clear(mem&~3, 1);
+		} else {
+			if (t == 0x1d00) {
+					switch (mem & 0xf0) {
+						case 0x10:
+							// write to ps2 mem
+							psHu16(0x1000F210) = value;
+							return;
+						case 0x40:
+						{
+							u32 temp = value & 0xF0;
+							// write to ps2 mem
+							if(value & 0x20 || value & 0x80)
+							{
+								psHu16(0x1000F240) &= ~0xF000;
+								psHu16(0x1000F240) |= 0x2000;
+							}
+
+							
+							if(psHu16(0x1000F240) & temp) psHu16(0x1000F240) &= ~temp;
+							else psHu16(0x1000F240) |= temp;
+							return;
+						}
+						case 0x60:
+							psHu32(0x1000F260) = 0;
+							return;
+
+					}
+				psxSu16(mem) = value; return;
+			}
+			if (t == 0x1F90) {
+				SPU2write(mem & 0x1FFFFFFF, value); return;
+			}
+			if (t == 0x1000) {
+				DEV9write16(mem & 0x1fffffff, value); return;
+			}
+#ifdef PSXMEM_LOG
+			PSXMEM_LOG("err sh %8.8lx = %x\n", mem, value);
+#endif
+		}
+	}
+}
+
+
+void psxRecMemWrite32(u32 mem, u32 value) {
+	char *p;
+	u32 t;
+	
+	t = (mem >> 16) & 0x1fff;
+	if (t == 0x1f80) {
+		mem&= 0x1fffffff;
+		if (mem < 0x1f801000)
+			psxHu32(mem) = value;
+		else
+			psxHwWrite32(mem, value);
+	} else {
+		//see also Hw.c
+		p = (char *)(psxMemWLUT[mem >> 16]);
+		if (p != NULL) {
+			*(u32 *)(p + (mem & 0xffff)) = value;
+			PSXREC_CLEARM(mem&~3);
+		} else {
+			if (mem != 0xfffe0130) {
+				if (t == 0x1d00) {
+#ifdef MEM_LOG
+				MEM_LOG("IOP Sif reg write %x value %x\n", mem, value);			
+#endif
+					switch (mem & 0xf0) {
+						case 0x10:
+							// write to ps2 mem
+							psHu32(0x1000F210) = value;
+							return;
+						case 0x20:
+							// write to ps2 mem
+							psHu32(0x1000F220) &= ~value;
+							return;
+						case 0x30:
+							// write to ps2 mem
+							psHu32(0x1000F230) |= value;
+							return;
+						case 0x40:
+						{
+							u32 temp = value & 0xF0;
+							// write to ps2 mem
+							if(value & 0x20 || value & 0x80)
+							{
+								psHu32(0x1000F240) &= ~0xF000;
+								psHu32(0x1000F240) |= 0x2000;
+							}
+
+							
+							if(psHu32(0x1000F240) & temp) psHu32(0x1000F240) &= ~temp;
+							else psHu32(0x1000F240) |= temp;
+							return;
+						}
+						case 0x60:
+							psHu32(0x1000F260) = 0;
+							return;
+
+					}
+					psxSu32(mem) = value; 
+
+					// write to ps2 mem
+					if( (mem & 0xf0) != 0x60 )
+						*(u32*)(PS2MEM_HW+0xf200+(mem&0xf0)) = value;
+					return;  
+				}
+				if (t == 0x1000) {
+					DEV9write32(mem & 0x1fffffff, value); return;
+				}
+
+				if (!writeok) {
+					PSXREC_CLEARM(mem&~3);
+				}
+#ifdef PSXMEM_LOG
+				if (writeok) { PSXMEM_LOG("err sw %8.8lx = %x\n", mem, value); }
+#endif
+			} else {
+				int i;
+
+				writectrl = value;
+				switch (value) {
+					case 0x800: case 0x804:
+					case 0xc00: case 0xc04:
+					case 0xcc0: case 0xcc4:
+					case 0x0c4:
+						if (writeok == 0) break;
+						writeok = 0;
+						memset(psxMemWLUT + 0x0000, 0, 0x80 * sizeof(uptr));
+						memset(psxMemWLUT + 0x8000, 0, 0x80 * sizeof(uptr));
+						memset(psxMemWLUT + 0xa000, 0, 0x80 * sizeof(uptr));
+#ifdef PSXMEM_LOG
+//						PSXMEM_LOG("writectrl: writenot ok\n");
+#endif
+						break;
+					case 0x1e988:
+					case 0x1edd8:
+						if (writeok == 1) break;
+						writeok = 1;
+						for (i=0; i<0x0080; i++) psxMemWLUT[i + 0x0000] = (uptr)&psxM[(i & 0x1f) << 16];
+						for (i=0; i<0x0080; i++) psxMemWLUT[i + 0x8000] = (uptr)&psxM[(i & 0x1f) << 16];
+						for (i=0; i<0x0080; i++) psxMemWLUT[i + 0xa000] = (uptr)&psxM[(i & 0x1f) << 16];
+#ifdef PSXMEM_LOG
+//						PSXMEM_LOG("writectrl: write ok\n");
+#endif
+						break;
+					default:
+#ifdef PSXMEM_LOG
+						PSXMEM_LOG("unk %8.8lx = %x\n", mem, value);
+#endif
+						break;
+				}
+			}
+		}
+	}
+}
+
+void psxMemWrite32(u32 mem, u32 value) {
+	char *p;
+	u32 t;
+	
+	t = (mem >> 16) & 0x1fff;
+	if (t == 0x1f80) {
+		mem&= 0x1fffffff;
+		if (mem < 0x1f801000)
+			psxHu32(mem) = value;
+		else
+			psxHwWrite32(mem, value);
+	} else {
+		//see also Hw.c
+		p = (char *)(psxMemWLUT[mem >> 16]);
+		if (p != NULL) {
+			*(u32 *)(p + (mem & 0xffff)) = value;
+			psxCpu->Clear(mem&~3, 1);
+		} else {
+			if (mem != 0xfffe0130) {
+				if (t == 0x1d00) {
+#ifdef MEM_LOG
+				MEM_LOG("iop Sif reg write %x value %x\n", mem, value);			
+#endif
+					switch (mem & 0xf0) {
+						case 0x10:
+							// write to ps2 mem
+							psHu32(0x1000F210) = value;
+							return;
+						case 0x20:
+							// write to ps2 mem
+							psHu32(0x1000F220) &= ~value;
+							return;
+						case 0x30:
+							// write to ps2 mem
+							psHu32(0x1000F230) |= value;
+							return;
+						case 0x40:
+						{
+							u32 temp = value & 0xF0;
+							// write to ps2 mem
+							if(value & 0x20 || value & 0x80)
+							{
+								psHu32(0x1000F240) &= ~0xF000;
+								psHu32(0x1000F240) |= 0x2000;
+							}
+
+							
+							if(psHu32(0x1000F240) & temp) psHu32(0x1000F240) &= ~temp;
+							else psHu32(0x1000F240) |= temp;
+							return;
+						}
+						case 0x60:
+							psHu32(0x1000F260) = 0;
+							return;
+
+					}
+					psxSu32(mem) = value; 
+
+					// write to ps2 mem
+					if( (mem & 0xf0) != 0x60 )
+						*(u32*)(PS2MEM_HW+0xf200+(mem&0xf0)) = value;
+					return;   
+				}
+				if (t == 0x1000) {
+					DEV9write32(mem & 0x1fffffff, value); return;
+				}
+
+				if (!writeok) psxCpu->Clear(mem&~3, 1);
+#ifdef PSXMEM_LOG
+				if (writeok) { PSXMEM_LOG("err sw %8.8lx = %x\n", mem, value); }
+#endif
+			} else {
+				int i;
+
+				writectrl = value;
+				switch (value) {
+					case 0x800: case 0x804:
+					case 0xc00: case 0xc04:
+					case 0xcc0: case 0xcc4:
+					case 0x0c4:
+						if (writeok == 0) break;
+						writeok = 0;
+						memset(psxMemWLUT + 0x0000, 0, 0x80 * sizeof(uptr));
+						memset(psxMemWLUT + 0x8000, 0, 0x80 * sizeof(uptr));
+						memset(psxMemWLUT + 0xa000, 0, 0x80 * sizeof(uptr));
+#ifdef PSXMEM_LOG
+//						PSXMEM_LOG("writectrl: writenot ok\n");
+#endif
+						break;
+					case 0x1e988:
+					case 0x1edd8:
+						if (writeok == 1) break;
+						writeok = 1;
+						for (i=0; i<0x0080; i++) psxMemWLUT[i + 0x0000] = (uptr)&psxM[(i & 0x1f) << 16];
+						for (i=0; i<0x0080; i++) psxMemWLUT[i + 0x8000] = (uptr)&psxM[(i & 0x1f) << 16];
+						for (i=0; i<0x0080; i++) psxMemWLUT[i + 0xa000] = (uptr)&psxM[(i & 0x1f) << 16];
+#ifdef PSXMEM_LOG
+//						PSXMEM_LOG("writectrl: write ok\n");
+#endif
+						break;
+					default:
+#ifdef PSXMEM_LOG
+						PSXMEM_LOG("unk %8.8lx = %x\n", mem, value);
+#endif
+						break;
+				}
+			}
+		}
+	}
+}
+
