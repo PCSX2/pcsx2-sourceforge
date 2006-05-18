@@ -306,9 +306,20 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 
 			pfn = vif->usn ? VIFfuncTableSSE[unpackType].funcU: VIFfuncTableSSE[unpackType].funcS;
 			writemask = VIFdmanum ? g_vif1HasMask3[min(vifRegs->cycle.wl-1,3)] : g_vif0HasMask3[min(vifRegs->cycle.wl-1,3)];
-			size = pfn[(((vifRegs->code & 0x10000000)>>28)<<writemask)*3+vifRegs->mode](dest, (u32*)cdata, size);
+			writemask = pfn[(((vifRegs->code & 0x10000000)>>28)<<writemask)*3+vifRegs->mode](dest, (u32*)cdata, size);
 
 			if( oldcycle != -1 ) *(u32*)&vifRegs->cycle = oldcycle;
+
+			// if size is left over, update the src,dst pointers
+			if( writemask > 0 ) {
+				int left;
+				ft = &VIFfuncTable[ unpackType ];
+				left = (size-writemask)/ft->qsize;
+				cdata += size-writemask;
+				dest = (u32*)((u8*)dest + ((left/vifRegs->cycle.wl)*vifRegs->cycle.cl + left%vifRegs->cycle.wl)*16);
+			}
+
+			size = writemask;
 
 			//QueryPerformanceCounter(&lfinal);
 			//((LARGE_INTEGER*)g_nCounters)->QuadPart += lfinal.QuadPart - lbase.QuadPart;
@@ -673,6 +684,7 @@ void vif0CMD(u32 *data, int size) {
 
         case 0x07: // MARK
             vif0Regs->mark = (u16)data[0];
+			vif0Regs->stat |= VIF0_STAT_MRK;
             vif0.cmd = 0;
             break;
 
@@ -902,7 +914,14 @@ int  vif0Interrupt() {
 	VIF_LOG("vif0Interrupt: %8.8x\n", cpuRegs.cycle);
 #endif
 
-	if (vif0ch->chcr & 0x4 && vif0.done == 0 && vif0.vifstalled == 0) {
+	// need to check DMAC_CTRL
+	if ((vif0ch->chcr & 0x4) && vif0.done == 0 && vif0.vifstalled == 0 ) {
+
+		if( !(psHu32(DMAC_CTRL) & 0x1) ) {
+			SysPrintf("vif0 dma masked\n");
+			return 0;
+		}
+
 		cycles = 0;
 		ret = _chainVIF0();
 		if (ret != 0) vif0.done = 1;
@@ -967,12 +986,8 @@ void vif0Write32(u32 mem, u32 value) {
 #endif
 		if (value & 0x1) {
 			/* Reset VIF */
-			vif0ch->qwc = 0;
-			vif0.vifstalled = 0;
-			vif0.done = 1;
-			vif0Reset();
-			vif0Regs->stat&= ~0xF000000; // FQC=0
-			
+			SysPrintf("Vif0 Reset\n");
+			vif0FRBSTReset();			
 		}
 		if (value & 0x2) {
 			/* Force Break the VIF */
@@ -987,7 +1002,7 @@ void vif0Write32(u32 mem, u32 value) {
 			   just stoppin the VIF (linuz) */
 			
 			vif0Regs->stat |= VIF0_STAT_VSS;
-			//dmaVIF0();	// Drain the VIF  --- VIF Stops as not to outstrip dma source (refraction)
+			vif0.vifstalled = 1;
 		}
 		if (value & 0x8) {
 			int cancel = 0;
@@ -1005,11 +1020,9 @@ void vif0Write32(u32 mem, u32 value) {
 					// only reset if no further stalls
 					if( _VIF0chain() != -2 ) 
 						vif0.vifstalled = 0;
-				}
-				
-				INT(0,0);
-				
+				}	
 			}
+			INT(0,0);
 		}
 	} else
 	if (mem == 0x10003820) { // ERR
@@ -1022,7 +1035,7 @@ void vif0Write32(u32 mem, u32 value) {
 //		vif0ch->qwc = 0;
 //		vif0.vifstalled = 0;
 //		vif0.done = 1;
-//		vif0Regs->stat&= ~0xF000000; // FQC=0
+//		vif0Regs->stat&= ~0x0F000000; // FQC=0
 	}
 	else if( mem >= 0x10003900 && mem < 0x10003980 ) {
 		assert( (mem&0xf) == 0 );
@@ -1031,14 +1044,32 @@ void vif0Write32(u32 mem, u32 value) {
 	}
 }
 
+void vif0FRBSTReset()
+{
+	
+	psHu64(0x10004000) = 0;
+	psHu64(0x10004008) = 0;
+	
+	memset(&vif0, 0, sizeof(vif0));
+	vif0.done = 1;
+	vif0.vifstalled = 0;
+	vif0Regs->stat = 0;  //Reset regs (that get reset)
+	vif0Regs->err = 0;
+	vif0Regs->mode = 0;
+	vif0Regs->itops = 0;
+}
+
 void vif0Reset() {
 	/* Reset the whole VIF, meaning the internal pcsx2 vars
 	   and all the registers */
 	memset(&vif0, 0, sizeof(vif0));
 	memset(vif0Regs, 0, sizeof(vif0Regs));
-
-	SetNewMask(g_vif0Masks, g_vif0HasMask3, vif0Regs->mask, ~vif0Regs->mask);
 	vif0.vifstalled = 0;
+	vif0.done = 1;
+	psHu64(0x10004000) = 0;
+	psHu64(0x10004008) = 0;
+	vif0Regs->stat&= ~0x0F000000; // FQC=0
+	SetNewMask(g_vif0Masks, g_vif0HasMask3, vif0Regs->mask, ~vif0Regs->mask);
 }
 
 int  vif0Freeze(gzFile f, int Mode) {
@@ -1549,6 +1580,12 @@ int _vif1Interrupt() {
 		return 1;
 	}
 	if (vif1ch->chcr & 0x4 && vif1.done == 0 && vif1.vifstalled == 0) {
+
+		if( !(psHu32(DMAC_CTRL) & 0x1) ) {
+			SysPrintf("vif1 dma masked\n");
+			return 0;
+		}
+
 		cycles = 0;
 		ret = _chainVIF1();
 		if (ret != 0) vif1.done = 1;
@@ -1684,13 +1721,8 @@ void vif1Write32(u32 mem, u32 value) {
 #endif
 		if (value & 0x1) {
 			/* Reset VIF */
-			SysPrintf("Vif1 Reset\n");
-			vif1ch->qwc = 0;
-			vif1.vifstalled = 0;
-			vif1Reset();
-			vif1.done = 1;
-			vif1Regs->stat&= ~0x1F000000; // FQC=0
-			
+			//SysPrintf("Vif1 Reset\n");
+			vif1FRBSTReset();			
 		}
 		if (value & 0x2) {
 			/* Force Break the VIF */
@@ -1706,6 +1738,7 @@ void vif1Write32(u32 mem, u32 value) {
 			   just stoppin the VIF (linuz) */
 			vif1Regs->stat |= VIF1_STAT_VSS;
 			SysPrintf("Vif1 Stop\n");
+			vif1.vifstalled = 1;
 			//dmaVIF1();	// Drain the VIF  --- VIF Stops as not to outstrip dma source (refraction)
 		}
 		if (value & 0x8) {
@@ -1729,8 +1762,9 @@ void vif1Write32(u32 mem, u32 value) {
 				
 				
 			}
+			INT(1, 0); // If vif is stopped/stall cancelled/ or force break, we need to make sure the dma ends.
 		}
-		INT(1, 0); // If vif is stopped/stall cancelled/ or force break, we need to make sure the dma ends.
+		
 	} else
 	if (mem == 0x10003c20) { // ERR
 #ifdef VIF_LOG
@@ -1773,13 +1807,36 @@ void vif1Write32(u32 mem, u32 value) {
 	/* Other registers are read-only so do nothing for them */
 }
 
+void vif1FRBSTReset()
+{
+	
+	psHu64(0x10005000) = 0;
+	psHu64(0x10005008) = 0;
+	
+	memset(&vif1, 0, sizeof(vif1));
+	vif1.done = 1;
+	
+	vif1Regs->stat = 0;  //Reset regs (that get reset)
+	vif1Regs->err = 0;
+	vif1Regs->mskpath3 = 0;
+	vif1Regs->mode = 0;
+	vif1Regs->itops = 0;
+	vif1Regs->base = 0;
+	vif1Regs->ofst = 0;
+	vif1Regs->tops = 0;
+}
+
 void vif1Reset() {
 	/* Reset the whole VIF, meaning the internal pcsx2 vars
 	   and all the registers */
-	memset(&vif1, 0, sizeof(vif1));
+	
 	memset(vif1Regs, 0, sizeof(vif1Regs));
 	SetNewMask(g_vif1Masks, g_vif1HasMask3, 0, 0xffffffff);
+	psHu64(0x10005000) = 0;
+	psHu64(0x10005008) = 0;
 	vif1.vifstalled = 0;
+	vif1.done = 1;
+	vif1Regs->stat&= ~0x1F000000; // FQC=0
 }
 
 int vif1Freeze(gzFile f, int Mode) {
