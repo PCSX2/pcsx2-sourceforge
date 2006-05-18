@@ -7,6 +7,10 @@
 
 ChangeLog:
  v0.9.1:
+ * 13/05/06:[*] New logo and icon from CKemu, i wonder what that could look like? ;p
+			[-] Fixed a bug in VIF FBRST where the VIF DMA could be called on a reset that was causing MGS2 to crash.
+			    (Refraction-CKemu)
+			    
  * 09/05/06:[*] Moved repository to SVN. Play nice. Any questions... you know where to find me
 			[+] new developer blogs from me and auMatt
 				(Florin-auMatt)
