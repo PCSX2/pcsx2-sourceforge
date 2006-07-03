@@ -572,6 +572,12 @@ void rpropBSC(EEINST* prev, EEINST* pinst)
 			rpropSetRead(_Rs_, EEINST_LIVE1);
 			break;
 
+		case 24: // daddi
+		case 25: // daddiu
+			rpropSetWrite(_Rt_, EEINST_LIVE1);
+			rpropSetRead(_Rs_, EEINST_LIVE1|((_Rs_!=0&&cpucaps.hasStreamingSIMD2Extensions)?EEINST_MMX:0));
+			break;
+
 		case 8: // addi
 		case 9: // addiu
 			rpropSetWrite(_Rt_, EEINST_LIVE1);

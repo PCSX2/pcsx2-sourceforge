@@ -253,7 +253,7 @@ __inline static void SPR1transfer(u32 *data, int size) {
 #endif
 		}
 	}*/
-	Cpu->Clear(spr1->sadr, size);
+	//Cpu->Clear(spr1->sadr, size); // why?
 	memcpy_amd(&PS2MEM_SCRATCH[spr1->sadr & 0x3fff], (u8*)data, size << 2);
 
 	spr1->sadr+= size << 2;

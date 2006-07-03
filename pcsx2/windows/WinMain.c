@@ -1033,7 +1033,7 @@ void CreateMainMenu() {
 
 
     ADDSUBMENU(0, _("&Help"));
-	ADDMENUITEM(0,_("&Compatability List..."), ID_HELP_HELP);
+	ADDMENUITEM(0,_("&Compatibility List..."), ID_HELP_HELP);
 	ADDMENUITEM(0,_("&About..."), ID_HELP_ABOUT);
 
 #ifndef PCSX2_DEVBUILD
