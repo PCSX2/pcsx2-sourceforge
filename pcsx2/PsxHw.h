@@ -78,8 +78,6 @@
 #define HW_DMA_PCR2  (psxHu32(0x1570))
 #define HW_DMA_ICR2  (psxHu32(0x1574))
 
-extern u32 g_psxNextBranchCycle;
-
 #define	PSX_INT(n, ecycle) \
 	psxRegs.interrupt|= 1 << n; \
 	g_psxNextBranchCycle = min(g_psxNextBranchCycle, psxRegs.cycle+ecycle); \
@@ -89,13 +87,29 @@ extern u32 g_psxNextBranchCycle;
 
 void psxHwReset();
 u8   psxHwRead8 (u32 add);
+int psxHwConstRead8(u32 x86reg, u32 add, u32 sign);
+
 u16  psxHwRead16(u32 add);
+int psxHwConstRead16(u32 x86reg, u32 add, u32 sign);
+
 u32  psxHwRead32(u32 add);
+int psxHwConstRead32(u32 x86reg, u32 add);
+
 void psxHwWrite8 (u32 add, u8  value);
+void psxHwConstWrite8(u32 add, int mmreg);
+
 void psxHwWrite16(u32 add, u16 value);
+void psxHwConstWrite16(u32 add, int mmreg);
+
 void psxHwWrite32(u32 add, u32 value);
+void psxHwConstWrite32(u32 add, int mmreg);
+
 u8   psxHw4Read8 (u32 add);
+int psxHw4ConstRead8 (u32 x86reg, u32 add, u32 sign);
+
 void psxHw4Write8(u32 add, u8  value);
+void psxHw4ConstWrite8(u32 add, int mmreg);
+
 int  psxHwFreeze(gzFile f, int Mode);
 void psxDmaInterrupt(int n);
 void psxDmaInterrupt2(int n);

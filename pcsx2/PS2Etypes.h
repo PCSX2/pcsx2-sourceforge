@@ -1,6 +1,10 @@
 #ifndef __PS2ETYPES_H__
 #define __PS2ETYPES_H__
 
+#ifndef ARRAYSIZE
+#define ARRAYSIZE(x) (sizeof(x)/sizeof((x)[0]))
+#endif
+
 // Basic types
 #if defined(__MSCW32__)
 

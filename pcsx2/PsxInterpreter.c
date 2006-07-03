@@ -45,8 +45,8 @@ static u32 branchPC;
 	psxRegs.cycle++; \
  \
 	psxBSC[psxRegs.code >> 26](); \
-	cpuRegs.EEsCycle-= (psxRegs.cycle - cpuRegs.IOPoCycle) << 3; \
-	cpuRegs.IOPoCycle = psxRegs.cycle; \
+	EEsCycle-= (psxRegs.cycle - IOPoCycle) << 3; \
+	IOPoCycle = psxRegs.cycle; \
 }
 
 #define doBranch(tar) { \
@@ -111,7 +111,7 @@ irxlib irxlibs[32] = {
     0x20 },
 /*05*/	{ { "ssbusc" } ,
     { "start", "retonly", "return_0", "retonly",
-      "sceSsbuscSetDelay", "sceSsbuscGetDelay", "sceSsbuscSetAddr", "sceSsbuscGetAddr",
+      "setTable1", "getTable1", "setTable2", "getTable2",
       "setCOM_DELAY_1st", "getCOM_DELAY_1st", "setCOM_DELAY_2nd", "getCOM_DELAY_2nd",
       "setCOM_DELAY_3rd", "getCOM_DELAY_3rd", "setCOM_DELAY_4th", "getCOM_DELAY_4th",
       "setCOM_DELAY", "getCOM_DELAY" } ,
@@ -209,22 +209,7 @@ irxlib irxlibs[32] = {
       "get8278", "set827C", "get827C", "set8260_datain",
       "get8264_dataout", "set8280_intr", "get8280_intr", "signalExchange1",
       "signalExchange2", "packetExchange" } ,
-    26 },
-/*??*/	{ { "atad" } ,//14th
-	{ "start", "retonly", "shutdown", "retonly",
-	"ata_get_devinfo", "ata_reset_devices", "ata_io_start",
-	"ata_io_finish", "ata_get_error", "ata_device_dma_transfer",
-	"ata_device_sec_set_password", "ata_device_sec_unlock", "ata_device_sec_erase",
-	"ata_device_idle", "ata_device_sce_security_init", "ata_device_smart_get_status",
-	"ata_device_smart_save_attr", "ata_device_flush_cache", "ata_device_is_sce" } ,
-	19 },
-/*??*/	{ { "dev9" } ,//15th
-	  { "start", "retonly", "shutdown", "retonly",
-	  "SpdRegisterIntrHandler", "SpdDmaTransfer", "SpdShutdown",
-	  "SpdIntrEnable", "SpdIntrDisable", "SpdGetEEPROM",
-	  "SpdLEDCtl", "SpdRegisterShutdownHandler", "SpdRegisterPreDmaHandler",
-	  "SpdRegisterPostDmaHandler" } ,
-	  14 },
+    26 }
 };
 
 #define Ra0 ((char*)PSXM(psxRegs.GPR.n.a0))
@@ -319,16 +304,6 @@ void zeroEx() {
 
 	if (!strncmp(lib, "sifcmd", 6) && code == 17) {
 		SysPrintf("sifcmd sceSifRegisterRpc (%x): rpc_id %x\n", psxRegs.pc, psxRegs.GPR.n.a1);
-	}
-
-	if (!strncmp(lib, "atad", 4)) {
-		SysPrintf("[%08X|atad] %s (%x): %x_%x_%x_%x\n", timeGetTime(), irxlibs[14].names[code], psxRegs.pc,
-			psxRegs.GPR.n.a0, psxRegs.GPR.n.a1, psxRegs.GPR.n.a2, psxRegs.GPR.n.a3);
-	}
-
-	if (!strncmp(lib, "dev9", 4)) {
-		SysPrintf("[%08X|dev9] %s (%x): %x_%x_%x_%x\n", timeGetTime(), irxlibs[15].names[code], psxRegs.pc,
-			psxRegs.GPR.n.a0, psxRegs.GPR.n.a1, psxRegs.GPR.n.a2, psxRegs.GPR.n.a3);
 	}
 
 #ifdef PSXBIOS_LOG
@@ -784,9 +759,11 @@ static void intExecute() {
 }
 
 static void intExecuteBlock() {
-	branch2 = 0;
-	while (!branch2) 
-	execI();
+	while (EEsCycle > 0){
+		branch2 = 0;
+		while (!branch2) 
+			execI();
+	}
 }
 
 static void intClear(u32 Addr, u32 Size) {

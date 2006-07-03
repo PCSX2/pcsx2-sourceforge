@@ -21,10 +21,6 @@
 
 #include "Common.h"
 
-#ifndef ARRAYSIZE
-#define ARRAYSIZE(x) (sizeof(x)/sizeof((x)[0]))
-#endif
-
 typedef struct
 {
 	u32 SIGID;
@@ -87,14 +83,38 @@ u32 GSgifTransferDummy(int path, u32 *pMem, u32 size);
 void gsInit();
 void gsShutdown();
 void gsReset();
+
+// used for resetting GIF fifo
+void gsGIFReset();
+
 void gsWrite8(u32 mem, u8 value);
+void gsConstWrite8(u32 mem, int mmreg);
+
 void gsWrite16(u32 mem, u16 value);
+void gsConstWrite16(u32 mem, int mmreg);
+
 void gsWrite32(u32 mem, u32 value);
+void gsConstWrite32(u32 mem, int mmreg);
+
 void gsWrite64(u32 mem, u64 value);
+void gsConstWrite64(u32 mem, int mmreg);
+
+void  gsConstWrite128(u32 mem, int mmreg);
+
 u8   gsRead8(u32 mem);
+int gsConstRead8(u32 x86reg, u32 mem, u32 sign);
+
 u16  gsRead16(u32 mem);
+int gsConstRead16(u32 x86reg, u32 mem, u32 sign);
+
 u32  gsRead32(u32 mem);
+int gsConstRead32(u32 x86reg, u32 mem);
+
 u64  gsRead64(u32 mem);
+void  gsConstRead64(u32 mem, int mmreg);
+
+void  gsConstRead128(u32 mem, int xmmreg);
+
 void gsIrq();
 int  gsInterrupt();
 void dmaGIF();

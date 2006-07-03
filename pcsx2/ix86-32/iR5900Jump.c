@@ -27,8 +27,6 @@
 #include "ix86/ix86.h"
 #include "iR5900.h"
 
-extern void COUNT_CYCLES(u32 curpc);
-
 #ifdef __WIN32__
 #pragma warning(disable:4244)
 #pragma warning(disable:4761)
@@ -52,7 +50,6 @@ void recJ( void )
 {	
 	// SET_FPUSTATE;
 	u32 newpc = (_Target_ << 2) + ( pc & 0xf0000000 );
-	COUNT_CYCLES(pc+4);
 	recompileNextInstruction(1);
 	SetBranchImm(newpc);
 }
@@ -61,10 +58,10 @@ void recJ( void )
 void recJAL( void ) 
 {
 	u32 newpc = (_Target_ << 2) + ( pc & 0xf0000000 );
-	MOV32ItoM( (int)&cpuRegs.GPR.r[31].UL[ 0 ], pc + 4 );
-	MOV32ItoM( (int)&cpuRegs.GPR.r[31].UL[ 1 ], 0 );
-
-	COUNT_CYCLES(pc+4);
+	_deleteEEreg(31, 0);
+	GPR_SET_CONST(31);
+	g_cpuConstRegs[31].UL[0] = pc + 4;
+	g_cpuConstRegs[31].UL[1] = 0;
 
 	recompileNextInstruction(1);
 	SetBranchImm(newpc);
@@ -78,26 +75,55 @@ void recJAL( void )
 ////////////////////////////////////////////////////
 void recJR( void ) 
 {
-	COUNT_CYCLES(pc+4);
 	SetBranchReg( _Rs_);
 }
 
 ////////////////////////////////////////////////////
 void recJALR( void ) 
 {
-	MOV32MtoR( ESI, (int)&cpuRegs.GPR.r[ _Rs_ ].UL[ 0 ] );
-	//MOV32RtoM( (int)&target, EAX);
+	_allocX86reg(ESI, X86TYPE_PCWRITEBACK, 0, MODE_WRITE);
+	_eeMoveGPRtoR(ESI, _Rs_);
+	// uncomment when there are NO instructions that need to call interpreter
+//	int mmreg;
+//	if( GPR_IS_CONST1(_Rs_) )
+//		MOV32ItoM( (u32)&cpuRegs.pc, g_cpuConstRegs[_Rs_].UL[0] );
+//	else {
+//		int mmreg;
+//		
+//		if( (mmreg = _checkXMMreg(XMMTYPE_GPRREG, _Rs_, MODE_READ)) >= 0 ) {
+//			SSE_MOVSS_XMM_to_M32((u32)&cpuRegs.pc, mmreg);
+//		}
+//		else if( (mmreg = _checkMMXreg(MMX_GPR+_Rs_, MODE_READ)) >= 0 ) {
+//			MOVDMMXtoM((u32)&cpuRegs.pc, mmreg);
+//			SetMMXstate();
+//		}
+//		else {
+//			MOV32MtoR(EAX, (int)&cpuRegs.GPR.r[ _Rs_ ].UL[ 0 ] );
+//			MOV32RtoM((u32)&cpuRegs.pc, EAX);
+//		}
+//	}
 
 	if ( _Rd_ ) 
 	{
-
-		MOV32ItoM( (int)&cpuRegs.GPR.r[ _Rd_ ].UL[ 0 ], pc + 4 );
-		MOV32ItoM( (int)&cpuRegs.GPR.r[ _Rd_ ].UL[ 1 ], 0 );
+		_deleteEEreg(_Rd_, 0);
+		GPR_SET_CONST(_Rd_);
+		g_cpuConstRegs[_Rd_].UL[0] = pc + 4;
+		g_cpuConstRegs[_Rd_].UL[1] = 0;
 	}
 
+	_clearNeededMMXregs();
+	_clearNeededXMMregs();
 	recompileNextInstruction(1);
-	COUNT_CYCLES(pc);
-	MOV32RtoM( (u32)&cpuRegs.pc, ESI);
+
+	if( x86regs[ESI].inuse ) {
+		assert( x86regs[ESI].type == X86TYPE_PCWRITEBACK );
+		MOV32RtoM((int)&cpuRegs.pc, ESI);
+		x86regs[ESI].inuse = 0;
+	}
+	else {
+		MOV32MtoR(EAX, (u32)&g_recWriteback);
+		MOV32RtoM((int)&cpuRegs.pc, EAX);
+	}
 
 	SetBranchReg(0xffffffff);
 }

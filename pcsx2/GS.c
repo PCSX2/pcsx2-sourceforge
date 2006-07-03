@@ -23,7 +23,7 @@
 #include <xmmintrin.h>
 
 #include <assert.h>
-#include "VU0.h"
+#include "ir5900.h"
 #include "VUmicro.h"
 
 #ifdef WIN32_VIRTUAL_MEM
@@ -34,8 +34,6 @@
 
 #define ENABLE_GS_CACHING_SIZE 0x4000 // min size
 //#define _RINGBUF_DEBUG
-
-extern void logtime(int);
 
 #ifdef WIN32_VIRTUAL_MEM
 #define PS2GS_BASE(mem) ((PS2MEM_BASE+0x12000000)+(mem&0x13ff))
@@ -427,6 +425,10 @@ void GSFreePage(u32* page)
 
 void gsReset()
 {
+	SysPrintf("GIF reset\n");
+
+	// GSDX crashes
+	//if( GSreset ) GSreset();
 	memset(GS_PAGEADDRS, 0, GSPAGES_STRIDE*(0x02000000>>GS_SHIFT));
 
 	if( CHECK_MULTIGS ) {
@@ -447,6 +449,29 @@ void gsReset()
 
 	GSCSRr = 0x551B4000;   // Set the FINISH bit to 1 for now
 	GSIMR = 0x7f00;
+	psHu32(GIF_STAT) = 0;
+	psHu32(GIF_CTRL) = 0;
+	psHu32(GIF_MODE) = 0;
+}
+
+void gsGIFReset()
+{
+	memset(g_path, 0, sizeof(g_path));
+
+#ifndef WIN32_VIRTUAL_MEM
+	memset(g_RealGSMem, 0, 0x2000);
+#endif
+
+	if( GSgifSoftReset != NULL )
+		GSgifSoftReset(7);
+//	else
+//		GSreset();
+
+	GSCSRr = 0x551B4000;   // Set the FINISH bit to 1 for now
+	GSIMR = 0x7f00;
+	psHu32(GIF_STAT) = 0;
+	psHu32(GIF_CTRL) = 0;
+	psHu32(GIF_MODE) = 0;
 }
 
 void CSRwrite(u32 value)
@@ -463,17 +488,21 @@ void CSRwrite(u32 value)
 	if (value & 0x200) { // resetGS
 		//GSCSRr = 0x400E; // The host FIFO neeeds to be empty too or GSsync will fail (saqib)
 		//GSIMR = 0xff00;
-		GSreset();
+		if( GSgifSoftReset != NULL ) 
+			GSgifSoftReset(7);
+		else GSreset();
 
-		GSCSRr = 0x551B4000;   // Set the FINISH bit to 1 - GS is always at a finish state as we don't have a FIFO(saqib)
-	             //Since when!! Refraction
+		GSCSRr = 0x551B4002;   // Set the FINISH bit to 1 - GS is always at a finish state as we don't have a FIFO(saqib)
+	             //Since when!! Refraction, since 4/21/06 (zerofrog)
 		GSIMR = 0x7F00; //This is bits 14-8 thats all that should be 1
+
+		// and this too (fixed megaman ac)
+		GSwriteCSR(GSCSRr);
 	}
 }
 
 static void IMRwrite(u32 value) {
-	//SysPrintf("GS_IMR: %x\n", value);
-	GSIMR = value & 0x7f00;
+	GSIMR = (value & 0x1f00)|0x6000;
 }
 
 void gsWrite8(u32 mem, u8 value) {
@@ -493,6 +522,26 @@ void gsWrite8(u32 mem, u8 value) {
 #ifdef HW_LOG
 	HW_LOG("GS write 8 at %8.8lx with data %8.8lx\n", mem, value);
 #endif
+}
+
+void gsConstWrite8(u32 mem, int mmreg)
+{
+	switch (mem&~3) {
+		case 0x12001000: // GS_CSR
+			_eeMoveMMREGtoR(EAX, mmreg);
+			iFlushCall(0);
+			MOV32MtoR(ECX, (u32)&CSRw);
+			AND32ItoR(EAX, 0xff<<(mem&3)*8);
+			AND32ItoR(ECX, ~(0xff<<(mem&3)*8));
+			OR32ItoR(EAX, ECX);
+			PUSH32R(EAX);
+			CALLFunc((u32)CSRwrite);
+			ADD32ItoR(ESP, 4);
+			break;
+		default:
+			_eeWriteConstMem8( (u32)PS2GS_BASE(mem), mmreg );
+			break;
+	}
 }
 
 extern void UpdateVSyncRate();
@@ -519,6 +568,11 @@ void gsWrite16(u32 mem, u16 value) {
 		case 0x12001002: // GS_CSR
 			CSRwrite( (CSRw&0xffff) | ((u32)value<<16));
 			break;
+		case 0x12001010: // GS_IMR
+			SysPrintf("writing to IMR 16\n");
+			IMRwrite(value);
+			break;
+
 		default:
 			*(u16*)PS2GS_BASE(mem) = value;
 	}
@@ -528,8 +582,84 @@ void gsWrite16(u32 mem, u16 value) {
 #endif
 }
 
-void gsWrite32(u32 mem, u32 value) {
+void recSetSMODE1()
+{
+	iFlushCall(0);
+	AND32ItoR(EAX, 0x6000);
+	CMP32ItoR(EAX, 0x6000);
+	j8Ptr[5] = JNE8(0);
 
+	// PAL
+	OR32ItoM( (u32)&Config.PsxType, 1);
+	j8Ptr[6] = JMP8(0);
+
+	x86SetJ8( j8Ptr[5] );
+
+	// NTSC
+	AND32ItoM( (u32)&Config.PsxType, ~1 );
+
+	x86SetJ8( j8Ptr[6] );
+	CALLFunc((u32)UpdateVSyncRate);
+}
+
+void recSetSMODE2()
+{
+	TEST32ItoR(EAX, 1);
+	j8Ptr[5] = JZ8(0);
+
+	// Interlaced
+	OR32ItoM( (u32)&Config.PsxType, 2);
+	j8Ptr[6] = JMP8(0);
+
+	x86SetJ8( j8Ptr[5] );
+
+	// Non-Interlaced
+	AND32ItoM( (u32)&Config.PsxType, ~2 );
+
+	x86SetJ8( j8Ptr[6] );
+}
+
+void gsConstWrite16(u32 mem, int mmreg)
+{	
+	switch (mem&~3) {
+		case 0x12000010: // GS_SMODE1
+			assert( !(mem&3));
+			_eeMoveMMREGtoR(EAX, mmreg);
+			_eeWriteConstMem16( (u32)PS2GS_BASE(mem), mmreg );
+			recSetSMODE1();
+			break;
+			
+		case 0x12000020: // GS_SMODE2
+			assert( !(mem&3));
+			_eeMoveMMREGtoR(EAX, mmreg);
+			_eeWriteConstMem16( (u32)PS2GS_BASE(mem), mmreg );
+			recSetSMODE2();
+			break;
+			
+		case 0x12001000: // GS_CSR
+
+			assert( !(mem&2) );
+			_eeMoveMMREGtoR(EAX, mmreg);
+			iFlushCall(0);
+
+			MOV32MtoR(ECX, (u32)&CSRw);
+			AND32ItoR(EAX, 0xffff<<(mem&2)*8);
+			AND32ItoR(ECX, ~(0xffff<<(mem&2)*8));
+			OR32ItoR(EAX, ECX);
+			PUSH32R(EAX);
+			CALLFunc((u32)CSRwrite);
+			ADD32ItoR(ESP, 4);
+			break;
+
+		default:
+			_eeWriteConstMem16( (u32)PS2GS_BASE(mem), mmreg );
+			break;
+	}
+}
+
+void gsWrite32(u32 mem, u32 value)
+{
+	assert( !(mem&3));
 	switch (mem) {
 		case 0x12000010: // GS_SMODE1
 			if((value & 0x6000) == 0x6000) Config.PsxType |= 1; // PAL
@@ -546,6 +676,7 @@ void gsWrite32(u32 mem, u32 value) {
 		case 0x12001000: // GS_CSR
 			CSRwrite(value);
 			break;
+
 		case 0x12001010: // GS_IMR
 			IMRwrite(value);
 			break;
@@ -556,6 +687,62 @@ void gsWrite32(u32 mem, u32 value) {
 #ifdef HW_LOG
 	HW_LOG("GS write 32 at %8.8lx with data %8.8lx\n", mem, value);
 #endif
+}
+
+// (value&0x1f00)|0x6000
+void gsConstWriteIMR(int mmreg)
+{
+	const u32 mem = 0x12001010;
+	if( mmreg & MEM_XMMTAG ) {
+		SSE2_MOVD_XMM_to_M32((u32)PS2GS_BASE(mem), mmreg&0xf);
+		AND32ItoM((u32)PS2GS_BASE(mem), 0x1f00);
+		OR32ItoM((u32)PS2GS_BASE(mem), 0x6000);
+	}
+	else if( mmreg & MEM_MMXTAG ) {
+		SetMMXstate();
+		MOVDMMXtoM((u32)PS2GS_BASE(mem), mmreg&0xf);
+		AND32ItoM((u32)PS2GS_BASE(mem), 0x1f00);
+		OR32ItoM((u32)PS2GS_BASE(mem), 0x6000);
+	}
+	else if( mmreg & MEM_EECONSTTAG ) {
+		MOV32ItoM( (u32)PS2GS_BASE(mem), (g_cpuConstRegs[(mmreg>>16)&0x1f].UL[0]&0x1f00)|0x6000);
+	}
+	else {
+		AND32ItoR(mmreg, 0x1f00);
+		OR32ItoR(mmreg, 0x6000);
+		MOV32RtoM( (u32)PS2GS_BASE(mem), mmreg );
+	}
+}
+void gsConstWrite32(u32 mem, int mmreg) {
+
+	switch (mem) {
+
+		case 0x12000010: // GS_SMODE1
+			_eeMoveMMREGtoR(EAX, mmreg);
+			_eeWriteConstMem32( (u32)PS2GS_BASE(mem), mmreg );
+			recSetSMODE1();
+			break;
+
+		case 0x12000020: // GS_SMODE2
+			_eeMoveMMREGtoR(EAX, mmreg);
+			_eeWriteConstMem32( (u32)PS2GS_BASE(mem), mmreg );
+			recSetSMODE2();
+			break;
+			
+		case 0x12001000: // GS_CSR
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			CALLFunc((u32)CSRwrite);
+			ADD32ItoR(ESP, 4);
+			break;
+
+		case 0x12001010: // GS_IMR
+			gsConstWriteIMR(mmreg);
+			break;
+		default:
+			_eeWriteConstMem32( (u32)PS2GS_BASE(mem), mmreg );
+			break;
+	}
 }
 
 void gsWrite64(u32 mem, u64 value) {
@@ -590,6 +777,71 @@ void gsWrite64(u32 mem, u64 value) {
 #endif
 }
 
+void gsConstWrite64(u32 mem, int mmreg)
+{
+	switch (mem) {
+		case 0x12000010: // GS_SMODE1
+			_eeMoveMMREGtoR(EAX, mmreg);
+			_eeWriteConstMem64((u32)PS2GS_BASE(mem), mmreg);
+			recSetSMODE1();
+			break;
+
+		case 0x12000020: // GS_SMODE2
+			_eeMoveMMREGtoR(EAX, mmreg);
+			_eeWriteConstMem64((u32)PS2GS_BASE(mem), mmreg);
+			recSetSMODE2();
+			break;
+
+		case 0x12001000: // GS_CSR
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			CALLFunc((u32)CSRwrite);
+			ADD32ItoR(ESP, 4);
+			break;
+
+		case 0x12001010: // GS_IMR
+			gsConstWriteIMR(mmreg);
+			break;
+
+		default:
+			_eeWriteConstMem64((u32)PS2GS_BASE(mem), mmreg);
+			break;
+	}
+}
+
+void gsConstWrite128(u32 mem, int mmreg)
+{
+	switch (mem) {
+		case 0x12000010: // GS_SMODE1
+			_eeMoveMMREGtoR(EAX, mmreg);
+			_eeWriteConstMem128( (u32)PS2GS_BASE(mem), mmreg);
+			recSetSMODE1();
+			break;
+
+		case 0x12000020: // GS_SMODE2
+			_eeMoveMMREGtoR(EAX, mmreg);
+			_eeWriteConstMem128( (u32)PS2GS_BASE(mem), mmreg);
+			recSetSMODE2();
+			break;
+
+		case 0x12001000: // GS_CSR
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			CALLFunc((u32)CSRwrite);
+			ADD32ItoR(ESP, 4);
+			break;
+
+		case 0x12001010: // GS_IMR
+			// (value&0x1f00)|0x6000
+			gsConstWriteIMR(mmreg);
+			break;
+
+		default:
+			_eeWriteConstMem128( (u32)PS2GS_BASE(mem), mmreg);
+			break;
+	}
+}
+
 u8 gsRead8(u32 mem)
 {
 #ifdef HW_LOG
@@ -597,6 +849,12 @@ u8 gsRead8(u32 mem)
 #endif
 
 	return *(u8*)PS2GS_BASE(mem);
+}
+
+int gsConstRead8(u32 x86reg, u32 mem, u32 sign)
+{
+	_eeReadConstMem8(x86reg, (u32)PS2GS_BASE(mem), sign);
+	return 0;
 }
 
 u16 gsRead16(u32 mem)
@@ -608,12 +866,24 @@ u16 gsRead16(u32 mem)
 	return *(u16*)PS2GS_BASE(mem);
 }
 
+int gsConstRead16(u32 x86reg, u32 mem, u32 sign)
+{
+	_eeReadConstMem16(x86reg, (u32)PS2GS_BASE(mem), sign);
+	return 0;
+}
+
 u32 gsRead32(u32 mem) {
 
 #ifdef HW_LOG
 	//HW_LOG("GS read 32 %8.8lx, at %8.8lx\n", *(u32*)(PS2MEM_BASE+(mem&~0xc00)), mem);
 #endif
 	return *(u32*)PS2GS_BASE(mem);
+}
+
+int gsConstRead32(u32 x86reg, u32 mem)
+{
+	_eeReadConstMem32(x86reg, (u32)PS2GS_BASE(mem));
+	return 0;
 }
 
 u64 gsRead64(u32 mem)
@@ -625,6 +895,21 @@ u64 gsRead64(u32 mem)
 	return *(u64*)PS2GS_BASE(mem);
 }
 
+void gsConstRead64(u32 mem, int mmreg)
+{
+	if( IS_XMMREG(mmreg) ) SSE_MOVLPS_M64_to_XMM(mmreg&0xff, (u32)PS2GS_BASE(mem));
+	else {
+		MOVQMtoR(mmreg, (u32)PS2GS_BASE(mem));
+		SetMMXstate();
+	}
+}
+
+void gsConstRead128(u32 mem, int xmmreg)
+{
+	_eeReadConstMem128( xmmreg, (u32)PS2GS_BASE(mem));
+}
+
+
 void gsIrq() {
 	hwIntcIrq(0);
 }
@@ -635,7 +920,7 @@ static void GSRegHandlerSIGNAL(u32* data)
 
 	if (CSRw & 0x1) {
 		GSCSRr |= 1; // signal
-		CSRw &= ~1;
+		//CSRw &= ~1;
 	}
 	if (!(GSIMR&0x100) )
 		gsIrq();
@@ -643,12 +928,12 @@ static void GSRegHandlerSIGNAL(u32* data)
 
 static void GSRegHandlerFINISH(u32* data)
 {
-	GSCSRr |= 2; // finish
 	if (CSRw & 0x2) {
-		CSRw &= ~2;
-		if (!(GSIMR&0x200) )
-			gsIrq();
+		//CSRw &= ~2;
+		GSCSRr |= 2; // finish
 	}
+	if (!(GSIMR&0x200) )
+		gsIrq();
 }
 
 static void GSRegHandlerLABEL(u32* data)
@@ -707,6 +992,11 @@ u32 GSgifTransferDummy(int path, u32 *pMem, u32 size)
 				}
 
 				g_path[path].nloop = 0;
+
+				// motogp graphics show
+				if( !ptag->eop )
+					continue;
+
 				return size;
 			}
 
@@ -830,6 +1120,11 @@ int gsInterrupt() {
 #endif
 
 	if(gif->qwc > 0) {
+		if( !(psHu32(DMAC_CTRL) & 0x1) ) {
+			SysPrintf("gs dma masked\n");
+			return 0;
+		}
+
 		dmaGIF();
 		return 0;
 	}
@@ -871,6 +1166,8 @@ int gsInterrupt() {
 		if( !CHECK_DUALCORE ) SetEvent(g_hGsEvent); \
 	} \
 	else { \
+		FreezeMMXRegs(1); \
+		FreezeXMMRegs(1); \
 		WRITINGDMA_TRANSFER(pMem, qwc); \
 	} \
 } \
@@ -883,6 +1180,10 @@ int  _GIFchain() {
 
 	pMem = (u32*)dmaGetAddr(gif->madr);
 	if (pMem == NULL) {
+		// reset path3, fixes dark cloud 2
+		if( GSgifSoftReset != NULL )
+			GSgifSoftReset(4);
+
 		SysPrintf("NULL GIFchain\n");
 		return -1;
 	}
@@ -909,12 +1210,16 @@ void dmaGIF() {
 	int cycles=prevcycles;
 	u32 id;
 
-	//logtime(3);
-
 	if ((psHu32(DMAC_CTRL) & 0xC) == 0xC/* &&
 		(gif->tadr == psHu32(0xe050))*/) { // GIF MFIFO
 		return;
 	}
+	if( (psHu32(GIF_CTRL) & 8) ) {
+		// temporarily stop
+		SysPrintf("Gif dma temp paused?\n");
+		return;
+	}
+
 #ifdef GIF_LOG
 	GIF_LOG("dmaGIF chcr = %lx, madr = %lx, qwc  = %lx\n"
 			"        tadr = %lx, asr0 = %lx, asr1 = %lx\n",
@@ -926,15 +1231,13 @@ void dmaGIF() {
 	} else
 	if (vif1Regs->mskpath3 || psHu32(GIF_MODE) & 0x1) {
 		gif->chcr &= ~0x100;
+		psHu32(GIF_STAT)&= ~0xE00; // OPH=0 | APATH=0
 		hwDmacIrq(2);
 		return;
 	}
 
 	if ((psHu32(DMAC_CTRL) & 0xC0) == 0x80) { // STD == GIF
-		/*gif->chcr &=~ 0x100;
-		hwDmacIrq(2);
-		return;*/
-		SysPrintf("GS Stall Control Source = %x, Drain = %x\n", (psHu32(0xe000) >> 4) & 0x3, (psHu32(0xe000) >> 6) & 0x3);
+		//SysPrintf("GS Stall Control Source = %x, Drain = %x\n", (psHu32(0xe000) >> 4) & 0x3, (psHu32(0xe000) >> 6) & 0x3);
 
 		if( gif->madr >= psHu32(DMAC_STADR) ) {
 			return;
@@ -977,7 +1280,7 @@ void dmaGIF() {
 			}
 			cycles+=1; // Add 1 cycles from the QW read for the tag
 			// Transfer dma tag if tte is set
-			if (gif->chcr & 0x40) {              
+			if (gif->chcr & 0x40) {
 				//u32 temptag[4];
 #ifdef GIF_LOG
 				//SysPrintf("GIF TTE: %x_%x\n", ptag[3], ptag[2]);
@@ -1005,9 +1308,14 @@ void dmaGIF() {
 				// there are still bugs, need to also check if gif->madr +16*qwc >= stadr, if not, stall
 				if( gif->madr >= psHu32(DMAC_STADR) ) {
 					// stalled
+					psHu32(GIF_STAT)&= ~0x1f000E00; // OPH=0 | APATH=0
+					GSCSRr &= ~0xC000; //Clear FIFO stuff
+					GSCSRr |= 0x4000;  //FIFO empty
 					prevcycles = cycles;
 					prevtag = ptag;
 					hwDmacIrq(13);
+					FreezeMMXRegs(0);
+					FreezeXMMRegs(0);
 					return;
 				}
 			}
@@ -1031,6 +1339,9 @@ void dmaGIF() {
 	prevtag = NULL;
 	prevcycles = 0;
 	INT(2, cycles);
+
+	FreezeMMXRegs(0);
+	FreezeXMMRegs(0);
 }
 
 static int mfifocycles;

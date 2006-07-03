@@ -20,75 +20,65 @@
 #define __IR5900_H__
 
 #include "VU.h"
+#include "iCore.h"
 
-//#define EMMS_TRACE				//If defined EMMS tracing is ON.
+// these might not work anymore
+#define ARITHMETICIMM_RECOMPILE
+#define ARITHMETIC_RECOMPILE
+#define MULTDIV_RECOMPILE
+#define SHIFT_RECOMPILE
+#define BRANCH_RECOMPILE
+#define JUMP_RECOMPILE
+#define LOADSTORE_RECOMPILE
+#define MOVE_RECOMPILE
+#define MMI_RECOMPILE
+#define MMI0_RECOMPILE
+#define MMI1_RECOMPILE
+#define MMI2_RECOMPILE
+#define MMI3_RECOMPILE
+#define FPU_RECOMPILE
+#define CP0_RECOMPILE
+#define CP2_RECOMPILE
 
-#define ARITHMETICIMM_RECOMPILE  //
-#define ARITHMETIC_RECOMPILE		//
-#define MULTDIV_RECOMPILE			//
-#define SHIFT_RECOMPILE				//
-#define BRANCH_RECOMPILE			//
-#define JUMP_RECOMPILE           //
-#define LOADSTORE_RECOMPILE      //
-#define MOVE_RECOMPILE           //
-#define MMI_RECOMPILE				//
-#define MMI0_RECOMPILE				//
-#define MMI1_RECOMPILE				//
-#define MMI2_RECOMPILE				//
-#define MMI3_RECOMPILE				//
-#define FPU_RECOMPILE				//
-#define CP0_RECOMPILE				//
-#define CP2_RECOMPILE				//
+#define EE_CONST_PROP // rec2 - enables constant propagation (faster)
+#define EE_FPU_REGCACHING 1
 
-#ifdef __x86_64__
-#undef FPU_RECOMPILE
-#undef CP2_RECOMPILE
-#endif
+#define PC_GETBLOCK(x) PC_GETBLOCK_(x, recLUT)
 
-
-/*
-#undef ARITHMETICIMM_RECOMPILE
-#undef ARITHMETIC_RECOMPILE
-#undef MULTDIV_RECOMPILE 
-#undef SHIFT_RECOMPILE
-#undef BRANCH_RECOMPILE
-#undef JUMP_RECOMPILE
-#undef LOADSTORE_RECOMPILE
-#undef MOVE_RECOMPILE
-#undef MMI_RECOMPILE
-#undef MMI0_RECOMPILE
-#undef MMI1_RECOMPILE				
-#undef MMI2_RECOMPILE				
-#undef MMI3_RECOMPILE				
-#undef FPU_RECOMPILE
-
-*/
-
-#define FPU_STATE 0
-#define MMX_STATE 1
+void recClearMem(BASEBLOCK* p);
+#define REC_CLEARM(mem) { \
+	if ((mem) < maxrecmem && recLUT[(mem) >> 16]) { \
+		BASEBLOCK* p = PC_GETBLOCK(mem); \
+		if( *(u32*)p ) recClearMem(p); \
+	} \
+} \
 
 extern u32 pc;
 extern int branch;
+extern uptr* recLUT;
 
-extern u32 pc;			         /* recompiler pc */
-extern int count;		         /* recompiler intruction count */
-extern int branch;		         /* set for branch */
-extern u32 target;		         /* branch target */
-extern u64 _imm;		         /* temp immediate */
-extern u64 _sa;			         /* temp sa */
-int x86FpuState;
-int iCWstate;
+extern u32 pc;			         // recompiler pc
+extern int branch;		         // set for branch
+extern u32 target;		         // branch target
+extern u16 x86FpuState;
+extern u16 iCWstate;
+extern u32 s_nBlockCycles;		// cycles of current block recompiling
 
-void COUNT_CYCLES(u32 curpc);
+#define REC_FUNC_INLINE( f, delreg ) \
+	MOV32ItoM( (u32)&cpuRegs.code, cpuRegs.code ); \
+	MOV32ItoM( (u32)&cpuRegs.pc, pc ); \
+	iFlushCall(FLUSH_EVERYTHING); \
+	if( (delreg) > 0 ) _deleteEEreg(delreg, 0); \
+	CALLFunc( (u32)f ); 
 
-#define REC_FUNC( f ) \
+#define REC_FUNC( f, delreg ) \
    void f( void ); \
    void rec##f( void ) \
    { \
-		COUNT_CYCLES(pc); \
 	   MOV32ItoM( (u32)&cpuRegs.code, cpuRegs.code ); \
 	   MOV32ItoM( (u32)&cpuRegs.pc, pc ); \
-	   iFlushCall(); \
+	   iFlushCall(FLUSH_EVERYTHING); \
+	   if( (delreg) > 0 ) _deleteEEreg(delreg, 0); \
 	   CALLFunc( (u32)f ); \
    }
 
@@ -96,59 +86,24 @@ void COUNT_CYCLES(u32 curpc);
    void f( void ); \
    void rec##f( void ) \
    { \
-	COUNT_CYCLES(pc); \
 	   MOV32ItoM( (u32)&cpuRegs.code, cpuRegs.code ); \
 	   MOV32ItoM( (u32)&cpuRegs.pc, pc ); \
-	   iFlushCall(); \
+	   iFlushCall(FLUSH_EVERYTHING); \
 	   CALLFunc( (u32)f ); \
 	   branch = 2; \
    }
 
-#define CPU_3DNOW_START \
-	if (cpucaps.has3DNOWInstructionExtensions) \
-    { 
+// used when processing branches
+void SaveBranchState();
+void LoadBranchState();
 
-#define CPU_3DNOW_END \
-	return; \
-	} 
-
-#define CPU_SSE_START \
-	if (cpucaps.hasStreamingSIMDExtensions) \
-    { \
-
-#define CPU_SSE_END \
-	return; \
-	} 
-
-#define CPU_SSE2_START \
-	if (cpucaps.hasStreamingSIMD2Extensions) \
-    { \
-
-#define CPU_SSE2_END \
-	return; \
-	} 
-#define EMUREC_SIGN_EXTEND( dest, src )   \
-   {                                      \
-      MOV32RtoR( dest, src );             \
-      SAR32ItoR( dest, 31 );              \
-   }
-
-#define SETLINK8( link )	*link = (u32)x86Ptr - (u32)link - 1
-
-#define SETLINK32( link )  *link = (u32)x86Ptr - (u32)link - 4
-
-typedef void (*RECFUNC)( void );
-
-void COMPAREINTREGS32( int r1, int r2, int i1, int i2, int idx );
 void recompileNextInstruction(int delayslot);
 void SetBranchReg( u32 reg );
 void SetBranchImm( u32 imm );
-void SetFPUstate();
-void SetMMXstate();
-void iFlushCall();
+
+void iFlushCall(int flushtype);
 void SaveCW();
 void LoadCW();
-void iRet( BOOL freeRegs );
 
 extern void (*recBSC[64])();
 extern void (*recSPC[64])();
@@ -166,59 +121,136 @@ extern void (*recMMI1t[32])();
 extern void (*recMMI2t[32])();
 extern void (*recMMI3t[32])();
 
-#define MODE_READ   0x1
-#define MODE_WRITE  0x2
+u32* _eeGetConstReg(int reg); // gets a memory pointer to the constant reg
 
-void _initX86regs();
-int  _getFreeX86reg();
-int  _allocTempX86reg(int x86reg);
-int  _allocGPRtoX86reg(int x86reg, int gprreg, int mode);
-void _addNeededGPRtoX86reg(int gprreg);
-void _clearNeededX86regs();
-void _freeX86reg(int x86reg);
-void _freeX86regs();
+void _eeFlushAllUnused();
+void _eeOnWriteReg(int reg, int signext);
 
-void _initXMMregs();
-int  _getFreeXMMreg();
-int  _allocTempXMMreg(int xmmreg);
-int  _allocVFtoXMMreg(VURegs *VU, int xmmreg, int vfreg, int mode);
-int  _allocFPtoXMMreg(int xmmreg, int fpreg, int mode);
-int  _allocACCtoXMMreg(VURegs *VU, int xmmreg, int mode);
-int  _allocFPACCtoXMMreg(int xmmreg, int mode);
-int  _checkVFtoXMMreg(VURegs* VU, int vfreg);
-void _addNeededVFtoXMMreg(int vfreg);
-void _addNeededACCtoXMMreg();
-void _addNeededFPtoXMMreg(int fpreg);
-void _addNeededFPACCtoXMMreg();
-void _clearNeededXMMregs();
-void _freeXMMreg(int xmmreg);
-void _freeXMMregs();
+// totally deletes from const, xmm, and mmx entries
+// if flush is 1, also flushes to memory
+// if 0, only flushes if not an xmm reg (used when overwriting lower 64bits of reg)
+void _deleteEEreg(int reg, int flush);
 
+// allocates memory on the instruction size and returns the pointer
+void* recAllocStackMem(int size, int align);
 
-void recError();
-void recReset();
+//////////////////////////////////////
+// Templates for code recompilation //
+//////////////////////////////////////
+typedef void (*R5900FNPTR)();
+typedef void (*R5900FNPTR_INFO)(int info);
 
-typedef struct {
-	int inuse;
-	int type;
-	VURegs *VU;
-	int reg;
-	int mode;
-	int needed;
-} _xmmregs;
+#define EERECOMPILE_CODE0(fn, xmminfo) \
+void rec##fn(void) \
+{ \
+	eeRecompileCode0(rec##fn##_const, rec##fn##_consts, rec##fn##_constt, rec##fn##_, xmminfo); \
+} \
 
-#define XMMTYPE_TEMP	0
-#define XMMTYPE_VFREG	1
-#define XMMTYPE_ACC		2
-#define XMMTYPE_FPREG	3
-#define XMMTYPE_FPACC	4
+#define EERECOMPILE_CODEX(codename, fn) \
+void rec##fn(void) \
+{ \
+	codename(rec##fn##_const, rec##fn##_); \
+} \
 
-#ifdef __x86_64__
-#define XMMREGS 16
-#else
-#define XMMREGS 8
-#endif
+//
+// MMX/XMM caching helpers
+//
 
-extern _xmmregs xmmregs[XMMREGS];
+// rd = rs op rt
+void eeRecompileCode0(R5900FNPTR constcode, R5900FNPTR_INFO constscode, R5900FNPTR_INFO consttcode, R5900FNPTR_INFO noconstcode, int xmminfo);
+// rt = rs op imm16
+void eeRecompileCode1(R5900FNPTR constcode, R5900FNPTR_INFO noconstcode);
+// rd = rt op sa
+void eeRecompileCode2(R5900FNPTR constcode, R5900FNPTR_INFO noconstcode);
+// rt op rs  (SPECIAL)
+void eeRecompileCode3(R5900FNPTR constcode, R5900FNPTR_INFO multicode);
 
-#endif /* __IR5900_H__ */
+//
+// non mmx/xmm version, slower
+//
+// rd = rs op rt
+#define EERECOMPILE_CONSTCODE0(fn) \
+void rec##fn(void) \
+{ \
+	eeRecompileCodeConst0(rec##fn##_const, rec##fn##_consts, rec##fn##_constt, rec##fn##_); \
+} \
+
+// rt = rs op imm16
+#define EERECOMPILE_CONSTCODE1(fn) \
+void rec##fn(void) \
+{ \
+	eeRecompileCodeConst1(rec##fn##_const, rec##fn##_); \
+} \
+
+// rd = rt op sa
+#define EERECOMPILE_CONSTCODE2(fn) \
+void rec##fn(void) \
+{ \
+	eeRecompileCodeConst2(rec##fn##_const, rec##fn##_); \
+} \
+
+// rd = rt op rs
+#define EERECOMPILE_CONSTCODESPECIAL(fn, mult) \
+void rec##fn(void) \
+{ \
+	eeRecompileCodeConstSPECIAL(rec##fn##_const, rec##fn##_, mult); \
+} \
+
+// rd = rs op rt
+void eeRecompileCodeConst0(R5900FNPTR constcode, R5900FNPTR_INFO constscode, R5900FNPTR_INFO consttcode, R5900FNPTR_INFO noconstcode);
+// rt = rs op imm16
+void eeRecompileCodeConst1(R5900FNPTR constcode, R5900FNPTR_INFO noconstcode);
+// rd = rt op sa
+void eeRecompileCodeConst2(R5900FNPTR constcode, R5900FNPTR_INFO noconstcode);
+// rd = rt MULT rs  (SPECIAL)
+void eeRecompileCodeConstSPECIAL(R5900FNPTR constcode, R5900FNPTR_INFO multicode, int MULT);
+
+// XMM caching helpers
+#define XMMINFO_READLO	0x01
+#define XMMINFO_READHI	0x02
+#define XMMINFO_WRITELO	0x04
+#define XMMINFO_WRITEHI	0x08
+#define XMMINFO_WRITED	0x10
+#define XMMINFO_READD	0x20
+#define XMMINFO_READS	0x40
+#define XMMINFO_READT	0x80
+#define XMMINFO_READD_LO	0x100 // if set and XMMINFO_READD is set, reads only low 64 bits of D
+#define XMMINFO_READACC		0x200
+#define XMMINFO_WRITEACC	0x400
+
+#define CPU_SSE_XMMCACHE_START(xmminfo) \
+	if (cpucaps.hasStreamingSIMDExtensions) \
+    { \
+		int info = eeRecompileCodeXMM(xmminfo); \
+
+#define CPU_SSE2_XMMCACHE_START(xmminfo) \
+	if (cpucaps.hasStreamingSIMD2Extensions) \
+    { \
+		int info = eeRecompileCodeXMM(xmminfo); \
+
+#define CPU_FPUSSE_XMMCACHE_START(xmminfo) \
+	if (cpucaps.hasStreamingSIMDExtensions) \
+    { \
+		int info = eeFPURecompileCodeXMM(xmminfo); \
+
+#define CPU_FPUSSE2_XMMCACHE_START(xmminfo) \
+	if (cpucaps.hasStreamingSIMD2Extensions) \
+    { \
+		int info = eeFPURecompileCodeXMM(xmminfo); \
+
+#define CPU_SSE_XMMCACHE_END \
+		_clearNeededXMMregs(); \
+		return; \
+	}  \
+
+#define FPURECOMPILE_CONSTCODE(fn, xmminfo) \
+void rec##fn(void) \
+{ \
+	eeFPURecompileCode(rec##fn##_xmm, rec##fn##_, xmminfo); \
+} \
+
+// rd = rs op rt (all regs need to be in xmm)
+int eeRecompileCodeXMM(int xmminfo);
+void eeFPURecompileCode(R5900FNPTR_INFO xmmcode, R5900FNPTR_INFO fpucode, int xmminfo);
+
+#endif // __IR5900_H__

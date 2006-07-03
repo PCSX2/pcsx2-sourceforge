@@ -18,10 +18,6 @@
 
 #ifndef __IR5900LOADSTORE_H__
 #define __IR5900LOADSTORE_H__
-
-#include "Common.h"
-#include "InterTables.h"
-
 /*********************************************************
 * Load and store for GPR                                 *
 * Format:  OP rt, offset(base)                           *
@@ -45,12 +41,50 @@ void recSW( void );
 void recSWL( void );
 void recSWR( void );
 void recSD( void );
-void recSQ( void );
 void recSDL( void );
 void recSDR( void );
+void recSQ( void );
 void recLWC1( void );
 void recSWC1( void );
 void recLQC2( void );
 void recSQC2( void );
+
+// coissues
+#ifdef WIN32_VIRTUAL_MEM
+void recLB_co( void );
+void recLBU_co( void );
+void recLH_co( void );
+void recLHU_co( void );
+void recLW_co( void );
+void recLWU_co( void );
+void recLWL_co( void );
+void recLWR_co( void );
+void recLD_co( void );
+void recLDR_co( void );
+void recLDL_co( void );
+void recLQ_co( void );
+void recSB_co( void );
+void recSH_co( void );
+void recSW_co( void );
+void recSWL_co( void );
+void recSWR_co( void );
+void recSD_co( void );
+void recSDL_co( void );
+void recSDR_co( void );
+void recSQ_co( void );
+void recLWC1_co( void );
+void recSWC1_co( void );
+void recLQC2_co( void );
+void recSQC2_co( void );
+
+// coissue-X
+void recLD_coX(int num);
+void recLQ_coX(int num);
+void recLWC1_coX(int num);
+void recSD_coX(int num);
+void recSQ_coX(int num);
+void recSWC1_coX(int num);
+
+#endif
 
 #endif

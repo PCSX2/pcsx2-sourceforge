@@ -29,10 +29,11 @@
 #include "VUmicro.h"
 #include "VUops.h"
 #include "VUflags.h"
-#include "VU0.h"
 #include "ivu1micro.h"
 
-__declspec(align(16)) VURegs VU1;
+#include "iVUzerorec.h"
+
+VURegs* g_pVU1;
 
 #ifdef WIN32_VIRTUAL_MEM
 extern PSMEMORYBLOCK s_psVuMem;
@@ -44,6 +45,9 @@ extern PSMEMORYBLOCK s_psVuMem;
 
 int vu1Init()
 {
+	assert( VU0.Mem != NULL );
+	g_pVU1 = (VURegs*)(VU0.Mem + 0x4000);
+
 #ifdef WIN32_VIRTUAL_MEM
 	VU1.Mem = PS2MEM_VU1MEM;
 	VU1.Micro = PS2MEM_VU1MICRO;
@@ -53,18 +57,22 @@ int vu1Init()
 	if (VU1.Mem == NULL || VU1.Micro == NULL) {
 		SysMessage(_("Error allocating memory")); return -1;
 	}
+	memset(VU1.Mem, 0,16*1024);
+	memset(VU1.Micro, 0,16*1024);
 #endif
 
 	VU1.maxmem   = -1;//16*1024-4;
 	VU1.maxmicro = 16*1024-4;
-	VU1.VF       = (VECTOR*)(VU0.Mem + 0x4000);
-	VU1.VI       = (REG_VI*)(VU0.Mem + 0x4200);
+//	VU1.VF       = (VECTOR*)(VU0.Mem + 0x4000);
+//	VU1.VI       = (REG_VI*)(VU0.Mem + 0x4200);
 	VU1.vuExec   = vu1Exec;
 	VU1.vifRegs  = vif1Regs;
 
 	if( CHECK_VU1REC ) {
 		recVU1Init();
 	}
+
+	vu1Reset();
 
 	return 0;
 }
@@ -75,7 +83,14 @@ void vu1Shutdown() {
 	}
 }
 
-void vu1ResetRegs() {
+void vu1ResetRegs()
+{
+	VU0.VI[REG_VPU_STAT].UL &= ~0xff00; // stop vu1
+	VU0.VI[REG_FBRST].UL &= ~0xff00; // stop vu1
+	vif1Regs->stat &= ~4;
+}
+
+void vu1Reset() {
 	memset(&VU1.ACC, 0, sizeof(VECTOR));
 	memset(VU1.VF, 0, sizeof(VECTOR)*32);
 	memset(VU1.VI, 0, sizeof(REG_VI)*32);
@@ -84,12 +99,10 @@ void vu1ResetRegs() {
 	VU1.VF[0].f.z = 0.0f;
 	VU1.VF[0].f.w = 1.0f;
 	VU1.VI[0].UL = 0;
-}
-
-void vu1Reset() {
-	vu1ResetRegs();
 	memset(VU1.Mem, 0, 16*1024);
 	memset(VU1.Micro, 0, 16*1024);
+
+	recResetVU1();
 }
 
 void vu1Freeze(gzFile f, int Mode) {
@@ -103,10 +116,8 @@ void vu1Freeze(gzFile f, int Mode) {
 
 static int count;
 
-void vu1ExecMicro(u32 addr) {
-//	if (VU1.cycle > 232800) Log=1;
-//	if (count == 8) Log=1;
-//	SysPrintf("vu1ExecMicro %x (count=%d)\n", addr, count);
+void vu1ExecMicro(u32 addr)
+{
 #ifdef VUM_LOG
 	VUM_LOG("vu1ExecMicro %x\n", addr);
 	VUM_LOG("vu1ExecMicro %x (count=%d)\n", addr, count++);
@@ -117,10 +128,13 @@ void vu1ExecMicro(u32 addr) {
 	if (addr != -1) VU1.VI[REG_TPC].UL = addr;
 	_vuExecMicroDebug(VU1);
 
-	//assert(0);
-	//ResetEvent(g_hVU1Ready);
-	//SetEvent(g_hVU1Event);
-	//WaitForSingleObject(g_hVU1Ready, INFINITE);
+	FreezeXMMRegs(1);
+	do {
+		Cpu->ExecuteVU1Block();
+	} while(VU0.VI[REG_VPU_STAT].UL & 0x100);
+	// rec can call vu1ExecMicro
+	FreezeXMMRegs(0);
+	FreezeMMXRegs(0);
 }
 
 void _vu1ExecUpper(VURegs* VU, u32 *ptr) {
@@ -150,7 +164,7 @@ void _vu1Exec(VURegs* VU) {
 	int discard=0;
 
 	if(VU1.VI[REG_TPC].UL >= VU1.maxmicro){
-		#ifdef CPU_LOG
+#ifdef CPU_LOG
 		SysPrintf("VU1 memory overflow!!: %x\n", VU->VI[REG_TPC].UL);
 #endif
 		VU0.VI[REG_VPU_STAT].UL&= ~0x100;
@@ -215,7 +229,7 @@ void _vu1Exec(VURegs* VU) {
 				discard = 1;
 			}
 			if (lregs.VIread & (1 << REG_CLIP_FLAG)) {
-				_VI = VU0.VI[REG_CLIP_FLAG];
+				_VI = VU->VI[REG_CLIP_FLAG];
 				vireg = REG_CLIP_FLAG;
 			}
 		}
@@ -260,13 +274,6 @@ void _vu1Exec(VURegs* VU) {
 			vif1Regs->stat&= ~0x4;
 		}
 	}
-/*{
-static u32 val;
-if (val != *(u16*)&VU->Mem[873*16+12]) {
-	val = *(u16*)&VU->Mem[873*16+12];
-SysPrintf("val = %x\n", val);
-	}
-}*/
 }
 
 void vu1Exec(VURegs* VU) {
@@ -292,12 +299,14 @@ _vuTables(VU1, VU1);
 _vuRegsTables(VU1, VU1regs);
 
 void VU1unknown() {
+	//assert(0);
 #ifdef CPU_LOG
 	CPU_LOG("Unknown VU micromode opcode called\n"); 
 #endif
 }  
  
 void VU1regsunknown() {
+	//assert(0);
 #ifdef CPU_LOG
 	CPU_LOG("Unknown VU micromode opcode called\n"); 
 #endif

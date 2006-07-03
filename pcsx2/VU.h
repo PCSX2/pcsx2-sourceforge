@@ -22,10 +22,12 @@
 #define REG_STATUS_FLAG	16
 #define REG_MAC_FLAG	17
 #define REG_CLIP_FLAG	18
+#define REG_ACC_FLAG	19 // dummy flag that indicates that VFACC is written/read (nothing to do with VI[19])
 #define REG_R			20
 #define REG_I			21
 #define REG_Q			22
 #define REG_P           23 //only exists in micromode 
+#define REG_VF0_FLAG	24 // dummy flag that indicates VF0 is read (nothing to do with VI[24])
 #define REG_TPC			26
 #define REG_CMSAR0		27
 #define REG_FBRST		28
@@ -39,11 +41,31 @@ enum VUStatus {
 };
 
 typedef union {
+	struct {
+		float x,y,z,w;
+	} f;
+	struct {
+		u32 x,y,z,w;
+	} i;
+
+	float F[4];
+	
+	u64 UD[2];      //128 bits
+	s64 SD[2];
+	u32 UL[4];
+	s32 SL[4];
+	u16 US[8];
+	s16 SS[8];
+	u8  UC[16];
+	s8  SC[16];
+} VECTOR;
+
+typedef union {
 	float F;
 	s32   SL;
 	u32	  UL;
 	s16   SS[2];
-	u16   US[2];		
+	u16   US[2];
 	s8    SC[4];
 	u8    UC[4];
 } REG_VI;
@@ -78,35 +100,37 @@ typedef struct {
 } fmacPipe;
 
 typedef struct {
-	VECTOR	ACC;
-	VECTOR	*VF;
-	REG_VI	*VI;
-
-	fmacPipe fmac[8];
-	fdivPipe fdiv;
-	efuPipe efu;
-
-	u32 code;
-	u32 maxmem;
-	u32 maxmicro;
-	u32 flags;
-	u32 cycle;
-
-	u16 branch;
-	u16 ebit;
-	u32 branchpc;
-
+	VECTOR	VF[32];
+	REG_VI	VI[32];
+	VECTOR ACC;
 	REG_VI q;
 	REG_VI p;
+
 	u32 macflag;
 	u32 statusflag;
 	u32 clipflag;
+
+	u32 cycle;
+	u32 flags;
 
 	void (*vuExec)(void*);
 	VIFregisters *vifRegs;
 
 	u8 *Mem;
 	u8 *Micro;
+
+	u32 code;
+	u32 maxmem;
+	u32 maxmicro;
+
+	u16 branch;
+	u16 ebit;
+	u32 branchpc;
+
+	fmacPipe fmac[8];
+	fdivPipe fdiv;
+	efuPipe efu;
+
 } VURegs;
 
 #define VUPIPE_NONE		0
@@ -121,7 +145,7 @@ typedef struct {
 #define VUREG_WRITE		0x2
 
 typedef struct {
-	u8 pipe;
+	u8 pipe; // if 0xff, COP2
 	u8 VFwrite;
 	u8 VFwxyzw;
 	u8 VFr0xyzw;
@@ -132,5 +156,19 @@ typedef struct {
 	u32 VIread;
 	int cycles;
 } _VURegsNum;
+
+extern VURegs* g_pVU1;
+extern VURegs VU0;
+
+#define VU1 (*g_pVU1)
+
+__forceinline u32* GET_VU_MEM(VURegs* VU, u32 addr)
+{
+	if( VU == g_pVU1 ) return (u32*)(VU1.Mem+(addr&0x3fff));
+	
+	if( addr >= 0x4200 ) return &VU1.VI[(addr>>2)&0x1f].UL;
+	
+	return (u32*)(VU0.Mem+(addr&0x0fff));	
+}
 
 #endif /* __VU_H__ */

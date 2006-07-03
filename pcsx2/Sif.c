@@ -65,8 +65,9 @@ int sifInit() {
 	return 0;
 }
 
-void SIF0write(u32 *from, int words) {
-	if(words >= (FIFO_SIF0_W-sif0.fifoWritePos)) {
+void SIF0write(u32 *from, int words)
+{
+	if(words > (FIFO_SIF0_W-sif0.fifoWritePos)) {
 		int wP0 = (FIFO_SIF0_W-sif0.fifoWritePos);
 		int wP1 = words - wP0;
 		memcpy_amd(&sif0.fifoData[sif0.fifoWritePos], from, wP0 << 2);
@@ -91,7 +92,7 @@ void SIF0write(u32 *from, int words) {
 
 void SIF0read(u32 *to, int words)
 {
-	if(words >= (FIFO_SIF0_W-sif0.fifoReadPos))
+	if(words > (FIFO_SIF0_W-sif0.fifoReadPos))
 	{
 		int wP0 = (FIFO_SIF0_W-sif0.fifoReadPos);
 		int wP1 = words - wP0;
@@ -113,7 +114,7 @@ void SIF0read(u32 *to, int words)
 
 void SIF1write(u32 *from, int words)
 {
-	if(words >= (FIFO_SIF1_W-sif1.fifoWritePos))
+	if(words > (FIFO_SIF1_W-sif1.fifoWritePos))
 	{
 		int wP0 = (FIFO_SIF1_W-sif1.fifoWritePos);
 		int wP1 = words - wP0;
@@ -139,7 +140,7 @@ void SIF1write(u32 *from, int words)
 
 void SIF1read(u32 *to, int words)
 {
-	if(words >= (FIFO_SIF1_W-sif1.fifoReadPos))
+	if(words > (FIFO_SIF1_W-sif1.fifoReadPos))
 	{
 		int wP0 = (FIFO_SIF1_W-sif1.fifoReadPos);
 		int wP1 = words - wP0;
@@ -175,7 +176,9 @@ void SIF0Dma()
 
 		if(HW_DMA9_CHCR & 0x01000000) // If EE SIF0 is enabled
 		{
-			if(sif0.counter == 0) // If there's no more to transfer
+			int size = sif0.counter; //HW_DMA9_BCR >> 16;
+
+			if(size == 0) // If there's no more to transfer
 			{
 				// Note.. add normal mode here
 				if (sif0.sifData.data & 0xC0000000) // If NORMAL mode or end of CHAIN, or interrupt then stop DMA
@@ -197,7 +200,7 @@ void SIF0Dma()
 
 					sif0.sifData.words = (sif0.sifData.words + 3) & 0xfffffffc; // Round up to nearest 4.
 
-					SIF0write(PSXM(HW_DMA9_TADR+8), 4);
+					SIF0write((u32*)PSXM(HW_DMA9_TADR+8), 4);
 
 					//psxCycles += 2;
 
@@ -235,7 +238,7 @@ void SIF0Dma()
 				SIF_LOG("+++++++++++ %lX of %lX\n", wTransfer, sif0.counter /*(HW_DMA9_BCR >> 16)*/ );
 #endif
 
-				SIF0write(PSXM(HW_DMA9_MADR), wTransfer);
+				SIF0write((u32*)PSXM(HW_DMA9_MADR), wTransfer);
 				HW_DMA9_MADR += wTransfer << 2;
 				//HW_DMA9_BCR = (HW_DMA9_BCR & 0xFFFF) | (((HW_DMA9_BCR >> 16) - wTransfer)<<16);
 				//psxCycles += (wTransfer / 4) * BIAS;
@@ -247,22 +250,22 @@ void SIF0Dma()
 
 	if(sif0dma->chcr & 0x100) // If EE SIF enabled and there's something to transfer
 		{
-			
+			int size = sif0dma->qwc;
 			if ((psHu32(DMAC_CTRL) & 0x30) == 0x10) { // STS == fromSIF0
 				SysPrintf("SIF0 stall control\n");
 			}
-			if(sif0dma->qwc > 0) // If we're reading something continue to do so
+			if(size > 0) // If we're reading something continue to do so
 			{
 				if(sif0.fifoSize > 0)
 				{
-					int readSize = sif0dma->qwc;
+					int readSize = size;
 
 					if(readSize > (sif0.fifoSize/4))
 						readSize = (sif0.fifoSize/4);
 
 					//SIF_LOG(" EE SIF doing transfer %04Xqw to %08X\n", readSize, sif0dma->madr);
 #ifdef SIF_LOG
-					SIF_LOG("----------- %lX of %lX\n", readSize << 2, sif0dma->qwc << 2 );
+					SIF_LOG("----------- %lX of %lX\n", readSize << 2, size << 2 );
 #endif
 
 					_dmaGetAddr(sif0dma, ptag, sif0dma->madr, 5);
@@ -321,6 +324,8 @@ void SIF0Dma()
 			}
 		}
 	}while(notDone);
+
+	FreezeMMXRegs(0);
 }
 
 void SIF1Dma()
@@ -438,13 +443,13 @@ void SIF1Dma()
 
 		if(HW_DMA10_CHCR & 0x01000000 ) // If IOP SIF enabled and there's something to transfer
 		{
+			int size = sif1.counter; 
 			
-			
-			if(sif1.counter > 0) // If we're reading something continue to do so
+			if(size > 0) // If we're reading something continue to do so
 			{
 				if(sif1.fifoSize > 0)
 				{
-					int readSize = sif1.counter;
+					int readSize = size;
 
 					if(readSize > sif1.fifoSize)
 						readSize = sif1.fifoSize;
@@ -456,13 +461,13 @@ void SIF1Dma()
 					SIF1read((u32*)PSXM(HW_DMA10_MADR), readSize);
 					psxCpu->Clear(HW_DMA10_MADR, readSize);
 					//psxCycles += readSize / 4;
-					sif1.counter -= readSize;
+					sif1.counter = size-readSize;
 					HW_DMA10_MADR += readSize << 2;
 					notDone = 1;
 				}
 			}
 
-			if(sif1.counter == 0)
+			if(size <= 0 || sif1.fifoSize == 0)
 			{
 				if(sif1.tagMode & 0x80) // Stop on tag IRQ
 				{
@@ -505,6 +510,8 @@ void SIF1Dma()
 			}
 		}
 	}while(notDone);
+
+	FreezeMMXRegs(0);
 }
 
 int  sif0Interrupt() {
@@ -568,8 +575,6 @@ void dmaSIF0() {
 		psHu32(0x1000F240) &= ~0x20;
 		psHu32(0x1000F240) &= ~0x2000;
 	}
-
-
 }
 
 void dmaSIF1() {

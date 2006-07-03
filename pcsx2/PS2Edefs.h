@@ -202,6 +202,7 @@ void CALLBACK GSvsync(int field);
 void CALLBACK GSgifTransfer1(u32 *pMem, u32 addr);
 void CALLBACK GSgifTransfer2(u32 *pMem, u32 size);
 void CALLBACK GSgifTransfer3(u32 *pMem, u32 size);
+void CALLBACK GSgifSoftReset(u32 mask);
 void CALLBACK GSreadFIFO(u64 *mem);
 void CALLBACK GSreadFIFO2(u64 *mem, int qwc);
 
@@ -360,6 +361,8 @@ void CALLBACK CDVDnewDiskCB(void (*callback)());
 
 // basic funcs
 
+// NOTE: The read/write functions CANNOT use XMM/MMX regs
+// If you want to use them, need to save and restore current ones
 s32  CALLBACK DEV9init();
 s32  CALLBACK DEV9open(void *pDsp);
 void CALLBACK DEV9close();
@@ -426,6 +429,8 @@ s32  CALLBACK USBtest();
 #ifdef FWdefs
 // basic funcs
 
+// NOTE: The read/write functions CANNOT use XMM/MMX regs
+// If you want to use them, need to save and restore current ones
 s32  CALLBACK FWinit();
 s32  CALLBACK FWopen(void *pDsp);
 void CALLBACK FWclose();
@@ -450,6 +455,8 @@ typedef u32  (CALLBACK* _PS2EgetLibVersion2)(u32 type);
 typedef char*(CALLBACK* _PS2EgetLibName)(void);
 
 // GS
+// NOTE: GSreadFIFOX/GSwriteCSR functions CANNOT use XMM/MMX regs
+// If you want to use them, need to save and restore current ones
 typedef s32  (CALLBACK* _GSinit)();
 typedef s32  (CALLBACK* _GSopen)(void *pDsp, char *Title, int multithread);
 typedef void (CALLBACK* _GSclose)();
@@ -458,6 +465,7 @@ typedef void (CALLBACK* _GSvsync)(int field);
 typedef void (CALLBACK* _GSgifTransfer1)(u32 *pMem, u32 addr);
 typedef void (CALLBACK* _GSgifTransfer2)(u32 *pMem, u32 size);
 typedef void (CALLBACK* _GSgifTransfer3)(u32 *pMem, u32 size);
+typedef void (CALLBACK* _GSgifSoftReset)(u32 mask);
 typedef void (CALLBACK* _GSreadFIFO)(u64 *pMem);
 typedef void (CALLBACK* _GSreadFIFO2)(u64 *pMem, int qwc);
 
@@ -508,6 +516,8 @@ typedef s32  (CALLBACK* _SIOtest)();
 typedef void (CALLBACK* _SIOabout)();
 
 // SPU2
+// NOTE: The read/write functions CANNOT use XMM/MMX regs
+// If you want to use them, need to save and restore current ones
 typedef s32  (CALLBACK* _SPU2init)();
 typedef s32  (CALLBACK* _SPU2open)(void *pDsp);
 typedef void (CALLBACK* _SPU2close)();
@@ -531,6 +541,8 @@ typedef s32  (CALLBACK* _SPU2test)();
 typedef void (CALLBACK* _SPU2about)();
 
 // CDVD
+// NOTE: The read/write functions CANNOT use XMM/MMX regs
+// If you want to use them, need to save and restore current ones
 typedef s32  (CALLBACK* _CDVDinit)();
 typedef s32  (CALLBACK* _CDVDopen)();
 typedef void (CALLBACK* _CDVDclose)();
@@ -552,6 +564,8 @@ typedef void (CALLBACK* _CDVDabout)();
 typedef void (CALLBACK* _CDVDnewDiskCB)(void (*callback)());
 
 // DEV9
+// NOTE: The read/write functions CANNOT use XMM/MMX regs
+// If you want to use them, need to save and restore current ones
 typedef s32  (CALLBACK* _DEV9init)();
 typedef s32  (CALLBACK* _DEV9open)(void *pDsp);
 typedef void (CALLBACK* _DEV9close)();
@@ -573,6 +587,8 @@ typedef s32  (CALLBACK* _DEV9test)();
 typedef void (CALLBACK* _DEV9about)();
 
 // USB
+// NOTE: The read/write functions CANNOT use XMM/MMX regs
+// If you want to use them, need to save and restore current ones
 typedef s32  (CALLBACK* _USBinit)();
 typedef s32  (CALLBACK* _USBopen)(void *pDsp);
 typedef void (CALLBACK* _USBclose)();
@@ -619,6 +635,7 @@ _GSvsync           GSvsync;
 _GSgifTransfer1    GSgifTransfer1;
 _GSgifTransfer2    GSgifTransfer2;
 _GSgifTransfer3    GSgifTransfer3;
+_GSgifSoftReset    GSgifSoftReset;
 _GSreadFIFO        GSreadFIFO;
 _GSreadFIFO2       GSreadFIFO2;
 

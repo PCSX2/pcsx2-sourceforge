@@ -20,7 +20,8 @@
 #include <math.h>
 #include "PsxCommon.h"
 
-
+psxCounter psxCounters[8];
+u32 psxNextCounter, psxNextsCounter;
 static int cnts = 6;
 u8 psxhblankgate = 0;
 
@@ -137,13 +138,13 @@ void psxRcntInit() {
 }
 
 void psxVSyncStart() {
+	cdvdVsync();
 	psxHu32(0x1070)|= 1;
 	psxCheckStartGate(1);
 	psxCheckStartGate(3);
 }
 
 void psxVSyncEnd() {
-	cdvdVsync();
 	psxHu32(0x1070)|= 0x800;
 	psxCheckEndGate(1);
 	psxCheckEndGate(3);
@@ -381,7 +382,9 @@ void psxRcntWcount16(int index, u32 value) {
 #ifdef PSXCNT_LOG
 	PSXCNT_LOG("writeCcount[%d] = %x\n", index, value);
 #endif
-	SysPrintf("Write to 16bit count reg counter %x\n", index);
+#ifdef PCSX2_DEVBUILD
+	//SysPrintf("Write to 16bit count reg counter %x\n", index);
+#endif
 	//psxCounters[index].mode &= ~0x08001C00;
 	psxCounters[index].count = 0;
 	psxRcntUpd16(index);
@@ -392,7 +395,9 @@ void psxRcntWcount32(int index, u32 value) {
 #ifdef PSXCNT_LOG
 	PSXCNT_LOG("writeCcount[%d] = %x\n", index, value);
 #endif
-	SysPrintf("Write to 32bit count reg counter %x\n", index);
+#ifdef PCSX2_DEVBUILD
+	//SysPrintf("Write to 32bit count reg counter %x\n", index);
+#endif
 	//psxCounters[index].mode &= ~0x08001C00;
 	psxCounters[index].count = 0;
 	psxRcntUpd32(index);
@@ -404,7 +409,7 @@ void psxRcnt0Wmode(u32 value)  {
 	PSXCNT_LOG("IOP writeCmode[0] = %lx\n", value);
 #endif
 	if (value & 0x1c00) {
-		SysPrintf("Counter 0 Value write %x\n", value & 0x1c00);
+		//SysPrintf("Counter 0 Value write %x\n", value & 0x1c00);
 	}
 	/*if ((value & 0x3ff) == (psxCounters[0].mode & 0x3ff)) {
 		return;
@@ -432,7 +437,7 @@ void psxRcnt1Wmode(u32 value)  {
 	PSXCNT_LOG("IOP writeCmode[1] = %lx\n", value);
 #endif
 	if (value & 0x1c00) {
-		SysPrintf("Counter 1 Value write %x\n", value & 0x1c00);
+		//SysPrintf("Counter 1 Value write %x\n", value & 0x1c00);
 	}
 	/*if ((value & 0x3ff) == (psxCounters[1].mode & 0x3ff)) {
 		return;
@@ -459,7 +464,7 @@ void psxRcnt2Wmode(u32 value)  {
 	PSXCNT_LOG("IOP writeCmode[2] = %lx\n", value);
 #endif
 	if (value & 0x1c00) {
-		SysPrintf("Counter 2 Value write %x\n", value & 0x1c00);
+		//SysPrintf("Counter 2 Value write %x\n", value & 0x1c00);
 	}
 	/*if ((value & 0x3ff) == (psxCounters[2].mode & 0x3ff)) {
 		return;
@@ -492,7 +497,7 @@ void psxRcnt3Wmode(u32 value)  {
 	PSXCNT_LOG("IOP writeCmode[3] = %lx\n", value);
 #endif
 	if (value & 0x1c00) {
-		SysPrintf("Counter 3 Value write %x\n", value & 0x1c00);
+		//SysPrintf("Counter 3 Value write %x\n", value & 0x1c00);
 	}
 	/*if ((value & 0x3ff) == (psxCounters[3].mode & 0x3ff)) {
 		return;
@@ -518,7 +523,7 @@ void psxRcnt4Wmode(u32 value)  {
 	PSXCNT_LOG("IOP writeCmode[4] = %lx\n", value);
 #endif
 	if (value & 0x1c00) {
-		SysPrintf("Counter 4 Value write %x\n", value & 0x1c00);
+		//SysPrintf("Counter 4 Value write %x\n", value & 0x1c00);
 	}
 	/*if ((value & 0x3ff) == (psxCounters[4].mode & 0x3ff)) {
 		return;
@@ -555,12 +560,14 @@ void psxRcnt5Wmode(u32 value)  {
 	PSXCNT_LOG("IOP writeCmode[5] = %lx\n", value);
 #endif
 	if (value & 0x1c00) {
-		SysPrintf("Counter 5 Value write %x\n", value & 0x1c00);
+		//SysPrintf("Counter 5 Value write %x\n", value & 0x1c00);
 	}
 	/*if ((value & 0x3ff) == (psxCounters[5].mode & 0x3ff)) {
 		return;
 	}*/
-	SysPrintf("IOP writeCmode[5] = %lx\n", value);
+#ifdef PCSX2_DEVBUILD
+	//SysPrintf("IOP writeCmode[5] = %lx\n", value);
+#endif
 	psxCounters[5].mode = value;
 	psxCounters[5].mode|= 0x0400;
 	//psxCounters[5].count = psxRcntRcount32(5);

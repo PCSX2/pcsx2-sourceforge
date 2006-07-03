@@ -179,7 +179,7 @@ void psxDma8(u32 madr, u32 bcr, u32 chcr) {
 #endif
 			size = (bcr >> 16) * (bcr & 0xFFFF);			// Number of blocks to transfer
 
-			DEV9writeDMA8Mem(PSXM(madr), size*8);
+			DEV9writeDMA8Mem((u32*)PSXM(madr), size*8);
 			break;
 		case 0x01000200: //dev9 to cpu transfer
 #ifdef PSXDMA_LOG
@@ -187,7 +187,7 @@ void psxDma8(u32 madr, u32 bcr, u32 chcr) {
 #endif
 			size = (bcr >> 16) * (bcr & 0xFFFF);			// Number of blocks to transfer
 
-			DEV9readDMA8Mem(PSXM(madr), size*8);
+			DEV9readDMA8Mem((u32*)PSXM(madr), size*8);
 			break;
 #ifdef PSXDMA_LOG
 		default:

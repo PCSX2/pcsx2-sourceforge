@@ -22,6 +22,8 @@
 #include "Common.h"
 #include "SPR.h"
 
+#include "ir5900.h"
+
 #define spr0 ((DMACh*)&PS2MEM_HW[0xD000])
 #define spr1 ((DMACh*)&PS2MEM_HW[0xD400])
 
@@ -47,6 +49,24 @@ void sprInit() {
 //	spr0->sadr+= size;
 //}
 
+static void TestClearVUs(u32 madr, u32 size)
+{
+	if( madr >= 0x11000000 ) {
+		if( madr < 0x11004000 ) {
+#ifdef _DEBUG
+			SysPrintf("scratch pad clearing vu0\n");
+#endif
+			Cpu->ClearVU0(madr&0xfff, size);
+		}
+		else if( madr >= 0x11008000 && madr < 0x1100c000 ) {
+#ifdef _DEBUG
+			SysPrintf("scratch pad clearing vu1\n");
+#endif
+			Cpu->ClearVU1(madr&0x3fff, size);
+		}
+	}
+}
+
 int  _SPR0chain() {
 	u32 qwc = spr0->qwc;
 	u32 *pMem;
@@ -64,6 +84,9 @@ int  _SPR0chain() {
 		spr0->madr = psHu32(DMAC_RBOR) + ((spr0->madr + qwc) & (psHu32(DMAC_RBSR))); //Wrap MADR
 	} else {
 		Cpu->Clear(spr0->madr, qwc>>2);
+		// clear VU mem also!
+		TestClearVUs(spr0->madr, qwc>>2);
+		
 		memcpy_amd((u8*)pMem, &PS2MEM_SCRATCH[spr0->sadr & 0x3fff], qwc);
 		spr0->madr += qwc;
 	}
@@ -85,7 +108,7 @@ void _SPR0interleave() {
 	int tqwc = (psHu32(DMAC_SQWC) >> 16) & 0xff;
 	int cycles = 0;
 	u32 *pMem;
-	SysPrintf("dmaSPR0 interleave\n");
+	//SysPrintf("dmaSPR0 interleave\n");
 
 	while (qwc > 0) {
 		spr0->qwc = min(tqwc, qwc); qwc-= spr0->qwc;
@@ -95,6 +118,9 @@ void _SPR0interleave() {
 			hwMFIFOWrite(spr0->madr, (u8*)&PS2MEM_SCRATCH[spr0->sadr & 0x3fff], spr0->qwc<<4);
 		} else {
 			Cpu->Clear(spr0->madr, spr0->qwc<<2);
+			// clear VU mem also!
+			TestClearVUs(spr0->madr, qwc>>2);
+
 			memcpy_amd((u8*)pMem, &PS2MEM_SCRATCH[spr0->sadr & 0x3fff], spr0->qwc<<4);
 		}
 		cycles += tqwc * BIAS;
@@ -102,9 +128,8 @@ void _SPR0interleave() {
 		spr0->madr+= (sqwc+spr0->qwc)*16; //qwc-= sqwc;
 	}
 
-		spr0->qwc = 0;	
-		INT(8, cycles);
-	
+	spr0->qwc = 0;	
+	INT(8, cycles);
 }
 
 void _dmaSPR0() {
@@ -214,6 +239,9 @@ void dmaSPR0() { // fromSPR
 		spr0->madr = psHu32(DMAC_RBOR) + (spr0->madr & (psHu32(DMAC_RBSR)));
 		mfifoVIF1transfer(qwc);
 	}
+
+	FreezeMMXRegs(0);
+	FreezeXMMRegs(0);
 }
 
 __inline static void SPR1transfer(u32 *data, int size) {
@@ -228,7 +256,6 @@ __inline static void SPR1transfer(u32 *data, int size) {
 	Cpu->Clear(spr1->sadr, size);
 	memcpy_amd(&PS2MEM_SCRATCH[spr1->sadr & 0x3fff], (u8*)data, size << 2);
 
-	//WriteCodeSSE2(data,src,size >> 2);
 	spr1->sadr+= size << 2;
 }
 
@@ -289,6 +316,7 @@ void dmaSPR1() { // toSPR
 
 	if ((spr1->chcr & 0xc) == 0x8) { // Interleave Mode
 		_SPR1interleave();
+		FreezeMMXRegs(0);
 		return;
 	}
 
@@ -297,8 +325,8 @@ void dmaSPR1() { // toSPR
 
 	if ((spr1->chcr & 0xc) == 0) { // Normal Mode
 		
-			INT(9, cycles);
-		
+		INT(9, cycles);
+		FreezeMMXRegs(0);
 		return;
 	}
 
@@ -344,8 +372,8 @@ void dmaSPR1() { // toSPR
 	}
 
 	
-		INT(9, cycles);
-	
+	INT(9, cycles);
+	FreezeMMXRegs(0);
 }
 
 int SPRTOinterrupt()

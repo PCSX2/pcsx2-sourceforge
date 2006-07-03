@@ -32,7 +32,7 @@ void SaveConfig();
 
 BOOL Open_File_Proc(char *filename);
 BOOL Pcsx2Configure(HWND hWnd);
-void RunExecute(int run, int runBios);
+void RunExecute(int run);
 void InitLanguages();
 char *GetLanguageNext();
 void CloseLanguages();

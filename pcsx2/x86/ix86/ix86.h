@@ -15,73 +15,85 @@ extern "C" {
 
 #include "PS2Etypes.h"       // Basic types header
 
+#ifdef __x86_64__
+#define XMMREGS 16
+#define X86REGS 16
+#else
+#define XMMREGS 8
+#define X86REGS 8
+#endif
+
+#define MMXREGS 8
+
 #define SIB 4
 #define DISP32 5
 
 // general types
+#define EAX 0
+#define EBX 3
+#define ECX 1
+#define EDX 2
+#define ESI 6
+#define EDI 7
+#define EBP 5
+#define ESP 4
+#define RAX 0
+#define RBX 3
+#define RCX 1
+#define RDX 2
+#define RSI 6
+#define RDI 7
+#define RBP 5
+#define RSP 4
+#define R8  8 
+#define R9  9 
+#define R10 10
+#define R11 11
+#define R12 12
+#define R13 13
+#define R14 14
+#define R15 15
+
+typedef int x86IntRegType;
+
+#define MM0 0
+#define MM1 1
+#define MM2 2
+#define MM3 3
+#define MM4 4
+#define MM5 5
+#define MM6 6
+#define MM7 7
+
+typedef int x86MMXRegType;
+
+#define XMM0 0 
+#define XMM1 1 
+#define XMM2 2 
+#define XMM3 3 
+#define XMM4 4 
+#define XMM5 5 
+#define XMM6 6 
+#define XMM7 7 
+#define XMM8 8 
+#define XMM9 9 
+#define XMM10 10 
+#define XMM11 11 
+#define XMM12 12 
+#define XMM13 13 
+#define XMM14 14 
+#define XMM15 15
+
+typedef int x86SSERegType;
+
 typedef enum
 {
-   EAX = 0,
-   EBX = 3,
-   ECX = 1,
-   EDX = 2,
-   ESI = 6,
-   EDI = 7,
-   EBP = 5,
-   ESP = 4,
+	XMMT_INT = 0, // integer (sse2 only)
+	XMMT_FPS = 1, // floating point
+	//XMMT_FPD = 3, // double
+} XMMSSEType;
 
-   RAX = 0,
-   RBX = 3,
-   RCX = 1,
-   RDX = 2,
-   RSI = 6,
-   RDI = 7,
-   RBP = 5,
-   RSP = 4,
-   R8  = 8, 
-   R9  = 9, 
-   R10 =10, 
-   R11 =11,
-   R12 =12,
-   R13 =13,
-   R14 =14, 
-   R15 =15
-
-} x86IntRegType;
-
-typedef enum
-{
-   MM0 = 0,
-   MM1 = 1,
-   MM2 = 2,
-   MM3 = 3,
-   MM4 = 4,
-   MM5 = 5,
-   MM6 = 6,
-   MM7 = 7
-} x86MMXRegType;
-
-typedef enum
-{
-   XMM0 = 0,
-   XMM1 = 1,
-   XMM2 = 2,
-   XMM3 = 3,
-   XMM4 = 4,
-   XMM5 = 5,
-   XMM6 = 6,
-   XMM7 = 7,
-   XMM8 = 8,
-   XMM9 = 9,
-   XMM10=10,
-   XMM11=11,
-   XMM12=12,
-   XMM13=13,
-   XMM14=14,
-   XMM15=15
-
-} x86SSERegType;
-
+extern XMMSSEType g_xmmtypes[XMMREGS];
 
 void cpudetectInit( void );//this is all that needs to be called and will fill up the below structs
 
@@ -165,7 +177,12 @@ void x86SetPtr( char *ptr );
 void x86Shutdown( void );
 
 void x86SetJ8( u8 *j8 );
+void x86SetJ8A( u8 *j8 );
+void x86SetJ16( u16 *j16 );
+void x86SetJ16A( u16 *j16 );
 void x86SetJ32( u32 *j32 );
+void x86SetJ32A( u32 *j32 );
+
 void x86Align( int bytes );
 u64 GetCPUTick( void );
 
@@ -217,8 +234,10 @@ void MOV32MtoR( x86IntRegType to, u32 from );
 // mov [r32] to r32 
 void MOV32RmtoR( x86IntRegType to, x86IntRegType from );
 void MOV32RmtoROffset( x86IntRegType to, x86IntRegType from, u32 offset );
-// mov [r32][r32*scale] to r32 
+// mov [r32][r32<<scale] to r32 
 void MOV32RmStoR( x86IntRegType to, x86IntRegType from, x86IntRegType from2, int scale );
+// mov [imm32(from2) + r32(from1)<<scale] to r32 
+void MOV32RmSOffsettoR( x86IntRegType to, x86IntRegType from1, u32 from2, int scale );
 // mov r32 to [r32] 
 void MOV32RtoRm( x86IntRegType to, x86IntRegType from );
 // mov r32 to [r32][r32*scale]
@@ -227,6 +246,10 @@ void MOV32RtoRmS( x86IntRegType to, x86IntRegType from, x86IntRegType from2, int
 void MOV32ItoR( x86IntRegType to, u32 from );
 // mov imm32 to m32 
 void MOV32ItoM( u32 to, u32 from );
+// mov imm32 to [r32+off]
+void MOV32ItoRmOffset( x86IntRegType to, u32 from, u32 offset);
+// mov r32 to [r32+off]
+void MOV32RtoRmOffset( x86IntRegType to, x86IntRegType from, u32 offset);
 
 // mov r16 to m16 
 void MOV16RtoM( u32 to, x86IntRegType from );
@@ -235,12 +258,20 @@ void MOV16MtoR( x86IntRegType to, u32 from );
 // mov [r32] to r16
 void MOV16RmtoR( x86IntRegType to, x86IntRegType from ) ;
 void MOV16RmtoROffset( x86IntRegType to, x86IntRegType from, u32 offset );
+// mov [imm32(from2) + r32(from1)<<scale] to r16 
+void MOV16RmSOffsettoR( x86IntRegType to, x86IntRegType from1, u32 from2, int scale );
 // mov r16 to [r32]
 void MOV16RtoRm(x86IntRegType to, x86IntRegType from);
 // mov imm16 to m16 
 void MOV16ItoM( u32 to, u16 from );
 /* mov r16 to [r32][r32*scale] */
 void MOV16RtoRmS( x86IntRegType to, x86IntRegType from, x86IntRegType from2, int scale);
+// mov imm16 to r16
+void MOV16ItoR( x86IntRegType to, u16 from );
+// mov imm16 to [r16+off]
+void MOV16ItoRmOffset( x86IntRegType to, u16 from, u32 offset);
+// mov r16 to [r16+off]
+void MOV16RtoRmOffset( x86IntRegType to, x86IntRegType from, u32 offset);
 
 // mov r8 to m8 
 void MOV8RtoM( u32 to, x86IntRegType from );
@@ -253,6 +284,12 @@ void MOV8RmtoROffset(x86IntRegType to, x86IntRegType from, u32 offset);
 void MOV8RtoRm(x86IntRegType to, x86IntRegType from);
 // mov imm8 to m8 
 void MOV8ItoM( u32 to, u8 from );
+// mov imm8 to r8
+void MOV8ItoR( x86IntRegType to, u8 from );
+// mov imm8 to [r8+off]
+void MOV8ItoRmOffset( x86IntRegType to, u8 from, u32 offset);
+// mov r8 to [r8+off]
+void MOV8RtoRmOffset( x86IntRegType to, x86IntRegType from, u32 offset);
 
 // movsx r8 to r32 
 void MOVSX32R8toR( x86IntRegType to, x86IntRegType from );
@@ -279,6 +316,11 @@ void MOVZX32Rm16toR( x86IntRegType to, x86IntRegType from );
 void MOVZX32Rm16toROffset( x86IntRegType to, x86IntRegType from, u32 offset );
 // movzx m16 to r32 
 void MOVZX32M16toR( x86IntRegType to, u32 from );
+
+// mov r32+off to r32
+void MOV32RmOffsettoR( x86IntRegType to, x86IntRegType from, u32 offset);
+// mov r32+r32 to r32
+void MOV32Rm2toR( x86IntRegType to, x86IntRegType from1, x86IntRegType from2);
 
 // cmovbe r32 to r32 
 void CMOVBE32RtoR( x86IntRegType to, x86IntRegType from );
@@ -367,6 +409,8 @@ void ADD32RtoM( u32 to, x86IntRegType from );
 // add m32 to r32 
 void ADD32MtoR( x86IntRegType to, u32 from );
 
+// add r16 to r16 
+void ADD16RtoR( x86IntRegType to , x86IntRegType from );
 // add imm16 to r16 
 void ADD16ItoR( x86IntRegType to, u16 from );
 // add imm16 to m16 
@@ -376,6 +420,9 @@ void ADD16RtoM( u32 to, x86IntRegType from );
 // add m16 to r16 
 void ADD16MtoR( x86IntRegType to, u32 from );
 
+// add m8 to r8
+void ADD8MtoR( x86IntRegType to, u32 from );
+
 // adc imm32 to r32 
 void ADC32ItoR( x86IntRegType to, u32 from );
 // adc imm32 to m32 
@@ -384,6 +431,8 @@ void ADC32ItoM( u32 to, u32 from );
 void ADC32RtoR( x86IntRegType to, x86IntRegType from );
 // adc m32 to r32 
 void ADC32MtoR( x86IntRegType to, u32 from );
+// adc r32 to m32 
+void ADC32RtoM( u32 to, x86IntRegType from );
 
 // inc r32 
 void INC32R( x86IntRegType to );
@@ -404,7 +453,11 @@ void SUB32ItoM( u32 to, u32 from ) ;
 // sub r32 to r32 
 void SUB32RtoR( x86IntRegType to, x86IntRegType from );
 // sub m32 to r32 
-void SUB32MtoR( x86IntRegType to, u32 from );
+void SUB32MtoR( x86IntRegType to, u32 from ) ;
+// sub r32 to m32 
+void SUB32RtoM( u32 to, x86IntRegType from );
+// sub r16 to r16 
+void SUB16RtoR( x86IntRegType to, u16 from );
 // sub imm16 to r16 
 void SUB16ItoR( x86IntRegType to, u16 from );
 // sub imm16 to m16
@@ -423,6 +476,8 @@ void SBB32ItoM( u32 to, u32 from );
 void SBB32RtoR( x86IntRegType to, x86IntRegType from );
 // sbb m32 to r32 
 void SBB32MtoR( x86IntRegType to, u32 from );
+// sbb r32 to m32 
+void SBB32RtoM( u32 to, x86IntRegType from );
 
 // dec r32 
 void DEC32R( x86IntRegType to );
@@ -479,6 +534,11 @@ void SHL32ItoM( u32 to, u8 from );
 // shl cl to r32 
 void SHL32CLtoR( x86IntRegType to );
 
+// shl imm8 to r16
+void SHL16ItoR( x86IntRegType to, u8 from );
+// shl imm8 to r8
+void SHL8ItoR( x86IntRegType to, u8 from );
+
 // shr imm8 to r32 
 void SHR32ItoR( x86IntRegType to, u8 from );
 /* shr imm8 to m32 */
@@ -486,12 +546,21 @@ void SHR32ItoM( u32 to, u8 from );
 // shr cl to r32 
 void SHR32CLtoR( x86IntRegType to );
 
+// shr imm8 to r8
+void SHR8ItoR( x86IntRegType to, u8 from );
+
 // sar imm8 to r32 
 void SAR32ItoR( x86IntRegType to, u8 from );
 // sar imm8 to m32 
 void SAR32ItoM( u32 to, u8 from );
 // sar cl to r32 
 void SAR32CLtoR( x86IntRegType to );
+
+// sar imm8 to r16
+void SAR16ItoR( x86IntRegType to, u8 from );
+
+// ror imm8 to r32 (rotate right)
+void ROR32ItoR( x86IntRegType to,u8 from );
 
 void RCR32ItoR( x86IntRegType to,u8 from );
 // shld imm8 to r32
@@ -521,8 +590,25 @@ void OR32RtoR( x86IntRegType to, x86IntRegType from );
 void OR32RtoM( u32 to, x86IntRegType from );
 // or m32 to r32 
 void OR32MtoR( x86IntRegType to, u32 from );
+// or r16 to r16
+void OR16RtoR( x86IntRegType to, x86IntRegType from );
+// or imm16 to r16
+void OR16ItoR( x86IntRegType to, u16 from );
+// or imm16 to m16
+void OR16ItoM( u32 to, u16 from );
 // or m16 to r16 
 void OR16MtoR( x86IntRegType to, u32 from );
+// or r16 to m16 
+void OR16RtoM( u32 to, x86IntRegType from );
+
+// or r8 to r8
+void OR8RtoR( x86IntRegType to, x86IntRegType from );
+// or r8 to m8
+void OR8RtoM( u32 to, x86IntRegType from );
+// or imm8 to m8
+void OR8ItoM( u32 to, u8 from );
+// or m8 to r8
+void OR8MtoR( x86IntRegType to, u32 from );
 
 // xor imm32 to r64 
 void XOR64ItoR( x86IntRegType to, u32 from );
@@ -543,37 +629,65 @@ void XOR16RtoR( x86IntRegType to, x86IntRegType from );
 void XOR32RtoM( u32 to, x86IntRegType from );
 // xor m32 to r32 
 void XOR32MtoR( x86IntRegType to, u32 from );
+// xor r16 to m16
+void XOR16RtoM( u32 to, x86IntRegType from );
+// xor imm16 to r16
+void XOR16ItoR( x86IntRegType to, u16 from );
 
 // and imm32 to r64 
 void AND64ItoR( x86IntRegType to, u32 from );
 // and m64 to r64
 void AND64MtoR( x86IntRegType to, u32 from );
 // and r64 to m64
-void AND64RtoM( x86IntRegType to, u32 from );
+void AND64RtoM( u32 to, x86IntRegType from );
 
 // and imm32 to r32 
 void AND32ItoR( x86IntRegType to, u32 from );
+// and sign ext imm8 to r32 
+void AND32I8toR( x86IntRegType to, u8 from );
 // and imm32 to m32 
 void AND32ItoM( u32 to, u32 from );
+// and sign ext imm8 to m32 
+void AND32I8toM( u32 to, u8 from );
 // and r32 to r32 
 void AND32RtoR( x86IntRegType to, x86IntRegType from );
 // and r32 to m32 
 void AND32RtoM( u32 to, x86IntRegType from );
 // and m32 to r32 
 void AND32MtoR( x86IntRegType to, u32 from );
+// and r16 to r16
+void AND16RtoR( x86IntRegType to, x86IntRegType from );
+// and imm16 to r16 
+void AND16ItoR( x86IntRegType to, u16 from );
+// and imm16 to m16
+void AND16ItoM( u32 to, u16 from );
 // and r16 to m16
 void AND16RtoM( u32 to, x86IntRegType from );
 // and m16 to r16 
 void AND16MtoR( x86IntRegType to, u32 from );
+// and imm8 to r8 
+void AND8ItoR( x86IntRegType to, u8 from );
+// and imm8 to m32
+void AND8ItoM( u32 to, u8 from );
+// and r8 to m8
+void AND8RtoM( u32 to, x86IntRegType from );
+// and m8 to r8 
+void AND8MtoR( x86IntRegType to, u32 from );
+// and r8 to r8
+void AND8RtoR( x86IntRegType to, x86IntRegType from );
 
 // not r64 
 void NOT64R( x86IntRegType from );
 // not r32 
 void NOT32R( x86IntRegType from );
+// not m32 
+void NOT32M( u32 from );
 // neg r64 
 void NEG64R( x86IntRegType from );
 // neg r32 
 void NEG32R( x86IntRegType from );
+// neg m32 
+void NEG32M( u32 from );
 // neg r16 
 void NEG16R( x86IntRegType from );
 
@@ -588,6 +702,8 @@ u8*  JMP8( u8 to );
 u32* JMP32( u32 to );
 // jmp r32 
 void JMP32R( x86IntRegType to );
+// jmp m32 
+void JMP32M( u32 to );
 
 // jp rel8 
 u8*  JP8( u8 to );
@@ -634,6 +750,11 @@ u8*  JO8( u8 to );
 // jno rel8 
 u8*  JNO8( u8 to );
 
+// jb rel8 
+u16*  JB16( u16 to );
+
+// jb rel32 
+u32* JB32( u32 to );
 // je rel32 
 u32* JE32( u32 to );
 // jz rel32 
@@ -646,6 +767,8 @@ u32* JGE32( u32 to );
 u32* JL32( u32 to );
 // jle rel32 
 u32* JLE32( u32 to );
+// jae rel32 
+u32* JAE32( u32 to );
 // jne rel32 
 u32* JNE32( u32 to );
 // jnz rel32 
@@ -662,6 +785,8 @@ u32* JNLE32( u32 to );
 u32* JO32( u32 to );
 // jno rel32 
 u32* JNO32( u32 to );
+// js rel32
+u32*  JS32( u32 to );
 
 // call func 
 void CALLFunc( u32 func); // based on CALL32
@@ -689,8 +814,12 @@ void CMP32ItoM( u32 to, u32 from );
 void CMP32RtoR( x86IntRegType to, x86IntRegType from );
 // cmp m32 to r32 
 void CMP32MtoR( x86IntRegType to, u32 from );
+// cmp imm32 to [r32]
+void CMP32I8toRm( x86IntRegType to, u8 from);
+// cmp imm32 to [r32+off]
+void CMP32I8toRmOffset8( x86IntRegType to, u8 from, u8 off);
 // cmp imm8 to [r32]
-void CMP32ItoRm( x86IntRegType to, u8 from);
+void CMP32I8toM( u32 to, u8 from);
 
 // cmp imm16 to r16 
 void CMP16ItoR( x86IntRegType to, u16 from );
@@ -701,26 +830,46 @@ void CMP16RtoR( x86IntRegType to, x86IntRegType from );
 // cmp m16 to r16 
 void CMP16MtoR( x86IntRegType to, u32 from );
 
+// cmp imm8 to r8
+void CMP8ItoR( x86IntRegType to, u8 from );
+
 // test imm32 to r32 
 void TEST32ItoR( x86IntRegType to, u32 from );
+// test imm32 to m32 
+void TEST32ItoM( u32 to, u32 from );
 // test r32 to r32 
 void TEST32RtoR( x86IntRegType to, x86IntRegType from );
+// test imm32 to [r32]
+void TEST32ItoRm( x86IntRegType to, u32 from );
+// test imm16 to r16
+void TEST16ItoR( x86IntRegType to, u16 from );
+// test r16 to r16
+void TEST16RtoR( x86IntRegType to, x86IntRegType from );
+// test imm8 to r8
+void TEST8ItoR( x86IntRegType to, u8 from );
+// test imm8 to r8
+void TEST8ItoM( u32 to, u8 from );
 
 // sets r8 
 void SETS8R( x86IntRegType to );
 // setl r8 
 void SETL8R( x86IntRegType to );
+// setge r8 
+void SETGE8R( x86IntRegType to );
+// setge r8 
+void SETG8R( x86IntRegType to );
+// seta r8 
+void SETA8R( x86IntRegType to );
+// setae r8 
+void SETAE8R( x86IntRegType to );
 // setb r8 
 void SETB8R( x86IntRegType to );
 // setnz r8 
 void SETNZ8R( x86IntRegType to );
-
-// cbw 
-void CBW( void );
-// cwd 
-void CWD( void );
-// cdq 
-void CDQ( void );
+// setz r8 
+void SETZ8R( x86IntRegType to );
+// sete r8 
+void SETE8R( x86IntRegType to );
 
 // push r32 
 void PUSH32R( x86IntRegType from );
@@ -740,10 +889,35 @@ void PUSHFD( void );
 void POPFD( void );
 // ret 
 void RET( void );
+// ret (2-byte code used for misprediction)
+void RET2( void );
+
+void CBW();
+void CWDE();
+// cwd 
+void CWD( void );
+// cdq 
+void CDQ( void );
+
+void LAHF();
+void SAHF();
 
 void BT32ItoR( x86IntRegType to, x86IntRegType from );
 void BSRRtoR(x86IntRegType to, x86IntRegType from);
 void BSWAP32R( x86IntRegType to );
+
+// to = from + offset
+void LEA16RtoR(x86IntRegType to, x86IntRegType from, u16 offset);
+void LEA32RtoR(x86IntRegType to, x86IntRegType from, u32 offset);
+
+// to = from0 + from1
+void LEA16RRtoR(x86IntRegType to, x86IntRegType from0, x86IntRegType from1);
+void LEA32RRtoR(x86IntRegType to, x86IntRegType from0, x86IntRegType from1);
+
+// to = from << scale (max is 3)
+void LEA16RStoR(x86IntRegType to, x86IntRegType from, u32 scale);
+void LEA32RStoR(x86IntRegType to, x86IntRegType from, u32 scale);
+
 //******************
 // FPU instructions 
 //******************
@@ -754,15 +928,30 @@ void FILD32( u32 from );
 void FISTP32( u32 from );
 // fld m32 to fpu reg stack 
 void FLD32( u32 from );
+// fld st(i)
+void FLD(int st);
+// fld1 (push +1.0f on the stack)
+void FLD1();
+// fld1 (push log_2 e on the stack)
+void FLDL2E();
 // fst m32 from fpu reg stack 
 void FST32( u32 to );
 // fstp m32 from fpu reg stack 
 void FSTP32( u32 to );
+// fstp st(i)
+void FSTP(int st);
 
 // fldcw fpu control word from m16 
 void FLDCW( u32 from );
 // fstcw fpu control word to m16 
 void FNSTCW( u32 to );
+void FXAM();
+void FDECSTP();
+// frndint
+void FRNDINT();
+void FXCH(int st);
+void F2XM1();
+void FSCALE();
 
 // fadd ST(src) to fpu reg stack ST(0) 
 void FADD32Rto0( x86IntRegType src );
@@ -782,6 +971,8 @@ void FMUL320toR( x86IntRegType src );
 void FDIV32Rto0( x86IntRegType src );
 // fdiv ST(0) to fpu reg stack ST(src) 
 void FDIV320toR( x86IntRegType src );
+// fdiv ST(0) to fpu reg stack ST(src), pop stack, store in ST(src)
+void FDIV320toRP( x86IntRegType src );
 
 // fadd m32 to fpu reg stack 
 void FADD32( u32 from );
@@ -805,6 +996,10 @@ void FCOM32( u32 from );
 void FABS( void );
 // fsqrt fpu reg stack 
 void FSQRT( void );
+// ftan fpu reg stack 
+void FPATAN( void );
+// fsin fpu reg stack 
+void FSIN( void );
 // fchs fpu reg stack 
 void FCHS( void );
 
@@ -893,32 +1088,67 @@ void PADDDMtoR( x86MMXRegType to, u32 from );
 void PADDSBRtoR( x86MMXRegType to, x86MMXRegType from );
 void PADDSWRtoR( x86MMXRegType to, x86MMXRegType from );
 
+// paddq m64 to r64 (sse2 only?)
+void PADDQMtoR( x86MMXRegType to, u32 from );
+// paddq r64 to r64 (sse2 only?)
+void PADDQRtoR( x86MMXRegType to, x86MMXRegType from );
+
 void PSUBSBRtoR( x86MMXRegType to, x86MMXRegType from ); 
 void PSUBSWRtoR( x86MMXRegType to, x86MMXRegType from );
 
 void PSUBBRtoR( x86MMXRegType to, x86MMXRegType from );
 void PSUBWRtoR( x86MMXRegType to, x86MMXRegType from );
 void PSUBDRtoR( x86MMXRegType to, x86MMXRegType from );
+void PSUBDMtoR( x86MMXRegType to, u32 from );
+
+// psubq m64 to r64 (sse2 only?)
+void PSUBQMtoR( x86MMXRegType to, u32 from );
+// psubq r64 to r64 (sse2 only?)
+void PSUBQRtoR( x86MMXRegType to, x86MMXRegType from );
+
+// pmuludq m64 to r64 (sse2 only?)
+void PMULUDQMtoR( x86MMXRegType to, u32 from );
+// pmuludq r64 to r64 (sse2 only?)
+void PMULUDQRtoR( x86MMXRegType to, x86MMXRegType from );
+
 void PCMPEQBRtoR( x86MMXRegType to, x86MMXRegType from );
 void PCMPEQWRtoR( x86MMXRegType to, x86MMXRegType from );
 void PCMPEQDRtoR( x86MMXRegType to, x86MMXRegType from );
+void PCMPEQDMtoR( x86MMXRegType to, u32 from );
 void PCMPGTBRtoR( x86MMXRegType to, x86MMXRegType from );
 void PCMPGTWRtoR( x86MMXRegType to, x86MMXRegType from );
 void PCMPGTDRtoR( x86MMXRegType to, x86MMXRegType from );
+void PCMPGTDMtoR( x86MMXRegType to, u32 from );
 void PSRLWItoR( x86MMXRegType to, u8 from );
 void PSRLDItoR( x86MMXRegType to, u8 from );
+void PSRLDRtoR( x86MMXRegType to, x86MMXRegType from );
 void PSLLWItoR( x86MMXRegType to, u8 from );
 void PSLLDItoR( x86MMXRegType to, u8 from );
+void PSLLDRtoR( x86MMXRegType to, x86MMXRegType from );
 void PSRAWItoR( x86MMXRegType to, u8 from );
 void PSRADItoR( x86MMXRegType to, u8 from );
-void PUNPCKHDQRtoR( x86MMXRegType to, x86MMXRegType from );
+void PSRADRtoR( x86MMXRegType to, x86MMXRegType from );
 void PUNPCKLDQRtoR( x86MMXRegType to, x86MMXRegType from );
+void PUNPCKLDQMtoR( x86MMXRegType to, u32 from );
+void PUNPCKHDQRtoR( x86MMXRegType to, x86MMXRegType from );
+void PUNPCKHDQMtoR( x86MMXRegType to, u32 from );
 void MOVQ64ItoR( x86MMXRegType reg, u64 i ); //Prototype.Todo add all consts to end of block.not after jr $+8
 void MOVQRtoR( x86MMXRegType to, x86MMXRegType from );
+void MOVQRmtoROffset( x86MMXRegType to, x86IntRegType from, u32 offset );
+void MOVQRtoRmOffset( x86IntRegType  to, x86MMXRegType from, u32 offset );
 void MOVDMtoMMX( x86MMXRegType to, u32 from );
 void MOVDMMXtoM( u32 to, x86MMXRegType from );
 void MOVD32RtoMMX( x86MMXRegType to, x86IntRegType from );
-void MOVD64MMXtoR( x86IntRegType to, x86MMXRegType from );
+void MOVD32RmtoMMX( x86MMXRegType to, x86IntRegType from );
+void MOVD32RmOffsettoMMX( x86MMXRegType to, x86IntRegType from, u32 offset );
+void MOVD32MMXtoR( x86IntRegType to, x86MMXRegType from );
+void MOVD32MMXtoRm( x86IntRegType to, x86MMXRegType from );
+void MOVD32MMXtoRmOffset( x86IntRegType to, x86MMXRegType from, u32 offset );
+void PINSRWRtoMMX( x86MMXRegType to, x86SSERegType from, u8 imm8 );
+void PSHUFWRtoR(x86MMXRegType to, x86MMXRegType from, u8 imm8);
+void PSHUFWMtoR(x86MMXRegType to, u32 from, u8 imm8);
+void MASKMOVQRtoR(x86MMXRegType to, x86MMXRegType from);
+
 // emms 
 void EMMS( void );
 
@@ -937,34 +1167,63 @@ void SSE_MOVAPS_M128_to_XMM( x86SSERegType to, u32 from );
 void SSE_MOVAPS_XMM_to_M128( u32 to, x86SSERegType from );
 void SSE_MOVAPS_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
 
+void SSE_MOVUPS_M128_to_XMM( x86SSERegType to, u32 from );
+void SSE_MOVUPS_XMM_to_M128( u32 to, x86SSERegType from );
+
 void SSE_MOVSS_M32_to_XMM( x86SSERegType to, u32 from );
 void SSE_MOVSS_XMM_to_M32( u32 to, x86SSERegType from );
+void SSE_MOVSS_XMM_to_Rm( x86IntRegType to, x86SSERegType from );
 void SSE_MOVSS_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
+void SSE_MOVSS_RmOffset_to_XMM( x86SSERegType to, x86IntRegType from, u32 offset );
+void SSE_MOVSS_XMM_to_RmOffset( x86IntRegType to, x86SSERegType from, u32 offset );
+
+void SSE2_MOVSD_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
+
+void SSE2_MOVQ_M64_to_XMM( x86SSERegType to, u32 from );
+void SSE2_MOVQ_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
+void SSE2_MOVQ_XMM_to_M64( u32 to, x86SSERegType from );
+void SSE2_MOVDQ2Q_XMM_to_MM( x86MMXRegType to, x86SSERegType from);
+void SSE2_MOVQ2DQ_MM_to_XMM( x86SSERegType to, x86MMXRegType from);
 
 void SSE_MASKMOVDQU_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
 
 void SSE_MOVLPS_M64_to_XMM( x86SSERegType to, u32 from );
 void SSE_MOVLPS_XMM_to_M64( u32 to, x86SSERegType from );
+void SSE_MOVLPS_RmOffset_to_XMM( x86SSERegType to, x86IntRegType from, u32 offset );
+void SSE_MOVLPS_XMM_to_RmOffset( x86IntRegType to, x86SSERegType from, u32 offset );
+
 void SSE_MOVHPS_M64_to_XMM( x86SSERegType to, u32 from );
 void SSE_MOVHPS_XMM_to_M64( u32 to, x86SSERegType from );       
+void SSE_MOVHPS_RmOffset_to_XMM( x86SSERegType to, x86IntRegType from, u32 offset );
+void SSE_MOVHPS_XMM_to_RmOffset( x86IntRegType to, x86SSERegType from, u32 offset );
+
 void SSE_MOVLHPS_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
 void SSE_MOVHLPS_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
 void SSE_MOVLPSRmtoR( x86MMXRegType to, x86IntRegType from );
 void SSE_MOVLPSRmtoROffset( x86MMXRegType to, x86IntRegType from, u32 offset );
 void SSE_MOVLPSRtoRm( x86MMXRegType to, x86IntRegType from );
+void SSE_MOVLPSRtoRmOffset( x86MMXRegType to, x86IntRegType from, u32 offset );
 
 void SSE_MOVAPSRmStoR( x86SSERegType to, x86IntRegType from, x86IntRegType from2, int scale );
 void SSE_MOVAPSRtoRmS( x86SSERegType to, x86IntRegType from, x86IntRegType from2, int scale );
-void SSE_MOVAPSRtoRm( x86IntRegType to, x86IntRegType from );
-void SSE_MOVAPSRmtoR( x86IntRegType to, x86IntRegType from );
-void SSE_MOVAPSRmtoROffset( x86IntRegType to, x86IntRegType from, u32 offset );
+void SSE_MOVAPSRtoRmOffset( x86IntRegType to, x86SSERegType from, u32 offset );
+void SSE_MOVAPSRmtoROffset( x86SSERegType to, x86IntRegType from, u32 offset );
 void SSE_MOVUPSRmStoR( x86SSERegType to, x86IntRegType from, x86IntRegType from2, int scale );
 void SSE_MOVUPSRtoRmS( x86SSERegType to, x86IntRegType from, x86IntRegType from2, int scale );
 void SSE_MOVUPSRtoRm( x86IntRegType to, x86IntRegType from );
 void SSE_MOVUPSRmtoR( x86IntRegType to, x86IntRegType from );
 
+void SSE_MOVUPSRmtoROffset( x86SSERegType to, x86IntRegType from, u32 offset );
+void SSE_MOVUPSRtoRmOffset( x86SSERegType to, x86IntRegType from, u32 offset );
+
+void SSE2_MOVDQARtoRmOffset( x86IntRegType to, x86SSERegType from, u32 offset );
+void SSE2_MOVDQARmtoROffset( x86SSERegType to, x86IntRegType from, u32 offset );
+
 void SSE_RCPPS_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
 void SSE_RCPPS_M128_to_XMM( x86SSERegType to, u32 from );
+void SSE_RCPSS_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
+void SSE_RCPSS_M32_to_XMM( x86SSERegType to, u32 from );
+
 void SSE_ORPS_M128_to_XMM( x86SSERegType to, u32 from );
 void SSE_ORPS_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
 void SSE_XORPS_M128_to_XMM( x86SSERegType to, u32 from );
@@ -1001,16 +1260,26 @@ void SSE_CMPNLESS_M32_to_XMM( x86SSERegType to, u32 from );
 void SSE_CMPNLESS_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
 void SSE_CMPORDSS_M32_to_XMM( x86SSERegType to, u32 from );
 void SSE_CMPORDSS_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
+
+void SSE_UCOMISS_M32_to_XMM( x86SSERegType to, u32 from );
+void SSE_UCOMISS_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
+
 void SSE_PMAXSW_MM_to_MM( x86MMXRegType to, x86MMXRegType from );
 void SSE_PMINSW_MM_to_MM( x86MMXRegType to, x86MMXRegType from );
 void SSE_CVTPI2PS_M64_to_XMM( x86SSERegType to, u32 from );
 void SSE_CVTPI2PS_MM_to_XMM( x86SSERegType to, x86MMXRegType from );
 void SSE_CVTPS2PI_M64_to_MM( x86MMXRegType to, u32 from );
 void SSE_CVTPS2PI_XMM_to_MM( x86MMXRegType to, x86SSERegType from );
+void SSE_CVTTSS2SI_M32_to_R32(x86IntRegType to, u32 from);
+void SSE_CVTTSS2SI_XMM_to_R32(x86IntRegType to, x86SSERegType from);
+void SSE_CVTSI2SS_M32_to_XMM(x86SSERegType to, u32 from);
+void SSE_CVTSI2SS_R_to_XMM(x86SSERegType to, x86IntRegType from);
+
 void SSE2_CVTDQ2PS_M128_to_XMM( x86SSERegType to, u32 from );
 void SSE2_CVTDQ2PS_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
 void SSE2_CVTPS2DQ_M128_to_XMM( x86SSERegType to, u32 from );
 void SSE2_CVTPS2DQ_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
+
 void SSE_MAXPS_M128_to_XMM( x86SSERegType to, u32 from );
 void SSE_MAXPS_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
 void SSE_MAXSS_M32_to_XMM( x86SSERegType to, u32 from );
@@ -1027,10 +1296,13 @@ void SSE_SQRTPS_M128_to_XMM( x86SSERegType to, u32 from );
 void SSE_SQRTPS_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
 void SSE_SQRTSS_M32_to_XMM( x86SSERegType to, u32 from );
 void SSE_SQRTSS_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
+void SSE_UNPCKLPS_M128_to_XMM( x86SSERegType to, u32 from );
 void SSE_UNPCKLPS_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
+void SSE_UNPCKHPS_M128_to_XMM( x86SSERegType to, u32 from );
 void SSE_UNPCKHPS_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
 void SSE_SHUFPS_XMM_to_XMM( x86SSERegType to, x86SSERegType from, u8 imm8 );
 void SSE_SHUFPS_M128_to_XMM( x86SSERegType to, u32 from, u8 imm8 );
+void SSE_SHUFPS_RmOffset_to_XMM( x86SSERegType to, x86IntRegType from, u32 offset, u8 imm8 );
 void SSE_CMPEQPS_M128_to_XMM( x86SSERegType to, u32 from );
 void SSE_CMPEQPS_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
 void SSE_CMPLTPS_M128_to_XMM( x86SSERegType to, u32 from );
@@ -1051,6 +1323,7 @@ void SSE_DIVPS_M128_to_XMM( x86SSERegType to, u32 from );
 void SSE_DIVPS_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
 void SSE_DIVSS_M32_to_XMM( x86SSERegType to, u32 from );
 void SSE_DIVSS_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
+// VectorPath
 void SSE2_PSHUFD_XMM_to_XMM( x86SSERegType to, x86SSERegType from, u8 imm8 );
 void SSE2_PSHUFD_M128_to_XMM( x86SSERegType to, u32 from, u8 imm8 );
 
@@ -1068,19 +1341,12 @@ void SSE_LDMXCSR( u32 from );
 //*********************
 void SSE2_MOVDQA_M128_to_XMM(x86SSERegType to, u32 from); 
 void SSE2_MOVDQA_XMM_to_M128( u32 to, x86SSERegType from); 
-/*
-void SSE2_PSRLW_I8_to_XMM(x86SSERegType to, u32 from);
-void SSE2_PSRLD_I8_to_XMM(x86SSERegType to, u32 from); 
-void SSE2_PSRAW_I8_to_XMM(x86SSERegType to, u32 from); 
-void SSE2_PSRAD_I8_to_XMM(x86SSERegType to, u32 from); 
-void SSE2_PSLLW_I8_to_XMM(x86SSERegType to, u32 from); 
-void SSE2_PSLLD_I8_to_XMM(x86SSERegType to, u32 from);
-void SSE2_PMAXSW_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
-void SSE2_PXOR_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
-void SSE2_PADDSB_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
-void SSE2_PADDSW_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
-void SSE2_PMINSW_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
-*/
+void SSE2_MOVDQA_XMM_to_XMM( x86SSERegType to, x86SSERegType from); 
+
+void SSE2_MOVDQU_M128_to_XMM(x86SSERegType to, u32 from); 
+void SSE2_MOVDQU_XMM_to_M128( u32 to, x86SSERegType from); 
+void SSE2_MOVDQU_XMM_to_XMM( x86SSERegType to, x86SSERegType from); 
+
 void SSE2_PSRLW_XMM_to_XMM(x86SSERegType to, x86SSERegType from);
 void SSE2_PSRLW_M128_to_XMM(x86SSERegType to, u32 from);
 void SSE2_PSRLW_I8_to_XMM(x86SSERegType to, u8 imm8);
@@ -1123,6 +1389,14 @@ void SSE2_PSUBSB_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
 void SSE2_PSUBSB_M128_to_XMM( x86SSERegType to, u32 from );
 void SSE2_PSUBSW_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
 void SSE2_PSUBSW_M128_to_XMM( x86SSERegType to, u32 from );
+void SSE2_PSUBUSB_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
+void SSE2_PSUBUSB_M128_to_XMM( x86SSERegType to, u32 from );
+void SSE2_PSUBUSW_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
+void SSE2_PSUBUSW_M128_to_XMM( x86SSERegType to, u32 from );
+void SSE2_PAND_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
+void SSE2_PAND_M128_to_XMM( x86SSERegType to, u32 from );
+void SSE2_PANDN_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
+void SSE2_PANDN_M128_to_XMM( x86SSERegType to, u32 from );
 void SSE2_PXOR_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
 void SSE2_PXOR_M128_to_XMM( x86SSERegType to, u32 from );
 void SSE2_PADDW_XMM_to_XMM(x86SSERegType to, x86SSERegType from );
@@ -1135,6 +1409,8 @@ void SSE2_PADDB_XMM_to_XMM(x86SSERegType to, x86SSERegType from );
 void SSE2_PADDB_M128_to_XMM(x86SSERegType to, u32 from );
 void SSE2_PADDD_XMM_to_XMM(x86SSERegType to, x86SSERegType from );
 void SSE2_PADDD_M128_to_XMM(x86SSERegType to, u32 from );
+void SSE2_PADDQ_XMM_to_XMM(x86SSERegType to, x86SSERegType from );
+void SSE2_PADDQ_M128_to_XMM(x86SSERegType to, u32 from );
 
 //**********************************************************************************/
 //PACKSSWB,PACKSSDW: Pack Saturate Signed Word
@@ -1168,6 +1444,9 @@ void SSE2_PUNPCKHDQ_M128_to_XMM(x86SSERegType to, u32 from);
 void SSE2_PUNPCKLQDQ_XMM_to_XMM(x86SSERegType to, x86SSERegType from);
 void SSE2_PUNPCKLQDQ_M128_to_XMM(x86SSERegType to, u32 from);
 
+void SSE2_PUNPCKHQDQ_XMM_to_XMM(x86SSERegType to, x86SSERegType from);
+void SSE2_PUNPCKHQDQ_M128_to_XMM(x86SSERegType to, u32 from);
+
 // mult by half words
 void SSE2_PMULLW_XMM_to_XMM(x86SSERegType to, x86SSERegType from);
 void SSE2_PMULLW_M128_to_XMM(x86SSERegType to, u32 from);
@@ -1183,11 +1462,14 @@ void SSE2_PMULUDQ_M128_to_XMM(x86SSERegType to, u32 from);
 //**********************************************************************************
 void SSE2_PMOVMSKB_XMM_to_R32(x86IntRegType to, x86SSERegType from);
 
+void SSE_MOVMSKPS_XMM_to_R32(x86IntRegType to, x86SSERegType from);
+void SSE2_MOVMSKPD_XMM_to_R32(x86IntRegType to, x86SSERegType from);
+
 //**********************************************************************************/
 //PEXTRW,PINSRW: Packed Extract/Insert Word                                        *
 //**********************************************************************************
 void SSE_PEXTRW_XMM_to_R32(x86IntRegType to, x86SSERegType from, u8 imm8 );
-void SSE_PINSRW_XMM_to_R32(x86IntRegType to, x86SSERegType from, u8 imm8 );
+void SSE_PINSRW_R32_to_XMM(x86SSERegType from, x86IntRegType to, u8 imm8 );
 
 
 //**********************************************************************************/
@@ -1217,21 +1499,68 @@ void SSE2_PCMPEQW_XMM_to_XMM(x86SSERegType to, x86SSERegType from );
 void SSE2_PCMPEQW_M128_to_XMM(x86SSERegType to, u32 from );
 void SSE2_PCMPEQD_XMM_to_XMM(x86SSERegType to, x86SSERegType from );
 void SSE2_PCMPEQD_M128_to_XMM(x86SSERegType to, u32 from );
-////////////////////////////////////////////////////////////////////////////////////////////
 //**********************************************************************************/
 //MOVD: Move Dword(32bit) to /from XMM reg                                         *
 //**********************************************************************************
 void SSE2_MOVD_M32_to_XMM( x86SSERegType to, u32 from );
-void SSE2_MOVD_R32_to_XMM( x86SSERegType to, x86IntRegType from );
+void SSE2_MOVD_R_to_XMM( x86SSERegType to, x86IntRegType from );
+void SSE2_MOVD_Rm_to_XMM( x86SSERegType to, x86IntRegType from );
+void SSE2_MOVD_RmOffset_to_XMM( x86SSERegType to, x86IntRegType from, u32 offset );
 void SSE2_MOVD_XMM_to_M32( u32 to, x86SSERegType from );
-void SSE2_MOVD_XMM_to_R32( x86IntRegType to, x86SSERegType from );
-////////////////////////////////////////////////////////////////////////////////////
+void SSE2_MOVD_XMM_to_R( x86IntRegType to, x86SSERegType from );
+void SSE2_MOVD_XMM_to_Rm( x86IntRegType to, x86SSERegType from );
+void SSE2_MOVD_XMM_to_RmOffset( x86IntRegType to, x86SSERegType from, u32 offset );
+
 //**********************************************************************************/
 //POR : SSE Bitwise OR                                                             *
 //**********************************************************************************
 void SSE2_POR_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
 void SSE2_POR_M128_to_XMM( x86SSERegType to, u32 from );
-/////////////////////////////////////////////////////////////////////////////////////
+
+void SSE3_HADDPS_XMM_to_XMM(x86SSERegType to, x86SSERegType from);
+void SSE3_HADDPS_M128_to_XMM(x86SSERegType to, u32 from);
+
+void SSE3_MOVSLDUP_XMM_to_XMM(x86SSERegType to, x86SSERegType from);
+void SSE3_MOVSLDUP_M128_to_XMM(x86SSERegType to, u32 from);
+void SSE3_MOVSHDUP_XMM_to_XMM(x86SSERegType to, x86SSERegType from);
+void SSE3_MOVSHDUP_M128_to_XMM(x86SSERegType to, u32 from);
+//*********************
+// SSE-X - uses both SSE,SSE2 code and tries to keep consistensies between the data
+// Uses g_xmmtypes to infer the correct type.
+//*********************
+void SSEX_MOVDQA_M128_to_XMM( x86SSERegType to, u32 from );
+void SSEX_MOVDQA_XMM_to_M128( u32 to, x86SSERegType from );
+void SSEX_MOVDQA_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
+
+void SSEX_MOVDQARmtoROffset( x86SSERegType to, x86IntRegType from, u32 offset );
+void SSEX_MOVDQARtoRmOffset( x86IntRegType to, x86SSERegType from, u32 offset );
+
+void SSEX_MOVDQU_M128_to_XMM( x86SSERegType to, u32 from );
+void SSEX_MOVDQU_XMM_to_M128( u32 to, x86SSERegType from );
+void SSEX_MOVDQU_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
+
+void SSEX_MOVD_M32_to_XMM( x86SSERegType to, u32 from );
+void SSEX_MOVD_XMM_to_M32( u32 to, x86SSERegType from );
+void SSEX_MOVD_XMM_to_Rm( x86IntRegType to, x86SSERegType from );
+void SSEX_MOVD_RmOffset_to_XMM( x86SSERegType to, x86IntRegType from, u32 offset );
+void SSEX_MOVD_XMM_to_RmOffset( x86IntRegType to, x86SSERegType from, u32 offset );
+
+void SSEX_POR_M128_to_XMM( x86SSERegType to, u32 from );
+void SSEX_POR_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
+void SSEX_PXOR_M128_to_XMM( x86SSERegType to, u32 from );
+void SSEX_PXOR_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
+void SSEX_PAND_M128_to_XMM( x86SSERegType to, u32 from );
+void SSEX_PAND_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
+void SSEX_PANDN_M128_to_XMM( x86SSERegType to, u32 from );
+void SSEX_PANDN_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
+
+void SSEX_PUNPCKLDQ_XMM_to_XMM(x86SSERegType to, x86SSERegType from);
+void SSEX_PUNPCKLDQ_M128_to_XMM(x86SSERegType to, u32 from);
+void SSEX_PUNPCKHDQ_XMM_to_XMM(x86SSERegType to, x86SSERegType from);
+void SSEX_PUNPCKHDQ_M128_to_XMM(x86SSERegType to, u32 from);
+
+void SSEX_MOVHLPS_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
+
 //*********************
 // 3DNOW instructions * 
 //*********************
@@ -1260,14 +1589,22 @@ void PFMAXRtoR( x86IntRegType to, x86IntRegType from );
 void PFMINMtoR( x86IntRegType to, u32 from );
 void PFMINRtoR( x86IntRegType to, x86IntRegType from );
 
+void SSE2EMU_MOVSD_XMM_to_XMM( x86SSERegType to, x86SSERegType from);
+void SSE2EMU_MOVQ_M64_to_XMM( x86SSERegType to, u32 from);
+void SSE2EMU_MOVQ_XMM_to_XMM( x86SSERegType to, x86SSERegType from);
+void SSE2EMU_MOVD_RmOffset_to_XMM( x86SSERegType to, x86IntRegType from, u32 offset );
+void SSE2EMU_MOVD_XMM_to_RmOffset(x86IntRegType to, x86SSERegType from, u32 offset );
+void SSE2EMU_MOVDQ2Q_XMM_to_MM( x86MMXRegType to, x86SSERegType from);
+void SSE2EMU_MOVQ2DQ_MM_to_XMM( x86SSERegType to, x86MMXRegType from);
+
 /* SSE2 emulated functions for SSE CPU's by kekko*/
 
 void SSE2EMU_PSHUFD_XMM_to_XMM( x86SSERegType to, x86SSERegType from, u8 imm8 );
-void SSE2EMU_MOVD_XMM_to_R32( x86IntRegType to, x86SSERegType from );
+void SSE2EMU_MOVD_XMM_to_R( x86IntRegType to, x86SSERegType from );
 void SSE2EMU_CVTPS2DQ_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
 void SSE2EMU_CVTDQ2PS_M128_to_XMM( x86SSERegType to, u32 from );
 void SSE2EMU_MOVD_XMM_to_M32( u32 to, x86SSERegType from );
-void SSE2EMU_MOVD_R32_to_XMM( x86SSERegType to, x86IntRegType from );
+void SSE2EMU_MOVD_R_to_XMM( x86SSERegType to, x86IntRegType from );
 
 ////////////////////////////////////////////////////
 #ifdef _DEBUG

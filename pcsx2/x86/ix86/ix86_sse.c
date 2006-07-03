@@ -1,8 +1,10 @@
 
 #include "ix86.h"
-unsigned int p[4],p2[4];
-float f[4];
+__declspec(align(16)) unsigned int p[4],p2[4];
+__declspec(align(16)) float f[4];
 
+
+XMMSSEType g_xmmtypes[XMMREGS] = {0};
 
 /********************/
 /* SSE instructions */
@@ -141,6 +143,14 @@ void SSE_MOVLPSRtoRm( x86IntRegType to, x86IntRegType from )
 	ModRM( 0, from, to );
 }
 
+void SSE_MOVLPSRtoRmOffset( x86MMXRegType to, x86IntRegType from, u32 offset )
+{
+	if (from > 7) Rex(1, from >> 3, 0, 0);
+	write16( 0x130f );
+	ModRM( 2, from, to );
+	write32(offset);
+}
+
 /* movaps [r32][r32*scale] to xmm1 */
 void SSE_MOVAPSRmStoR( x86SSERegType to, x86IntRegType from, x86IntRegType from2, int scale )
 {
@@ -157,29 +167,122 @@ void SSE_MOVAPSRtoRmS( x86SSERegType to, x86IntRegType from, x86IntRegType from2
 	SibSB( scale, from2, from );
 }
 
-/* movaps [r32] to r32 */
-void SSE_MOVAPSRmtoR( x86IntRegType to, x86IntRegType from ) 
+// movaps [r32+offset] to r32
+void SSE_MOVAPSRmtoROffset( x86SSERegType to, x86IntRegType from, u32 offset )
 {
 	if (to > 7) Rex(1, to >> 3, 0, 0);
 	write16( 0x280f );
-	ModRM( 0, to, from );
+
+	if( offset == 0 ) {
+		ModRM( 0, to, from );
+	}
+	else if( offset < 128 ) {
+		ModRM( 1, to, from );
+		write8(offset);
+	}
+	else {
+		ModRM( 2, to, from );
+		write32(offset);
+	}
 }
 
-void SSE_MOVAPSRmtoROffset( x86IntRegType to, x86IntRegType from, u32 offset )
-{
-	if (to > 7) Rex(1, to >> 3, 0, 0);
-	write16( 0x280f );
-	ModRM( 2, to, from );
-	write32(offset);
-}
-
-/* movaps r32 to [r32] */
-void SSE_MOVAPSRtoRm( x86IntRegType to, x86IntRegType from ) 
+// movaps r32 to [r32+offset]
+void SSE_MOVAPSRtoRmOffset( x86IntRegType to, x86SSERegType from, u32 offset ) 
 {
 	if (from > 7) Rex(1, from >> 3, 0, 0);
 	write16( 0x290f );
-	ModRM( 0, from, to );
+
+	if( offset == 0 ) {
+		ModRM( 0, from, to );
+	}
+	else if( offset < 128 ) {
+		ModRM( 1, from, to );
+		write8(offset);
+	}
+	else {
+		ModRM( 2, from, to );
+		write32(offset);
+	}
 }
+
+// movdqa [r32+offset] to r32
+void SSE2_MOVDQARmtoROffset( x86SSERegType to, x86IntRegType from, u32 offset )
+{
+	if (to > 7) Rex(1, to >> 3, 0, 0);
+	write8(0x66);
+	write16( 0x6f0f );
+
+	if( offset == 0 ) {
+		ModRM( 0, to, from );
+	}
+	else if( offset < 128 ) {
+		ModRM( 1, to, from );
+		write8(offset);
+	}
+	else {
+		ModRM( 2, to, from );
+		write32(offset);
+	}
+}
+
+// movdqa r32 to [r32+offset]
+void SSE2_MOVDQARtoRmOffset( x86IntRegType to, x86SSERegType from, u32 offset ) 
+{
+	if (from > 7) Rex(1, from >> 3, 0, 0);
+	write8(0x66);
+	write16( 0x7f0f );
+
+	if( offset == 0 ) {
+		ModRM( 0, from, to );
+	}
+	else if( offset < 128 ) {
+		ModRM( 1, from, to );
+		write8(offset);
+	}
+	else {
+		ModRM( 2, from, to );
+		write32(offset);
+	}
+}
+
+// movups [r32+offset] to r32
+void SSE_MOVUPSRmtoROffset( x86SSERegType to, x86IntRegType from, u32 offset )
+{
+	if (to > 7) Rex(1, to >> 3, 0, 0);
+	write16( 0x100f );
+
+	if( offset == 0 ) {
+		ModRM( 0, to, from );
+	}
+	else if( offset < 128 ) {
+		ModRM( 1, to, from );
+		write8(offset);
+	}
+	else {
+		ModRM( 2, to, from );
+		write32(offset);
+	}
+}
+
+// movups r32 to [r32+offset]
+void SSE_MOVUPSRtoRmOffset( x86SSERegType to, x86IntRegType from, u32 offset )
+{
+	if (from > 7) Rex(1, from >> 3, 0, 0);
+	write16( 0x110f );
+
+	if( offset == 0 ) {
+		ModRM( 0, from, to );
+	}
+	else if( offset < 128 ) {
+		ModRM( 1, from, to );
+		write8(offset);
+	}
+	else {
+		ModRM( 2, from, to );
+		write32(offset);
+	}
+}
+
 //**********************************************************************************/
 //MOVAPS: Move aligned Packed Single Precision FP values                           *
 //**********************************************************************************
@@ -187,12 +290,104 @@ void SSE_MOVAPS_M128_to_XMM( x86SSERegType to, u32 from )          { SSEMtoR( 0x
 void SSE_MOVAPS_XMM_to_M128( u32 to, x86SSERegType from )          { SSERtoM( 0x290f, 0 ); }
 void SSE_MOVAPS_XMM_to_XMM( x86SSERegType to, x86SSERegType from )     { SSERtoR( 0x280f ); }
 
+void SSE_MOVUPS_M128_to_XMM( x86SSERegType to, u32 from )          { SSEMtoR( 0x100f, 0 ); }
+void SSE_MOVUPS_XMM_to_M128( u32 to, x86SSERegType from )          { SSERtoM( 0x110f, 0 ); }
+
+void SSE2_MOVSD_XMM_to_XMM( x86SSERegType to, x86SSERegType from )
+{
+	if( !cpucaps.hasStreamingSIMD2Extensions ) SSE2EMU_MOVSD_XMM_to_XMM(to, from);
+	else {
+		write8(0xf2);
+		SSERtoR( 0x100f);
+	}
+}
+
+void SSE2_MOVQ_M64_to_XMM( x86SSERegType to, u32 from )
+{
+	if( !cpucaps.hasStreamingSIMD2Extensions ) SSE2EMU_MOVQ_M64_to_XMM(to, from);
+	else {
+		write8(0xf3); SSEMtoR( 0x7e0f, 0);
+	}
+}
+
+void SSE2_MOVQ_XMM_to_XMM( x86SSERegType to, x86SSERegType from )
+{
+	if( !cpucaps.hasStreamingSIMD2Extensions ) SSE2EMU_MOVQ_XMM_to_XMM(to, from);
+	else {
+		write8(0xf3); SSERtoR( 0x7e0f);
+	}
+}
+
+void SSE2_MOVQ_XMM_to_M64( u32 to, x86SSERegType from )
+{
+	if( !cpucaps.hasStreamingSIMD2Extensions ) SSE_MOVLPS_XMM_to_M64(to, from);
+	else {
+		SSERtoM66(0xd60f);
+	}
+}
+
+void SSE2_MOVDQ2Q_XMM_to_MM( x86MMXRegType to, x86SSERegType from)
+{
+	if( !cpucaps.hasStreamingSIMD2Extensions ) SSE2EMU_MOVDQ2Q_XMM_to_MM(to, from);
+	else {
+		write8(0xf2);
+		SSERtoR( 0xd60f);
+	}
+}
+void SSE2_MOVQ2DQ_MM_to_XMM( x86SSERegType to, x86MMXRegType from)
+{
+	if( !cpucaps.hasStreamingSIMD2Extensions ) SSE2EMU_MOVQ2DQ_MM_to_XMM(to, from);
+	else {
+		write8(0xf3);
+		SSERtoR( 0xd60f);
+	}
+}
+
 //**********************************************************************************/
 //MOVSS: Move Scalar Single-Precision FP  value                                    *
 //**********************************************************************************
 void SSE_MOVSS_M32_to_XMM( x86SSERegType to, u32 from )           { SSE_SS_MtoR( 0x100f, 0 ); }
 void SSE_MOVSS_XMM_to_M32( u32 to, x86SSERegType from )           { SSE_SS_RtoM( 0x110f, 0 ); }
+void SSE_MOVSS_XMM_to_Rm( x86IntRegType to, x86SSERegType from )
+{
+	write8(0xf3); write16(0x110f);
+	ModRM(0, from, to);
+}
+
 void SSE_MOVSS_XMM_to_XMM( x86SSERegType to, x86SSERegType from )      { SSE_SS_RtoR( 0x100f ); }
+
+void SSE_MOVSS_RmOffset_to_XMM( x86SSERegType to, x86IntRegType from, u32 offset )
+{
+	write8(0xf3); write16( 0x100f );
+	if( offset == 0 ) {
+		ModRM( 0, to, from  );
+	}
+	else if( offset < 128 ) {
+		ModRM( 1, to, from  );
+		write8(offset);
+	}
+	else {
+		ModRM( 2, to, from  );
+		write32(offset);
+	}
+}
+
+void SSE_MOVSS_XMM_to_RmOffset( x86IntRegType to, x86SSERegType from, u32 offset )
+{
+	write8(0xf3); write16(0x110f);
+
+	if( offset == 0 ) {
+		ModRM( 0, from, to );
+	}
+	else if( offset < 128 ) {
+		ModRM( 1, from, to );
+		write8(offset);
+	}
+	else {
+		ModRM( 2, from, to );
+		write32(offset);
+	}
+}
 
 void SSE_MASKMOVDQU_XMM_to_XMM( x86SSERegType to, x86SSERegType from )      { SSERtoR66( 0xf70f ); }
 //**********************************************************************************/
@@ -201,12 +396,78 @@ void SSE_MASKMOVDQU_XMM_to_XMM( x86SSERegType to, x86SSERegType from )      { SS
 void SSE_MOVLPS_M64_to_XMM( x86SSERegType to, u32 from )          { SSEMtoR( 0x120f, 0 ); }
 void SSE_MOVLPS_XMM_to_M64( u32 to, x86SSERegType from )          { SSERtoM( 0x130f, 0 ); }
 
+void SSE_MOVLPS_RmOffset_to_XMM( x86SSERegType to, x86IntRegType from, u32 offset )
+{
+	write16( 0x120f );
+	if( offset == 0 ) {
+		ModRM( 0, to, from  );
+	}
+	else if( offset < 128 ) {
+		ModRM( 1, to, from  );
+		write8(offset);
+	}
+	else {
+		ModRM( 2, to, from  );
+		write32(offset);
+	}
+}
+
+void SSE_MOVLPS_XMM_to_RmOffset( x86IntRegType to, x86SSERegType from, u32 offset )
+{
+	write16(0x130f);
+
+	if( offset == 0 ) {
+		ModRM( 0, from, to );
+	}
+	else if( offset < 128 ) {
+		ModRM( 1, from, to );
+		write8(offset);
+	}
+	else {
+		ModRM( 2, from, to );
+		write32(offset);
+	}
+}
+
 /////////////////////////////////////////////////////////////////////////////////////
 //**********************************************************************************/
 //MOVHPS: Move High Packed Single-Precision FP                                     *
 //**********************************************************************************
 void SSE_MOVHPS_M64_to_XMM( x86SSERegType to, u32 from )          { SSEMtoR( 0x160f, 0 ); }
 void SSE_MOVHPS_XMM_to_M64( u32 to, x86SSERegType from )          { SSERtoM( 0x170f, 0 ); }
+
+void SSE_MOVHPS_RmOffset_to_XMM( x86SSERegType to, x86IntRegType from, u32 offset )
+{
+	write16( 0x160f );
+	if( offset == 0 ) {
+		ModRM( 0, to, from  );
+	}
+	else if( offset < 128 ) {
+		ModRM( 1, to, from  );
+		write8(offset);
+	}
+	else {
+		ModRM( 2, to, from  );
+		write32(offset);
+	}
+}
+
+void SSE_MOVHPS_XMM_to_RmOffset( x86IntRegType to, x86SSERegType from, u32 offset )
+{
+	write16(0x170f);
+
+	if( offset == 0 ) {
+		ModRM( 0, from, to );
+	}
+	else if( offset < 128 ) {
+		ModRM( 1, from, to );
+		write8(offset);
+	}
+	else {
+		ModRM( 2, from, to );
+		write32(offset);
+	}
+}
 
 /////////////////////////////////////////////////////////////////////////////////////
 //**********************************************************************************/
@@ -240,6 +501,9 @@ void SSE_ANDNPS_XMM_to_XMM( x86SSERegType to, x86SSERegType from ){ SSERtoR( 0x5
 //**********************************************************************************
 void SSE_RCPPS_XMM_to_XMM( x86SSERegType to, x86SSERegType from ) { SSERtoR( 0x530f ); }
 void SSE_RCPPS_M128_to_XMM( x86SSERegType to, u32 from )           { SSEMtoR( 0x530f, 0 ); }
+
+void SSE_RCPSS_XMM_to_XMM( x86SSERegType to, x86SSERegType from ) { SSE_SS_RtoR(0x530f); }
+void SSE_RCPSS_M32_to_XMM( x86SSERegType to, u32 from ) { SSE_SS_MtoR(0x530f, 0); }
 
 //////////////////////////////////////////////////////////////////////////////////////
 //**********************************************************************************/
@@ -345,6 +609,19 @@ void SSE_CMPNLESS_XMM_to_XMM( x86SSERegType to, x86SSERegType from )   { CMPSSRt
 void SSE_CMPORDSS_M32_to_XMM( x86SSERegType to, u32 from )        { CMPSSMtoR( 7 ); }
 void SSE_CMPORDSS_XMM_to_XMM( x86SSERegType to, x86SSERegType from )   { CMPSSRtoR( 7 ); }
 
+void SSE_UCOMISS_M32_to_XMM( x86SSERegType to, u32 from )
+{
+	write16( 0x2e0f );
+	ModRM( 0, to, DISP32 );
+	write32( MEMADDR(from, 4) );
+}
+
+void SSE_UCOMISS_XMM_to_XMM( x86SSERegType to, x86SSERegType from )
+{
+	write16( 0x2e0f );
+	ModRM( 3, to, from );
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////
 //**********************************************************************************/
 //RSQRTPS : Packed Single-Precision FP Square Root Reciprocal                      *
@@ -401,6 +678,22 @@ void SSE_CVTPI2PS_MM_to_XMM( x86SSERegType to, x86MMXRegType from )   { SSERtoR(
 void SSE_CVTPS2PI_M64_to_MM( x86MMXRegType to, u32 from )        { SSEMtoR( 0x2d0f, 0 ); }
 void SSE_CVTPS2PI_XMM_to_MM( x86MMXRegType to, x86SSERegType from )   { SSERtoR( 0x2d0f ); }
 
+void SSE_CVTTSS2SI_M32_to_R32(x86IntRegType to, u32 from) { write8(0xf3); SSEMtoR(0x2c0f, 0); }
+void SSE_CVTTSS2SI_XMM_to_R32(x86IntRegType to, x86SSERegType from)
+{
+	write8(0xf3);
+	write16(0x2c0f);
+	ModRM(3, to, from);
+}
+
+void SSE_CVTSI2SS_M32_to_XMM(x86SSERegType to, u32 from) { write8(0xf3); SSEMtoR(0x2a0f, 0); }
+void SSE_CVTSI2SS_R_to_XMM(x86SSERegType to, x86IntRegType from)
+{
+	write8(0xf3);
+	write16(0x2a0f);
+	ModRM(3, to, from);
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////
 //**********************************************************************************/
 //CVTDQ2PS: Packed Signed INT32  to Packed Single Precision FP  Conversion         *
@@ -455,11 +748,38 @@ void SSE_PMINSW_MM_to_MM( x86MMXRegType to, x86MMXRegType from ){ SSERtoR( 0xEA0
 void SSE_SHUFPS_XMM_to_XMM( x86SSERegType to, x86SSERegType from, u8 imm8 )	{ SSERtoR( 0xC60F ); write8( imm8 ); }
 void SSE_SHUFPS_M128_to_XMM( x86SSERegType to, u32 from, u8 imm8 )		{ SSEMtoR( 0xC60F, 1 ); write8( imm8 ); }
 
+void SSE_SHUFPS_RmOffset_to_XMM( x86SSERegType to, x86IntRegType from, u32 offset, u8 imm8 )
+{
+	write16(0xc60f);
+
+	if( offset == 0 ) {
+		ModRM( 0, to, from );
+	}
+	else if( offset < 128 ) {
+		ModRM( 1, to, from);
+		write8(offset);
+	}
+	else {
+		ModRM( 2, to, from );
+		write32(offset);
+	}
+	write8(imm8);
+}
+
 ////////////////////////////////////////////////////////////////////////////////////
 //**********************************************************************************/
 //PSHUFD: Shuffle Packed DoubleWords                                               *
 //**********************************************************************************
-void SSE2_PSHUFD_XMM_to_XMM( x86SSERegType to, x86SSERegType from, u8 imm8 )	{ SSERtoR66( 0x700F ); write8( imm8 ); }
+void SSE2_PSHUFD_XMM_to_XMM( x86SSERegType to, x86SSERegType from, u8 imm8 )
+{
+	if( !cpucaps.hasStreamingSIMD2Extensions ) {
+		SSE2EMU_PSHUFD_XMM_to_XMM(to, from, imm8);
+	}
+	else {
+		SSERtoR66( 0x700F );
+		write8( imm8 );
+	}
+}
 void SSE2_PSHUFD_M128_to_XMM( x86SSERegType to, u32 from, u8 imm8 )	{ SSEMtoR66( 0x700F ); write8( imm8 ); }
 
 void SSE2_PSHUFLW_XMM_to_XMM( x86SSERegType to, x86SSERegType from, u8 imm8 ) { write8(0xF2); SSERtoR(0x700F); write8(imm8); }
@@ -471,14 +791,14 @@ void SSE2_PSHUFHW_M128_to_XMM( x86SSERegType to, u32 from, u8 imm8 ) { write8(0x
 //**********************************************************************************/
 //UNPCKLPS: Unpack and Interleave low Packed Single-Precision FP Data              *
 //**********************************************************************************
-//missing SSE_UNPCKLPS_M128_to_XMM
+void SSE_UNPCKLPS_M128_to_XMM( x86SSERegType to, u32 from ) { SSEMtoR(0x140f, 0); }
 void SSE_UNPCKLPS_XMM_to_XMM( x86SSERegType to, x86SSERegType from )	{ SSERtoR( 0x140F ); }
 
 ////////////////////////////////////////////////////////////////////////////////////////
 //**********************************************************************************/
 //UNPCKHPS: Unpack and Interleave High Packed Single-Precision FP Data              *
 //**********************************************************************************
-//missing SSE_UNPCKHPS_M128_to_XMM
+void SSE_UNPCKHPS_M128_to_XMM( x86SSERegType to, u32 from ) { SSEMtoR(0x150f, 0); }
 void SSE_UNPCKHPS_XMM_to_XMM( x86SSERegType to, x86SSERegType from )	{ SSERtoR( 0x150F ); }
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -526,6 +846,9 @@ void SSE2_PADDW_M128_to_XMM(x86SSERegType to, u32 from ){ SSEMtoR66( 0xFD0F ); }
 void SSE2_PADDD_XMM_to_XMM(x86SSERegType to, x86SSERegType from ){ SSERtoR66( 0xFE0F ); }
 void SSE2_PADDD_M128_to_XMM(x86SSERegType to, u32 from ){ SSEMtoR66( 0xFE0F ); }
 
+void SSE2_PADDQ_XMM_to_XMM(x86SSERegType to, x86SSERegType from ) { SSERtoR66( 0xD40F ); }
+void SSE2_PADDQ_M128_to_XMM(x86SSERegType to, u32 from ) { SSEMtoR66( 0xD40F ); }
+
 ///////////////////////////////////////////////////////////////////////////////////
 //**********************************************************************************/
 //PCMPxx: Compare Packed Integers                                                  *
@@ -540,15 +863,32 @@ void SSE2_PCMPEQB_XMM_to_XMM(x86SSERegType to, x86SSERegType from ){ SSERtoR66( 
 void SSE2_PCMPEQB_M128_to_XMM(x86SSERegType to, u32 from ){ SSEMtoR66( 0x740F ); }
 void SSE2_PCMPEQW_XMM_to_XMM(x86SSERegType to, x86SSERegType from ){ SSERtoR66( 0x750F ); }
 void SSE2_PCMPEQW_M128_to_XMM(x86SSERegType to, u32 from ){ SSEMtoR66( 0x750F ); }
-void SSE2_PCMPEQD_XMM_to_XMM(x86SSERegType to, x86SSERegType from ){ SSERtoR66( 0x760F ); }
-void SSE2_PCMPEQD_M128_to_XMM(x86SSERegType to, u32 from ){ SSEMtoR66( 0x760F ); }
+void SSE2_PCMPEQD_XMM_to_XMM(x86SSERegType to, x86SSERegType from )
+{
+	if( !cpucaps.hasStreamingSIMD2Extensions ) {
+		SSE_CMPEQPS_XMM_to_XMM(to, from);
+	}
+	else {
+		SSERtoR66( 0x760F );
+	}
+}
+
+void SSE2_PCMPEQD_M128_to_XMM(x86SSERegType to, u32 from )
+{
+	if( !cpucaps.hasStreamingSIMD2Extensions ) {
+		SSE_CMPEQPS_M128_to_XMM(to, from);
+	}
+	else {
+		SSEMtoR66( 0x760F );
+	}
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////
 //**********************************************************************************/
 //PEXTRW,PINSRW: Packed Extract/Insert Word                                        *
 //**********************************************************************************
 void SSE_PEXTRW_XMM_to_R32(x86IntRegType to, x86SSERegType from, u8 imm8 ){ SSERtoR66(0xC50F); write8( imm8 ); }
-void SSE_PINSRW_XMM_to_R32(x86IntRegType to, x86SSERegType from, u8 imm8 ){ SSERtoR66(0xC40F); write8( imm8 ); }
+void SSE_PINSRW_R32_to_XMM(x86SSERegType to, x86IntRegType from, u8 imm8 ){ SSERtoR66(0xC40F); write8( imm8 ); }
 
 ////////////////////////////////////////////////////////////////////////////////////////////
 //**********************************************************************************/
@@ -568,16 +908,97 @@ void SSE2_PSUBQ_M128_to_XMM(x86SSERegType to, u32 from ){ SSEMtoR66( 0xFB0F ); }
 //MOVD: Move Dword(32bit) to /from XMM reg                                         *
 //**********************************************************************************
 void SSE2_MOVD_M32_to_XMM( x86SSERegType to, u32 from ) { SSEMtoR66(0x6E0F); }
-void SSE2_MOVD_R32_to_XMM( x86SSERegType to, x86IntRegType from ) { SSERtoR66(0x6E0F); }
+void SSE2_MOVD_R_to_XMM( x86SSERegType to, x86IntRegType from )
+{
+	if( !cpucaps.hasStreamingSIMD2Extensions ) {
+		SSE2EMU_MOVD_R_to_XMM(to, from);
+	}
+	else {
+		SSERtoR66(0x6E0F);
+	}
+}
+
+void SSE2_MOVD_Rm_to_XMM( x86SSERegType to, x86IntRegType from )
+{
+	write8(0x66);
+	if (to > 7 || from > 7) Rex(1, to >> 3, 0, from >> 3);
+	write16( 0x6e0f );
+	ModRM( 0, to, from  );
+}
+
+void SSE2_MOVD_RmOffset_to_XMM( x86SSERegType to, x86IntRegType from, u32 offset )
+{
+	write8(0x66);
+	if (to > 7 || from > 7) Rex(1, to >> 3, 0, from >> 3);
+
+	write16( 0x6e0f );
+	if( offset == 0 ) {
+		ModRM( 0, to, from  );
+	}
+	else if( offset < 128 ) {
+		ModRM( 1, to, from  );
+		write8(offset);
+	}
+	else {
+		ModRM( 2, to, from  );
+		write32(offset);
+	}
+}
+
 void SSE2_MOVD_XMM_to_M32( u32 to, x86SSERegType from ) { SSERtoM66(0x7E0F); }
-void SSE2_MOVD_XMM_to_R32( x86IntRegType to, x86SSERegType from ) { _SSERtoR66(0x7E0F); }
+void SSE2_MOVD_XMM_to_R( x86IntRegType to, x86SSERegType from ) {
+	if( !cpucaps.hasStreamingSIMD2Extensions ) {
+		SSE2EMU_MOVD_XMM_to_R(to, from);
+	}
+	else {
+		_SSERtoR66(0x7E0F);
+	}
+}
+
+void SSE2_MOVD_XMM_to_Rm( x86IntRegType to, x86SSERegType from )
+{
+	write8(0x66);
+	write16( 0x7e0f );
+	ModRM( 0, from, to );
+}
+
+void SSE2_MOVD_XMM_to_RmOffset( x86IntRegType to, x86SSERegType from, u32 offset )
+{
+	if( !cpucaps.hasStreamingSIMD2Extensions ) {
+		SSE2EMU_MOVD_XMM_to_RmOffset(to, from, offset);
+	}
+	else {
+		write8(0x66);
+		write16( 0x7e0f );
+
+		if( offset == 0 ) {
+			ModRM( 0, from, to );
+		}
+		else if( offset < 128 ) {
+			ModRM( 1, from, to );
+			write8(offset);
+		}
+		else {
+			ModRM( 2, from, to );
+			write32(offset);
+		}
+	}
+}
 
 ////////////////////////////////////////////////////////////////////////////////////
 //**********************************************************************************/
 //POR : SSE Bitwise OR                                                             *
 //**********************************************************************************
-void SSE2_POR_XMM_to_XMM( x86SSERegType to, x86SSERegType from ){ SSERtoR66( 0xEB0F ); }
-void SSE2_POR_M128_to_XMM( x86SSERegType to, u32 from ){ SSEMtoR66( 0xEB0F ); }
+void SSE2_POR_XMM_to_XMM( x86SSERegType to, x86SSERegType from ) { SSERtoR66( 0xEB0F ); }
+void SSE2_POR_M128_to_XMM( x86SSERegType to, u32 from ) { SSEMtoR66( 0xEB0F ); }
+
+// logical and to &= from
+void SSE2_PAND_XMM_to_XMM( x86SSERegType to, x86SSERegType from ) { SSERtoR66( 0xDB0F ); }
+void SSE2_PAND_M128_to_XMM( x86SSERegType to, u32 from ) { SSEMtoR66( 0xDB0F ); }
+
+// to = (~to) & from
+void SSE2_PANDN_XMM_to_XMM( x86SSERegType to, x86SSERegType from ) { SSERtoR66( 0xDF0F ); }
+void SSE2_PANDN_M128_to_XMM( x86SSERegType to, u32 from ) { SSEMtoR66( 0xDF0F ); }
 
 /////////////////////////////////////////////////////////////////////////////////////
 //**********************************************************************************/
@@ -587,12 +1008,13 @@ void SSE2_PXOR_XMM_to_XMM( x86SSERegType to, x86SSERegType from ){ SSERtoR66( 0x
 void SSE2_PXOR_M128_to_XMM( x86SSERegType to, u32 from ){ SSEMtoR66( 0xEF0F ) }; 
 ///////////////////////////////////////////////////////////////////////////////////////
 
-
-
-
 void SSE2_MOVDQA_M128_to_XMM(x86SSERegType to, u32 from) {SSEMtoR66(0x6F0F); }
 void SSE2_MOVDQA_XMM_to_M128( u32 to, x86SSERegType from ){SSERtoM66(0x7F0F);} 
+void SSE2_MOVDQA_XMM_to_XMM( x86SSERegType to, x86SSERegType from) { SSERtoR66(0x6F0F); }
 
+void SSE2_MOVDQU_M128_to_XMM(x86SSERegType to, u32 from) { write8(0xF3); SSEMtoR(0x6F0F, 0); }
+void SSE2_MOVDQU_XMM_to_M128( u32 to, x86SSERegType from) { write8(0xF3); SSERtoM(0x7F0F, 0); }
+void SSE2_MOVDQU_XMM_to_XMM( x86SSERegType to, x86SSERegType from) { write8(0xF3); SSERtoR(0x6F0F); }
 
 // shift right logical
 
@@ -734,15 +1156,15 @@ void SSE2_PSUBSB_M128_to_XMM( x86SSERegType to, u32 from ){ SSEMtoR66( 0xE80F );
 void SSE2_PSUBSW_XMM_to_XMM( x86SSERegType to, x86SSERegType from ){ SSERtoR66( 0xE90F ); }
 void SSE2_PSUBSW_M128_to_XMM( x86SSERegType to, u32 from ){ SSEMtoR66( 0xE90F ); }
 
+void SSE2_PSUBUSB_XMM_to_XMM( x86SSERegType to, x86SSERegType from ) { SSERtoR66( 0xD80F ); }
+void SSE2_PSUBUSB_M128_to_XMM( x86SSERegType to, u32 from ) { SSEMtoR66( 0xD80F ); }
+void SSE2_PSUBUSW_XMM_to_XMM( x86SSERegType to, x86SSERegType from ) { SSERtoR66( 0xD90F ); }
+void SSE2_PSUBUSW_M128_to_XMM( x86SSERegType to, u32 from ) { SSEMtoR66( 0xD90F ); }
 
-
-
-
-
-void SSE2_PADDUSB_XMM_to_XMM( x86SSERegType to, x86SSERegType from ){ SSERtoR66( 0xDC0F ); }
-void SSE2_PADDUSB_M128_to_XMM( x86SSERegType to, u32 from ){ SSEMtoR66( 0xDC0F ); }
-void SSE2_PADDUSW_XMM_to_XMM( x86SSERegType to, x86SSERegType from ){ SSERtoR66( 0xDD0F ); }
-void SSE2_PADDUSW_M128_to_XMM( x86SSERegType to, u32 from ){ SSEMtoR66( 0xDD0F ); }
+void SSE2_PADDUSB_XMM_to_XMM( x86SSERegType to, x86SSERegType from ) { SSERtoR66( 0xDC0F ); }
+void SSE2_PADDUSB_M128_to_XMM( x86SSERegType to, u32 from ) { SSEMtoR66( 0xDC0F ); }
+void SSE2_PADDUSW_XMM_to_XMM( x86SSERegType to, x86SSERegType from ) { SSERtoR66( 0xDD0F ); }
+void SSE2_PADDUSW_M128_to_XMM( x86SSERegType to, u32 from ) { SSEMtoR66( 0xDD0F ); }
 
 //**********************************************************************************/
 //PACKSSWB,PACKSSDW: Pack Saturate Signed Word
@@ -777,6 +1199,9 @@ void SSE2_PUNPCKHDQ_M128_to_XMM(x86SSERegType to, u32 from) { SSEMtoR66( 0x6A0F 
 void SSE2_PUNPCKLQDQ_XMM_to_XMM(x86SSERegType to, x86SSERegType from) { SSERtoR66( 0x6C0F ); }
 void SSE2_PUNPCKLQDQ_M128_to_XMM(x86SSERegType to, u32 from) { SSEMtoR66( 0x6C0F ); }
 
+void SSE2_PUNPCKHQDQ_XMM_to_XMM(x86SSERegType to, x86SSERegType from) { SSERtoR66( 0x6D0F ); }
+void SSE2_PUNPCKHQDQ_M128_to_XMM(x86SSERegType to, u32 from) { SSEMtoR66( 0x6D0F ); }
+
 void SSE2_PMULLW_XMM_to_XMM(x86SSERegType to, x86SSERegType from) { SSERtoR66( 0xD50F ); }
 void SSE2_PMULLW_M128_to_XMM(x86SSERegType to, u32 from) { SSEMtoR66( 0xD50F ); }
 void SSE2_PMULHW_XMM_to_XMM(x86SSERegType to, x86SSERegType from) { SSERtoR66( 0xE50F ); }
@@ -787,10 +1212,234 @@ void SSE2_PMULUDQ_M128_to_XMM(x86SSERegType to, u32 from) { SSEMtoR66( 0xF40F );
 
 void SSE2_PMOVMSKB_XMM_to_R32(x86IntRegType to, x86SSERegType from) { SSERtoR66(0xD70F); }
 
+void SSE_MOVMSKPS_XMM_to_R32(x86IntRegType to, x86SSERegType from) { SSERtoR(0x500F); }
+void SSE2_MOVMSKPD_XMM_to_R32(x86IntRegType to, x86SSERegType from) { SSERtoR66(0x500F); }
+
+void SSE3_HADDPS_XMM_to_XMM(x86SSERegType to, x86SSERegType from) { write8(0xf2); SSERtoR( 0x7c0f ); }
+void SSE3_HADDPS_M128_to_XMM(x86SSERegType to, u32 from){ write8(0xf2); SSEMtoR( 0x7c0f, 0 ); }
+
+void SSE3_MOVSLDUP_XMM_to_XMM(x86SSERegType to, x86SSERegType from) { write8(0xf3); SSERtoR(0x120f); }
+void SSE3_MOVSLDUP_M128_to_XMM(x86SSERegType to, u32 from) { write8(0xf3); SSEMtoR(0x120f, 0); }
+void SSE3_MOVSHDUP_XMM_to_XMM(x86SSERegType to, x86SSERegType from) { write8(0xf3); SSERtoR(0x160f); }
+void SSE3_MOVSHDUP_M128_to_XMM(x86SSERegType to, u32 from) { write8(0xf3); SSEMtoR(0x160f, 0); }
+
+// SSE-X
+void SSEX_MOVDQA_M128_to_XMM( x86SSERegType to, u32 from )
+{
+	if( cpucaps.hasStreamingSIMD2Extensions && g_xmmtypes[to] == XMMT_INT ) SSE2_MOVDQA_M128_to_XMM(to, from);
+	else SSE_MOVAPS_M128_to_XMM(to, from);
+}
+
+void SSEX_MOVDQA_XMM_to_M128( u32 to, x86SSERegType from )
+{
+	if( cpucaps.hasStreamingSIMD2Extensions && g_xmmtypes[from] == XMMT_INT ) SSE2_MOVDQA_XMM_to_M128(to, from);
+	else SSE_MOVAPS_XMM_to_M128(to, from);
+}
+
+void SSEX_MOVDQA_XMM_to_XMM( x86SSERegType to, x86SSERegType from )
+{
+	if( cpucaps.hasStreamingSIMD2Extensions && g_xmmtypes[from] == XMMT_INT ) SSE2_MOVDQA_XMM_to_XMM(to, from);
+	else SSE_MOVAPS_XMM_to_XMM(to, from);
+}
+
+void SSEX_MOVDQARmtoROffset( x86SSERegType to, x86IntRegType from, u32 offset )
+{
+	if( cpucaps.hasStreamingSIMD2Extensions && g_xmmtypes[to] == XMMT_INT ) SSE2_MOVDQARmtoROffset(to, from, offset);
+	else SSE_MOVAPSRmtoROffset(to, from, offset);
+}
+
+void SSEX_MOVDQARtoRmOffset( x86IntRegType to, x86SSERegType from, u32 offset )
+{
+	if( cpucaps.hasStreamingSIMD2Extensions && g_xmmtypes[from] == XMMT_INT ) SSE2_MOVDQARtoRmOffset(to, from, offset);
+	else SSE_MOVAPSRtoRmOffset(to, from, offset);
+}
+
+void SSEX_MOVDQU_M128_to_XMM( x86SSERegType to, u32 from )
+{
+	if( cpucaps.hasStreamingSIMD2Extensions && g_xmmtypes[to] == XMMT_INT ) SSE2_MOVDQU_M128_to_XMM(to, from);
+	else SSE_MOVAPS_M128_to_XMM(to, from);
+}
+
+void SSEX_MOVDQU_XMM_to_M128( u32 to, x86SSERegType from )
+{
+	if( cpucaps.hasStreamingSIMD2Extensions && g_xmmtypes[from] == XMMT_INT ) SSE2_MOVDQU_XMM_to_M128(to, from);
+	else SSE_MOVAPS_XMM_to_M128(to, from);
+}
+
+void SSEX_MOVDQU_XMM_to_XMM( x86SSERegType to, x86SSERegType from )
+{
+	if( cpucaps.hasStreamingSIMD2Extensions && g_xmmtypes[from] == XMMT_INT ) SSE2_MOVDQU_XMM_to_XMM(to, from);
+	else SSE_MOVAPS_XMM_to_XMM(to, from);
+}
+
+void SSEX_MOVD_M32_to_XMM( x86SSERegType to, u32 from )
+{
+	if( cpucaps.hasStreamingSIMD2Extensions && g_xmmtypes[to] == XMMT_INT ) SSE2_MOVD_M32_to_XMM(to, from);
+	else SSE_MOVSS_M32_to_XMM(to, from);
+}
+
+void SSEX_MOVD_XMM_to_M32( u32 to, x86SSERegType from )
+{
+	if( cpucaps.hasStreamingSIMD2Extensions && g_xmmtypes[from] == XMMT_INT ) SSE2_MOVD_XMM_to_M32(to, from);
+	else SSE_MOVSS_XMM_to_M32(to, from);
+}
+
+void SSEX_MOVD_XMM_to_Rm( x86IntRegType to, x86SSERegType from )
+{
+	if( cpucaps.hasStreamingSIMD2Extensions && g_xmmtypes[from] == XMMT_INT ) SSE2_MOVD_XMM_to_Rm(to, from);
+	else SSE_MOVSS_XMM_to_Rm(to, from);
+}
+
+void SSEX_MOVD_RmOffset_to_XMM( x86SSERegType to, x86IntRegType from, u32 offset )
+{
+	if( cpucaps.hasStreamingSIMD2Extensions && g_xmmtypes[to] == XMMT_INT ) SSE2_MOVD_RmOffset_to_XMM(to, from, offset);
+	else SSE_MOVSS_RmOffset_to_XMM(to, from, offset);
+}
+
+void SSEX_MOVD_XMM_to_RmOffset( x86IntRegType to, x86SSERegType from, u32 offset )
+{
+	if( cpucaps.hasStreamingSIMD2Extensions && g_xmmtypes[from] == XMMT_INT ) SSE2_MOVD_XMM_to_RmOffset(to, from, offset);
+	else SSE_MOVSS_XMM_to_RmOffset(to, from, offset);
+}
+
+void SSEX_POR_M128_to_XMM( x86SSERegType to, u32 from )
+{
+	if( cpucaps.hasStreamingSIMD2Extensions && g_xmmtypes[to] == XMMT_INT ) SSE2_POR_M128_to_XMM(to, from);
+	else SSE_ORPS_M128_to_XMM(to, from);
+}
+
+void SSEX_POR_XMM_to_XMM( x86SSERegType to, x86SSERegType from )
+{
+	if( cpucaps.hasStreamingSIMD2Extensions && g_xmmtypes[from] == XMMT_INT ) SSE2_POR_XMM_to_XMM(to, from);
+	else SSE_ORPS_XMM_to_XMM(to, from);
+}
+
+void SSEX_PXOR_M128_to_XMM( x86SSERegType to, u32 from )
+{
+	if( cpucaps.hasStreamingSIMD2Extensions && g_xmmtypes[to] == XMMT_INT ) SSE2_PXOR_M128_to_XMM(to, from);
+	else SSE_XORPS_M128_to_XMM(to, from);
+}
+
+void SSEX_PXOR_XMM_to_XMM( x86SSERegType to, x86SSERegType from )
+{
+	if( cpucaps.hasStreamingSIMD2Extensions && g_xmmtypes[from] == XMMT_INT ) SSE2_PXOR_XMM_to_XMM(to, from);
+	else SSE_XORPS_XMM_to_XMM(to, from);
+}
+
+void SSEX_PAND_M128_to_XMM( x86SSERegType to, u32 from )
+{
+	if( cpucaps.hasStreamingSIMD2Extensions && g_xmmtypes[to] == XMMT_INT ) SSE2_PAND_M128_to_XMM(to, from);
+	else SSE_ANDPS_M128_to_XMM(to, from);
+}
+
+void SSEX_PAND_XMM_to_XMM( x86SSERegType to, x86SSERegType from )
+{
+	if( cpucaps.hasStreamingSIMD2Extensions && g_xmmtypes[from] == XMMT_INT ) SSE2_PAND_XMM_to_XMM(to, from);
+	else SSE_ANDPS_XMM_to_XMM(to, from);
+}
+
+void SSEX_PANDN_M128_to_XMM( x86SSERegType to, u32 from )
+{
+	if( cpucaps.hasStreamingSIMD2Extensions && g_xmmtypes[to] == XMMT_INT ) SSE2_PANDN_M128_to_XMM(to, from);
+	else SSE_ANDNPS_M128_to_XMM(to, from);
+}
+
+void SSEX_PANDN_XMM_to_XMM( x86SSERegType to, x86SSERegType from )
+{
+	if( cpucaps.hasStreamingSIMD2Extensions && g_xmmtypes[from] == XMMT_INT ) SSE2_PANDN_XMM_to_XMM(to, from);
+	else SSE_ANDNPS_XMM_to_XMM(to, from);
+}
+
+void SSEX_PUNPCKLDQ_M128_to_XMM(x86SSERegType to, u32 from)
+{
+	if( cpucaps.hasStreamingSIMD2Extensions && g_xmmtypes[to] == XMMT_INT ) SSE2_PUNPCKLDQ_M128_to_XMM(to, from);
+	else SSE_UNPCKLPS_M128_to_XMM(to, from);
+}
+
+void SSEX_PUNPCKLDQ_XMM_to_XMM(x86SSERegType to, x86SSERegType from)
+{
+	if( cpucaps.hasStreamingSIMD2Extensions && g_xmmtypes[from] == XMMT_INT ) SSE2_PUNPCKLDQ_XMM_to_XMM(to, from);
+	else SSE_UNPCKLPS_XMM_to_XMM(to, from);
+}
+
+void SSEX_PUNPCKHDQ_M128_to_XMM(x86SSERegType to, u32 from)
+{
+	if( cpucaps.hasStreamingSIMD2Extensions && g_xmmtypes[to] == XMMT_INT ) SSE2_PUNPCKHDQ_M128_to_XMM(to, from);
+	else SSE_UNPCKHPS_M128_to_XMM(to, from);
+}
+
+void SSEX_PUNPCKHDQ_XMM_to_XMM(x86SSERegType to, x86SSERegType from)
+{
+	if( cpucaps.hasStreamingSIMD2Extensions && g_xmmtypes[from] == XMMT_INT ) SSE2_PUNPCKHDQ_XMM_to_XMM(to, from);
+	else SSE_UNPCKHPS_XMM_to_XMM(to, from);
+}
+
+void SSEX_MOVHLPS_XMM_to_XMM( x86SSERegType to, x86SSERegType from )
+{
+	if( cpucaps.hasStreamingSIMD2Extensions && g_xmmtypes[from] == XMMT_INT ) {
+		SSE2_PUNPCKHQDQ_XMM_to_XMM(to, from);
+		if( to != from ) SSE2_PSHUFD_XMM_to_XMM(to, to, 0x4e);
+	}
+	else {
+		SSE_MOVHLPS_XMM_to_XMM(to, from);
+	}
+}
+
+// SSE2 emulation
+void SSE2EMU_MOVSD_XMM_to_XMM( x86SSERegType to, x86SSERegType from)
+{
+	SSE_SHUFPS_XMM_to_XMM(to, from, 0x4e);
+	SSE_SHUFPS_XMM_to_XMM(to, to, 0x4e);
+}
+
+void SSE2EMU_MOVQ_M64_to_XMM( x86SSERegType to, u32 from)
+{
+	SSE_XORPS_XMM_to_XMM(to, to);
+	SSE_MOVLPS_M64_to_XMM(to, from);
+}
+
+void SSE2EMU_MOVQ_XMM_to_XMM( x86SSERegType to, x86SSERegType from)
+{
+	SSE_XORPS_XMM_to_XMM(to, to);
+	SSE2EMU_MOVSD_XMM_to_XMM(to, from);
+}
+
+void SSE2EMU_MOVD_RmOffset_to_XMM( x86SSERegType to, x86IntRegType from, u32 offset )
+{
+	MOV32RmtoROffset(EAX, from, offset);
+	MOV32ItoM((u32)p+4, 0);
+	MOV32ItoM((u32)p+8, 0);
+	MOV32RtoM((u32)p, EAX);
+	MOV32ItoM((u32)p+12, 0);
+	SSE_MOVAPS_M128_to_XMM(to, (u32)p);
+}
+
+void SSE2EMU_MOVD_XMM_to_RmOffset(x86IntRegType to, x86SSERegType from, u32 offset )
+{
+	SSE_MOVSS_XMM_to_M32((u32)p, from);
+	MOV32MtoR(EAX, (u32)p);
+	MOV32RtoRmOffset(to, EAX, offset);
+}
+
+extern void SetMMXstate();
+
+void SSE2EMU_MOVDQ2Q_XMM_to_MM( x86MMXRegType to, x86SSERegType from)
+{
+	SSE_MOVLPS_XMM_to_M64((u32)p, from);
+	MOVQMtoR(to, (u32)p);
+	SetMMXstate();
+}
+
+void SSE2EMU_MOVQ2DQ_MM_to_XMM( x86SSERegType to, x86MMXRegType from)
+{
+	MOVQRtoM((u32)p, from);
+	SSE_MOVLPS_M64_to_XMM(to, (u32)p);
+	SetMMXstate();
+}
+
 /****************************************************************************/
 /*  SSE2 Emulated functions for SSE CPU's by kekko							*/
 /****************************************************************************/
-
 void SSE2EMU_PSHUFD_XMM_to_XMM( x86SSERegType to, x86SSERegType from, u8 imm8 ) {
 	MOV32ItoR(EAX, (u32)&p);
 	MOV32ItoR(EBX, (u32)&p2);
@@ -835,7 +1484,7 @@ void SSE2EMU_PSHUFD_XMM_to_XMM( x86SSERegType to, x86SSERegType from, u8 imm8 ) 
 	SSE_MOVUPSRmtoR(to, EBX);
 }
 
-void SSE2EMU_MOVD_XMM_to_R32( x86IntRegType to, x86SSERegType from ) {
+void SSE2EMU_MOVD_XMM_to_R( x86IntRegType to, x86SSERegType from ) {
 	MOV32ItoR(to, (u32)&p);
 	SSE_MOVUPSRtoRm(to, from);
 	MOV32RmtoR(to, to);
@@ -882,11 +1531,10 @@ void SSE2EMU_MOVD_XMM_to_M32( u32 to, x86SSERegType from ) {
 	MOV32RtoM(to, EAX);
 }
 
-void SSE2EMU_MOVD_R32_to_XMM( x86SSERegType to, x86IntRegType from ) {
+void SSE2EMU_MOVD_R_to_XMM( x86SSERegType to, x86IntRegType from ) {
 	MOV32ItoM((u32)p+4, 0);
 	MOV32ItoM((u32)p+8, 0);
+	MOV32RtoM((u32)p, from);
 	MOV32ItoM((u32)p+12, 0);
-	MOV32RtoM((u32)&p, from);
-	MOV32ItoR(EAX, (u32)p);
-	SSE_MOVUPSRmtoR(to, EAX);
+	SSE_MOVAPS_M128_to_XMM(to, (u32)p);
 }

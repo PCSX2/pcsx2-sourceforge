@@ -8,15 +8,18 @@ Global
 		Debug = Debug
 		Debug TLB = Debug TLB
 		Release = Release
+		Release (to Public) = Release (to Public)
 		Release TLB = Release TLB
 	EndGlobalSection
 	GlobalSection(ProjectConfiguration) = postSolution
 		{1CEFD830-2B76-4596-A4EE-BCD7280A60BD}.Debug.ActiveCfg = Debug|Win32
 		{1CEFD830-2B76-4596-A4EE-BCD7280A60BD}.Debug.Build.0 = Debug|Win32
-		{1CEFD830-2B76-4596-A4EE-BCD7280A60BD}.Debug TLB.ActiveCfg = Debug TLB|Win32
-		{1CEFD830-2B76-4596-A4EE-BCD7280A60BD}.Debug TLB.Build.0 = Debug TLB|Win32
+		{1CEFD830-2B76-4596-A4EE-BCD7280A60BD}.Debug TLB.ActiveCfg = Debut TLB|Win32
+		{1CEFD830-2B76-4596-A4EE-BCD7280A60BD}.Debug TLB.Build.0 = Debut TLB|Win32
 		{1CEFD830-2B76-4596-A4EE-BCD7280A60BD}.Release.ActiveCfg = Release|Win32
 		{1CEFD830-2B76-4596-A4EE-BCD7280A60BD}.Release.Build.0 = Release|Win32
+		{1CEFD830-2B76-4596-A4EE-BCD7280A60BD}.Release (to Public).ActiveCfg = Release (to Public)|Win32
+		{1CEFD830-2B76-4596-A4EE-BCD7280A60BD}.Release (to Public).Build.0 = Release (to Public)|Win32
 		{1CEFD830-2B76-4596-A4EE-BCD7280A60BD}.Release TLB.ActiveCfg = Release TLB|Win32
 		{1CEFD830-2B76-4596-A4EE-BCD7280A60BD}.Release TLB.Build.0 = Release TLB|Win32
 	EndGlobalSection

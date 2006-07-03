@@ -20,10 +20,13 @@
 #include <string.h>
 
 #include "PsxCommon.h"
+#include "ir5900.h"
 
 #ifdef __MSCW32__
 #pragma warning(disable:4244)
 #endif
+
+// NOTE: Any modifications to read/write fns should also go into their const counterparts
 
 void psxHwReset() {
 /*	if (Config.Sio) psxHu32(0x1070) |= 0x80;
@@ -81,6 +84,56 @@ u8 psxHwRead8(u32 add) {
 	PSXHW_LOG("*Known 8bit read at address %lx value %x\n", add, hard);
 #endif
 	return hard;
+}
+
+#define CONSTREAD8_CALL(name) { \
+	iFlushCall(0); \
+	CALLFunc((u32)name); \
+	if( sign ) MOVSX32R8toR(EAX, EAX); \
+	else MOVZX32R8toR(EAX, EAX); \
+} \
+
+static u32 s_16 = 0x10;
+
+int psxHwConstRead8(u32 x86reg, u32 add, u32 sign) {
+	
+	if (add >= 0x1f801600 && add < 0x1f801700) {
+		PUSH32I(add);
+		CONSTREAD8_CALL(USBread8);
+		// since calling from different dll, esp already changed
+		return 1;
+	}
+
+	switch (add) {
+		case 0x1f801040:
+			CONSTREAD8_CALL(sioRead8);
+			return 1;
+      //  case 0x1f801050: hard = serial_read8(); break;//for use of serial port ignore for now
+
+		case 0x1f80146e: // DEV9_R_REV
+			PUSH32I(add);
+			CONSTREAD8_CALL(DEV9read8);
+			return 1;
+
+		case 0x1f801800: CONSTREAD8_CALL(cdrRead0); return 1;
+		case 0x1f801801: CONSTREAD8_CALL(cdrRead1); return 1;
+		case 0x1f801802: CONSTREAD8_CALL(cdrRead2); return 1;
+		case 0x1f801803: CONSTREAD8_CALL(cdrRead3); return 1;
+
+		case 0x1f803100: // PS/EE/IOP conf related
+			if( IS_XMMREG(x86reg) ) SSEX_MOVD_M32_to_XMM(x86reg&0xf, (u32)&s_16);
+			else if( IS_MMXREG(x86reg) ) MOVDMtoMMX(x86reg&0xf, (u32)&s_16);
+			else MOV32ItoR(x86reg, 0x10);
+			return 0;
+
+		case 0x1F808264: //sio2 serial data feed/fifo_out
+			CONSTREAD8_CALL(sio2_fifoOut);
+			return 1;
+
+		default:
+			_eeReadConstMem8(x86reg, (u32)&psxH[(add) & 0xffff], sign);
+			return 0;
+	}
 }
 
 u16 psxHwRead16(u32 add) {
@@ -280,7 +333,6 @@ u16 psxHwRead16(u32 add) {
 
 		default:
 			if (add>=0x1f801c00 && add<0x1f801e00) {
-				SysPrintf("SPU2Reaad hw16 %x\n", add);
             	hard = SPU2read(add);
 			} else {
 				hard = psxHu16(add); 
@@ -295,6 +347,174 @@ u16 psxHwRead16(u32 add) {
 	PSXHW_LOG("*Known 16bit read at address %lx value %x\n", add, hard);
 #endif
 	return hard;
+}
+
+#define CONSTREAD16_CALL(name) { \
+	iFlushCall(0); \
+	CALLFunc((u32)name); \
+	if( sign ) MOVSX32R16toR(EAX, EAX); \
+	else MOVZX32R16toR(EAX, EAX); \
+} \
+
+void psxConstReadCounterMode16(int x86reg, int index, int sign)
+{
+	if( IS_MMXREG(x86reg) ) {
+		MOV16MtoR(ECX, (u32)&psxCounters[index].mode);
+		MOVDMtoMMX(x86reg&0xf, (u32)&psxCounters[index].mode - 2);
+	}
+	else {
+		if( sign ) MOVSX32M16toR(ECX, (u32)&psxCounters[index].mode);
+		else MOVZX32M16toR(ECX, (u32)&psxCounters[index].mode);
+
+		MOV32RtoR(x86reg, ECX);
+	}
+	
+	AND16ItoR(ECX, ~0x1800);
+	OR16ItoR(ECX, 0x400);
+	MOV16RtoM(psxCounters[index].mode, ECX);
+}
+
+int psxHwConstRead16(u32 x86reg, u32 add, u32 sign) {
+	if (add >= 0x1f801600 && add < 0x1f801700) {
+		PUSH32I(add);
+		CONSTREAD16_CALL(USBread16);
+		return 1;
+	}
+
+	switch (add) {
+
+		case 0x1f801040:
+			iFlushCall(0);
+			CALLFunc((u32)sioRead8);
+			PUSH32R(EAX);
+			CALLFunc((u32)sioRead8);
+			POP32R(ECX);
+			AND32ItoR(ECX, 0xff);
+			SHL32ItoR(EAX, 8);
+			OR32RtoR(EAX, ECX);
+			if( sign ) MOVSX32R16toR(EAX, EAX);
+			else MOVZX32R16toR(EAX, EAX);
+			return 1;
+
+		case 0x1f801044:
+			_eeReadConstMem16(x86reg, (u32)&sio.StatReg, sign);
+			return 0;
+
+		case 0x1f801048:
+			_eeReadConstMem16(x86reg, (u32)&sio.ModeReg, sign);
+			return 0;
+
+		case 0x1f80104a:
+			_eeReadConstMem16(x86reg, (u32)&sio.CtrlReg, sign);
+			return 0;
+
+		case 0x1f80104e:
+			_eeReadConstMem16(x86reg, (u32)&sio.BaudReg, sign);
+			return 0;
+
+		// counters[0]
+		case 0x1f801100:
+			PUSH32I(0);
+			CONSTREAD16_CALL(psxRcntRcount16);
+			ADD32ItoR(ESP, 4);
+			return 1;
+		case 0x1f801104:
+			psxConstReadCounterMode16(x86reg, 0, sign);
+			return 0;
+
+		case 0x1f801108:
+			_eeReadConstMem16(x86reg, (u32)&psxCounters[0].target, sign);
+			return 0;
+
+		// counters[1]
+		case 0x1f801110:
+			PUSH32I(1);
+			CONSTREAD16_CALL(psxRcntRcount16);
+			ADD32ItoR(ESP, 4);
+			return 1;
+		case 0x1f801114:
+			psxConstReadCounterMode16(x86reg, 1, sign);
+			return 0;
+
+		case 0x1f801118:
+			_eeReadConstMem16(x86reg, (u32)&psxCounters[1].target, sign);
+			return 0;
+
+		// counters[2]
+		case 0x1f801120:
+			PUSH32I(2);
+			CONSTREAD16_CALL(psxRcntRcount16);
+			ADD32ItoR(ESP, 4);
+			return 1;
+		case 0x1f801124:
+			psxConstReadCounterMode16(x86reg, 2, sign);
+			return 0;
+
+		case 0x1f801128:
+			_eeReadConstMem16(x86reg, (u32)&psxCounters[2].target, sign);
+			return 0;
+
+		case 0x1f80146e: // DEV9_R_REV
+			PUSH32I(add);
+			CONSTREAD16_CALL(DEV9read16);
+			return 1;
+
+		// counters[3]
+		case 0x1f801480:
+			PUSH32I(3);
+			CONSTREAD16_CALL(psxRcntRcount32);
+			ADD32ItoR(ESP, 4);
+			return 1;
+
+		case 0x1f801484:
+			psxConstReadCounterMode16(x86reg, 3, sign);
+			return 0;
+
+		case 0x1f801488:
+			_eeReadConstMem16(x86reg, (u32)&psxCounters[3].target, sign);
+			return 0;
+
+		// counters[4]
+		case 0x1f801490:
+			PUSH32I(4);
+			CONSTREAD16_CALL(psxRcntRcount32);
+			ADD32ItoR(ESP, 4);
+			return 1;
+
+		case 0x1f801494:
+			psxConstReadCounterMode16(x86reg, 4, sign);
+			return 0;
+			
+		case 0x1f801498:
+			_eeReadConstMem16(x86reg, (u32)&psxCounters[4].target, sign);
+			return 0;
+
+		// counters[5]
+		case 0x1f8014a0:
+			PUSH32I(5);
+			CONSTREAD16_CALL(psxRcntRcount32);
+			ADD32ItoR(ESP, 4);
+			return 1;
+
+		case 0x1f8014a4:
+			psxConstReadCounterMode16(x86reg, 5, sign);
+			return 0;
+
+		case 0x1f8014a8:
+			_eeReadConstMem16(x86reg, (u32)&psxCounters[5].target, sign);
+			return 0;
+
+		default:			
+			if (add>=0x1f801c00 && add<0x1f801e00) {
+			
+				PUSH32I(add);
+				CONSTREAD16_CALL(SPU2read);
+				return 1;
+			} else {
+				_eeReadConstMem16(x86reg, (u32)&psxH[(add) & 0xffff], sign);
+				return 0;
+			}
+	}
 }
 
 u32 psxHwRead32(u32 add) {
@@ -418,109 +638,109 @@ u32 psxHwRead32(u32 add) {
 		case 0x1f801000:
 			hard = psxHu32(0x1000);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS <spd_addr> 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS MDECin (T2) 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801004:
 			hard = psxHu32(0x1004);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS <8_addr> 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS 8 (T2) 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801008:
 			hard = psxHu32(0x1008);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS <spd_delay> 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS MDECin (T1) 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f80100C:
 			hard = psxHu32(0x100C);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS dev1_delay 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS MDECout (T1) 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801010:
 			hard = psxHu32(0x1010);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS rom_delay 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS GIF(SIF2) (T1) 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801014:
 			hard = psxHu32(0x1014);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS spu_delay 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS SPU(T1) spu_delay 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801018:
 			hard = psxHu32(0x1018);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS dev5_delay 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS PIO(T1) 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f80101C:
 			hard = psxHu32(0x101C);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS <8_delay> 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS 8(T1) 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801020:
 			hard = psxHu32(0x1020);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS com_delay 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS Config 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801400:
 			hard = psxHu32(0x1400);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS dev1_addr 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS MDECout(T2) 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801404:
 			hard = psxHu32(0x1404);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS <spu_addr> 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS SPU(T2) 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801408:
 			hard = psxHu32(0x1408);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS dev5_addr 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS PIO(T2) 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f80140C:
 			hard = psxHu32(0x140C);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS <9_addr> 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS SIF0(T2) 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801410:
 			hard = psxHu32(0x1410);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS <dev9_addr3> 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS SIO2in(T2) 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801414:
 			hard = psxHu32(0x1414);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS <9_delay> 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS SIF0(T1) 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801418:
 			hard = psxHu32(0x1418);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS <dev9_delay2> 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS SIF1(T1) 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f80141C:
 			hard = psxHu32(0x141C);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS <dev9_delay3> 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS SIO2in(T1) 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801420:
 			hard = psxHu32(0x1420);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS <dev9_delay1> 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS SIO2out(T1) 32bit read %lx\n", hard);
 #endif
 			return hard;
 
@@ -800,6 +1020,245 @@ u32 psxHwRead32(u32 add) {
 	return hard;
 }
 
+void psxConstReadCounterMode32(int x86reg, int index)
+{
+	if( IS_MMXREG(x86reg) ) {
+		MOV16MtoR(ECX, (u32)&psxCounters[index].mode);
+		MOVDMtoMMX(x86reg&0xf, (u32)&psxCounters[index].mode);
+	}
+	else {
+		MOVZX32M16toR(ECX, (u32)&psxCounters[index].mode);
+		MOV32RtoR(x86reg, ECX);
+	}
+
+	AND16ItoR(ECX, ~0x1800);
+	OR16ItoR(ECX, 0x400);
+	MOV16RtoM(psxCounters[index].mode, ECX);
+}
+
+static u32 s_tempsio;
+int psxHwConstRead32(u32 x86reg, u32 add) {
+	if (add >= 0x1f801600 && add < 0x1f801700) {
+		iFlushCall(0);
+		PUSH32I(add);
+		CALLFunc((u32)USBread32);
+		return 1;
+	}
+	if (add >= 0x1f808400 && add <= 0x1f808550) {//the size is a complete guess..
+		iFlushCall(0);
+		PUSH32I(add);
+		CALLFunc((u32)FWread32);
+		return 1;
+	}
+
+	switch (add) {
+		case 0x1f801040:
+			iFlushCall(0);
+			CALLFunc((u32)sioRead8);
+			AND32ItoR(EAX, 0xff);
+			MOV32RtoM((u32)&s_tempsio, EAX);
+			CALLFunc((u32)sioRead8);
+			AND32ItoR(EAX, 0xff);
+			SHL32ItoR(EAX, 8);
+			OR32RtoM((u32)&s_tempsio, EAX);
+
+			// 3rd
+			CALLFunc((u32)sioRead8);
+			AND32ItoR(EAX, 0xff);
+			SHL32ItoR(EAX, 16);
+			OR32RtoM((u32)&s_tempsio, EAX);
+
+			// 4th
+			CALLFunc((u32)sioRead8);
+			SHL32ItoR(EAX, 24);
+			OR32MtoR(EAX, (u32)&s_tempsio);
+			return 1;
+			
+		//case 0x1f801050: hard = serial_read32(); break;//serial port
+		case 0x1f801078:
+#ifdef PSXHW_LOG
+			PSXHW_LOG("ICTRL 32bit read %x\n", psxHu32(0x1078));
+#endif
+			_eeReadConstMem32(x86reg, (u32)&psxH[add&0xffff]);
+			MOV32ItoM((u32)&psxH[add&0xffff], 0);
+			return 0;
+		
+			// counters[0]
+		case 0x1f801100:
+			iFlushCall(0);
+			PUSH32I(0);
+			CALLFunc((u32)psxRcntRcount16);
+			ADD32ItoR(ESP, 4);
+			return 1;
+		case 0x1f801104:
+			psxConstReadCounterMode32(x86reg, 0);
+			return 0;
+
+		case 0x1f801108:
+			_eeReadConstMem32(x86reg, (u32)&psxCounters[0].target);
+			return 0;
+
+		// counters[1]
+		case 0x1f801110:
+			iFlushCall(0);
+			PUSH32I(1);
+			CALLFunc((u32)psxRcntRcount16);
+			ADD32ItoR(ESP, 4);
+			return 1;
+		case 0x1f801114:
+			psxConstReadCounterMode32(x86reg, 1);
+			return 0;
+
+		case 0x1f801118:
+			_eeReadConstMem32(x86reg, (u32)&psxCounters[1].target);
+			return 0;
+
+		// counters[2]
+		case 0x1f801120:
+			iFlushCall(0);
+			PUSH32I(2);
+			CALLFunc((u32)psxRcntRcount16);
+			ADD32ItoR(ESP, 4);
+			return 1;
+		case 0x1f801124:
+			psxConstReadCounterMode32(x86reg, 2);
+			return 0;
+
+		case 0x1f801128:
+			_eeReadConstMem32(x86reg, (u32)&psxCounters[2].target);
+			return 0;
+
+		// counters[3]
+		case 0x1f801480:
+			iFlushCall(0);
+			PUSH32I(3);
+			CALLFunc((u32)psxRcntRcount32);
+			ADD32ItoR(ESP, 4);
+			return 1;
+
+		case 0x1f801484:
+			psxConstReadCounterMode32(x86reg, 3);
+			return 0;
+
+		case 0x1f801488:
+			_eeReadConstMem32(x86reg, (u32)&psxCounters[3].target);
+			return 0;
+
+		// counters[4]
+		case 0x1f801490:
+			iFlushCall(0);
+			PUSH32I(4);
+			CALLFunc((u32)psxRcntRcount32);
+			ADD32ItoR(ESP, 4);
+			return 1;
+
+		case 0x1f801494:
+			psxConstReadCounterMode32(x86reg, 4);
+			return 0;
+			
+		case 0x1f801498:
+			_eeReadConstMem32(x86reg, (u32)&psxCounters[4].target);
+			return 0;
+
+		// counters[5]
+		case 0x1f8014a0:
+			iFlushCall(0);
+			PUSH32I(5);
+			CALLFunc((u32)psxRcntRcount32);
+			ADD32ItoR(ESP, 4);
+			return 1;
+
+		case 0x1f8014a4:
+			psxConstReadCounterMode32(x86reg, 5);
+			return 0;
+
+		case 0x1f8014a8:
+			_eeReadConstMem32(x86reg, (u32)&psxCounters[5].target);
+			return 0;
+
+		case 0x1F808200:
+		case 0x1F808204:
+		case 0x1F808208:
+		case 0x1F80820C:
+		case 0x1F808210:
+		case 0x1F808214:
+		case 0x1F808218:
+		case 0x1F80821C:
+		case 0x1F808220:
+		case 0x1F808224:
+		case 0x1F808228:
+		case 0x1F80822C:
+		case 0x1F808230:
+		case 0x1F808234:
+		case 0x1F808238:
+		case 0x1F80823C:
+			iFlushCall(0);
+			PUSH32I((add-0x1F808200)/4);
+			CALLFunc((u32)sio2_getSend3);
+			ADD32ItoR(ESP, 4);
+			return 1;
+
+		case 0x1F808240:
+		case 0x1F808248:
+		case 0x1F808250:
+		case 0x1F80825C:
+			iFlushCall(0);
+			PUSH32I((add-0x1F808240)/8);
+			CALLFunc((u32)sio2_getSend1);
+			ADD32ItoR(ESP, 4);
+			return 1;
+		
+		case 0x1F808244:
+		case 0x1F80824C:
+		case 0x1F808254:
+		case 0x1F808258:
+			iFlushCall(0);
+			PUSH32I((add-0x1F808244)/8);
+			CALLFunc((u32)sio2_getSend2);
+			ADD32ItoR(ESP, 4);
+			return 1;
+
+		case 0x1F808268:
+			iFlushCall(0);
+			CALLFunc((u32)sio2_getCtrl);
+			return 1;
+			
+		case 0x1F80826C:
+			iFlushCall(0);
+			CALLFunc((u32)sio2_getRecv1);
+			return 1;
+
+		case 0x1F808270:
+			iFlushCall(0);
+			CALLFunc((u32)sio2_getRecv2);
+			return 1;
+
+		case 0x1F808274:
+			iFlushCall(0);
+			CALLFunc((u32)sio2_getRecv3);
+			return 1;
+
+		case 0x1F808278:
+			iFlushCall(0);
+			CALLFunc((u32)sio2_get8278);
+			return 1;
+
+		case 0x1F80827C:
+			iFlushCall(0);
+			CALLFunc((u32)sio2_get827C);
+			return 1;
+
+		case 0x1F808280:
+			iFlushCall(0);
+			CALLFunc((u32)sio2_getIntr);
+			return 1;
+
+		default:
+			_eeReadConstMem32(x86reg, (u32)&psxH[(add) & 0xffff]);
+			return 0;
+	}
+}
+
 static int pbufi;
 static s8 pbuf[1024];
 
@@ -859,6 +1318,51 @@ void psxHwWrite8(u32 add, u8 value) {
 #ifdef PSXHW_LOG
 	PSXHW_LOG("*Known 8bit write at address %lx value %x\n", add, value);
 #endif
+}
+
+#define CONSTWRITE_CALL(name) { \
+	_recPushReg(mmreg); \
+	iFlushCall(0); \
+	CALLFunc((u32)name); \
+	ADD32ItoR(ESP, 4); \
+} \
+
+void Write8PrintBuffer(u8 value)
+{
+	if (value == '\r') return;
+	if (value == '\n' || pbufi >= 1023) {
+		pbuf[pbufi++] = 0; pbufi = 0;
+		SysPrintf("%s\n", pbuf); return;
+	}
+	pbuf[pbufi++] = value;
+}
+
+void psxHwConstWrite8(u32 add, int mmreg)
+{
+	if (add >= 0x1f801600 && add < 0x1f801700) {
+		_recPushReg(mmreg);
+		iFlushCall(0);
+		PUSH32I(add);
+		CALLFunc((u32)USBwrite8);
+		return;
+	}
+
+	switch (add) {
+		case 0x1f801040:
+			CONSTWRITE_CALL(sioWrite8); break;
+		//case 0x1f801050: serial_write8(value); break;//serial port
+
+		case 0x1f801800: CONSTWRITE_CALL(cdrWrite0); break;
+		case 0x1f801801: CONSTWRITE_CALL(cdrWrite1); break;
+		case 0x1f801802: CONSTWRITE_CALL(cdrWrite2); break;
+		case 0x1f801803: CONSTWRITE_CALL(cdrWrite3); break;
+		case 0x1f80380c: CONSTWRITE_CALL(Write8PrintBuffer); break;
+		case 0x1F808260: CONSTWRITE_CALL(sio2_fifoIn); break;
+
+		default:
+			_eeWriteConstMem8((u32)&psxH[(add) & 0xffff], mmreg);
+			return;
+	}
 }
 
 void psxHwWrite16(u32 add, u16 value) {
@@ -1049,7 +1553,7 @@ void psxHwWrite16(u32 add, u16 value) {
 			return;
 		default:
 			if (add>=0x1f801c00 && add<0x1f801e00) {
-            	SPU2write(add, value);
+				SPU2write(add, value);
 				return;
 			}
 
@@ -1065,7 +1569,178 @@ void psxHwWrite16(u32 add, u16 value) {
 #endif
 }
 
+void psxHwConstWrite16(u32 add, int mmreg) {
+	if (add >= 0x1f801600 && add < 0x1f801700) {
+		_recPushReg(mmreg);
+		iFlushCall(0);
+		PUSH32I(add);
+		CALLFunc((u32)USBwrite16);
+		return;
+	}
 
+	switch (add) {
+		case 0x1f801040:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			CALLFunc((u32)sioWrite8);
+			ADD32ItoR(ESP, 1);
+			CALLFunc((u32)sioWrite8);
+			ADD32ItoR(ESP, 3);
+			return;
+		case 0x1f801044:
+			return;
+		case 0x1f801048:
+			_eeWriteConstMem16((u32)&sio.ModeReg, mmreg);
+			return;
+		case 0x1f80104a: // control register
+			CONSTWRITE_CALL(sioWriteCtrl16);
+			return;
+		case 0x1f80104e: // baudrate register
+			_eeWriteConstMem16((u32)&sio.BaudReg, mmreg);
+			return;
+
+		case 0x1f801070: 
+			_eeWriteConstMem16OP((u32)&psxH[(add) & 0xffff], mmreg, 0);
+			return;
+
+		// counters[0]
+		case 0x1f801100:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(0);
+			CALLFunc((u32)psxRcntWcount16);
+			ADD32ItoR(ESP, 8);
+			return;
+		case 0x1f801104:
+			CONSTWRITE_CALL(psxRcnt0Wmode);
+			return;
+		case 0x1f801108:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(0);
+			CALLFunc((u32)psxRcntWtarget16);
+			ADD32ItoR(ESP, 8);
+			return;
+
+		// counters[1]
+		case 0x1f801110:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(1);
+			CALLFunc((u32)psxRcntWcount16);
+			ADD32ItoR(ESP, 8);
+			return;
+
+		case 0x1f801114:
+			CONSTWRITE_CALL(psxRcnt1Wmode);
+			return;
+
+		case 0x1f801118:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(1);
+			CALLFunc((u32)psxRcntWtarget16);
+			ADD32ItoR(ESP, 8);
+			return;
+
+		// counters[2]
+		case 0x1f801120:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(2);
+			CALLFunc((u32)psxRcntWcount16);
+			ADD32ItoR(ESP, 8);
+			return;
+
+		case 0x1f801124:
+			CONSTWRITE_CALL(psxRcnt2Wmode);
+			return;
+
+		case 0x1f801128:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(2);
+			CALLFunc((u32)psxRcntWtarget16);
+			ADD32ItoR(ESP, 8);
+			return;
+
+		// counters[3]
+		case 0x1f801480:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(3);
+			CALLFunc((u32)psxRcntWcount32);
+			ADD32ItoR(ESP, 8);
+			return;
+
+		case 0x1f801484:
+			CONSTWRITE_CALL(psxRcnt3Wmode);
+			return;
+
+		case 0x1f801488:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(3);
+			CALLFunc((u32)psxRcntWtarget32);
+			ADD32ItoR(ESP, 8);
+			return;
+
+		// counters[4]
+		case 0x1f801490:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(4);
+			CALLFunc((u32)psxRcntWcount32);
+			ADD32ItoR(ESP, 8);
+			return;
+
+		case 0x1f801494:
+			CONSTWRITE_CALL(psxRcnt4Wmode);
+			return;
+
+		case 0x1f801498:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(4);
+			CALLFunc((u32)psxRcntWtarget32);
+			ADD32ItoR(ESP, 8);
+			return;
+
+		// counters[5]
+		case 0x1f8014a0:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(5);
+			CALLFunc((u32)psxRcntWcount32);
+			ADD32ItoR(ESP, 8);
+			return;
+
+		case 0x1f8014a4:
+			CONSTWRITE_CALL(psxRcnt5Wmode);
+			return;
+
+		case 0x1f8014a8:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(5);
+			CALLFunc((u32)psxRcntWtarget32);
+			ADD32ItoR(ESP, 8);
+			return;
+
+		default:
+			if (add>=0x1f801c00 && add<0x1f801e00) {
+				_recPushReg(mmreg);
+				iFlushCall(0);
+				PUSH32I(add);
+            	CALLFunc((u32)SPU2write);
+				// leave esp alone
+				return;
+			}
+
+			_eeWriteConstMem16((u32)&psxH[(add) & 0xffff], mmreg);
+			return;
+	}
+}
 
 #define DmaExec2(n) { \
 	if (HW_DMA##n##_CHCR & 0x01000000 && \
@@ -1124,109 +1799,109 @@ void psxHwWrite32(u32 add, u32 value) {
 		case 0x1f801000:
 			psxHu32(0x1000) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS <spd_addr> 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS MDECin (T2) 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f801004:
 			psxHu32(0x1004) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS <8_addr> 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS 8 (T2) 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f801008:
 			psxHu32(0x1008) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS <spd_delay> 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS MDECin (T1) 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f80100C:
 			psxHu32(0x100C) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS dev1_delay 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS MDECout (T1) 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f801010:
 			psxHu32(0x1010) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS rom_delay 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS GIF(SIF2) (T1) 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f801014:
 			psxHu32(0x1014) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS spu_delay 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS SPU(T1) spu_delay 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f801018:
 			psxHu32(0x1018) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS dev5_delay 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS PIO(T1) 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f80101C:
 			psxHu32(0x101C) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS <8_delay> 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS 8(T1) 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f801020:
 			psxHu32(0x1020) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS com_delay 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS Config 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f801400:
 			psxHu32(0x1400) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS dev1_addr 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS MDECout(T2) 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f801404:
 			psxHu32(0x1404) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS <spu_addr> 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS SPU(T2) 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f801408:
 			psxHu32(0x1408) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS dev5_addr 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS PIO(T2) 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f80140C:
 			psxHu32(0x140C) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS <9_addr> 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS SIF0(T2) 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f801410:
 			psxHu32(0x1410) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS <dev9_addr3> 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS SIO2in(T2) 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f801414:
 			psxHu32(0x1414) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS <9_delay> 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS SIF0(T1) 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f801418:
 			psxHu32(0x1418) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS <dev9_delay2> 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS SIF1(T1) 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f80141C:
 			psxHu32(0x141C) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS <dev9_delay3> 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS SIO2in(T1) 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f801420:
 			psxHu32(0x1420) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS <dev9_delay1> 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS SIO2out(T1) 32bit write %lx\n", value);
 #endif
 			return;
 #ifdef PSXHW_LOG
@@ -1677,18 +2352,332 @@ void psxHwWrite32(u32 add, u32 value) {
 #endif
 }
 
+#define recDmaExec(n) { \
+	iFlushCall(0); \
+	if( n > 6 ) \
+		TEST32ItoM((u32)&HW_DMA_PCR2, 8 << ((n-7) * 4)); \
+	else \
+		TEST32ItoM((u32)&HW_DMA_PCR, 8 << (n * 4)); \
+	j8Ptr[5] = JZ8(0); \
+	MOV32MtoR(EAX, (u32)&HW_DMA##n##_CHCR); \
+	TEST32ItoR(EAX, 0x01000000); \
+	j8Ptr[6] = JZ8(0); \
+	\
+	PUSH32R(EAX); \
+	PUSH32M((u32)&HW_DMA##n##_BCR); \
+	PUSH32M((u32)&HW_DMA##n##_MADR); \
+	CALLFunc((u32)psxDma##n); \
+	ADD32ItoR(ESP, 12); \
+	\
+	x86SetJ8( j8Ptr[5] ); \
+	x86SetJ8( j8Ptr[6] ); \
+} \
+
+#define CONSTWRITE_CALL32(name) { \
+	iFlushCall(0); \
+	_recPushReg(mmreg); \
+	CALLFunc((u32)name); \
+	ADD32ItoR(ESP, 4); \
+} \
+
+void psxHwConstWrite32(u32 add, int mmreg)
+{
+	if (add >= 0x1f801600 && add < 0x1f801700) {
+		_recPushReg(mmreg);
+		iFlushCall(0);
+		PUSH32I(add);
+		CALLFunc((u32)USBwrite32);
+		return;
+	}
+	if (add >= 0x1f808400 && add <= 0x1f808550) {
+		_recPushReg(mmreg);
+		iFlushCall(0);
+		PUSH32I(add);
+		CALLFunc((u32)FWwrite32);
+		return;
+	}
+
+	switch (add) {
+	    case 0x1f801040:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			CALLFunc((u32)sioWrite8);
+			ADD32ItoR(ESP, 1);
+			CALLFunc((u32)sioWrite8);
+			ADD32ItoR(ESP, 1);
+			CALLFunc((u32)sioWrite8);
+			ADD32ItoR(ESP, 1);
+			CALLFunc((u32)sioWrite8);
+			ADD32ItoR(ESP, 1);
+			return;
+
+		case 0x1f801070:
+			_eeWriteConstMem32OP((u32)&psxH[(add) & 0xffff], mmreg, 0); // and
+			return;
+
+//		case 0x1f801088:
+//			HW_DMA0_CHCR = value;        // DMA0 chcr (MDEC in DMA)
+////			DmaExec(0);
+//			return;
+
+//		case 0x1f801098:
+//			HW_DMA1_CHCR = value;        // DMA1 chcr (MDEC out DMA)
+////			DmaExec(1);
+//			return;
+		
+		case 0x1f8010a8:
+			_eeWriteConstMem32((u32)&psxH[(add) & 0xffff], mmreg);
+			recDmaExec(2);
+			return;
+
+		case 0x1f8010b8:
+			_eeWriteConstMem32((u32)&psxH[(add) & 0xffff], mmreg);
+			recDmaExec(3);
+			return;
+
+		case 0x1f8010c8:
+			_eeWriteConstMem32((u32)&psxH[(add) & 0xffff], mmreg);
+			recDmaExec(4);
+			return;
+
+		case 0x1f8010e8:
+			_eeWriteConstMem32((u32)&psxH[(add) & 0xffff], mmreg);
+			recDmaExec(6);
+			return;
+
+		case 0x1f801508:
+			_eeWriteConstMem32((u32)&psxH[(add) & 0xffff], mmreg);
+			recDmaExec(7);
+			return;
+
+		case 0x1f801518:
+			_eeWriteConstMem32((u32)&psxH[(add) & 0xffff], mmreg);
+			recDmaExec(8);
+			return;
+
+		case 0x1f801528:
+			_eeWriteConstMem32((u32)&psxH[(add) & 0xffff], mmreg);
+			recDmaExec(9);
+			return;
+
+		case 0x1f801538:
+			_eeWriteConstMem32((u32)&psxH[(add) & 0xffff], mmreg);
+			recDmaExec(10);
+			return;
+
+		case 0x1f801548:
+			_eeWriteConstMem32((u32)&psxH[(add) & 0xffff], mmreg);
+			recDmaExec(11);
+			return;
+
+		case 0x1f801558:
+			_eeWriteConstMem32((u32)&psxH[(add) & 0xffff], mmreg);
+			recDmaExec(12);
+			return;
+
+		case 0x1f8010f4:
+		case 0x1f801574:
+		{
+			// u32 tmp = (~value) & HW_DMA_ICR;
+			_eeMoveMMREGtoR(EAX, mmreg);
+			MOV32RtoR(ECX, EAX);
+			NOT32R(ECX);
+			AND32MtoR(ECX, (u32)&psxH[(add) & 0xffff]);
+
+			// HW_DMA_ICR = ((tmp ^ value) & 0xffffff) ^ tmp;
+			XOR32RtoR(EAX, ECX);
+			AND32ItoR(EAX, 0xffffff);
+			XOR32RtoR(EAX, ECX);
+			MOV32RtoM((u32)&psxH[(add) & 0xffff], EAX);
+			return;
+		}
+
+		// counters[0]
+		case 0x1f801100:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(0);
+			CALLFunc((u32)psxRcntWcount16);
+			ADD32ItoR(ESP, 8);
+			return;
+		case 0x1f801104:
+			CONSTWRITE_CALL32(psxRcnt0Wmode);
+			return;
+		case 0x1f801108:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(0);
+			CALLFunc((u32)psxRcntWtarget16);
+			ADD32ItoR(ESP, 8);
+			return;
+
+		// counters[1]
+		case 0x1f801110:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(1);
+			CALLFunc((u32)psxRcntWcount16);
+			ADD32ItoR(ESP, 8);
+			return;
+
+		case 0x1f801114:
+			CONSTWRITE_CALL32(psxRcnt1Wmode);
+			return;
+
+		case 0x1f801118:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(1);
+			CALLFunc((u32)psxRcntWtarget16);
+			ADD32ItoR(ESP, 8);
+			return;
+
+		// counters[2]
+		case 0x1f801120:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(2);
+			CALLFunc((u32)psxRcntWcount16);
+			ADD32ItoR(ESP, 8);
+			return;
+
+		case 0x1f801124:
+			CONSTWRITE_CALL32(psxRcnt2Wmode);
+			return;
+
+		case 0x1f801128:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(2);
+			CALLFunc((u32)psxRcntWtarget16);
+			ADD32ItoR(ESP, 8);
+			return;
+
+		// counters[3]
+		case 0x1f801480:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(3);
+			CALLFunc((u32)psxRcntWcount32);
+			ADD32ItoR(ESP, 8);
+			return;
+
+		case 0x1f801484:
+			CONSTWRITE_CALL32(psxRcnt3Wmode);
+			return;
+
+		case 0x1f801488:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(3);
+			CALLFunc((u32)psxRcntWtarget32);
+			ADD32ItoR(ESP, 8);
+			return;
+
+		// counters[4]
+		case 0x1f801490:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(4);
+			CALLFunc((u32)psxRcntWcount32);
+			ADD32ItoR(ESP, 8);
+			return;
+
+		case 0x1f801494:
+			CONSTWRITE_CALL32(psxRcnt4Wmode);
+			return;
+
+		case 0x1f801498:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(4);
+			CALLFunc((u32)psxRcntWtarget32);
+			ADD32ItoR(ESP, 8);
+			return;
+
+		// counters[5]
+		case 0x1f8014a0:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(5);
+			CALLFunc((u32)psxRcntWcount32);
+			ADD32ItoR(ESP, 8);
+			return;
+
+		case 0x1f8014a4:
+			CONSTWRITE_CALL32(psxRcnt5Wmode);
+			return;
+
+		case 0x1f8014a8:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(5);
+			CALLFunc((u32)psxRcntWtarget32);
+			ADD32ItoR(ESP, 8);
+			return;
+
+		case 0x1f8014c0:
+			SysPrintf("RTC_HOLDMODE 32bit write\n");
+			break;
+
+		case 0x1F808200:
+		case 0x1F808204:
+		case 0x1F808208:
+		case 0x1F80820C:
+		case 0x1F808210:
+		case 0x1F808214:
+		case 0x1F808218:
+		case 0x1F80821C:
+		case 0x1F808220:
+		case 0x1F808224:
+		case 0x1F808228:
+		case 0x1F80822C:
+		case 0x1F808230:
+		case 0x1F808234:
+		case 0x1F808238:
+		case 0x1F80823C:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I((add-0x1F808200)/4);
+			CALLFunc((u32)sio2_setSend3);
+			ADD32ItoR(ESP, 8);
+			return;
+
+		case 0x1F808240:
+		case 0x1F808248:
+		case 0x1F808250:
+		case 0x1F808258:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I((add-0x1F808240)/8);
+			CALLFunc((u32)sio2_setSend1);
+			ADD32ItoR(ESP, 8);
+			return;
+
+		case 0x1F808244:
+		case 0x1F80824C:
+		case 0x1F808254:
+		case 0x1F80825C:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I((add-0x1F808244)/8);
+			CALLFunc((u32)sio2_setSend2);
+			ADD32ItoR(ESP, 8);
+			return;
+
+		case 0x1F808268: CONSTWRITE_CALL32(sio2_setCtrl); return;
+		case 0x1F808278: CONSTWRITE_CALL32(sio2_set8278);	return;
+		case 0x1F80827C: CONSTWRITE_CALL32(sio2_set827C);	return;
+		case 0x1F808280: CONSTWRITE_CALL32(sio2_setIntr);	return;
+
+		default:
+			_eeWriteConstMem32((u32)&psxH[(add) & 0xffff], mmreg);
+			return;
+	}
+}
 
 u8 psxHw4Read8(u32 add) {
 	u8 hard;
-
-//	if( varLog )
-//	{
-//		int i = 0;
-//		for(i = 0; i < 32; ++i) {
-//			__Log("%x ", psxRegs.GPR.r[i]);
-//		}
-//		__Log("\n");
-//	}
 
 	switch (add) {
 		case 0x1f402004: return cdvdRead04();
@@ -1740,6 +2729,49 @@ u8 psxHw4Read8(u32 add) {
 	return hard;
 }
 
+int psxHw4ConstRead8(u32 x86reg, u32 add, u32 sign) {
+	switch (add) {
+		case 0x1f402004: CONSTREAD8_CALL((u32)cdvdRead04); return 1;
+		case 0x1f402005: CONSTREAD8_CALL((u32)cdvdRead05); return 1;
+		case 0x1f402006: CONSTREAD8_CALL((u32)cdvdRead06); return 1;
+		case 0x1f402007: CONSTREAD8_CALL((u32)cdvdRead07); return 1;
+		case 0x1f402008: CONSTREAD8_CALL((u32)cdvdRead08); return 1;
+		case 0x1f40200A: CONSTREAD8_CALL((u32)cdvdRead0A); return 1;
+		case 0x1f40200B: CONSTREAD8_CALL((u32)cdvdRead0B); return 1;
+		case 0x1f40200C: CONSTREAD8_CALL((u32)cdvdRead0C); return 1;
+		case 0x1f40200D: CONSTREAD8_CALL((u32)cdvdRead0D); return 1;
+		case 0x1f40200E: CONSTREAD8_CALL((u32)cdvdRead0E); return 1;
+		case 0x1f40200F: CONSTREAD8_CALL((u32)cdvdRead0F); return 1;
+		case 0x1f402013: CONSTREAD8_CALL((u32)cdvdRead13); return 1;
+		case 0x1f402015: CONSTREAD8_CALL((u32)cdvdRead15); return 1;
+		case 0x1f402016: CONSTREAD8_CALL((u32)cdvdRead16); return 1;
+		case 0x1f402017: CONSTREAD8_CALL((u32)cdvdRead17); return 1;
+		case 0x1f402018: CONSTREAD8_CALL((u32)cdvdRead18); return 1;
+		case 0x1f402020: CONSTREAD8_CALL((u32)cdvdRead20); return 1;
+		case 0x1f402021: CONSTREAD8_CALL((u32)cdvdRead21); return 1;
+		case 0x1f402022: CONSTREAD8_CALL((u32)cdvdRead22); return 1;
+		case 0x1f402023: CONSTREAD8_CALL((u32)cdvdRead23); return 1;
+		case 0x1f402024: CONSTREAD8_CALL((u32)cdvdRead24); return 1;
+		case 0x1f402028: CONSTREAD8_CALL((u32)cdvdRead28); return 1;
+		case 0x1f402029: CONSTREAD8_CALL((u32)cdvdRead29); return 1;
+		case 0x1f40202A: CONSTREAD8_CALL((u32)cdvdRead2A); return 1;
+		case 0x1f40202B: CONSTREAD8_CALL((u32)cdvdRead2B); return 1;
+		case 0x1f40202C: CONSTREAD8_CALL((u32)cdvdRead2C); return 1;
+		case 0x1f402030: CONSTREAD8_CALL((u32)cdvdRead30); return 1;
+		case 0x1f402031: CONSTREAD8_CALL((u32)cdvdRead31); return 1;
+		case 0x1f402032: CONSTREAD8_CALL((u32)cdvdRead32); return 1;
+		case 0x1f402033: CONSTREAD8_CALL((u32)cdvdRead33); return 1;
+		case 0x1f402034: CONSTREAD8_CALL((u32)cdvdRead34); return 1;
+		case 0x1f402038: CONSTREAD8_CALL((u32)cdvdRead38); return 1;
+		case 0x1f402039: CONSTREAD8_CALL((u32)cdvdRead39); return 1;
+		case 0x1f40203A: CONSTREAD8_CALL((u32)cdvdRead3A); return 1;
+		default:
+			SysPrintf("*Unkwnown 8bit read at address %lx\n", add);
+			XOR32RtoR(x86reg, x86reg);
+			return 0;
+	}
+}
+
 void psxHw4Write8(u32 add, u8 value) {
 	switch (add) {
 		case 0x1f402004: cdvdWrite04(value); return;
@@ -1750,7 +2782,10 @@ void psxHw4Write8(u32 add, u8 value) {
 		case 0x1f40200A: cdvdWrite0A(value); return;
 		case 0x1f40200F: cdvdWrite0F(value); return;
 		case 0x1f402014: cdvdWrite14(value); return;
-		case 0x1f402016: cdvdWrite16(value); return;
+		case 0x1f402016:
+			cdvdWrite16(value);
+			FreezeMMXRegs(0);
+			return;
 		case 0x1f402017: cdvdWrite17(value); return;
 		case 0x1f402018: cdvdWrite18(value); return;
 		case 0x1f40203A: cdvdWrite3A(value); return;
@@ -1765,6 +2800,30 @@ void psxHw4Write8(u32 add, u8 value) {
 	PSXHW_LOG("*Known 8bit write at address %lx value %x\n", add, value);
 #endif
 }
+
+void psxHw4ConstWrite8(u32 add, int mmreg) {
+	switch (add) {
+		case 0x1f402004: CONSTWRITE_CALL(cdvdWrite04); return;
+		case 0x1f402005: CONSTWRITE_CALL(cdvdWrite05); return;
+		case 0x1f402006: CONSTWRITE_CALL(cdvdWrite06); return;
+		case 0x1f402007: CONSTWRITE_CALL(cdvdWrite07); return;
+		case 0x1f402008: CONSTWRITE_CALL(cdvdWrite08); return;
+		case 0x1f40200A: CONSTWRITE_CALL(cdvdWrite0A); return;
+		case 0x1f40200F: CONSTWRITE_CALL(cdvdWrite0F); return;
+		case 0x1f402014: CONSTWRITE_CALL(cdvdWrite14); return;
+		case 0x1f402016: 
+			_freeMMXregs();
+			CONSTWRITE_CALL(cdvdWrite16);
+			return;
+		case 0x1f402017: CONSTWRITE_CALL(cdvdWrite17); return;
+		case 0x1f402018: CONSTWRITE_CALL(cdvdWrite18); return;
+		case 0x1f40203A: CONSTWRITE_CALL(cdvdWrite3A); return;
+		default:
+			SysPrintf("*Unknown 8bit write at address %lx\n", add);
+			return;
+	}
+}
+
 void psxDmaInterrupt(int n) {
 	if (HW_DMA_ICR & (1 << (16 + n))) {
 		HW_DMA_ICR|= (1 << (24 + n));
@@ -1789,5 +2848,3 @@ void psxDmaInterrupt2(int n) {
 		//hwIntcIrq(INTC_SBUS);
 	}
 }
-
-

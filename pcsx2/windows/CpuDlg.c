@@ -23,7 +23,6 @@
 
 #include "Common.h"
 #include "VUmicro.h"
-#include "VU0.h"
 #include "PsxCommon.h"
 #include "plugins.h"
 #include "resource.h"
@@ -72,7 +71,7 @@ BOOL CALLBACK CpuDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			CheckDlgButton(hW, IDC_CPU_GSMULTI, !!CHECK_MULTIGS);
 			CheckDlgButton(hW, IDC_CPU_MULTI, !!CHECK_DUALCORE);
 			CheckDlgButton(hW, IDC_CPU_FRAMELIMIT, !!CHECK_FRAMELIMIT);
-			CheckDlgButton(hW, IDC_CPU_SAFEIPU, !!CHECK_SAFEIPU);
+			CheckDlgButton(hW, IDC_CPU_FORCEABS, !!CHECK_FORCEABS);
 			
 			return TRUE;
 
@@ -88,6 +87,7 @@ BOOL CALLBACK CpuDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					vu1Shutdown();
                     
 					newopts = 0;
+
 					if( SendDlgItemMessage(hW,IDC_CPU_EEREC,BM_GETCHECK,0,0) ) newopts |= PCSX2_EEREC;
 					if( SendDlgItemMessage(hW,IDC_CPU_VU0REC,BM_GETCHECK,0,0) ) newopts |= PCSX2_VU0REC;
 					if( SendDlgItemMessage(hW,IDC_CPU_VU1REC,BM_GETCHECK,0,0) ) newopts |= PCSX2_VU1REC;
@@ -95,7 +95,7 @@ BOOL CALLBACK CpuDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					if( SendDlgItemMessage(hW,IDC_CPU_GSMULTI,BM_GETCHECK,0,0) ) newopts |= PCSX2_GSMULTITHREAD;
 					if( SendDlgItemMessage(hW,IDC_CPU_MULTI,BM_GETCHECK,0,0) ) newopts |= PCSX2_DUALCORE;
 					if( SendDlgItemMessage(hW,IDC_CPU_FRAMELIMIT,BM_GETCHECK,0,0) ) newopts |= PCSX2_FRAMELIMIT;
-					if( SendDlgItemMessage(hW,IDC_CPU_SAFEIPU,BM_GETCHECK,0,0) ) newopts |= PCSX2_SAFEIPU;
+					if( SendDlgItemMessage(hW,IDC_CPU_FORCEABS,BM_GETCHECK,0,0) ) newopts |= PCSX2_FORCEABS;
 
 					if( (Config.Options&PCSX2_GSMULTITHREAD) ^ (newopts&PCSX2_GSMULTITHREAD) ) {
 						Config.Options = newopts;

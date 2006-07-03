@@ -18,6 +18,7 @@
 
 #include <stdio.h>
 
+#include "Common.h"
 #include "R5900.h"
 #include "InterTables.h"
 
@@ -64,11 +65,19 @@ void WriteCP0Status(u32 value) {
     UpdateCP0Status();
 }
 
+extern u32 s_iLastCOP0Cycle;
+
 void MFC0() {
 	if (!_Rt_) return;
 #ifdef COP0_LOG
 	if (_Rd_ != 9) { COP0_LOG("%s\n", disR5900F(cpuRegs.code, cpuRegs.pc)); }
 #endif
+
+	if( _Rd_ == 9 ) {
+		// update
+		cpuRegs.CP0.n.Count += cpuRegs.cycle-s_iLastCOP0Cycle;
+		s_iLastCOP0Cycle = cpuRegs.cycle;
+	}
 	cpuRegs.GPR.r[_Rt_].UD[0] = (s64)cpuRegs.CP0.r[_Rd_];
 }
 
@@ -78,6 +87,7 @@ void MTC0() {
 #endif
 	switch (_Rd_) {
 		case 12: WriteCP0Status(cpuRegs.GPR.r[_Rt_].UL[0]); break;
+		case 9: s_iLastCOP0Cycle = cpuRegs.cycle; cpuRegs.CP0.r[9] = cpuRegs.GPR.r[_Rt_].UL[0]; break;
 		default: cpuRegs.CP0.r[_Rd_] = cpuRegs.GPR.r[_Rt_].UL[0]; break;
 	}
 }
@@ -291,7 +301,7 @@ void ERET() {
 }
 
 void DI() {
-	if (cpuRegs.CP0.n.Status.b.EDI || cpuRegs.CP0.n.Status.b.EXL ||
+	if (cpuRegs.CP0.n.Status.b._EDI || cpuRegs.CP0.n.Status.b.EXL ||
 		cpuRegs.CP0.n.Status.b.ERL || (cpuRegs.CP0.n.Status.b.KSU == 0)) {
 		cpuRegs.CP0.n.Status.b.EIE = 0;
 		UpdateCP0Status();
@@ -299,7 +309,7 @@ void DI() {
 }
 
 void EI() {
-	if (cpuRegs.CP0.n.Status.b.EDI || cpuRegs.CP0.n.Status.b.EXL ||
+	if (cpuRegs.CP0.n.Status.b._EDI || cpuRegs.CP0.n.Status.b.EXL ||
 		cpuRegs.CP0.n.Status.b.ERL || (cpuRegs.CP0.n.Status.b.KSU == 0)) {
 		cpuRegs.CP0.n.Status.b.EIE = 1;
 		UpdateCP0Status();

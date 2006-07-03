@@ -31,9 +31,7 @@
 #include "Debug.h"
 #include "R5900.h"
 #include "InterTables.h"
-#include "VU0.h"
 #include "VUmicro.h"
-#include "VU0.h"
 #include "iVU0micro.h"
 #include "iVUmicro.h"
 
@@ -43,8 +41,8 @@
 #pragma warning(disable:4761)
 #endif
 
-extern u32 pc;			/* recompiler pc */
-static _vuopinfo info = {0, 0, 1, 0, 0, 0, 0};
+// cycle cycles statusflag macflag clipflag
+_vuopinfo g_cop2info = {0, 0, 1, 1, 1, 0, 0};
 
 #define _Ft_ _Rt_
 #define _Fs_ _Rd_
@@ -54,70 +52,58 @@ static _vuopinfo info = {0, 0, 1, 0, 0, 0, 0};
 #define _Ftf_ ((cpuRegs.code >> 23) & 0x03)
 #define _Cc_ (cpuRegs.code & 0x03)
 
-
-
-#define REC_COP2_FUNC(f) \
+#define REC_COP2_FUNC(f, delreg) \
 	void f(); \
 	void rec##f() { \
-	/*CPU_LOG("Uncompiled COP2:%s\n", disR5900F(cpuRegs.code, cpuRegs.pc));*/\
-	COUNT_CYCLES(pc); \
+	SysPrintf("cop2 "#f" called\n"); \
+	SetFPUstate(); \
 	MOV32ItoM((u32)&cpuRegs.code, cpuRegs.code); \
 	MOV32ItoM((u32)&cpuRegs.pc, pc); \
-	iFlushCall(); \
+	iFlushCall(FLUSH_NOCONST); \
 	CALLFunc((u32)f); \
+	_freeX86regs(); \
+	branch = 2; \
 }
 
 #define INTERPRETATE_COP2_FUNC(f) \
 void recV##f() { \
-	/*CPU_LOG("Uncompiled COP2:%s\n", disR5900F(cpuRegs.code, cpuRegs.pc));*/\
-	COUNT_CYCLES(pc); \
 	MOV32ItoM((u32)&cpuRegs.code, cpuRegs.code); \
 	MOV32ItoM((u32)&cpuRegs.pc, pc); \
-	iFlushCall(); \
+	iFlushCall(FLUSH_EVERYTHING); \
 	CALLFunc((u32)V##f); \
+	_freeX86regs(); \
 }
 
 #define REC_COP2_VU0(f) \
 void recV##f() { \
-	cinfo = &info; \
-	VU0.code = cpuRegs.code; recVU0MI_##f(); \
-	_freeXMMregs(&VU0); \
+	recVU0MI_##f(); \
+	_freeX86regs(); \
 }
 
 #define REC_COP2_VU0MS(f) \
 void recV##f() { \
-	cinfo = &info; \
-	VU0.code = cpuRegs.code; recVU0MI_##f(); \
-	_freeXMMregs(&VU0); \
-	MOV32MtoR(EAX,(u32)&VU0.macflag); \
-	MOV32RtoM((u32)&VU0.VI[REG_MAC_FLAG].UL,EAX); \
-	MOV32MtoR(EAX,(u32)&VU0.statusflag); \
-	MOV32RtoM((u32)&VU0.VI[REG_STATUS_FLAG].UL,EAX); \
-}
-
-#define REC_COP2_VU0Q(f) \
-void recV##f() { \
-	cinfo = &info; \
-	VU0.code = cpuRegs.code; recVU0MI_##f(); \
-	_freeXMMregs(&VU0); \
-	MOV32MtoR(EAX, (u32)&VU0.q); \
-	MOV32RtoM((u32)&VU0.VI[REG_Q].UL, EAX); \
+	recVU0MI_##f(); \
+	_freeX86regs(); \
 }
 
 #define REC_COP2_VU0CLIP(f) \
 void recV##f() { \
-	cinfo = &info; \
-	VU0.code = cpuRegs.code; recVU0MI_##f(); \
-	_freeXMMregs(&VU0); \
-	MOV32MtoR(EAX, (u32)&VU0.clipflag); \
-	MOV32RtoM((u32)&VU0.VI[REG_CLIP_FLAG].UL, EAX); \
+	recVU0MI_##f(); \
+	_freeX86regs(); \
 }
 
 
 void rec_C2UNK()
 {
-	SysPrintf("Cop2 bad opcode:%x",cpuRegs.code);
+	SysPrintf("Cop2 bad opcode:%x\n",cpuRegs.code);
 }
+
+void _vuRegs_C2UNK(VURegs * VU, _VURegsNum *VUregsn)
+{
+	SysPrintf("Cop2 bad _vuRegs code:%x\n",cpuRegs.code);
+}
+
+void _vuRegsCOP22(VURegs * VU, _VURegsNum *VUregsn);
 
 void (*recCOP2t[32])();
 void (*recCOP2_BC2t[32])();
@@ -129,156 +115,342 @@ void recCOP2_SPECIAL();
 void recCOP2_BC2();
 void recCOP2_SPECIAL2();
 
-
-
-//////////////////////////////////////////////////////////////////////////
-//COP2 
-//////////////////////////////////////////////////////////////////////////
-
-//REC_COP2_FUNC(QMFC2);
-//REC_COP2_FUNC(QMTC2);
-//REC_COP2_FUNC(CFC2);
-//REC_COP2_FUNC(CTC2);
-
-static void _recvu0WaitMicro() {
-	MOV32MtoR(EAX,(u32)&VU0.VI[REG_VPU_STAT].UL);
-	TEST32ItoR(EAX,0x1);
-	j8Ptr[0] = JZ8(0);
-
-	OR32ItoM((u32)&VU0.flags,VUFLAG_BREAKONMFLAG);
-	AND32ItoM((u32)&VU0.flags,~VUFLAG_MFLAGSET);
-
-	j8Ptr[3] = (u8*)x86Ptr;
-
-	MOV32MtoR(EAX,(u32)&VU0.VI[REG_VPU_STAT].UL);
-	TEST32ItoR(EAX,0x1);
-	j8Ptr[1] = JZ8(0);
-	MOV32MtoR(EAX,(u32)&VU0.flags);
-	TEST32ItoR(EAX,VUFLAG_MFLAGSET);
-	j8Ptr[2] = JNZ8(0);
-
-	iFlushCall();
-	CALLFunc((u32)Cpu->ExecuteVU0Block);
-	JMP8((u32)j8Ptr[3] - (u32)x86Ptr - 2);
-
-	x86SetJ8(j8Ptr[2]);
-	x86SetJ8(j8Ptr[1]);
-
-	AND32ItoM((u32)&VU0.flags,~VUFLAG_BREAKONMFLAG);
-
-	x86SetJ8(j8Ptr[0]);
-}
+extern void _vu0WaitMicro();
 
 static void recCFC2()
 {
+	int mmreg;
+
 	if (cpuRegs.code & 1) {
-		_recvu0WaitMicro();
+		iFlushCall(FLUSH_NOCONST);
+		CALLFunc((u32)_vu0WaitMicro);
 	}
 
 	if(!_Rt_) return;
 
-	MOV32MtoR(EAX,(u32)&VU0.VI[_Fs_].UL);
-	MOV32RtoM((u32)&cpuRegs.GPR.r[_Rt_].UL[0],EAX);
-	if(VU0.VI[_Fs_].UL & 0x80000000)
-	MOV32ItoM((u32)&cpuRegs.GPR.r[_Rt_].UL[1], 0xffffffff);
+	_deleteGPRtoXMMreg(_Rt_, 2);
+	
+	if( (mmreg = _checkMMXreg(MMX_GPR+_Rt_, MODE_WRITE)) >= 0 ) {
+		
+		if( _Fs_ >= 16 ) {
+			MOVDMtoMMX(mmreg, (u32)&VU0.VI[ _Fs_ ].UL);
+
+			if( EEINST_ISLIVE1(_Rt_) ) {
+				_signExtendGPRtoMMX(mmreg, _Rt_, 0);
+			}
+			else {
+				EEINST_RESETHASLIVE1(_Rt_);
+			}
+		}
+		else {
+			MOVDMtoMMX(mmreg, (u32)&VU0.VI[ _Fs_ ].UL);
+		}
+		SetMMXstate();
+	}
+	else {
+		MOV32MtoR(EAX, (u32)&VU0.VI[ _Fs_ ].UL);
+		MOV32RtoM((u32)&cpuRegs.GPR.r[_Rt_].UL[0],EAX);
+
+		if(EEINST_ISLIVE1(_Rt_)) {
+			if( _Fs_ < 16 ) {
+				// no sign extending
+				MOV32ItoM((u32)&cpuRegs.GPR.r[_Rt_].UL[1],0);
+			}
+			else {
+				CDQ();
+				MOV32RtoM((u32)&cpuRegs.GPR.r[_Rt_].UL[1], EDX);
+			}
+		}
+		else {
+			EEINST_RESETHASLIVE1(_Rt_);
+		}
+	}
+
+	_eeOnWriteReg(_Rt_, 1);
 }
 
 static void recCTC2()
 {
 	if (cpuRegs.code & 1) {
-		_recvu0WaitMicro();
+		iFlushCall(FLUSH_NOCONST);
+		CALLFunc((u32)_vu0WaitMicro);
 	}
 
 	if(!_Fs_) return;
 
-	switch(_Fs_) {
-		case REG_MAC_FLAG: // read-only
-		case REG_TPC:      // read-only
-		case REG_VPU_STAT: // read-only
-			break;
-		case REG_FBRST:
-			MOV32MtoR(EAX,(u32)&cpuRegs.GPR.r[_Rt_].UL[0]);
-			AND32ItoR(EAX,0x0C0C);
-			MOV32RtoM((u32)&VU0.VI[REG_FBRST].UL,EAX);
+	if( GPR_IS_CONST1(_Rt_) ) {
+		switch(_Fs_) {
+			case REG_MAC_FLAG: // read-only
+			case REG_TPC:      // read-only
+			case REG_VPU_STAT: // read-only
+				break;
+			case REG_FBRST:
+				if( g_cpuConstRegs[_Rt_].UL[0] & 2 ) {
+					CALLFunc((u32)vu0ResetRegs);
+				}
 
-			MOV32MtoR(EAX,(u32)&cpuRegs.GPR.r[_Rt_].UL[0]);
-			TEST32ItoR(EAX,0x2);
-			j8Ptr[0] = JZ8(0);
-			iFlushCall();
-			CALLFunc((u32)vu0ResetRegs);
-			x86SetJ8(j8Ptr[0]);
+				if( g_cpuConstRegs[_Rt_].UL[0] & 0x200 ) {
+					CALLFunc((u32)vu1ResetRegs);
+				}
 
-			MOV32MtoR(EAX,(u32)&cpuRegs.GPR.r[_Rt_].UL[0]);
-			TEST32ItoR(EAX,0x200);
-			j8Ptr[0] = JZ8(0);
-			iFlushCall();
-			CALLFunc((u32)vu1ResetRegs);
-			x86SetJ8(j8Ptr[0]);
-			break;
-		case REG_CMSAR1: // REG_CMSAR1
-			MOVZX32M16toR(EAX,(u32)&cpuRegs.GPR.r[_Rt_].US[0]);
-			MOV32RtoM((u32)&VU1.VI[REG_TPC].UL,EAX);
+				MOV16ItoM((u32)&VU0.VI[REG_FBRST].UL,g_cpuConstRegs[_Rt_].UL[0]&0x0c0c);
+				break;
 
-			PUSH32R(EAX);
-			iFlushCall();
-			CALLFunc((u32)vu1ExecMicro);	// Execute VU1 Micro SubRoutine
-			ADD32ItoR(ESP,4);
-			break;
-		default:
-			MOV32MtoR(EAX,(u32)&cpuRegs.GPR.r[_Rt_].UL[0]);
-			MOV32RtoM((u32)&VU0.VI[_Fs_].UL,EAX);
-			break;
+			case REG_CMSAR1: // REG_CMSAR1
+
+				iFlushCall(FLUSH_NOCONST); // since CALLFunc
+
+				// ignore if VU1 is operating
+				TEST32ItoM((u32)&VU0.VI[REG_VPU_STAT].UL, 0x100);
+				j8Ptr[0] = JNZ8(0);
+
+				MOV32ItoM((u32)&VU1.VI[REG_TPC].UL, g_cpuConstRegs[_Rt_].UL[0]&0xffff);
+				PUSH32I(g_cpuConstRegs[_Rt_].UL[0]&0xffff);
+				CALLFunc((u32)vu1ExecMicro);	// Execute VU1 Micro SubRoutine
+				ADD32ItoR(ESP,4);
+
+				x86SetJ8( j8Ptr[0] );
+				break;
+			default:
+				MOV32ItoM((u32)&VU0.VI[_Fs_].UL,g_cpuConstRegs[_Rt_].UL[0]);
+				break;
+		}
+	}
+	else {
+		switch(_Fs_) {
+			case REG_MAC_FLAG: // read-only
+			case REG_TPC:      // read-only
+			case REG_VPU_STAT: // read-only
+				break;
+			case REG_FBRST:
+				_eeMoveGPRtoR(EAX, _Rt_);
+
+				TEST32ItoR(EAX,0x2);
+				j8Ptr[0] = JZ8(0);
+				CALLFunc((u32)vu0ResetRegs);
+				_eeMoveGPRtoR(EAX, _Rt_);
+				x86SetJ8(j8Ptr[0]);
+
+				TEST32ItoR(EAX,0x200);
+				j8Ptr[0] = JZ8(0);
+				CALLFunc((u32)vu1ResetRegs);
+				_eeMoveGPRtoR(EAX, _Rt_);
+				x86SetJ8(j8Ptr[0]);
+
+				AND32ItoR(EAX,0x0C0C);
+				MOV16RtoM((u32)&VU0.VI[REG_FBRST].UL,EAX);
+				break;
+			case REG_CMSAR1: // REG_CMSAR1
+
+				iFlushCall(FLUSH_NOCONST); // since CALLFunc
+
+				// ignore if VU1 is operating
+				TEST32ItoM((u32)&VU0.VI[REG_VPU_STAT].UL, 0x100);
+				j8Ptr[0] = JNZ8(0);
+
+				_eeMoveGPRtoR(EAX, _Rt_);
+				MOV16RtoM((u32)&VU1.VI[REG_TPC].UL,EAX);
+
+				PUSH32R(EAX);
+				CALLFunc((u32)vu1ExecMicro);	// Execute VU1 Micro SubRoutine
+				ADD32ItoR(ESP,4);
+
+				x86SetJ8( j8Ptr[0] );
+				break;
+			default:
+				_eeMoveGPRtoM((u32)&VU0.VI[_Fs_].UL,_Rt_);
+				break;
+		}
 	}
 }
 
 static void recQMFC2(void)
 {
+	int t0reg, fsreg;
+	_xmmregs temp;
+
 	if (cpuRegs.code & 1) {
-		_recvu0WaitMicro();
+		iFlushCall(FLUSH_NOCONST);
+		CALLFunc((u32)_vu0WaitMicro);
 	}
 
 	if(!_Rt_) return;
 
-	CPU_SSE_START;
-	SSE_MOVAPS_M128_to_XMM(XMM0,(u32)&VU0.VF[_Fs_].UD[0]);
-	SSE_MOVAPS_XMM_to_M128((u32)&cpuRegs.GPR.r[_Rt_].UD[0],XMM0);
-    CPU_SSE_END;
+	_deleteMMXreg(MMX_GPR+_Rt_, 2);
+	_eeOnWriteReg(_Rt_, 0);
+	
+	// could 'borrow' the reg
+	fsreg = _checkXMMreg(XMMTYPE_VFREG, _Fs_, MODE_READ);
 
-	MOVQMtoR(MM0,(u32)&VU0.VF[_Fs_].UD[0]);
-	MOVQMtoR(MM1,(u32)&VU0.VF[_Fs_].UD[1]);
-	MOVQRtoM((u32)&cpuRegs.GPR.r[_Rt_].UD[0],MM0);
-	MOVQRtoM((u32)&cpuRegs.GPR.r[_Rt_].UD[1],MM1);
-	SetMMXstate();
+	if( fsreg >= 0 ) {
+		if( xmmregs[fsreg].mode & MODE_WRITE ) {
+			t0reg = _allocGPRtoXMMreg(-1, _Rt_, MODE_WRITE);
+			SSEX_MOVDQA_XMM_to_XMM(t0reg, fsreg);
+
+			// change regs
+			temp = xmmregs[t0reg];
+			xmmregs[t0reg] = xmmregs[fsreg];
+			xmmregs[fsreg] = temp;
+		}
+		else {
+			// swap regs
+			t0reg = _allocGPRtoXMMreg(-1, _Rt_, MODE_WRITE);
+
+			xmmregs[fsreg] = xmmregs[t0reg];
+			xmmregs[t0reg].inuse = 0;
+		}
+	}
+	else {
+		t0reg = _allocGPRtoXMMreg(-1, _Rt_, MODE_WRITE);
+		SSE_MOVAPS_M128_to_XMM( t0reg, (u32)&VU0.VF[_Fs_].UD[0]);
+	}
+
+	_clearNeededXMMregs();
 }
 
 static void recQMTC2()
 {
+	int mmreg, fsreg;
+
 	if (cpuRegs.code & 1) {
-		_recvu0WaitMicro();
+		iFlushCall(FLUSH_NOCONST);
+		CALLFunc((u32)_vu0WaitMicro);
 	}
 
 	if(!_Fs_) return;
 
-	CPU_SSE_START;
-	SSE_MOVAPS_M128_to_XMM(XMM0,(u32)&cpuRegs.GPR.r[_Rt_].UD[0]);
-	SSE_MOVAPS_XMM_to_M128((u32)&VU0.VF[_Fs_].UD[0],XMM0);
-	CPU_SSE_END;
+	if( (mmreg = _checkXMMreg(XMMTYPE_GPRREG, _Rt_, MODE_READ)) >= 0) {
+		fsreg = _checkXMMreg(XMMTYPE_VFREG, _Fs_, MODE_WRITE);
 
-	MOVQMtoR(MM0,(u32)&cpuRegs.GPR.r[_Rt_].UD[0]);
-	MOVQMtoR(MM1,(u32)&cpuRegs.GPR.r[_Rt_].UD[1]);
-	MOVQRtoM((u32)&VU0.VF[_Fs_].UD[0],MM0);
-	MOVQRtoM((u32)&VU0.VF[_Fs_].UD[1],MM1);
-	SetMMXstate();
+		if( fsreg >= 0 ) {
+
+			if( (xmmregs[mmreg].mode&MODE_WRITE) && (g_pCurInstInfo->regs[_Rt_]&(EEINST_LIVE0|EEINST_LIVE1|EEINST_LIVE2)) ) {
+				SSE_MOVAPS_XMM_to_XMM(fsreg, mmreg);
+			}
+			else {
+				// swap regs
+				if( (xmmregs[mmreg].mode&MODE_WRITE) && (g_pCurInstInfo->regs[_Rt_]&(EEINST_LIVE0|EEINST_LIVE1|EEINST_LIVE2)) )
+					SSE_MOVAPS_XMM_to_M128((u32)&cpuRegs.GPR.r[_Rt_], mmreg);
+
+				xmmregs[mmreg] = xmmregs[fsreg];
+				xmmregs[mmreg].mode = MODE_WRITE;
+				xmmregs[fsreg].inuse = 0;
+				g_xmmtypes[mmreg] = XMMT_FPS;
+			}
+		}
+		else {
+
+			if( (xmmregs[mmreg].mode&MODE_WRITE) && (g_pCurInstInfo->regs[_Rt_]&(EEINST_LIVE0|EEINST_LIVE1|EEINST_LIVE2)) )
+				SSE_MOVAPS_XMM_to_M128((u32)&cpuRegs.GPR.r[_Rt_], mmreg);
+
+			// swap regs
+			xmmregs[mmreg].type = XMMTYPE_VFREG;
+			xmmregs[mmreg].VU = 0;
+			xmmregs[mmreg].reg = _Fs_;
+			xmmregs[mmreg].mode = MODE_WRITE;
+			g_xmmtypes[mmreg] = XMMT_FPS;
+		}
+	}
+	else {
+		fsreg = _allocVFtoXMMreg(&VU0, -1, _Fs_, MODE_WRITE);
+
+		if( (mmreg = _checkMMXreg(MMX_GPR+_Rt_, MODE_READ)) >= 0) {
+			SetMMXstate();
+			SSE2_MOVQ2DQ_MM_to_XMM(fsreg, mmreg);
+			SSE_MOVHPS_M64_to_XMM(fsreg, (u32)&cpuRegs.GPR.r[_Rt_].UL[2]);
+		}
+		else {
+			
+			if( GPR_IS_CONST1( _Rt_ ) ) {
+				assert( _checkXMMreg(XMMTYPE_GPRREG, _Rt_, MODE_READ) == -1 );
+				_flushConstReg(_Rt_);	
+			}
+
+			SSE_MOVAPS_M128_to_XMM(fsreg, (int)&cpuRegs.GPR.r[ _Rt_ ].UL[ 0 ]);
+		}
+	}
+
+	_clearNeededXMMregs();
 }
 
+void _cop2AnalyzeOp(EEINST* pinst, int dostalls)
+{
+	_vuRegsCOP22(&VU0, &pinst->vuregs);
+	if( !dostalls ) return;
+
+	_recvuTestLowerStalls(&VU0, &pinst->vuregs);
+	
+	switch(VU0.code & 0x3f) {
+		case 0x10: case 0x11: case 0x12: case 0x13:
+		case 0x14: case 0x15: case 0x16: case 0x17:
+		case 0x1d: case 0x1f:
+		case 0x2b: case 0x2f:
+			break;
+
+		case 0x3c:
+			switch ((VU0.code >> 6) & 0x1f) {
+				case 0x4: case 0x5:
+					break;
+				default:
+					pinst->vuregs.VIwrite |= (1<<REG_MAC_FLAG);
+					break;
+			}
+			break;
+		case 0x3d:
+			switch ((VU0.code >> 6) & 0x1f) {
+				case 0x4: case 0x5: case 0x7:
+					break;
+				default:
+					pinst->vuregs.VIwrite |= (1<<REG_MAC_FLAG);
+					break;
+			}
+			break;
+		case 0x3e:
+			switch ((VU0.code >> 6) & 0x1f) {
+				case 0x4: case 0x5:
+					break;
+				default:
+					pinst->vuregs.VIwrite |= (1<<REG_MAC_FLAG);
+					break;
+			}
+			break;
+		case 0x3f:
+			switch ((VU0.code >> 6) & 0x1f) {
+				case 0x4: case 0x5: case 0x7: case 0xb:
+					break;
+				default:
+					pinst->vuregs.VIwrite |= (1<<REG_MAC_FLAG);
+					break;
+			}
+			break;
+
+		default:
+			pinst->vuregs.VIwrite |= (1<<REG_MAC_FLAG);
+			break;
+	}
+
+	if (pinst->vuregs.VIwrite & (1 << REG_CLIP_FLAG)) {
+		_recAddWriteBack(vucycle+4, 1<<REG_CLIP_FLAG, pinst);
+	}
+
+	if (pinst->vuregs.VIwrite & (1 << REG_Q)) {
+		_recAddWriteBack(vucycle+pinst->vuregs.cycles, 1<<REG_Q, pinst);
+	}
+
+	pinst->cycle = vucycle;
+	_recvuAddLowerStalls(&VU0, &pinst->vuregs);
+	_recvuTestPipes(&VU0);
+
+	vucycle++;
+}
 
 //////////////////////////////////////////////////////////////////////////
 //    BC2: Instructions 
 //////////////////////////////////////////////////////////////////////////
-REC_COP2_FUNC(BC2F);
-REC_COP2_FUNC(BC2T);
-REC_COP2_FUNC(BC2FL);
-REC_COP2_FUNC(BC2TL);
+REC_COP2_FUNC(BC2F, 0);
+REC_COP2_FUNC(BC2T, 0);
+REC_COP2_FUNC(BC2FL, 0);
+REC_COP2_FUNC(BC2TL, 0);
 
 //////////////////////////////////////////////////////////////////////////
 //    Special1 instructions 
@@ -409,9 +581,9 @@ REC_COP2_VU0MS(MULAz);
 REC_COP2_VU0MS(MULAw);
 REC_COP2_VU0MS(OPMULA);
 REC_COP2_VU0(MOVE);
-REC_COP2_VU0Q(DIV);
-REC_COP2_VU0Q(SQRT);
-REC_COP2_VU0Q(RSQRT);
+REC_COP2_VU0MS(DIV);
+REC_COP2_VU0MS(SQRT);
+REC_COP2_VU0MS(RSQRT);
 REC_COP2_VU0(MR32);
 REC_COP2_VU0(ABS);
 
@@ -420,7 +592,82 @@ void recVWAITQ(){}
 INTERPRETATE_COP2_FUNC(CALLMS);
 INTERPRETATE_COP2_FUNC(CALLMSR);
 
+void _vuRegsCOP2_SPECIAL(VURegs * VU, _VURegsNum *VUregsn);
+void _vuRegsCOP2_SPECIAL2(VURegs * VU, _VURegsNum *VUregsn);
 
+// information
+void _vuRegsQMFC2(VURegs * VU, _VURegsNum *VUregsn) {
+	VUregsn->VFread0 = _Fs_;
+	VUregsn->VFr0xyzw= 0xf;
+}
+
+void _vuRegsCFC2(VURegs * VU, _VURegsNum *VUregsn) {
+	VUregsn->VIread = 1<<_Fs_;
+}
+
+void _vuRegsQMTC2(VURegs * VU, _VURegsNum *VUregsn) {
+	VUregsn->VFwrite = _Fs_;
+	VUregsn->VFwxyzw= 0xf;
+}
+
+void _vuRegsCTC2(VURegs * VU, _VURegsNum *VUregsn) {
+	VUregsn->VIwrite = 1<<_Fs_;
+}
+
+void (*_vuRegsCOP2t[32])(VURegs * VU, _VURegsNum *VUregsn) = {
+    _vuRegs_C2UNK,		_vuRegsQMFC2,       _vuRegsCFC2,        _vuRegs_C2UNK,		_vuRegs_C2UNK,		_vuRegsQMTC2,       _vuRegsCTC2,        _vuRegs_C2UNK,
+    _vuRegsNOP,    _vuRegs_C2UNK,		_vuRegs_C2UNK,		_vuRegs_C2UNK,		_vuRegs_C2UNK,		_vuRegs_C2UNK,		_vuRegs_C2UNK,		_vuRegs_C2UNK,
+    _vuRegsCOP2_SPECIAL,_vuRegsCOP2_SPECIAL,_vuRegsCOP2_SPECIAL,_vuRegsCOP2_SPECIAL,_vuRegsCOP2_SPECIAL,_vuRegsCOP2_SPECIAL,_vuRegsCOP2_SPECIAL,_vuRegsCOP2_SPECIAL,
+	_vuRegsCOP2_SPECIAL,_vuRegsCOP2_SPECIAL,_vuRegsCOP2_SPECIAL,_vuRegsCOP2_SPECIAL,_vuRegsCOP2_SPECIAL,_vuRegsCOP2_SPECIAL,_vuRegsCOP2_SPECIAL,_vuRegsCOP2_SPECIAL,
+};
+
+void (*_vuRegsCOP2SPECIAL1t[64])(VURegs * VU, _VURegsNum *VUregsn) = { 
+ _vuRegsADDx,       _vuRegsADDy,       _vuRegsADDz,       _vuRegsADDw,       _vuRegsSUBx,        _vuRegsSUBy,        _vuRegsSUBz,        _vuRegsSUBw,  
+ _vuRegsMADDx,      _vuRegsMADDy,      _vuRegsMADDz,      _vuRegsMADDw,      _vuRegsMSUBx,       _vuRegsMSUBy,       _vuRegsMSUBz,       _vuRegsMSUBw, 
+ _vuRegsMAXx,       _vuRegsMAXy,       _vuRegsMAXz,       _vuRegsMAXw,       _vuRegsMINIx,       _vuRegsMINIy,       _vuRegsMINIz,       _vuRegsMINIw, 
+ _vuRegsMULx,       _vuRegsMULy,       _vuRegsMULz,       _vuRegsMULw,       _vuRegsMULq,        _vuRegsMAXi,        _vuRegsMULi,        _vuRegsMINIi,
+ _vuRegsADDq,       _vuRegsMADDq,      _vuRegsADDi,       _vuRegsMADDi,      _vuRegsSUBq,        _vuRegsMSUBq,       _vuRegsSUBi,        _vuRegsMSUBi, 
+ _vuRegsADD,        _vuRegsMADD,       _vuRegsMUL,        _vuRegsMAX,        _vuRegsSUB,         _vuRegsMSUB,        _vuRegsOPMSUB,      _vuRegsMINI,  
+ _vuRegsIADD,       _vuRegsISUB,       _vuRegsIADDI,      _vuRegs_C2UNK,      _vuRegsIAND,        _vuRegsIOR,         _vuRegs_C2UNK,       _vuRegs_C2UNK,
+ _vuRegsNOP,		_vuRegsNOP,    _vuRegs_C2UNK,      _vuRegs_C2UNK,      _vuRegsCOP2_SPECIAL2,_vuRegsCOP2_SPECIAL2,_vuRegsCOP2_SPECIAL2,_vuRegsCOP2_SPECIAL2,  
+};
+
+void (*_vuRegsCOP2SPECIAL2t[128])(VURegs * VU, _VURegsNum *VUregsn) = {
+ _vuRegsADDAx      ,_vuRegsADDAy      ,_vuRegsADDAz      ,_vuRegsADDAw      ,_vuRegsSUBAx      ,_vuRegsSUBAy      ,_vuRegsSUBAz      ,_vuRegsSUBAw,
+ _vuRegsMADDAx     ,_vuRegsMADDAy     ,_vuRegsMADDAz     ,_vuRegsMADDAw     ,_vuRegsMSUBAx     ,_vuRegsMSUBAy     ,_vuRegsMSUBAz     ,_vuRegsMSUBAw,
+ _vuRegsITOF0      ,_vuRegsITOF4      ,_vuRegsITOF12     ,_vuRegsITOF15     ,_vuRegsFTOI0      ,_vuRegsFTOI4      ,_vuRegsFTOI12     ,_vuRegsFTOI15,
+ _vuRegsMULAx      ,_vuRegsMULAy      ,_vuRegsMULAz      ,_vuRegsMULAw      ,_vuRegsMULAq      ,_vuRegsABS        ,_vuRegsMULAi      ,_vuRegsCLIP,
+ _vuRegsADDAq      ,_vuRegsMADDAq     ,_vuRegsADDAi      ,_vuRegsMADDAi     ,_vuRegsSUBAq      ,_vuRegsMSUBAq     ,_vuRegsSUBAi      ,_vuRegsMSUBAi,
+ _vuRegsADDA       ,_vuRegsMADDA      ,_vuRegsMULA       ,_vuRegs_C2UNK      ,_vuRegsSUBA       ,_vuRegsMSUBA      ,_vuRegsOPMULA     ,_vuRegsNOP,   
+ _vuRegsMOVE       ,_vuRegsMR32       ,_vuRegs_C2UNK      ,_vuRegs_C2UNK      ,_vuRegsLQI        ,_vuRegsSQI        ,_vuRegsLQD        ,_vuRegsSQD,   
+ _vuRegsDIV        ,_vuRegsSQRT       ,_vuRegsRSQRT      ,_vuRegsWAITQ      ,_vuRegsMTIR       ,_vuRegsMFIR       ,_vuRegsILWR       ,_vuRegsISWR,  
+ _vuRegsRNEXT      ,_vuRegsRGET       ,_vuRegsRINIT      ,_vuRegsRXOR       ,_vuRegs_C2UNK      ,_vuRegs_C2UNK      ,_vuRegs_C2UNK      ,_vuRegs_C2UNK, 
+ _vuRegs_C2UNK      ,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,
+ _vuRegs_C2UNK      ,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,
+ _vuRegs_C2UNK      ,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,
+ _vuRegs_C2UNK      ,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,
+ _vuRegs_C2UNK      ,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,
+ _vuRegs_C2UNK      ,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,
+ _vuRegs_C2UNK      ,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,_vuRegs_C2UNK,
+};
+
+void _vuRegsCOP22(VURegs * VU, _VURegsNum *VUregsn)
+{
+	_vuRegsCOP2t[_Rs_](VU, VUregsn);
+}
+
+void _vuRegsCOP2_SPECIAL(VURegs * VU, _VURegsNum *VUregsn)
+{
+	_vuRegsCOP2SPECIAL1t[_Funct_](VU, VUregsn);
+}
+
+void _vuRegsCOP2_SPECIAL2(VURegs * VU, _VURegsNum *VUregsn)
+{
+	int opc=(cpuRegs.code & 0x3) | ((cpuRegs.code >> 4) & 0x7c);
+	_vuRegsCOP2SPECIAL2t[opc](VU, VUregsn);
+}
+
+// recompilation
 void (*recCOP2t[32])() = {
     rec_C2UNK,		recQMFC2,       recCFC2,        rec_C2UNK,		rec_C2UNK,		recQMTC2,       recCTC2,        rec_C2UNK,
     recCOP2_BC2,    rec_C2UNK,		rec_C2UNK,		rec_C2UNK,		rec_C2UNK,		rec_C2UNK,		rec_C2UNK,		rec_C2UNK,
@@ -464,11 +711,15 @@ void (*recCOP2SPECIAL2t[128])() = {
  rec_C2UNK      ,rec_C2UNK,rec_C2UNK,rec_C2UNK,rec_C2UNK,rec_C2UNK,rec_C2UNK,rec_C2UNK,
  rec_C2UNK      ,rec_C2UNK,rec_C2UNK,rec_C2UNK,rec_C2UNK,rec_C2UNK,rec_C2UNK,rec_C2UNK,
 };
-int opc;
 
 void recCOP22()
 {
+	cinfo = &g_cop2info;
+	g_VUregs = &g_pCurInstInfo->vuregs;
+	VU0.code = cpuRegs.code;
+	g_pCurInstInfo->vuregs.pipe = 0xff; // to notify eeVURecompileCode that COP2
 	recCOP2t[_Rs_]();
+	_freeX86regs();
 }
 
 void recCOP2_SPECIAL()

@@ -27,26 +27,15 @@
 #include "Debug.h"
 #include "R5900.h"
 #include "iR5900.h"
-#include "VU0.h"
 #include "VUmicro.h"
 #include "VUflags.h"
 #include "VUops.h"
 
+#include "iVUzerorec.h"
+
 #ifdef __MSCW32__
 #pragma warning(disable:4113)
 #endif
-
-char *recMemVU0;	/* VU0 blocks */
-char *recVU0;	   /* VU1 mem */
-char *recVU0mac;
-char *recVU0status;
-char *recVU0clip;
-char *recVU0Q;
-char *recVU0cycles;
-char* recVU0XMMRegs;
-char *recPtrVU0;
-
-u32 vu0recpcold = 0;
 
 #ifdef WIN32_VIRTUAL_MEM
 extern PSMEMORYBLOCK s_psVuMem;
@@ -57,7 +46,7 @@ int  vu0Init()
 {
 #ifdef WIN32_VIRTUAL_MEM
 	// unmap all vu0 pages
-	SysMapUserPhysicalPages(PS2MEM_VU0MICRO, 8, NULL);
+	SysMapUserPhysicalPages(PS2MEM_VU0MICRO, 16, NULL);
 
 	// mirror 4 times
 	VU0.Micro = PS2MEM_VU0MICRO;
@@ -70,7 +59,7 @@ int  vu0Init()
 	VU0.Mem = VirtualAlloc((void*)0x11000000, 0x10000, MEM_RESERVE|MEM_PHYSICAL, PAGE_READWRITE);
 
 	if( VU0.Mem != (void*)0x11000000 ) {
-		SysPrintf("Failed to alloc vu0mem 0x11000000\n");
+		SysPrintf("Failed to alloc vu0mem 0x11000000 %d\n", GetLastError());
 		return -1;
 	}
 
@@ -82,16 +71,18 @@ int  vu0Init()
 	// map only registers
 	SysMapUserPhysicalPages(VU0.Mem+0x4000, 1, &s_psVuMem.aPFNs[2]);
 #else
-	VU0.Mem = (u8*)_aligned_malloc(0x4400, 16);
+	VU0.Mem = (u8*)_aligned_malloc(0x4000+sizeof(VURegs), 16); // for VU1
 	VU0.Micro = (u8*)_aligned_malloc(4*1024, 16);
+	memset(VU0.Mem, 0, 0x4000+sizeof(VURegs));
+	memset(VU0.Micro, 0, 4*1024);
 #endif
 	
 
-	VU0.VF = (VECTOR*)_aligned_malloc(32*sizeof(VECTOR), 16);
-	VU0.VI = (REG_VI*)_aligned_malloc(32*sizeof(REG_VI), 16);
-	if (VU0.VF == NULL || VU0.VI == NULL) {
-		SysMessage(_("Error allocating memory")); return -1;
-	}
+//	VU0.VF = (VECTOR*)_aligned_malloc(32*sizeof(VECTOR), 16);
+//	VU0.VI = (REG_VI*)_aligned_malloc(32*sizeof(REG_VI), 16);
+//	if (VU0.VF == NULL || VU0.VI == NULL) {
+//		SysMessage(_("Error allocating memory")); return -1;
+//	}
 
 	/* this is kinda tricky, maxmem is set to 0x4400 here,
 	   tho it's not 100% accurate, since the mem goes from
@@ -105,39 +96,23 @@ int  vu0Init()
 	VU0.vifRegs = vif0Regs;
 
 	if( CHECK_VU0REC ) {
-		recMemVU0 = SysMmap(0, 0x00800000);
-		memset(recMemVU0, 0xcd, 0x00800000);
-
-		recVU0 = (char*) _aligned_malloc( 0x00001000 , 16);
-		recVU0mac = (char*) _aligned_malloc( 0x00001000 , 16);
-		recVU0status = (char*) _aligned_malloc( 0x00001000 , 16);
-		recVU0clip = (char*) _aligned_malloc( 0x00001000 , 16);
-		recVU0Q = (char*) _aligned_malloc( 0x00001000 , 16);
-		recVU0cycles = (char*) _aligned_malloc( 0x00001000 , 16);
-		recVU0XMMRegs = (char*)_aligned_malloc( 0x00008000, 16 );
-		memset(recVU0cycles,0,0x1000);
+		SuperVUInit(0);
 	}
+
+	vu0Reset();
 
 	return 0;
 }
 
-void vu0Shutdown() {
-	
+void vu0Shutdown()
+{
 	if( CHECK_VU0REC ) {
-		int i;
-		_aligned_free( recVU0 );
-		_aligned_free( recVU0mac );
-		_aligned_free( recVU0status );
-		_aligned_free( recVU0clip );
-		_aligned_free( recVU0Q );
-		for (i=0; i<0x1000; i+=4) { if (*(u32*)&recVU0cycles[i]) free((void*)*(u32*)&recVU0cycles[i]); }
-		_aligned_free( recVU0XMMRegs);
-		_aligned_free( recVU0cycles );
-		SysMunmap((uptr)recMemVU0, 0x00800000);
+		SuperVUDestroy(0);
 	}
 
 #ifdef WIN32_VIRTUAL_MEM
-	SysMapUserPhysicalPages(VU0.Mem, 16, NULL);
+	if( !SysMapUserPhysicalPages(VU0.Mem, 16, NULL) )
+		SysPrintf("err releasing vu0 mem %d\n", GetLastError());
 	if( VirtualFree(VU0.Mem, 0, MEM_RELEASE) == 0 )
 		SysPrintf("err freeing vu0 %d\n", GetLastError());
 #else
@@ -146,11 +121,20 @@ void vu0Shutdown() {
 #endif
 
 	VU0.Mem = NULL;
-	_aligned_free(VU0.VF); VU0.VF = NULL;
-	_aligned_free(VU0.VI); VU0.VI = NULL;
+	VU0.Micro = NULL;
+//	_aligned_free(VU0.VF); VU0.VF = NULL;
+//	_aligned_free(VU0.VI); VU0.VI = NULL;
 }
 
-void vu0ResetRegs() {
+void vu0ResetRegs()
+{
+	VU0.VI[REG_VPU_STAT].UL &= ~0xff; // stop vu0
+	VU0.VI[REG_FBRST].UL &= ~0xff; // stop vu0
+	vif0Regs->stat &= ~4;
+}
+
+void vu0Reset()
+{
 	memset(&VU0.ACC, 0, sizeof(VECTOR));
 	memset(VU0.VF, 0, sizeof(VECTOR)*32);
 	memset(VU0.VI, 0, sizeof(REG_VI)*32);
@@ -159,29 +143,17 @@ void vu0ResetRegs() {
 	VU0.VF[0].f.z = 0.0f;
 	VU0.VF[0].f.w = 1.0f;
 	VU0.VI[0].UL = 0;
-}
-
-void vu0Reset() {
-	vu0ResetRegs();
 	memset(VU0.Mem, 0, 4*1024);
 	memset(VU0.Micro, 0, 4*1024);
+
+	recResetVU0();
 }
 
-void recResetVU0( void ) {
+void recResetVU0( void )
+{
 	if( CHECK_VU0REC ) {
-		memset( recVU0,  0, 0x00001000 );
-		memset( recVU0mac,  0, 0x00001000 );
-		memset( recVU0status,  0, 0x00001000 );
-		memset( recVU0clip,  0, 0x00001000 );
-		memset( recVU0Q,  0, 0x00001000 );
+		SuperVUReset(0);
 	}
-
-	vu0recpcold = 0;
-	recPtrVU0 = recMemVU0;
-	x86FpuState = FPU_STATE;
-	iCWstate = 0;
-
-	branch = 0;
 }
 
 void vu0Freeze(gzFile f, int Mode) {
@@ -208,6 +180,7 @@ void vu0ExecMicro(u32 addr) {
 	VU0.VI[REG_VPU_STAT].UL&= ~0xAE;
 	if (addr != -1) VU0.VI[REG_TPC].UL = addr;
 	_vuExecMicroDebug(VU0);
+	Cpu->ExecuteVU0Block();
 }
 
 void _vu0ExecUpper(VURegs* VU, u32 *ptr) {
@@ -277,6 +250,7 @@ void _vu0Exec(VURegs* VU) {
 		_vu0ExecUpper(VU, ptr);
 
 		VU->VI[REG_I].UL = ptr[0]; 
+		memset(&lregs, 0, sizeof(lregs));
 	} else {
 		VU->code = ptr[0];
 		VU0regs_LOWER_OPCODE[VU->code >> 25](&lregs);
@@ -329,7 +303,9 @@ void _vu0Exec(VURegs* VU) {
 		}
 	}
 	_vuAddUpperStalls(VU, &uregs);
-	_vuAddLowerStalls(VU, &lregs);
+
+	if (!(ptr[1] & 0x80000000))
+		_vuAddLowerStalls(VU, &lregs);
 
 	_vuTestPipes(VU);
 
@@ -374,12 +350,14 @@ _vuTables(VU0, VU0);
 _vuRegsTables(VU0, VU0regs);
 
 void VU0unknown() {
+	assert(0);
 #ifdef CPU_LOG
 	CPU_LOG("Unknown VU micromode opcode called\n"); 
 #endif
 }  
 
 void VU0regsunknown() {
+	assert(0);
 #ifdef CPU_LOG
 	CPU_LOG("Unknown VU micromode opcode called\n"); 
 #endif

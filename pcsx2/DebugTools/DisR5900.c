@@ -21,7 +21,7 @@
 #include <string.h>
 
 #include "Debug.h"
-#include "VU0.h"
+#include "VU.h"
 
 long jumpMode;
 char ostr[1024];
@@ -31,7 +31,7 @@ char *disRNameGPR[] = {
 	"r0", "at", "v0", "v1", "a0", "a1","a2", "a3",
 	"t0", "t1", "t2", "t3", "t4", "t5","t6", "t7",
 	"s0", "s1", "s2", "s3", "s4", "s5","s6", "s7",
-	"t8", "t9", "k0", "k1", "gp", "sp","fp", "ra"};
+	"t8", "t9", "k0", "k1", "gp", "sp","fp", "ra", "hi", "lo"}; // lo,hi used in rec
 
 char *disRNameCP0[] = {
 	"Index"     , "Random"    , "EntryLo0" , "EntryLo1", "Context" , "PageMask"  , "Wired"     , "*RES*",

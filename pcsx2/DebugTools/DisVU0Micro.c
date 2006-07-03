@@ -21,7 +21,6 @@
 #include <string.h>
 
 #include "Debug.h"
-#include "VU0.h"
 
 char ostr[1024];
 
@@ -59,6 +58,7 @@ typedef char* (*TdisR5900F)DisFInterface;
 #define dCP232f(i, j)	sprintf(ostr, "%s Q %s=%f (%s),", ostr, CP2VFnames[j], VU0.VF[i].F[j], disRNameCP2f[i])
 #define dImm5()			sprintf(ostr, "%s %d,", ostr, (code >> 6) & 0x1f)
 #define dImm11()		sprintf(ostr, "%s %d,", ostr, code & 0x7ff)
+#define dImm15()		sprintf(ostr, "%s %d,", ostr, ( ( code >> 10 ) & 0x7800 ) | ( code & 0x7ff ))
 
 #define _X ((code>>24) & 0x1)
 #define _Y ((code>>23) & 0x1)
@@ -77,6 +77,7 @@ extern char* disNULL DisFInterface;
 
 #include "DisVUmicro.h"
 #include "DisVUops.h"
+#include "VU.h"
 
 _disVUOpcodes(VU0);
 _disVUTables(VU0);

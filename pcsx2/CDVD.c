@@ -102,7 +102,7 @@ NVMLayout nvmlayouts[NVM_FORMAT_MAX] =
 };
 
 
-unsigned long cdvdReadTime;
+unsigned long cdvdReadTime=0;
 
 #define CDVDREAD_INT(eCycle) PSX_INT(19, eCycle)
 
@@ -666,7 +666,7 @@ int cdvdReadSector() {
 #endif
 	bcr = (HW_DMA3_BCR_H16 * HW_DMA3_BCR_L16) *4;
 	if (bcr < cdvd.BlockSize) {
-//		SysPrintf("*PCSX2*: cdvdReadSector: bcr < cdvd.BlockSize; %x < %x\n", bcr, cdvd.BlockSize);
+		//SysPrintf("*PCSX2*: cdvdReadSector: bcr < cdvd.BlockSize; %x < %x\n", bcr, cdvd.BlockSize);
 		if (HW_DMA3_CHCR & 0x01000000) {
 			HW_DMA3_CHCR &= ~0x01000000;
 			psxDmaInterrupt(3);
@@ -716,7 +716,7 @@ int cdvdReadSector() {
 		PSXMu8(HW_DMA3_MADR+11) = 0;
 		
 		// normal 2048 bytes of sector data
-		memcpy(PSXM(HW_DMA3_MADR+12), cdr.pTransfer, 2048);
+		memcpy_amd(PSXM(HW_DMA3_MADR+12), cdr.pTransfer, 2048);
 		
 		// 4 bytes of edc (not calculated at present)
 		PSXMu8(HW_DMA3_MADR+2060) = 0;
@@ -725,7 +725,7 @@ int cdvdReadSector() {
 		PSXMu8(HW_DMA3_MADR+2063) = 0;
 	} else {
 		// normal read
-		memcpy(PSXM(HW_DMA3_MADR), cdr.pTransfer, cdvd.BlockSize);
+		memcpy_amd(PSXM(HW_DMA3_MADR), cdr.pTransfer, cdvd.BlockSize);
 	}
 	// decrypt sector's bytes
 	if(cdvd.decSet)
@@ -735,13 +735,14 @@ int cdvdReadSector() {
 
 	HW_DMA3_BCR_H16-= (cdvd.BlockSize / (HW_DMA3_BCR_L16*4));
 	HW_DMA3_MADR+= cdvd.BlockSize;
+	//FreezeMMXRegs(0);
 
 	return 0;
 }
 
 int  cdvdReadInterrupt() {
 
-//	SysPrintf("cdvdReadInterrupt\n");
+	//SysPrintf("cdvdReadInterrupt %x %x %x %x %x\n", cpuRegs.interrupt, cdvd.Readed, cdvd.Reading, cdvd.nSectors, (HW_DMA3_BCR_H16 * HW_DMA3_BCR_L16) *4);
 	if (cdvd.Readed == 0) {
 		cdvd.RetryCntP = 0;
 		cdvd.Reading = 1;
@@ -769,6 +770,7 @@ int  cdvdReadInterrupt() {
 		cdvd.Reading = 0;
 	}
 	if (cdvdReadSector() == -1) {
+		assert( (int)cdvdReadTime > 0 );
 		CDVDREAD_INT(cdvdReadTime);
 		return 0;
 	}
@@ -1324,7 +1326,7 @@ void cdvdWrite16(u8 rt) { // SCOMMAND
 
 		case 0x08: // CdReadRTC (0:8)
 			SetResultSize(8);
-			memcpy(cdvd.Result, (u8*)&cdvd.RTC, 8);
+			memcpy_amd(cdvd.Result, (u8*)&cdvd.RTC, 8);
 			/* do not uncomment this by now, it kinda makes 
 			   things a bit more random for debugging (linuz) */
 /*
@@ -1347,7 +1349,7 @@ void cdvdWrite16(u8 rt) { // SCOMMAND
 		case 0x09: // sceCdWriteRTC (7:1)
 			SetResultSize(1);
 			cdvd.Result[0] = 0;
-			memcpy((u8*)&cdvd.RTC, cdvd.Param, 7);
+			memcpy_amd((u8*)&cdvd.RTC, cdvd.Param, 7);
 			cdvd.RTC.pad = 0;
 			break;
 
@@ -1661,9 +1663,9 @@ void cdvdWrite16(u8 rt) { // SCOMMAND
 
 		case 0x8E: // sceMgReadData
 			SetResultSize(min(16, cdvd.mg_size));
-			memcpy(cdvd.Result, cdvd.mg_buffer, cdvd.ResultC);
+			memcpy_amd(cdvd.Result, cdvd.mg_buffer, cdvd.ResultC);
 			cdvd.mg_size -= cdvd.ResultC;
-			memcpy(cdvd.mg_buffer, cdvd.mg_buffer+cdvd.ResultC, cdvd.mg_size);
+			memcpy_amd(cdvd.mg_buffer, cdvd.mg_buffer+cdvd.ResultC, cdvd.mg_size);
 			break;
 
 		case 0x88: // secrman: __mechacon_auth_0x88	//for now it is the same; so, fall;)

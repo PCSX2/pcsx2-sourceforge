@@ -22,7 +22,6 @@
 #include <float.h>
 
 #include "Common.h"
-#include "VU0.h"
 #include "VUmicro.h"
 /*****************************************/
 /*          NEW FLAGS                    */ //By asadr. Thnkx F|RES :p

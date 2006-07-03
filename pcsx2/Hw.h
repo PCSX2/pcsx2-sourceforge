@@ -42,35 +42,11 @@ u64 *psHD;
 extern u32 g_nextBranchCycle;
 
 #define	INT(n, ecycle) { \
-	LOCKINT_LOCK(n); \
 	g_nextBranchCycle = min(g_nextBranchCycle, cpuRegs.cycle+ecycle); \
 	cpuRegs.interrupt|= 1 << n; \
 	cpuRegs.sCycle[n] = cpuRegs.cycle; \
 	cpuRegs.eCycle[n] = ecycle; \
-	LOCKINT_UNLOCK(n); \
 }
-
-//
-// --- FIFO ---
-//
-#define EMPTY(a) ((a)->last==(a)->first)
-
-struct item{
-	struct item	*next;
-	void		*data;
-	u32		size;
-};
-
-struct fifo{
-	struct item	*first, *last;
-	u32		count, used;
-};
-
-void fifo_add(struct fifo *fifo, void *value, u32 size);
-void fifo_get(struct fifo *fifo, void *value, u32 size);
-u32  fifo_count(struct fifo *fifo);
-void fifo_empty(struct fifo *fifo);
-
 
 // VIF0   -- 0x10004000 -- psH[0x4000]
 // VIF1   -- 0x10005000 -- psH[0x5000]
@@ -79,7 +55,10 @@ void fifo_empty(struct fifo *fifo);
 // IPUin  -- 0x10007010 -- psH[0x7010]
 
 void ReadFIFO(u32 mem, u64 *out);
+void ConstReadFIFO(u32 mem);
+
 void WriteFIFO(u32 mem, u64 *value);
+void ConstWriteFIFO(u32 mem);
 
 
 //
@@ -373,16 +352,39 @@ __forceinline void *dmaGetAddr(u32 addr) {
 int  hwInit();
 void hwReset();
 void hwShutdown();
+
+// hw read functions
 u8   hwRead8 (u32 mem);
+int hwConstRead8 (u32 x86reg, u32 mem, u32 sign);
+
 u16  hwRead16(u32 mem);
+int hwConstRead16(u32 x86reg, u32 mem, u32 sign);
+
 u32  hwRead32(u32 mem);
+int hwConstRead32(u32 x86reg, u32 mem);
+
 u64  hwRead64(u32 mem);
+void hwConstRead64(u32 mem, int mmreg);
+
 void hwRead128(u32 mem, u64 *out);
+void hwConstRead128(u32 mem, int xmmreg);
+
+// hw write functions
 void hwWrite8 (u32 mem, u8  value);
+void hwConstWrite8 (u32 mem, int mmreg);
+
 void hwWrite16(u32 mem, u16 value);
+void hwConstWrite16(u32 mem, int mmreg);
+
 void hwWrite32(u32 mem, u32 value);
+void hwConstWrite32(u32 mem, int mmreg);
+
 void hwWrite64(u32 mem, u64 value);
+void hwConstWrite64(u32 mem, int mmreg);
+
 void hwWrite128(u32 mem, u64 *value);
+void hwConstWrite128(u32 mem, int xmmreg);
+
 void hwIntcIrq(int n);
 void hwDmacIrq(int n);
 

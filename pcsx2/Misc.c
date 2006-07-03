@@ -26,13 +26,18 @@
 #include "Common.h"
 #include "PsxCommon.h"
 #include "CDVDisodrv.h"
-#include "VU0.h"
 #include "VUmicro.h"
 #ifdef __WIN32__
 #include "RDebug/deci2.h"
 #endif
 
-static DWORD dwSaveVersion = 0x7a000003;
+DWORD dwSaveVersion = 0x7a30000c;
+extern u32 s_iLastCOP0Cycle;
+extern int g_psxWriteOk;
+
+PcsxConfig Config;
+u32 BiosVersion;
+char CdromId[12];
 
 char *LabelAuthors = { N_(
 	"PCSX2 a PS2 emulator\n\n"
@@ -49,8 +54,9 @@ char *LabelGreets = { N_(
 	"Greets to: Bobbi, Keith, CpUMasteR, Nave, Snake785, Raziel\n"
 	"Special thanks to: Sjeep, Dreamtime, F|RES, BGnome, MrBrown, \n"
 	"Seta-San, Skarmeth, blackd_wd, _Demo_\n"
+	"\n"
 	"Credits: Hiryu && Sjeep for their libcdvd (iso parsing and filesystem driver code)\n"
-	"         libmpeg2 - http://libmpeg2.sourceforge.net\n"
+	"\n"
 	"Some betatester/support dudes: Belmont, bositman, ChaosCode, CKemu, crushtest,"
 	"falcon4ever, GeneralPlot, jegHegy, parotaku, Prafull, Razorblade, Rudy_X, Seta-san")
 };
@@ -165,7 +171,7 @@ int IsBIOS(char *filename, char *description){
 	struct stat buf;
 	char Bios[260], ROMVER[14+1], zone[12+1];
 	FILE *fp;
-	unsigned int fileOffset=0, found_ROMVER=FALSE, offset_ROMVER=0, found_PSXVER=FALSE;
+	unsigned int fileOffset=0, found=FALSE;
 	struct romdir rd;
 
 	strcpy(Bios, Config.BiosDir);
@@ -185,15 +191,33 @@ int IsBIOS(char *filename, char *description){
 		return FALSE;	//Unable to locate ROMDIR structure in file or a ioprpXXX.img
 	}
 
-	// go through directory to get info on ROMVER, PSXVER and BIOS size
 	while(strlen(rd.fileName) > 0){
-		if (strcmp(rd.fileName, "ROMVER") == 0){	// found ROMVER
-			offset_ROMVER = fileOffset;
-			found_ROMVER = TRUE;
+		if (strcmp(rd.fileName, "ROMVER") == 0){	// found romver
+			unsigned int filepos=ftell(fp);
+			fseek(fp, fileOffset, SEEK_SET);
+			if (fread(&ROMVER, 14, 1, fp) == 0) break;
+			fseek(fp, filepos, SEEK_SET);//go back
+				
+			switch(ROMVER[4]){
+				case 'T':sprintf(zone, "T10K  "); break;
+				case 'X':sprintf(zone, "Test  ");break;
+				case 'J':sprintf(zone, "Japan "); break;
+				case 'A':sprintf(zone, "USA   "); break;
+				case 'E':sprintf(zone, "Europe"); break;
+				case 'H':sprintf(zone, "HK    "); break;
+				case 'P':sprintf(zone, "Free  "); break;
+				case 'C':sprintf(zone, "China "); break;
+				default: sprintf(zone, "%c     ",ROMVER[4]); break;//shoudn't show
+			}
+			sprintf(description, "%s vXX.XX(XX/XX/XXXX) %s", zone,
+				ROMVER[5]=='C'?"Console":ROMVER[5]=='D'?"Devel":"");
+			strncpy(description+ 8, ROMVER+ 0, 2);//ver major
+			strncpy(description+11, ROMVER+ 2, 2);//ver minor
+			strncpy(description+14, ROMVER+12, 2);//day
+			strncpy(description+17, ROMVER+10, 2);//month
+			strncpy(description+20, ROMVER+ 6, 4);//year
+			found = TRUE;
 		}
-
-		if (strcmp(rd.fileName, "PSXVER") == 0)		// found PSXVER
-			found_PSXVER = TRUE;
 
 		if ((rd.fileSize % 0x10)==0)
 			fileOffset += rd.fileSize;
@@ -204,31 +228,9 @@ int IsBIOS(char *filename, char *description){
 	}
 	fileOffset-=((rd.fileSize + 0x10) & 0xfffffff0) - rd.fileSize;
 
-	fseek(fp, offset_ROMVER, SEEK_SET);
-	if (fread(&ROMVER, 14, 1, fp)){
-		switch(ROMVER[4]){
-					case 'T':sprintf(zone, "T10K  "); break;
-					case 'X':sprintf(zone, "Test  ");break;
-					case 'J':sprintf(zone, "Japan "); break;
-					case 'A':sprintf(zone, "USA   "); break;
-					case 'E':sprintf(zone, "Europe"); break;
-					case 'H':sprintf(zone, "HK    "); break;
-					case 'P':sprintf(zone, "Free  "); break;
-					case 'C':sprintf(zone, "China "); break;
-					default: sprintf(zone, "%c     ",ROMVER[4]); break;//shoudn't show
-		}
-		sprintf(description, "%s vXX.XX(XX/XX/XXXX) %s", zone,
-			found_PSXVER ? "PSX" : ROMVER[5]=='C'?"Console":ROMVER[5]=='D'?"Devel":"");
-		strncpy(description+ 8, ROMVER+ 0, 2);//ver major
-		strncpy(description+11, ROMVER+ 2, 2);//ver minor
-		strncpy(description+14, ROMVER+12, 2);//day
-		strncpy(description+17, ROMVER+10, 2);//month
-		strncpy(description+20, ROMVER+ 6, 4);//year
-	}
-
 	fclose(fp);
 	
-	if (found_ROMVER) {
+	if (found) {
 		char percent[6];
 
 		if (buf.st_size<(int)fileOffset){
@@ -426,16 +428,10 @@ int connected=0;
 
 #define SYNC_LOGGING
 
-extern pthread_mutex_t g_mtxLog;
-
 void __Log(char *fmt, ...) {
 #ifdef EMU_LOG 
 	va_list list;
 	static char tmp[2024];	//hm, should be enough
-
-#ifdef SYNC_LOGGING
-	if( g_mtxLog != NULL ) pthread_mutex_lock(&g_mtxLog);
-#endif
 
 	va_start(list, fmt);
 #ifdef __WIN32__
@@ -458,10 +454,6 @@ void __Log(char *fmt, ...) {
 #endif
 	}
 	va_end(list);
-#endif
-
-#ifdef SYNC_LOGGING
-	if( g_mtxLog != NULL ) pthread_mutex_unlock(&g_mtxLog);
 #endif
 }
 
@@ -506,6 +498,8 @@ const char Pcsx2Header[32] = STATE_VERSION " PCSX2 v" PCSX2_VERSION;
 
 extern void gsWaitGS();
 
+extern u32 g_nextBranchCycle, g_psxNextBranchCycle;
+
 int SaveState(char *file) {
 
 	gzFile f;
@@ -530,6 +524,14 @@ int SaveState(char *file) {
 	gzwrite(f, (void*)&psxRegs, sizeof(psxRegs));   // iop regs]
 	gzwrite(f, (void*)&fpuRegs, sizeof(fpuRegs));   // fpu regs
 	gzwrite(f, (void*)&tlb, sizeof(tlb));           // tlbs
+	gzwrite(f, &EEsCycle, sizeof(EEsCycle));
+	gzwrite(f, &EEoCycle, sizeof(EEoCycle));
+	gzwrite(f, &IOPoCycle, sizeof(IOPoCycle));
+	gzwrite(f, &g_nextBranchCycle, sizeof(g_nextBranchCycle));
+	gzwrite(f, &g_psxNextBranchCycle, sizeof(g_psxNextBranchCycle));
+	gzwrite(f, &s_iLastCOP0Cycle, sizeof(s_iLastCOP0Cycle));
+	gzwrite(f, &g_psxWriteOk, sizeof(g_psxWriteOk));
+
 	//gzwrite(f, (void*)&ipuRegs, sizeof(IPUregisters));   // ipu regs
 	//hope didn't forgot any cpu....
 
@@ -540,12 +542,13 @@ int SaveState(char *file) {
 	vif0Freeze(f, 1);
 	vif1Freeze(f, 1);
 	sifFreeze(f, 1);
+	ipuFreeze(f, 1);
 
 	// iop now
 	gzwrite(f, psxM, 0x00200000);        // 2 MB main memory
-	gzwrite(f, psxP, 0x00010000);        // pralell memory
+	//gzwrite(f, psxP, 0x00010000);        // pralell memory
 	gzwrite(f, psxH, 0x00010000);        // hardware memory
-	gzwrite(f, psxS, 0x00010000);        // sif memory	
+	//gzwrite(f, psxS, 0x00010000);        // sif memory	
 
 	sioFreeze(f, 1);
 	cdrFreeze(f, 1);
@@ -569,13 +572,21 @@ int SaveState(char *file) {
 	return 0;
 }
 
+extern u32 dumplog;
+extern u32 s_vucount;
+
 int LoadState(char *file) {
 
 	gzFile f;
 	freezeData fP;
 	int i;
-	//DWORD OldProtect;
+	DWORD OldProtect;
 	DWORD dwVer;
+
+#ifdef _DEBUG
+	s_vucount = 0;
+	//dumplog |= 2;
+#endif
 
 	SysPrintf("LoadState: %s\n", file);
 	f = gzopen(file, "rb");
@@ -595,6 +606,8 @@ int LoadState(char *file) {
 	for (i=0; i<48; i++) ClearTLB(i);
 
 	Cpu->Reset();
+	recResetVU0();
+	recResetVU1();
 	psxCpu->Reset();
 
 	SysPrintf("Loading memory\n");
@@ -626,8 +639,13 @@ int LoadState(char *file) {
 	gzread(f, (void*)&psxRegs, sizeof(psxRegs));   // iop regs
 	gzread(f, (void*)&fpuRegs, sizeof(fpuRegs));   // fpu regs
 	gzread(f, (void*)&tlb, sizeof(tlb));           // tlbs
-	//gzread(f, (void*)&ipuRegs, sizeof(IPUregisters));   // ipu regs
-	//hope didn't forgot any cpu....
+	gzread(f, &EEsCycle, sizeof(EEsCycle));
+	gzread(f, &EEoCycle, sizeof(EEoCycle));
+	gzread(f, &IOPoCycle, sizeof(IOPoCycle));
+	gzread(f, &g_nextBranchCycle, sizeof(g_nextBranchCycle));
+	gzread(f, &g_psxNextBranchCycle, sizeof(g_psxNextBranchCycle));
+	gzread(f, &s_iLastCOP0Cycle, sizeof(s_iLastCOP0Cycle));
+	gzread(f, &g_psxWriteOk, sizeof(g_psxWriteOk));
 
 	rcntFreeze(f, 0);
 	gsFreeze(f, 0);
@@ -636,13 +654,14 @@ int LoadState(char *file) {
 	vif0Freeze(f, 0);
 	vif1Freeze(f, 0);
 	sifFreeze(f, 0);
+	ipuFreeze(f, 0);
 
 	// iop now
 	SysPrintf("Loading iop mem\n");
 	gzread(f, psxM, 0x00200000);        // 2 MB main memory
-	gzread(f, psxP, 0x00010000);        // pralell memory
+	//gzread(f, psxP, 0x00010000);        // pralell memory
 	gzread(f, psxH, 0x00010000);        // hardware memory
-	gzread(f, psxS, 0x00010000);        // sif memory	
+	//gzread(f, psxS, 0x00010000);        // sif memory	
 
 	SysPrintf("Loading iop stuff\n");
 	sioFreeze(f, 0);
@@ -665,6 +684,7 @@ int LoadState(char *file) {
 
 	gzclose(f);
 
+	//dumplog |= 4;
 	WriteCP0Status(cpuRegs.CP0.n.Status.val);
 	for (i=0; i<48; i++) WriteTLB(i);
 

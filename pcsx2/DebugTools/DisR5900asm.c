@@ -19,6 +19,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "PS2Etypes.h"
+#include "Debug.h"
 #include "R5900.h"
 #include "DisASM.h"
 
@@ -1341,8 +1343,10 @@ void P_MTSAH(char *buf)   { sprintf(buf, "mtsah\t%s, 0x%04X", GPR_REG[DECODE_RS]
 
 
 //***************************SPECIAL 2 CPU OPCODES*******************
+const char* pmfhl_sub[] = { "lw", "uw", "slw", "lh", "sh" };
+
 void P_MADD(char *buf)    { sprintf(buf, "madd\t%s, %s %s",        GPR_REG[DECODE_RD],GPR_REG[DECODE_RS], GPR_REG[DECODE_RT]); }
-void P_MADDU(char *buf)   { sprintf(buf, "madd\t%s, %s %s",        GPR_REG[DECODE_RD],GPR_REG[DECODE_RS], GPR_REG[DECODE_RT]);}
+void P_MADDU(char *buf)   { sprintf(buf, "maddu\t%s, %s %s",       GPR_REG[DECODE_RD],GPR_REG[DECODE_RS], GPR_REG[DECODE_RT]);}
 void P_PLZCW(char *buf)   { sprintf(buf, "plzcw\t%s, %s",          GPR_REG[DECODE_RD], GPR_REG[DECODE_RS]); }
 void P_MADD1(char *buf)   { sprintf(buf, "madd1\t%s, %s %s",       GPR_REG[DECODE_RD],GPR_REG[DECODE_RS], GPR_REG[DECODE_RT]); }
 void P_MADDU1(char *buf)  { sprintf(buf, "maddu1\t%s, %s %s",      GPR_REG[DECODE_RD],GPR_REG[DECODE_RS], GPR_REG[DECODE_RT]); }
@@ -1355,8 +1359,8 @@ void P_MULTU1(char *buf)  { sprintf(buf, "multu1\t%s, %s, %s",        GPR_REG[DE
 void P_DIV1(char *buf)    { sprintf(buf, "div1\t%s, %s",       GPR_REG[DECODE_RS], GPR_REG[DECODE_RT]); }
 void P_DIVU1(char *buf)   { sprintf(buf, "divu1\t%s, %s",       GPR_REG[DECODE_RS], GPR_REG[DECODE_RT]); }
 //that have parametres that i haven't figure out how to display...
-void P_PMFHL(char *buf)   { sprintf(buf, "pmfhl.? \t%s",          GPR_REG[DECODE_RD]); }
-void P_PMTHL(char *buf)   { sprintf(buf, "pmthl.? \t%s",          GPR_REG[DECODE_RS]); }
+void P_PMFHL(char *buf)   { sprintf(buf, "pmfhl.%s \t%s",          pmfhl_sub[DECODE_SA], GPR_REG[DECODE_RD]); }
+void P_PMTHL(char *buf)   { sprintf(buf, "pmthl.%s \t%s",          pmfhl_sub[DECODE_SA], GPR_REG[DECODE_RS]); }
 void P_PSLLH(char *buf)   { sprintf(buf, "psllh   \t%s, %s, 0x%02X",   GPR_REG[DECODE_RD], GPR_REG[DECODE_RT], DECODE_SA); }
 void P_PSRLH(char *buf)   { sprintf(buf, "psrlh   \t%s, %s, 0x%02X",   GPR_REG[DECODE_RD], GPR_REG[DECODE_RT], DECODE_SA);}
 void P_PSRAH(char *buf)   { sprintf(buf, "psrah   \t%s, %s, 0x%02X",   GPR_REG[DECODE_RD], GPR_REG[DECODE_RT], DECODE_SA);}
@@ -1538,126 +1542,138 @@ const char *dest_string(void)
  return (const char *)str;
 }
 
-void P_VADDx(char *buf){sprintf(buf, "vaddx.%s  %s, %s, %sx",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }       
-void P_VADDy(char *buf){sprintf(buf, "vaddy.%s  %s, %s, %sy",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);  }        
-void P_VADDz(char *buf){sprintf(buf, "vaddz.%s  %s, %s, %sz",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }        
-void P_VADDw(char *buf){sprintf(buf, "vaddw.%s  %s, %s, %sw",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }        
-void P_VSUBx(char *buf){sprintf(buf, "vsubx.%s  %s, %s, %sx",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);  }         
-void P_VSUBy(char *buf){sprintf(buf, "vsuby.%s  %s, %s, %sy",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }         
-void P_VSUBz(char *buf){sprintf(buf, "vsubz.%s  %s, %s, %sz",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);  } 
-void P_VSUBw(char *buf){sprintf(buf, "vsubw.%s  %s, %s, %sw",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }  
-void P_VMADDx(char *buf){sprintf(buf, "vmaddx.%s  %s, %s, %sx",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }     
-void P_VMADDy(char *buf){sprintf(buf, "vmaddy.%s  %s, %s, %sy",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }     
-void P_VMADDz(char *buf){sprintf(buf, "vmaddz.%s  %s, %s, %sz",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }     
-void P_VMADDw(char *buf){sprintf(buf, "vmaddw.%s  %s, %s, %sw",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }     
-void P_VMSUBx(char *buf){sprintf(buf, "vmsubx.%s  %s, %s, %sx",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }     
-void P_VMSUBy(char *buf){sprintf(buf, "vmsuby.%s  %s, %s, %sy",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }     
-void P_VMSUBz(char *buf){sprintf(buf, "vmsubz.%s  %s, %s, %sz",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }     
-void P_VMSUBw(char *buf){sprintf(buf, "vmsubw.%s  %s, %s, %sw",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
-void P_VMAXx(char *buf){sprintf(buf, "vmaxx.%s  %s, %s, %sx",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }        
-void P_VMAXy(char *buf){sprintf(buf, "vmaxy.%s  %s, %s, %sy",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }        
-void P_VMAXz(char *buf){sprintf(buf, "vmaxz.%s  %s, %s, %sz",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }        
-void P_VMAXw(char *buf){sprintf(buf, "vmaxw.%s  %s, %s, %sw",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }        
-void P_VMINIx(char *buf){sprintf(buf, "vminix.%s  %s, %s, %sx",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }        
-void P_VMINIy(char *buf){sprintf(buf, "vminiy.%s  %s, %s, %sy",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); ;}        
-void P_VMINIz(char *buf){sprintf(buf, "vminiz.%s  %s, %s, %sz",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }        
-void P_VMINIw(char *buf){sprintf(buf, "vminiw.%s  %s, %s, %sw",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }  
-void P_VMULx(char *buf){sprintf(buf,"vmulx.%s  %s,%s,%sx",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }        
-void P_VMULy(char *buf){sprintf(buf,"vmuly.%s  %s,%s,%sy",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }        
-void P_VMULz(char *buf){sprintf(buf,"vmulz.%s  %s,%s,%sz",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }        
-void P_VMULw(char *buf){sprintf(buf,"vmulw.%s  %s,%s,%sw",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }        
-void P_VMULq(char *buf){sprintf(buf,"vmulq.%s  %s,%s,Q",dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS]); }         
-void P_VMAXi(char *buf){sprintf(buf,"vmaxi.%s  %s,%s,I",dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS]); }         
-void P_VMULi(char *buf){sprintf(buf,"vmuli.%s  %s,%s,I",dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS]); }         
-void P_VMINIi(char *buf){sprintf(buf,"vminii.%s  %s,%s,I",dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS]); } 
-void P_VADDq(char *buf){sprintf(buf,"vaddq.%s  %s,%s,Q",dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS]); } 
-void P_VMADDq(char *buf){sprintf(buf,"vmaddq.%s  %s,%s,Q",dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS]); }       
-void P_VADDi(char *buf){sprintf(buf,"vaddi.%s  %s,%s,I",dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS]); }        
-void P_VMADDi(char *buf){sprintf(buf,"vmaddi.%s  %s,%s,I",dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS]); }       
-void P_VSUBq(char *buf){sprintf(buf,"vsubq.%s  %s,%s,Q",dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS]); }         
-void P_VMSUBq(char *buf){sprintf(buf,"vmsubq.%s  %s,%s,Q",dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS]); }        
-void P_VSUbi(char *buf){sprintf(buf,"vsubi.%s  %s,%s,I",dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS]); }         
-void P_VMSUBi(char *buf){sprintf(buf,"vmsubi.%s  %s,%s,I",dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS]); }  
-void P_VADD(char *buf){sprintf(buf, "vadd.%s  %s, %s, %s",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }         
-void P_VMADD(char *buf){sprintf(buf, "vmadd.%s  %s, %s, %s",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }        
-void P_VMUL(char *buf){sprintf(buf, "vmul.%s  %s, %s, %s",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }         
-void P_VMAX(char *buf){sprintf(buf, "vmax.%s  %s, %s, %s",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }         
-void P_VSUB(char *buf){sprintf(buf, "vsub.%s  %s, %s, %s",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }          
-void P_VMSUB(char *buf){sprintf(buf, "vmsub.%s  %s, %s, %s",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }        
-void P_VOPMSUB(char *buf){sprintf(buf, "vopmsub.xyz  %s, %s, %s",   COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }       
-void P_VMINI(char *buf){sprintf(buf, "vmini.%s  %s, %s, %s",   dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }   
+char dest_fsf()
+{
+	const arr[4] = { 'x', 'y', 'z', 'w' };
+	return arr[(cpuRegs.code>>21)&3];
+}
+
+char dest_ftf()
+{
+	const arr[4] = { 'x', 'y', 'z', 'w' };
+	return arr[(cpuRegs.code>>23)&3];
+}
+
+void P_VADDx(char *buf){sprintf(buf, "vaddx.%s %s, %s, %sx", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VADDy(char *buf){sprintf(buf, "vaddy.%s %s, %s, %sy", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VADDz(char *buf){sprintf(buf, "vaddz.%s %s, %s, %sz", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VADDw(char *buf){sprintf(buf, "vaddw.%s %s, %s, %sw", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VSUBx(char *buf){sprintf(buf, "vsubx.%s %s, %s, %sx", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VSUBy(char *buf){sprintf(buf, "vsuby.%s %s, %s, %sy", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VSUBz(char *buf){sprintf(buf, "vsubz.%s %s, %s, %sz", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VSUBw(char *buf){sprintf(buf, "vsubw.%s %s, %s, %sw", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VMADDx(char *buf){sprintf(buf, "vmaddx.%s %s, %s, %sx", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VMADDy(char *buf){sprintf(buf, "vmaddy.%s %s, %s, %sy", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VMADDz(char *buf){sprintf(buf, "vmaddz.%s %s, %s, %sz", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VMADDw(char *buf){sprintf(buf, "vmaddw.%s %s, %s, %sw", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VMSUBx(char *buf){sprintf(buf, "vmsubx.%s %s, %s, %sx", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VMSUBy(char *buf){sprintf(buf, "vmsuby.%s %s, %s, %sy", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VMSUBz(char *buf){sprintf(buf, "vmsubz.%s %s, %s, %sz", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VMSUBw(char *buf){sprintf(buf, "vmsubw.%s %s, %s, %sw", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VMAXx(char *buf){sprintf(buf, "vmaxx.%s %s, %s, %sx", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VMAXy(char *buf){sprintf(buf, "vmaxy.%s %s, %s, %sy", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VMAXz(char *buf){sprintf(buf, "vmaxz.%s %s, %s, %sz", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VMAXw(char *buf){sprintf(buf, "vmaxw.%s %s, %s, %sw", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VMINIx(char *buf){sprintf(buf, "vminix.%s %s, %s, %sx", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VMINIy(char *buf){sprintf(buf, "vminiy.%s %s, %s, %sy", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); ;}
+void P_VMINIz(char *buf){sprintf(buf, "vminiz.%s %s, %s, %sz", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VMINIw(char *buf){sprintf(buf, "vminiw.%s %s, %s, %sw", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VMULx(char *buf){sprintf(buf,"vmulx.%s %s,%s,%sx", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VMULy(char *buf){sprintf(buf,"vmuly.%s %s,%s,%sy", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VMULz(char *buf){sprintf(buf,"vmulz.%s %s,%s,%sz", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VMULw(char *buf){sprintf(buf,"vmulw.%s %s,%s,%sw", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VMULq(char *buf){sprintf(buf,"vmulq.%s %s,%s,Q",dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS]); }
+void P_VMAXi(char *buf){sprintf(buf,"vmaxi.%s %s,%s,I",dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS]); }
+void P_VMULi(char *buf){sprintf(buf,"vmuli.%s %s,%s,I",dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS]); }
+void P_VMINIi(char *buf){sprintf(buf,"vminii.%s %s,%s,I",dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS]); }
+void P_VADDq(char *buf){sprintf(buf,"vaddq.%s %s,%s,Q",dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS]); }
+void P_VMADDq(char *buf){sprintf(buf,"vmaddq.%s %s,%s,Q",dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS]); }
+void P_VADDi(char *buf){sprintf(buf,"vaddi.%s %s,%s,I",dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS]); }
+void P_VMADDi(char *buf){sprintf(buf,"vmaddi.%s %s,%s,I",dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS]); }
+void P_VSUBq(char *buf){sprintf(buf,"vsubq.%s %s,%s,Q",dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS]); }
+void P_VMSUBq(char *buf){sprintf(buf,"vmsubq.%s %s,%s,Q",dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS]); }
+void P_VSUbi(char *buf){sprintf(buf,"vsubi.%s %s,%s,I",dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS]); }
+void P_VMSUBi(char *buf){sprintf(buf,"vmsubi.%s %s,%s,I",dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS]); }
+void P_VADD(char *buf){sprintf(buf, "vadd.%s %s, %s, %s", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VMADD(char *buf){sprintf(buf, "vmadd.%s %s, %s, %s", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VMUL(char *buf){sprintf(buf, "vmul.%s %s, %s, %s", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VMAX(char *buf){sprintf(buf, "vmax.%s %s, %s, %s", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VSUB(char *buf){sprintf(buf, "vsub.%s %s, %s, %s", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VMSUB(char *buf){sprintf(buf, "vmsub.%s %s, %s, %s", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VOPMSUB(char *buf){sprintf(buf, "vopmsub.xyz %s, %s, %s", COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VMINI(char *buf){sprintf(buf, "vmini.%s %s, %s, %s", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
 void P_VIADD(char *buf){strcpy(buf,"viadd");}
-void P_VISUB(char *buf){strcpy(buf,"visub");}        
-void P_VIADDI(char *buf){strcpy(buf,"viaddi");}       
-void P_VIAND(char *buf){strcpy(buf,"viand");}         
-void P_VIOR(char *buf){strcpy(buf,"vior");}         
-void P_VCALLMS(char *buf){strcpy(buf,"vcallms");}      
-void P_CALLMSR(char *buf){strcpy(buf,"callmsr");}    
+void P_VISUB(char *buf){strcpy(buf,"visub");}
+void P_VIADDI(char *buf){strcpy(buf,"viaddi");}
+void P_VIAND(char *buf){strcpy(buf,"viand");}
+void P_VIOR(char *buf){strcpy(buf,"vior");}
+void P_VCALLMS(char *buf){strcpy(buf,"vcallms");}
+void P_CALLMSR(char *buf){strcpy(buf,"callmsr");}
 //***********************************END OF SPECIAL1 VU0 TABLE*****************************
 //******************************SPECIAL2 VUO TABLE*****************************************
-void P_VADDAx(char *buf){sprintf(buf,"vaddax.%s ACC,%s,%sx",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}      
-void P_VADDAy(char *buf){sprintf(buf,"vadday.%s ACC,%s,%sy",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}      
-void P_VADDAz(char *buf){sprintf(buf,"vaddaz.%s ACC,%s,%sz",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}      
-void P_VADDAw(char *buf){sprintf(buf,"vaddaw.%s ACC,%s,%sw",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}      
-void P_VSUBAx(char *buf){sprintf(buf,"vsubax.%s ACC,%s,%sx",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}      
-void P_VSUBAy(char *buf){sprintf(buf,"vsubay.%s ACC,%s,%sy",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}      
-void P_VSUBAz(char *buf){sprintf(buf,"vsubaz.%s ACC,%s,%sz",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}      
+void P_VADDAx(char *buf){sprintf(buf,"vaddax.%s ACC,%s,%sx",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}
+void P_VADDAy(char *buf){sprintf(buf,"vadday.%s ACC,%s,%sy",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}
+void P_VADDAz(char *buf){sprintf(buf,"vaddaz.%s ACC,%s,%sz",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}
+void P_VADDAw(char *buf){sprintf(buf,"vaddaw.%s ACC,%s,%sw",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}
+void P_VSUBAx(char *buf){sprintf(buf,"vsubax.%s ACC,%s,%sx",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}
+void P_VSUBAy(char *buf){sprintf(buf,"vsubay.%s ACC,%s,%sy",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}
+void P_VSUBAz(char *buf){sprintf(buf,"vsubaz.%s ACC,%s,%sz",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}
 void P_VSUBAw(char *buf){sprintf(buf,"vsubaw.%s ACC,%s,%sw",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}
-void P_VMADDAx(char *buf){sprintf(buf,"vmaddax.%s ACC,%s,%sx",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);} 
-void P_VMADDAy(char *buf){sprintf(buf,"vmadday.%s ACC,%s,%sy",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);} 
-void P_VMADDAz(char *buf){sprintf(buf,"vmaddaz.%s ACC,%s,%sz",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);} 
-void P_VMADDAw(char *buf){sprintf(buf,"vmaddaw.%s ACC,%s,%sw",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);} 
-void P_VMSUBAx(char *buf){sprintf(buf,"vmsubax.%s ACC,%s,%sx",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);} 
-void P_VMSUBAy(char *buf){sprintf(buf,"vmsubay.%s ACC,%s,%sy",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);} 
-void P_VMSUBAz(char *buf){sprintf(buf,"vmsubaz.%s ACC,%s,%sz",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}        
-void P_VMSUBAw(char *buf){sprintf(buf,"vmsubaw.%s ACC,%s,%sw",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}  
-void P_VITOF0(char *buf){sprintf(buf, "vitof0.%s  %s, %s",   dest_string(),COP2_REG_FP[DECODE_FT], COP2_REG_FP[DECODE_FS]); }      
-void P_VITOF4(char *buf){sprintf(buf, "vitof4.%s  %s, %s",   dest_string(),COP2_REG_FP[DECODE_FT], COP2_REG_FP[DECODE_FS]); }      
-void P_VITOF12(char *buf){sprintf(buf, "vitof12.%s  %s, %s",   dest_string(),COP2_REG_FP[DECODE_FT], COP2_REG_FP[DECODE_FS]); }     
-void P_VITOF15(char *buf){sprintf(buf, "vitof15.%s  %s, %s",   dest_string(),COP2_REG_FP[DECODE_FT], COP2_REG_FP[DECODE_FS]); }     
-void P_VFTOI0(char *buf) {sprintf(buf, "vftoi0.%s  %s, %s",   dest_string(),COP2_REG_FP[DECODE_FT], COP2_REG_FP[DECODE_FS]); }      
-void P_VFTOI4(char *buf) {sprintf(buf, "vftoi4.%s  %s, %s",   dest_string(),COP2_REG_FP[DECODE_FT], COP2_REG_FP[DECODE_FS]); }      
-void P_VFTOI12(char *buf){sprintf(buf, "vftoi12.%s  %s, %s",   dest_string(),COP2_REG_FP[DECODE_FT], COP2_REG_FP[DECODE_FS]); }     
-void P_VFTOI15(char *buf){sprintf(buf, "vftoi15.%s  %s, %s",   dest_string(),COP2_REG_FP[DECODE_FT], COP2_REG_FP[DECODE_FS]); }
-void P_VMULAx(char *buf){sprintf(buf,"vmulax.%s ACC,%s,%sx",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}      
-void P_VMULAy(char *buf){sprintf(buf,"vmulay.%s ACC,%s,%sy",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}      
-void P_VMULAz(char *buf){sprintf(buf,"vmulaz.%s ACC,%s,%sz",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}      
-void P_VMULAw(char *buf){sprintf(buf,"vmulaw.%s ACC,%s,%sw",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}      
-void P_VMULAq(char *buf){sprintf(buf,"vmulaq.%s ACC %s, Q"  ,dest_string(), COP2_REG_FP[DECODE_FS]); }     
-void P_VABS(char *buf){sprintf(buf, "vabs.%s  %s, %s",   dest_string(),COP2_REG_FP[DECODE_FT], COP2_REG_FP[DECODE_FS]);}        
-void P_VMULAi(char *buf){sprintf(buf,"vmulaq.%s ACC %s, I"  ,dest_string(), COP2_REG_FP[DECODE_FS]); }      
-void P_VCLIPw(char *buf){strcpy(buf,"vclip");}
-void P_VADDAq(char *buf){sprintf(buf,"vaddaq.%s ACC %s, Q"  ,dest_string(), COP2_REG_FP[DECODE_FS]); }     
-void P_VMADDAq(char *buf){sprintf(buf,"vmaddaq.%s ACC %s, Q"  ,dest_string(), COP2_REG_FP[DECODE_FS]); }     
-void P_VADDAi(char *buf){sprintf(buf,"vaddai.%s ACC %s, I"  ,dest_string(), COP2_REG_FP[DECODE_FS]); }      
-void P_VMADDAi(char *buf){sprintf(buf,"vmaddai.%s ACC %s, Q"  ,dest_string(), COP2_REG_FP[DECODE_FS]); }     
-void P_VSUBAq(char *buf){sprintf(buf,"vsubaq.%s ACC %s, Q"  ,dest_string(), COP2_REG_FP[DECODE_FS]); }      
-void P_VMSUBAq(char *buf){sprintf(buf,"vmsubaq.%s ACC %s, Q"  ,dest_string(), COP2_REG_FP[DECODE_FS]); }     
-void P_VSUBAi(char *buf){sprintf(buf,"vsubai.%s ACC %s, I"  ,dest_string(), COP2_REG_FP[DECODE_FS]); }      
-void P_VMSUBAi(char *buf){sprintf(buf,"vmsubai.%s ACC %s, I"  ,dest_string(), COP2_REG_FP[DECODE_FS]); }
-void P_VADDA(char *buf){sprintf(buf,"vadda.%s ACC %s, %s"  ,dest_string(), COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }        
-void P_VMADDA(char *buf){sprintf(buf,"vmadda.%s ACC %s, %s"  ,dest_string(), COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }      
-void P_VMULA(char *buf){sprintf(buf,"vmula.%s ACC %s, %s"  ,dest_string(), COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }       
-void P_VSUBA(char *buf){sprintf(buf,"vsuba.%s ACC %s, %s"  ,dest_string(), COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }       
-void P_VMSUBA(char *buf){sprintf(buf,"vmsuba.%s ACC %s, %s"  ,dest_string(), COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }      
-void P_VOPMULA(char *buf){sprintf(buf,"vopmula.xyz %sxyz, %sxyz"  ,COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }     
-void P_VNOP(char *buf){strcpy(buf,"vnop");}   
-void P_VMONE(char *buf){sprintf(buf,"vmove.%s, %s, %s"  ,dest_string(), COP2_REG_FP[DECODE_FT],COP2_REG_FP[DECODE_FS]); }        
-void P_VMR32(char *buf){sprintf(buf,"vmr32.%s, %s, %s"  ,dest_string(), COP2_REG_FP[DECODE_FT],COP2_REG_FP[DECODE_FS]); }              
-void P_VLQI(char *buf){strcpy(buf,"vlqi");}        
-void P_VSQI(char *buf){strcpy(buf,"vsqi");}        
-void P_VLQD(char *buf){strcpy(buf,"vlqd");}        
-void P_VSQD(char *buf){strcpy(buf,"vsqd");}   
-void P_VDIV(char *buf){strcpy(buf,"vdiv");}        
-void P_VSQRT(char *buf){strcpy(buf,"vsqrt");}       
-void P_VRSQRT(char *buf){strcpy(buf,"vrsqrt");}      
-void P_VWAITQ(char *buf){strcpy(buf,"vwaitq");}      
-void P_VMTIR(char *buf){strcpy(buf,"vmtir");}       
-void P_VMFIR(char *buf){strcpy(buf,"vmfir");}       
-void P_VILWR(char *buf){strcpy(buf,"vilwr");}       
-void P_VISWR(char *buf){strcpy(buf,"viswr");}  
-void P_VRNEXT(char *buf){strcpy(buf,"vrnext");}      
-void P_VRGET(char *buf){strcpy(buf,"vrget");}       
-void P_VRINIT(char *buf){strcpy(buf,"vrinit");}      
-void P_VRXOR(char *buf){strcpy(buf,"vrxor");}  
+void P_VMADDAx(char *buf){sprintf(buf,"vmaddax.%s ACC,%s,%sx",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}
+void P_VMADDAy(char *buf){sprintf(buf,"vmadday.%s ACC,%s,%sy",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}
+void P_VMADDAz(char *buf){sprintf(buf,"vmaddaz.%s ACC,%s,%sz",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}
+void P_VMADDAw(char *buf){sprintf(buf,"vmaddaw.%s ACC,%s,%sw",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}
+void P_VMSUBAx(char *buf){sprintf(buf,"vmsubax.%s ACC,%s,%sx",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}
+void P_VMSUBAy(char *buf){sprintf(buf,"vmsubay.%s ACC,%s,%sy",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}
+void P_VMSUBAz(char *buf){sprintf(buf,"vmsubaz.%s ACC,%s,%sz",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}
+void P_VMSUBAw(char *buf){sprintf(buf,"vmsubaw.%s ACC,%s,%sw",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}
+void P_VITOF0(char *buf){sprintf(buf, "vitof0.%s %s, %s", dest_string(),COP2_REG_FP[DECODE_FT], COP2_REG_FP[DECODE_FS]); }
+void P_VITOF4(char *buf){sprintf(buf, "vitof4.%s %s, %s", dest_string(),COP2_REG_FP[DECODE_FT], COP2_REG_FP[DECODE_FS]); }
+void P_VITOF12(char *buf){sprintf(buf, "vitof12.%s %s, %s", dest_string(),COP2_REG_FP[DECODE_FT], COP2_REG_FP[DECODE_FS]); }
+void P_VITOF15(char *buf){sprintf(buf, "vitof15.%s %s, %s", dest_string(),COP2_REG_FP[DECODE_FT], COP2_REG_FP[DECODE_FS]); }
+void P_VFTOI0(char *buf) {sprintf(buf, "vftoi0.%s %s, %s", dest_string(),COP2_REG_FP[DECODE_FT], COP2_REG_FP[DECODE_FS]); }
+void P_VFTOI4(char *buf) {sprintf(buf, "vftoi4.%s %s, %s", dest_string(),COP2_REG_FP[DECODE_FT], COP2_REG_FP[DECODE_FS]); }
+void P_VFTOI12(char *buf){sprintf(buf, "vftoi12.%s %s, %s", dest_string(),COP2_REG_FP[DECODE_FT], COP2_REG_FP[DECODE_FS]); }
+void P_VFTOI15(char *buf){sprintf(buf, "vftoi15.%s %s, %s", dest_string(),COP2_REG_FP[DECODE_FT], COP2_REG_FP[DECODE_FS]); }
+void P_VMULAx(char *buf){sprintf(buf,"vmulax.%s ACC,%s,%sx",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}
+void P_VMULAy(char *buf){sprintf(buf,"vmulay.%s ACC,%s,%sy",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}
+void P_VMULAz(char *buf){sprintf(buf,"vmulaz.%s ACC,%s,%sz",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}
+void P_VMULAw(char *buf){sprintf(buf,"vmulaw.%s ACC,%s,%sw",dest_string(),COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]);}
+void P_VMULAq(char *buf){sprintf(buf,"vmulaq.%s ACC %s, Q" ,dest_string(), COP2_REG_FP[DECODE_FS]); }
+void P_VABS(char *buf){sprintf(buf, "vabs.%s %s, %s", dest_string(),COP2_REG_FP[DECODE_FT], COP2_REG_FP[DECODE_FS]);}
+void P_VMULAi(char *buf){sprintf(buf,"vmulaq.%s ACC %s, I" ,dest_string(), COP2_REG_FP[DECODE_FS]); }
+void P_VCLIPw(char *buf){sprintf(buf,"vclip %sxyz, %sw", COP2_REG_FP[DECODE_FS], COP2_REG_FP[DECODE_FT]);}
+void P_VADDAq(char *buf){sprintf(buf,"vaddaq.%s ACC %s, Q" ,dest_string(), COP2_REG_FP[DECODE_FS]); }
+void P_VMADDAq(char *buf){sprintf(buf,"vmaddaq.%s ACC %s, Q" ,dest_string(), COP2_REG_FP[DECODE_FS]); }
+void P_VADDAi(char *buf){sprintf(buf,"vaddai.%s ACC %s, I" ,dest_string(), COP2_REG_FP[DECODE_FS]); }
+void P_VMADDAi(char *buf){sprintf(buf,"vmaddai.%s ACC %s, Q" ,dest_string(), COP2_REG_FP[DECODE_FS]); }
+void P_VSUBAq(char *buf){sprintf(buf,"vsubaq.%s ACC %s, Q" ,dest_string(), COP2_REG_FP[DECODE_FS]); }
+void P_VMSUBAq(char *buf){sprintf(buf,"vmsubaq.%s ACC %s, Q" ,dest_string(), COP2_REG_FP[DECODE_FS]); }
+void P_VSUBAi(char *buf){sprintf(buf,"vsubai.%s ACC %s, I" ,dest_string(), COP2_REG_FP[DECODE_FS]); }
+void P_VMSUBAi(char *buf){sprintf(buf,"vmsubai.%s ACC %s, I" ,dest_string(), COP2_REG_FP[DECODE_FS]); }
+void P_VADDA(char *buf){sprintf(buf,"vadda.%s ACC %s, %s" ,dest_string(), COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VMADDA(char *buf){sprintf(buf,"vmadda.%s ACC %s, %s" ,dest_string(), COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VMULA(char *buf){sprintf(buf,"vmula.%s ACC %s, %s" ,dest_string(), COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VSUBA(char *buf){sprintf(buf,"vsuba.%s ACC %s, %s" ,dest_string(), COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VMSUBA(char *buf){sprintf(buf,"vmsuba.%s ACC %s, %s" ,dest_string(), COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VOPMULA(char *buf){sprintf(buf,"vopmula.xyz %sxyz, %sxyz" ,COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
+void P_VNOP(char *buf){strcpy(buf,"vnop");}
+void P_VMONE(char *buf){sprintf(buf,"vmove.%s, %s, %s" ,dest_string(), COP2_REG_FP[DECODE_FT],COP2_REG_FP[DECODE_FS]); }
+void P_VMR32(char *buf){sprintf(buf,"vmr32.%s, %s, %s" ,dest_string(), COP2_REG_FP[DECODE_FT],COP2_REG_FP[DECODE_FS]); }
+void P_VLQI(char *buf){sprintf(buf,"vlqi %s%s, (%s++)", COP2_REG_FP[DECODE_FT], dest_string(), COP2_REG_CTL[DECODE_FS]);}
+void P_VSQI(char *buf){sprintf(buf,"vsqi %s%s, (%s++)", COP2_REG_FP[DECODE_FS], dest_string(), COP2_REG_CTL[DECODE_FT]);}
+void P_VLQD(char *buf){sprintf(buf,"vlqd %s%s, (--%s)", COP2_REG_FP[DECODE_FT], dest_string(), COP2_REG_CTL[DECODE_FS]);}
+void P_VSQD(char *buf){sprintf(buf,"vsqd %s%s, (--%s)", COP2_REG_FP[DECODE_FS], dest_string(), COP2_REG_CTL[DECODE_FT]);}
+void P_VDIV(char *buf){sprintf(buf,"vdiv Q, %s%c, %s%c", COP2_REG_FP[DECODE_FS], dest_fsf(), COP2_REG_FP[DECODE_FT], dest_ftf());}
+void P_VSQRT(char *buf){sprintf(buf,"vsqrt Q, %s%c", COP2_REG_FP[DECODE_FT], dest_ftf());}
+void P_VRSQRT(char *buf){sprintf(buf,"vrsqrt Q, %s%c, %s%c", COP2_REG_FP[DECODE_FS], dest_fsf(), COP2_REG_FP[DECODE_FT], dest_ftf());}
+void P_VWAITQ(char *buf){sprintf(buf,"vwaitq");}
+void P_VMTIR(char *buf){sprintf(buf,"vmtir %s, %s%c", COP2_REG_CTL[DECODE_FT], COP2_REG_FP[DECODE_FS], dest_fsf());}
+void P_VMFIR(char *buf){sprintf(buf,"vmfir %s%c, %s", COP2_REG_FP[DECODE_FT], dest_string(), COP2_REG_CTL[DECODE_FS]);}
+void P_VILWR(char *buf){sprintf(buf,"vilwr %s, (%s)%s", COP2_REG_CTL[DECODE_FT], COP2_REG_CTL[DECODE_FS], dest_string());}
+void P_VISWR(char *buf){sprintf(buf,"viswr %s, (%s)%s", COP2_REG_CTL[DECODE_FT], COP2_REG_CTL[DECODE_FS], dest_string());}
+void P_VRNEXT(char *buf){sprintf(buf,"vrnext %s%s, R", COP2_REG_CTL[DECODE_FT], dest_string());}
+void P_VRGET(char *buf){sprintf(buf,"vrget %s%s, R", COP2_REG_CTL[DECODE_FT], dest_string());}
+void P_VRINIT(char *buf){sprintf(buf,"vrinit R, %s%s", COP2_REG_CTL[DECODE_FS], dest_string());}
+void P_VRXOR(char *buf){sprintf(buf,"vrxor R, %s%s", COP2_REG_CTL[DECODE_FS], dest_string());}
 //************************************END OF SPECIAL2 VUO TABLE****************************     

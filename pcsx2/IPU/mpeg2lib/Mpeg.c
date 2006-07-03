@@ -25,12 +25,14 @@
 #include "Mpeg.h"
 #include "Vlc.h"
 
-extern void IPU0dma(const void* pMem, int size);
+#define BigEndian _byteswap_ulong
 
 extern void (* mpeg2_idct_copy) (s16 * block, u8* dest, int stride);
 /* JayteeMaster: changed dest to 16 bit signed */
 extern void (* mpeg2_idct_add) (int last, s16 * block,
 				/*u8*/s16* dest, int stride);
+
+extern int IPU0dma(const void* pMem, int size);
 
 /* JayteeMaster: remove static attribute */
 /*static */int non_linear_quantizer_scale [] = {
@@ -884,6 +886,7 @@ static void slice_intra_DCT (decoder_t * const decoder, const int cc,
 	}else{
 		get_intra_block_B14 (decoder);
 	}
+
     mpeg2_idct_copy (decoder->DCTblock, dest, stride);
 }
 
@@ -899,12 +902,18 @@ static void slice_non_intra_DCT (decoder_t * const decoder,
 }
 
 extern int coded_block_pattern;
-extern void FillInternalBuffer(u32 * pointer, u32 advance);
-void mpeg2sliceIDEC(void * decoders)
-{
-	decoder_t * decoder = (decoder_t*)decoders;
+extern u8 FillInternalBuffer(u32 * pointer, u32 advance);
+extern decoder_t g_decoder;
+extern int g_nIPU0Data; // or 0x80000000 whenever transferring
+extern u8* g_pIPU0Pointer;
 
-	bitstream_init (decoder);
+void mpeg2sliceIDEC(void* pdone)
+{
+	u32 read;
+	decoder_t * decoder = &g_decoder;
+
+	*(int*)pdone = 0;
+	bitstream_init(decoder);
 
 	decoder->dc_dct_pred[0] = 
 	decoder->dc_dct_pred[1] =	
@@ -950,13 +959,33 @@ void mpeg2sliceIDEC(void * decoders)
 			// Send The MacroBlock via DmaIpuFrom
 			if (decoder->ofm==0){
 				ipu_csc(decoder->mb8, decoder->rgb32, decoder->sgn);
-				
-				IPU0dma((u32*)decoder->rgb32,64);
+
+				g_nIPU0Data = 64;
+				g_pIPU0Pointer = (u8*)decoder->rgb32;
+				while(g_nIPU0Data > 0) {
+					read = IPU0dma(g_pIPU0Pointer,g_nIPU0Data);
+					if( read == 0 )
+						co_resume();
+					else {
+						g_pIPU0Pointer += read*16;
+						g_nIPU0Data -= read;
+					}
+				}
 			}
 			else{
 				ipu_dither(decoder->mb8, decoder->rgb16, decoder->dte);
-				
-				IPU0dma((u32*)decoder->rgb16,32);
+
+				g_nIPU0Data = 32;
+				g_pIPU0Pointer = (u8*)decoder->rgb16;
+				while(g_nIPU0Data > 0) {
+					read = IPU0dma(g_pIPU0Pointer,g_nIPU0Data);
+					if( read == 0 )
+						co_resume();
+					else {
+						g_pIPU0Pointer += read*16;
+						g_nIPU0Data -= read;
+					}
+				}
  			}
 			decoder->mbc++;
 			
@@ -987,14 +1016,20 @@ void mpeg2sliceIDEC(void * decoders)
 
 							for (i=0; i<2; i++) {
 								u8 byte;
-								getBits8(&byte, 0);
+								while(!getBits8(&byte, 0))
+									co_resume();
 								if (byte == 0) break;
 								g_BP.BP+= 8;
 							}
 							g_BP.BP-=32;//bitstream_init takes 32 bits
 
-							FillInternalBuffer(&g_BP.BP,1);
-							return;
+							while(!FillInternalBuffer(&g_BP.BP,1))
+								co_resume();
+							while(!getBits32((u8*)&ipuRegs->top, 0))
+								co_resume();
+							ipuRegs->top = BigEndian(ipuRegs->top);
+							*(int*)pdone = 1;
+							co_exit();
 						}
 				}
 			}
@@ -1010,23 +1045,32 @@ void mpeg2sliceIDEC(void * decoders)
 			}
 		}
 	}
+
 	ipuRegs->ctrl.ECD=!ipuRegs->ctrl.SCD;
 
 	coded_block_pattern=decoder->coded_block_pattern;
 
 	g_BP.BP-=32;//bitstream_init takes 32 bits
 
-	FillInternalBuffer(&g_BP.BP,1);
+	while(!FillInternalBuffer(&g_BP.BP,1))
+		co_resume();
+	while(!getBits32((u8*)&ipuRegs->top, 0))
+		co_resume();
+	ipuRegs->top = BigEndian(ipuRegs->top);
+	*(int*)pdone = 1;
+	co_exit();
 }
 
-void mpeg2_slice (void * decoders) {
+void mpeg2_slice(void* pdone)
+{
 	int DCT_offset, DCT_stride;
 	u8 bit8=0;
 	u32 fp = g_BP.FP;
 	u32 bp;
-	decoder_t * decoder = (decoder_t*)decoders;
+	decoder_t * decoder = &g_decoder;
 	u32 size = 0;
 
+	*(int*)pdone = 0;
 	ipuRegs->ctrl.ECD = 0;
 
 	bitstream_init (decoder);
@@ -1085,13 +1129,32 @@ void mpeg2_slice (void * decoders) {
 		// After BP is positioned correctly, we need to reload the old buffer
 		// so that reading may continue properly
 		ReorderBitstream();
-	}		
+	}
 
-	IPU0dma((u32*)decoder->mb16,48);
+	g_nIPU0Data = 48;
+	g_pIPU0Pointer = (u8*)decoder->mb16;
+	while(g_nIPU0Data > 0) {
+		size = IPU0dma(g_pIPU0Pointer,g_nIPU0Data);
+		if( size == 0 )
+			co_resume();
+		else {
+			g_pIPU0Pointer += size*16;
+			g_nIPU0Data -= size;
+		}
+	}
 
 	IPU_LOG("BDEC %x, %d\n",g_BP.BP,g_BP.FP);
-	getBits8((u8*)&bit8, 0);  // Get next 8bits 
+
+	while( !getBits8((u8*)&bit8, 0) )
+		co_resume();
 	if (bit8==0) ipuRegs->ctrl.SCD = 1;
+	
+	while(!getBits32((u8*)&ipuRegs->top, 0))
+		co_resume();
+	ipuRegs->top = BigEndian(ipuRegs->top);
+
+	*(int*)pdone = 1;
+	co_exit();
 }
 
 int get_motion_delta (decoder_t * const decoder,

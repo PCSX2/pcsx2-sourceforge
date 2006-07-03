@@ -51,8 +51,8 @@ void statsClose() {
 	fprintf(f, "Total EE  Instructions Executed: %lld\n", stats.eeCycles);
 	fprintf(f, "Total IOP Instructions Executed: %lld\n", stats.iopCycles);
 	if (!CHECK_EEREC) fprintf(f, "Interpreter Mode\n");
-	else fprintf(f, "Recompiler Mode: RegCaching %s, VUrec1 %s, VUrec0 %s\n", 
-		CHECK_REGCACHING ? "Enabled" : "Disabled", CHECK_VU1REC ? "Enabled" : "Disabled", CHECK_VU0REC ? "Enabled" : "Disabled");
+	else fprintf(f, "Recompiler Mode: VUrec1 %s, VUrec0 %s\n", 
+		CHECK_VU1REC ? "Enabled" : "Disabled", CHECK_VU0REC ? "Enabled" : "Disabled");
 	fclose(f);
 }
 
@@ -65,29 +65,6 @@ void statsVSync() {
 	stats.iopCycles+= psxRegs.cycle - stats.iopSCycle;
 	stats.iopSCycle = psxRegs.cycle;
 	stats.vsyncCount++;
-
-#if (defined(__i386__) || defined(__x86_64__)) && defined(PCSX2_DEVBUILD)
-	stats.framecount = GetCPUTick() - stats.ticko;
-	stats.ticko = GetCPUTick();
-
-	CPU_LOG("frame %d\n", stats.vsyncCount);
-	CPU_LOG("framecount = %I64d\n", stats.framecount);
-//	CPU_LOG("vif1count = %I64d\n", stats.vif1count);
-//	CPU_LOG("vu1count = %I64d\n", stats.vu1count);
-//
-//	if( ++frame == 4 ) {
-//		
-//		SysPrintf("vu1 CPU=%d%%\n", (int)((accumvu1*100)/accum));
-//		frame = 0;
-//		accum = 0;
-//		accumvu1 = 0;
-//	}
-//
-//	accum += stats.framecount;
-//	accumvu1 += stats.vu1count;
-
-#endif
-
 	stats.vif1count = 0;
 	stats.vu1count = 0;
 }

@@ -23,8 +23,6 @@
 #ifndef __MEMORY_H__
 #define __MEMORY_H__
 
-#include "Common.h"
-
 //#define ENABLECACHE
 
 #ifdef WIN32_VIRTUAL_MEM
@@ -38,13 +36,15 @@ typedef struct _PSMEMORYMAP
 
 //new memory model
 #define PS2MEM_BASE_	0x18000000
+#define PS2MEM_PSX_		(PS2MEM_BASE_+0x1c000000)
+
 #define PS2MEM_BASE		((u8*)PS2MEM_BASE_)
 #define PS2MEM_HW		((u8*)((u32)PS2MEM_BASE+0x10000000))
 #define PS2MEM_ROM		((u8*)((u32)PS2MEM_BASE+0x1fc00000))
 #define PS2MEM_ROM1		((u8*)((u32)PS2MEM_BASE+0x1e000000))
 #define PS2MEM_ROM2		((u8*)((u32)PS2MEM_BASE+0x1e400000))
 #define PS2MEM_EROM		((u8*)((u32)PS2MEM_BASE+0x1e040000))
-#define PS2MEM_PSX		((u8*)((u32)PS2MEM_BASE+0x1c000000))
+#define PS2MEM_PSX		((u8*)PS2MEM_PSX_)
 #define PS2MEM_SCRATCH	((u8*)((u32)PS2MEM_BASE+0x50000000))
 #define PS2MEM_VU0MICRO	((u8*)((u32)PS2MEM_BASE+0x11000000))
 #define PS2MEM_VU0MEM	((u8*)((u32)PS2MEM_BASE+0x11004000))
@@ -65,12 +65,12 @@ typedef struct _PSMEMORYMAP
 
 #else
 
-u8  *psM; //32mb Main Ram
-u8  *psR; //4mb rom area
-u8  *psR1; //256kb rom1 area (actually 196kb, but can't mask this)
-u8  *psR2; // 0x00080000
-u8  *psER; // 0x001C0000
-u8  *psS; //0.015 mb, scratch pad
+extern u8  *psM; //32mb Main Ram
+extern u8  *psR; //4mb rom area
+extern u8  *psR1; //256kb rom1 area (actually 196kb, but can't mask this)
+extern u8  *psR2; // 0x00080000
+extern u8  *psER; // 0x001C0000
+extern u8  *psS; //0.015 mb, scratch pad
 
 #define PS2MEM_BASE		psM
 #define PS2MEM_HW		psH
@@ -87,12 +87,12 @@ extern u8 g_RealGSMem[0x2000];
 #define PSM(mem)	((void*)(memLUTR[(mem) >> 12] + ((mem) & 0xfff)))
 #define FREE(ptr) _aligned_free(ptr)
 
-uptr *memLUTR;
-uptr *memLUTW;
-uptr *memLUTRK;
-uptr *memLUTWK;
-uptr *memLUTRU;
-uptr *memLUTWU;
+extern uptr *memLUTR;
+extern uptr *memLUTW;
+extern uptr *memLUTRK;
+extern uptr *memLUTWK;
+extern uptr *memLUTRU;
+extern uptr *memLUTWU;
 
 #endif
 
@@ -141,8 +141,6 @@ uptr *memLUTWU;
 #define psERu32(mem)	(*(u32*)&PS2MEM_EROM[(mem) & 0x3ffff])
 #define psERu64(mem)	(*(u64*)&PS2MEM_EROM[(mem) & 0x3ffff])
 
-//u8  *psS; //0.015 mb, scratch pad
-
 #define psSs8(mem)	(*(s8 *)&PS2MEM_SCRATCH[(mem) & 0x3fff])
 #define psSs16(mem)	(*(s16*)&PS2MEM_SCRATCH[(mem) & 0x3fff])
 #define psSs32(mem)	(*(s32*)&PS2MEM_SCRATCH[(mem) & 0x3fff])
@@ -152,7 +150,6 @@ uptr *memLUTWU;
 #define psSu32(mem)	(*(u32*)&PS2MEM_SCRATCH[(mem) & 0x3fff])
 #define psSu64(mem)	(*(u64*)&PS2MEM_SCRATCH[(mem) & 0x3fff])
 
-
 #define PSMs8(mem)	(*(s8 *)PSM(mem))
 #define PSMs16(mem)	(*(s16*)PSM(mem))
 #define PSMs32(mem)	(*(s32*)PSM(mem))
@@ -161,46 +158,6 @@ uptr *memLUTWU;
 #define PSMu16(mem)	(*(u16*)PSM(mem))
 #define PSMu32(mem)	(*(u32*)PSM(mem))
 #define PSMu64(mem)	(*(u64*)PSM(mem))
-
-#define BLOCKTYPE_BRANCH	1		// inst branches with delay
-#define BLOCKTYPE_DELAY		2		// in branch delay slot
-#define BLOCKTYPE_NEEDCLEAR	4		// if set, setup to branch to DispatcherClear
-
-typedef struct _BASEBLOCK
-{
-	u32 Fnptr : 28;
-	u32 Type : 4;
-	u8* oldfnptr; // if modified already, x86ptr of target jumping from
-} BASEBLOCK;
-
-C_ASSERT( sizeof(BASEBLOCK) == 8 );
-
-#define GET_BLOCKTYPE(b) ((b)->Type)
-
-#ifndef DISABLE_REC
-
-extern uptr* recLUT;
-
-#define PC_GETBLOCK(x) ((BASEBLOCK*)(recLUT[((u32)(x)) >> 16] + (sizeof(BASEBLOCK)/4)*((x) & 0xffff)))
-
-void recClearMem(BASEBLOCK* p, u32 mem);
-#define REC_CLEARM(mem) { \
-	if ((mem) < maxrecmem && recLUT[(mem) >> 16]) { \
-		BASEBLOCK* p = PC_GETBLOCK(mem); \
-		if( GET_BLOCKTYPE(p) & BLOCKTYPE_DELAY ) \
-			recClearMem(p-1, (mem)-4); \
-		else if( *(u32*)p ) \
-			recClearMem(p, mem); \
-	} \
-} \
-
-void REC_RESET();
-
-#else
-
-#define REC_CLEARM(mem)
-
-#endif
 
 int  memInit();
 void memReset();
@@ -227,5 +184,80 @@ void memWrite16(u32 mem, u16 value);
 void memWrite32(u32 mem, u32 value);
 void memWrite64(u32 mem, u64 value);
 void memWrite128(u32 mem, u64 *value);
+
+// recMemConstRead8, recMemConstRead16, recMemConstRead32 return 1 if a call was made, 0 otherwise
+u8 recMemRead8();
+u16 recMemRead16();
+u32 recMemRead32();
+void recMemRead64(u64 *out);
+void recMemRead128(u64 *out);
+
+// returns 1 if mem should be cleared
+void recMemWrite8();
+void recMemWrite16();
+void recMemWrite32();
+void recMemWrite64();
+void recMemWrite128();
+
+// VM only functions
+#ifdef WIN32_VIRTUAL_MEM
+
+void _eeReadConstMem8(int mmreg, u32 mem, int sign);
+void _eeReadConstMem16(int mmreg, u32 mem, int sign);
+void _eeReadConstMem32(int mmreg, u32 mem);
+void _eeReadConstMem128(int mmreg, u32 mem);
+void _eeWriteConstMem8(u32 mem, int mmreg);
+void _eeWriteConstMem16(u32 mem, int mmreg);
+void _eeWriteConstMem32(u32 mem, int mmreg);
+void _eeWriteConstMem64(u32 mem, int mmreg);
+void _eeWriteConstMem128(u32 mem, int mmreg);
+void _eeMoveMMREGtoR(int to, int mmreg);
+
+// extra ops
+void _eeWriteConstMem16OP(u32 mem, int mmreg, int op);
+void _eeWriteConstMem32OP(u32 mem, int mmreg, int op);
+
+int recMemConstRead8(u32 x86reg, u32 mem, u32 sign);
+int recMemConstRead16(u32 x86reg, u32 mem, u32 sign);
+int recMemConstRead32(u32 x86reg, u32 mem);
+void recMemConstRead64(u32 mem, int mmreg);
+void recMemConstRead128(u32 mem, int xmmreg);
+
+int recMemConstWrite8(u32 mem, int mmreg);
+int recMemConstWrite16(u32 mem, int mmreg);
+int recMemConstWrite32(u32 mem, int mmreg);
+int recMemConstWrite64(u32 mem, int mmreg);
+int recMemConstWrite128(u32 mem, int xmmreg);
+
+#else
+
+#define _eeReadConstMem8 0&&
+#define _eeReadConstMem16 0&&
+#define _eeReadConstMem32 0&&
+#define _eeReadConstMem128 0&&
+#define _eeWriteConstMem8 0&&
+#define _eeWriteConstMem16 0&&
+#define _eeWriteConstMem32 0&&
+#define _eeWriteConstMem64 0&&
+#define _eeWriteConstMem128 0&&
+#define _eeMoveMMREGtoR 0&&
+
+// extra ops
+#define _eeWriteConstMem16OP 0&&
+#define _eeWriteConstMem32OP 0&&
+
+#define recMemConstRead8 0&&
+#define recMemConstRead16 0&&
+#define recMemConstRead32 0&&
+#define recMemConstRead64 0&&
+#define recMemConstRead128 0&&
+
+#define recMemConstWrite8 0&&
+#define recMemConstWrite16 0&&
+#define recMemConstWrite32 0&&
+#define recMemConstWrite64 0&&
+#define recMemConstWrite128 0&&
+
+#endif
 
 #endif

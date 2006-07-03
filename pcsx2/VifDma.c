@@ -21,7 +21,6 @@
 
 #include "Common.h"
 #include "Vif.h"
-#include "VU0.h"
 #include "VUmicro.h"
 #include "VifDma.h" 
 
@@ -52,7 +51,6 @@ static const unsigned int VIF1dmanum = 1;
 
 static int cycles;
 extern HANDLE g_hGsEvent;
-
 extern void * memcpy_amd(void *dest, const void *src, size_t n);
 
 typedef void (*UNPACKFUNCTYPE)( u32 *dest, u32 *data );
@@ -216,6 +214,7 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 		vif = &vif0;
 		vifRegs = vif0Regs;
 		memsize = 0x1000;
+		assert( v->addr < 0x4000 );
 		v->addr &= 0xfff;
 	} else {
 		VU = &VU1;
@@ -282,6 +281,7 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 			//static LARGE_INTEGER lbase, lfinal;
 			//QueryPerformanceCounter(&lbase);
 			u32 oldcycle = -1;
+			FreezeXMMRegs(1);
 
 //			u16 tempdata[4] = { 0x8000, 0x7fff, 0x1010, 0xd0d0 };
 //			vifRegs->cycle.cl = 4;
@@ -502,10 +502,8 @@ static void vuExecMicro( u32 addr, const unsigned int VIFdmanum ) {
 
 	if (VIFdmanum == 0) {
 		vu0ExecMicro(addr);
-		Cpu->ExecuteVU0Block;
 	} else {
 		vu1ExecMicro(addr);
-		Cpu->ExecuteVU1Block;
 	}
 }
 
@@ -755,7 +753,7 @@ int VIF0transfer(u32 *data, int size, int istag) {
 	//vif0.irq = 0;
 	
 	while (size > 0) {
-		vif0Regs->stat &= ~VIF0_STAT_VPS_W;
+		
 		if (vif0.cmd) {			
 			//vif0Regs->stat |= VIF0_STAT_VPS_T;
 			ret = vif0transferData(data, size);
@@ -764,7 +762,9 @@ int VIF0transfer(u32 *data, int size, int istag) {
 			//vif0Regs->stat &= ~VIF0_STAT_VPS_T;
 			continue;
 		}
-		
+
+		vif0Regs->stat &= ~VIF0_STAT_VPS_W;
+
 		vif0.cmd = (data[0] >> 24);
 		vif0Regs->code = data[0];
 		if(vif0.irq && vif0.cmd != 0x7/* && size > 1*/) {
@@ -795,6 +795,9 @@ int VIF0transfer(u32 *data, int size, int istag) {
 		transferred++;
 		
 	}
+
+	if( !vif0.cmd )
+		vif0Regs->stat &= ~VIF0_STAT_VPS_W;
 
 	if (vif0.irq > 0) {
 		vif0.irq--;
@@ -932,6 +935,13 @@ int  vif0Interrupt() {
 	// vif0.done = 0;
 	 return 0;
 	}
+
+	// hack?
+	vif0.tag.size = 0;
+	vif0.cmd = 0;
+	vif0Regs->stat &= ~VIF0_STAT_VPS;
+	// hack?
+
 	vif0ch->chcr &= ~0x100;
 	hwDmacIrq(DMAC_VIF0);
 	vif0Regs->stat&= ~0xF000000; // FQC=0
@@ -962,17 +972,23 @@ void dmaVIF0() {
 	if (!(vif0ch->chcr & 0x4)) { // Normal Mode 
 		_VIF0chain();
 		INT(0, cycles);
+		FreezeXMMRegs(0);
+		FreezeMMXRegs(0);
 		return;
 	}
 
 	if (_VIF0chain() != 0) {
 		INT(0, cycles);
+		FreezeXMMRegs(0);
+		FreezeMMXRegs(0);
 		return;
 	}
 
 	// Chain Mode
 	vif0.done = 0;
 	INT(0, cycles);
+	FreezeXMMRegs(0);
+	FreezeMMXRegs(0);
 }
 
 void vif0Write32(u32 mem, u32 value) {
@@ -986,8 +1002,13 @@ void vif0Write32(u32 mem, u32 value) {
 #endif
 		if (value & 0x1) {
 			/* Reset VIF */
-			SysPrintf("Vif0 Reset\n");
-			vif0FRBSTReset();			
+			memset(&vif0, 0, sizeof(vif0));
+			vif0ch->qwc = 0;
+			vif0Regs->err = 0;
+			vif0.done = 1;
+			//vif0Reset();
+			vif0Regs->stat&= ~0x0F000000; // FQC=0
+			
 		}
 		if (value & 0x2) {
 			/* Force Break the VIF */
@@ -1002,7 +1023,9 @@ void vif0Write32(u32 mem, u32 value) {
 			   just stoppin the VIF (linuz) */
 			
 			vif0Regs->stat |= VIF0_STAT_VSS;
-			vif0.vifstalled = 1;
+			//dmaVIF0();	// Drain the VIF  --- VIF Stops as not to outstrip dma source (refraction)
+			//FreezeXMMRegs(0);
+			//FreezeMMXRegs(0);
 		}
 		if (value & 0x8) {
 			int cancel = 0;
@@ -1020,7 +1043,7 @@ void vif0Write32(u32 mem, u32 value) {
 					// only reset if no further stalls
 					if( _VIF0chain() != -2 ) 
 						vif0.vifstalled = 0;
-				}	
+				}			
 			}
 			INT(0,0);
 		}
@@ -1044,32 +1067,15 @@ void vif0Write32(u32 mem, u32 value) {
 	}
 }
 
-void vif0FRBSTReset()
-{
-	
-	psHu64(0x10004000) = 0;
-	psHu64(0x10004008) = 0;
-	
-	memset(&vif0, 0, sizeof(vif0));
-	vif0.done = 1;
-	vif0.vifstalled = 0;
-	vif0Regs->stat = 0;  //Reset regs (that get reset)
-	vif0Regs->err = 0;
-	vif0Regs->mode = 0;
-	vif0Regs->itops = 0;
-}
-
 void vif0Reset() {
 	/* Reset the whole VIF, meaning the internal pcsx2 vars
 	   and all the registers */
 	memset(&vif0, 0, sizeof(vif0));
 	memset(vif0Regs, 0, sizeof(vif0Regs));
-	vif0.vifstalled = 0;
-	vif0.done = 1;
-	psHu64(0x10004000) = 0;
-	psHu64(0x10004008) = 0;
-	vif0Regs->stat&= ~0x0F000000; // FQC=0
+
 	SetNewMask(g_vif0Masks, g_vif0HasMask3, vif0Regs->mask, ~vif0Regs->mask);
+	FreezeXMMRegs(0);
+	FreezeMMXRegs(0);
 }
 
 int  vif0Freeze(gzFile f, int Mode) {
@@ -1097,10 +1103,18 @@ void vif1Init() {
 void vif1FLUSH() {
 	int _cycles;
 	_cycles = VU1.cycle;
-	while(VU0.VI[REG_VPU_STAT].UL & 0x100) {
-		Cpu->ExecuteVU1Block();
+
+	if( VU0.VI[REG_VPU_STAT].UL & 0x100 ) {
+		FreezeXMMRegs(1);
+		do {
+			Cpu->ExecuteVU1Block();
+		} while(VU0.VI[REG_VPU_STAT].UL & 0x100);
+
+//		FreezeXMMRegs(0);
+//		FreezeMMXRegs(0);
+
+		cycles+= (VU1.cycle - _cycles)*BIAS;
 	}
-	cycles+= (VU1.cycle - _cycles)*BIAS;
 }
 
 void vif1UNPACK(u32 *data) {
@@ -1261,9 +1275,13 @@ int vif1transferData(u32 *data, int size) {
 
 					if( !g_loggs || (g_loggs && g_gstransnum++ < g_gsfinalnum)) {
 						// call directly
+						FreezeMMXRegs(1);
+						FreezeXMMRegs(1);
 						GSgifTransfer2(data, (ret >> 2) - GSgifTransferDummy(1, data, ret>>2));
 					}
 #else
+					FreezeMMXRegs(1);
+					FreezeXMMRegs(1);
 					GSgifTransfer2(data, (ret >> 2));
 #endif
 				}
@@ -1407,7 +1425,7 @@ int VIF1transfer(u32 *data, int size, int istag) {
 	
 	//vif1.irq = 0;
 	while (size > 0) {
-		vif1Regs->stat &= ~VIF1_STAT_VPS_W;
+
 		if (vif1.cmd) {			
 			//vif1Regs->stat |= VIF1_STAT_VPS_T;
 			ret = vif1transferData(data, size);
@@ -1417,6 +1435,8 @@ int VIF1transfer(u32 *data, int size, int istag) {
 			continue;
 		}
 		
+		vif1Regs->stat &= ~VIF1_STAT_VPS_W;
+
 		vif1.cmd = (data[0] >> 24);
 		vif1Regs->code = data[0];
 		if(vif1.irq && vif1.cmd != 0x7/* && size > 1*/) {
@@ -1449,6 +1469,9 @@ int VIF1transfer(u32 *data, int size, int istag) {
 		
 	}
 
+	if( !vif1.cmd )
+		vif1Regs->stat &= ~VIF1_STAT_VPS_W;
+		
 	if (vif1.irq > 0) {
 		vif1.irq--;
 
@@ -1593,6 +1616,14 @@ int _vif1Interrupt() {
 		return 0;
 	}
 	
+
+	// hack?
+	vif1.tag.size = 0;
+	vif1.cmd = 0;
+	vif1Regs->stat &= ~VIF1_STAT_VPS;
+	// hack?
+
+
 	vif1ch->chcr &= ~0x100;
 	hwDmacIrq(DMAC_VIF1);
 	vif1Regs->stat&= ~0x1F000000; // FQC=0
@@ -1605,7 +1636,8 @@ int  vif1Interrupt() {
 	int ret;
 
 	ret = _vif1Interrupt();
-
+	//FreezeXMMRegs(0);
+	//FreezeMMXRegs(0);
 
 	return ret;
 }
@@ -1702,8 +1734,11 @@ void _dmaVIF1() {
 	INT(1, cycles);
 }
 
-void dmaVIF1() {
+void dmaVIF1()
+{
 	_dmaVIF1();
+	FreezeXMMRegs(0);
+	FreezeMMXRegs(0);
 }
 
 void vif1Write32(u32 mem, u32 value) {
@@ -1722,7 +1757,13 @@ void vif1Write32(u32 mem, u32 value) {
 		if (value & 0x1) {
 			/* Reset VIF */
 			//SysPrintf("Vif1 Reset\n");
-			vif1FRBSTReset();			
+			memset(&vif1, 0, sizeof(vif1));
+			vif1ch->qwc = 0; //?
+			psHu64(0x10005000) = 0;
+			psHu64(0x10005008) = 0;
+			vif1.done = 1;
+			vif1Regs->err = 0;
+			vif1Regs->stat&= ~0x1F000000; // FQC=0
 		}
 		if (value & 0x2) {
 			/* Force Break the VIF */
@@ -1737,9 +1778,9 @@ void vif1Write32(u32 mem, u32 value) {
 			   used this, but 'draining' the VIF helped it, instead of 
 			   just stoppin the VIF (linuz) */
 			vif1Regs->stat |= VIF1_STAT_VSS;
-			SysPrintf("Vif1 Stop\n");
-			vif1.vifstalled = 1;
+			//SysPrintf("Vif1 Stop\n");
 			//dmaVIF1();	// Drain the VIF  --- VIF Stops as not to outstrip dma source (refraction)
+			//FreezeXMMRegs(0);
 		}
 		if (value & 0x8) {
 			int cancel = 0;
@@ -1758,13 +1799,14 @@ void vif1Write32(u32 mem, u32 value) {
 					// loop necessary for spiderman
 					if ( _VIF1chain() != -2 )
 						vif1.vifstalled = 0;
+
+					FreezeXMMRegs(0);
+					FreezeMMXRegs(0);
 				}
-				
-				
 			}
+
 			INT(1, 0); // If vif is stopped/stall cancelled/ or force break, we need to make sure the dma ends.
-		}
-		
+		}			
 	} else
 	if (mem == 0x10003c20) { // ERR
 #ifdef VIF_LOG
@@ -1807,36 +1849,18 @@ void vif1Write32(u32 mem, u32 value) {
 	/* Other registers are read-only so do nothing for them */
 }
 
-void vif1FRBSTReset()
-{
-	
-	psHu64(0x10005000) = 0;
-	psHu64(0x10005008) = 0;
-	
-	memset(&vif1, 0, sizeof(vif1));
-	vif1.done = 1;
-	
-	vif1Regs->stat = 0;  //Reset regs (that get reset)
-	vif1Regs->err = 0;
-	vif1Regs->mskpath3 = 0;
-	vif1Regs->mode = 0;
-	vif1Regs->itops = 0;
-	vif1Regs->base = 0;
-	vif1Regs->ofst = 0;
-	vif1Regs->tops = 0;
-}
-
 void vif1Reset() {
 	/* Reset the whole VIF, meaning the internal pcsx2 vars
 	   and all the registers */
-	
+	memset(&vif1, 0, sizeof(vif1));
 	memset(vif1Regs, 0, sizeof(vif1Regs));
 	SetNewMask(g_vif1Masks, g_vif1HasMask3, 0, 0xffffffff);
 	psHu64(0x10005000) = 0;
 	psHu64(0x10005008) = 0;
-	vif1.vifstalled = 0;
 	vif1.done = 1;
 	vif1Regs->stat&= ~0x1F000000; // FQC=0
+	FreezeXMMRegs(0);
+	FreezeMMXRegs(0);
 }
 
 int vif1Freeze(gzFile f, int Mode) {

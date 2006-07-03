@@ -100,6 +100,7 @@ int LoadGSplugin(char *filename) {
 
 	LoadGSsym0(keyEvent,     "GSkeyEvent");
 	LoadGSsymN(changeSaveState, "GSchangeSaveState");
+	LoadGSsymN(gifSoftReset, "GSgifSoftReset");
 	LoadGSsym0(makeSnapshot, "GSmakeSnapshot");
 	LoadGSsym0(irqCallback,  "GSirqCallback");
 	LoadGSsym0(printf,       "GSprintf");

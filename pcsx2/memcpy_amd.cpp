@@ -72,13 +72,39 @@ MEMCPY_AMD.CPP
 // getting maximum read bandwidth, especially in DDR memory systems.
 
 // Inline assembly syntax for use with Visual C++
-
 extern "C" {
+
+#ifdef __WIN32__
+#include <windows.h>
+#endif
+
+#include "ps2etypes.h"
+#include "misc.h"
+
+void FreezeMMXRegs_(int save);
+void FreezeXMMRegs_(int save);
+extern u32 g_EEFreezeRegs;
+#define FreezeMMXRegs(save) if( g_EEFreezeRegs && CHECK_EEREC ) { FreezeMMXRegs_(save); }
+#define FreezeXMMRegs(save) if( g_EEFreezeRegs && CHECK_EEREC ) { FreezeXMMRegs_(save); }
+
+#ifdef _DEBUG
+extern char g_globalMMXLocked, g_globalMMXSaved;
+
+void checkregs()
+{
+	assert( !g_globalMMXLocked || g_globalMMXSaved );
+}
+#endif
 
 void * memcpy_amd(void *dest, const void *src, size_t n)
 {
-  __asm {
+	FreezeMMXRegs(1);
 
+#ifdef _DEBUG
+	__asm call checkregs
+#endif
+
+	__asm {
 	mov		ecx, [n]		; number of bytes to copy
 	mov		edi, [dest]		; destination
 	mov		esi, [src]		; source
@@ -280,89 +306,285 @@ $memcpy_final:
     }
 }
 
-// buggy
-void memcpy_amdqw(void *dest, const void *src, size_t n)
+// mmx memcpy implementation, size has to be a multiple of 8
+// returns 0 is equal, nonzero value if not equal
+// ~10 times faster than standard memcmp
+// (zerofrog)
+int memcmp_mmx(const void* src1, const void* src2, int cmpsize)
 {
-	assert( ((int)dest&15)==0 );
+	FreezeMMXRegs(1);
+	assert( (cmpsize&7) == 0 );
 
-  __asm {
+	__asm {
+		mov ecx, cmpsize
+		mov edi, src1
+		mov esi, src2
+		mov ebx, ecx
 
-	mov		ecx, [n]		; number of qw to copy
-	mov		edi, [dest]		; destination
-	mov		esi, [src]		; source
-	mov		ebx, ecx		; keep a copy of count
+		cmp ecx, 32
+		jl Done4
 
-	mov eax, ecx
-	shr eax, 3
+		// custom test first 8 to make sure things are ok
+		movq mm0, [esi]
+		movq mm1, [esi+8]
+		pcmpeqd mm0, [edi]
+		pcmpeqd mm1, [edi+8]
+		pand mm0, mm1
+		movq mm2, [esi+16]
+		pmovmskb eax, mm0
+		movq mm3, [esi+24]
 
-	cmp eax, 0
-	je Copy4
+		// check if eq
+		cmp eax, 0xff
+		je NextComp
+		mov eax, 1
+		jmp End
 
-Copy8:
-	sub eax, 1
-	movups xmm0, qword ptr [esi]
-	movups xmm1, qword ptr [esi+16]
-	movups xmm2, qword ptr [esi+32]
-	movups xmm3, qword ptr [esi+48]
-	movups xmm4, qword ptr [esi+64]
-	movups xmm5, qword ptr [esi+80]
-	movups xmm6, qword ptr [esi+96]
-	movups xmm7, qword ptr [esi+112]
+NextComp:
+		pcmpeqd mm2, [edi+16]
+		pcmpeqd mm3, [edi+24]
+		pand mm2, mm3
+		pmovmskb eax, mm2
 
-	movntps qword ptr [edi], xmm0
-	movntps qword ptr [edi+16], xmm1
-	movntps qword ptr [edi+32], xmm2
-	movntps qword ptr [edi+48], xmm3
-	movntps qword ptr [edi+64], xmm4
-	movntps qword ptr [edi+80], xmm5
-	movntps qword ptr [edi+96], xmm6
-	movntps qword ptr [edi+112], xmm7
+		// check if eq
+		cmp eax, 0xff
+		je Continue
+		mov eax, 1
+		jmp End
 
-	add esi, 128
-	add edi, 128
+		sub ecx, 32
+		add esi, 32
+		add edi, 32
+		cmp ecx, 64
+		jl Done8
 
-	cmp eax, 0
-	jne Copy8
+Cmp8:
+		movq mm0, [esi]
+		movq mm1, [esi+8]
+		movq mm2, [esi+16]
+		movq mm3, [esi+24]
+		movq mm4, [esi+32]
+		movq mm5, [esi+40]
+		movq mm6, [esi+48]
+		movq mm7, [esi+56]
+		pcmpeqd mm0, [edi]
+		pcmpeqd mm1, [edi+8]
+		pcmpeqd mm2, [edi+16]
+		pcmpeqd mm3, [edi+24]
+		pand mm0, mm1
+		pcmpeqd mm4, [edi+32]
+		pand mm0, mm2
+		pcmpeqd mm5, [edi+40]
+		pand mm0, mm3
+		pcmpeqd mm6, [edi+48]
+		pand mm0, mm4
+		pcmpeqd mm7, [edi+56]
+		pand mm0, mm5
+		pand mm0, mm6
+		pand mm0, mm7
+		pmovmskb eax, mm0
+		
+		// check if eq
+		cmp eax, 0xff
+		je Continue
+		mov eax, 1
+		jmp End
 
-Copy4:
-	test ecx, 4
-	jz Copy2
+Continue:
+		sub ecx, 64
+		add esi, 64
+		add edi, 64
+		cmp ecx, 64
+		jge Cmp8
 
-	movups xmm0, qword ptr [esi]
-	movups xmm1, qword ptr [esi+16]
-	movups xmm2, qword ptr [esi+32]
-	movups xmm3, qword ptr [esi+48]
+Done8:
+		test ecx, 0x20
+		jz Done4
+		movq mm0, [esi]
+		movq mm1, [esi+8]
+		movq mm2, [esi+16]
+		movq mm3, [esi+24]
+		pcmpeqd mm0, [edi]
+		pcmpeqd mm1, [edi+8]
+		pcmpeqd mm2, [edi+16]
+		pcmpeqd mm3, [edi+24]
+		pand mm0, mm1
+		pand mm0, mm2
+		pand mm0, mm3
+		pmovmskb eax, mm0
+		sub ecx, 32
+		add esi, 32
+		add edi, 32
 
-	movntps qword ptr [edi], xmm0
-	movntps qword ptr [edi+16], xmm1
-	movntps qword ptr [edi+32], xmm2
-	movntps qword ptr [edi+48], xmm3
+Done4:
+		cmp ecx, 24
+		jne Done2
+		movq mm0, [esi]
+		movq mm1, [esi+8]
+		movq mm2, [esi+16]
+		pcmpeqd mm0, [edi]
+		pcmpeqd mm1, [edi+8]
+		pcmpeqd mm2, [edi+16]
+		pand mm0, mm1
+		pand mm0, mm2
+		pmovmskb eax, mm0
 
-	add esi, 64
-	add edi, 64
+		// check if eq
+		xor edx, edx
+		cmp eax, 0xff
+		cmove eax, edx
+		jmp End
 
-Copy2:
-	test ecx, 2
-	jz Copy1
+Done2:
+		cmp ecx, 16
+		jne Done1
 
-	movups xmm0, qword ptr [esi]
-	movups xmm1, qword ptr [esi+16]
+		movq mm0, [esi]
+		movq mm1, [esi+8]
+		pcmpeqd mm0, [edi]
+		pcmpeqd mm1, [edi+8]
+		pand mm0, mm1
+		pmovmskb eax, mm0
 
-	movntps qword ptr [edi], xmm0
-	movntps qword ptr [edi+16], xmm1
+		// check if eq
+		xor edx, edx
+		cmp eax, 0xff
+		cmove eax, edx
+		jmp End
 
-	add esi, 32
-	add edi, 32
+Done1:
+		cmp ecx, 8
+		jne Done
 
-Copy1:
-	test ecx, 1
-	jz Copy0
+		mov eax, [esi]
+		mov ebx, [esi+4]
+		cmp eax, [edi]
+		je Next
+		mov eax, 1
+		jmp End
 
-	movups xmm0, qword ptr [esi]
-	movntps qword ptr [edi], xmm0
+Next:
+		cmp ebx, [edi+4]
+		je Done
+		mov eax, 1
+		jmp End
 
-Copy0:
-    }
+Done:
+		xor eax, eax
+
+End:
+		emms
+	}
+}
+
+
+// returns the xor of all elements, cmpsize has to be mult of 8
+void memxor_mmx(void* dst, const void* src1, int cmpsize)
+{
+	FreezeMMXRegs(1);
+	assert( (cmpsize&7) == 0 );
+
+	__asm {
+		mov ecx, cmpsize
+		mov esi, src1
+		mov ebx, ecx
+		mov edx, dst
+
+		cmp ecx, 64
+		jl Setup4
+
+		movq mm0, [esi]
+		movq mm1, [esi+8]
+		movq mm2, [esi+16]
+		movq mm3, [esi+24]
+		movq mm4, [esi+32]
+		movq mm5, [esi+40]
+		movq mm6, [esi+48]
+		movq mm7, [esi+56]
+		sub ecx, 64
+		add esi, 64
+		cmp ecx, 64
+		jl End8
+
+Cmp8:
+		pxor mm0, [esi]
+		pxor mm1, [esi+8]
+		pxor mm2, [esi+16]
+		pxor mm3, [esi+24]
+		pxor mm4, [esi+32]
+		pxor mm5, [esi+40]
+		pxor mm6, [esi+48]
+		pxor mm7, [esi+56]
+
+		sub ecx, 64
+		add esi, 64
+		cmp ecx, 64
+		jge Cmp8
+
+End8:
+		pxor mm0, mm4
+		pxor mm1, mm5
+		pxor mm2, mm6
+		pxor mm3, mm7
+
+		cmp ecx, 32
+		jl End4
+		pxor mm0, [esi]
+		pxor mm1, [esi+8]
+		pxor mm2, [esi+16]
+		pxor mm3, [esi+24]
+		sub ecx, 32
+		add esi, 32
+		jmp End4
+
+Setup4:
+		cmp ecx, 32
+		jl Setup2
+
+		movq mm0, [esi]
+		movq mm1, [esi+8]
+		movq mm2, [esi+16]
+		movq mm3, [esi+24]
+		sub ecx, 32
+		add esi, 32
+
+End4:
+		pxor mm0, mm2
+		pxor mm1, mm3
+
+		cmp ecx, 16
+		jl End2
+		pxor mm0, [esi]
+		pxor mm1, [esi+8]
+		sub ecx, 16
+		add esi, 16
+		jmp End2
+
+Setup2:
+		cmp ecx, 16
+		jl Setup1
+
+		movq mm0, [esi]
+		movq mm1, [esi+8]
+		sub ecx, 16
+		add esi, 16
+
+End2:
+		pxor mm0, mm1
+
+		cmp ecx, 8
+		jl End1
+		pxor mm0, [esi]
+End1:
+		movq [edx], mm0
+		jmp End
+
+Setup1:
+		movq mm0, [esi]
+		movq [edx], mm0
+End:
+		emms
+	}
 }
 
 }

@@ -19,8 +19,6 @@
 #ifndef __COMMON_H__
 #define __COMMON_H__
 
-#define PCSX2_MULTICORE
-
 #include <zlib.h>
 #if defined(__WIN32__)
 
@@ -122,53 +120,6 @@ extern AppData gApp;
 
 #include "PS2Etypes.h"
 
-#define PCSX2_GSMULTITHREAD 1 // uses multithreaded gs
-#define PCSX2_DUALCORE 2 // speed up for dual cores
-#define PCSX2_FRAMELIMIT 4 // limits frames to normal speeds
-#define PCSX2_SAFEIPU 8 // extra ipu syncing
-#define PCSX2_EEREC 0x10
-#define PCSX2_VU0REC 0x20
-#define PCSX2_VU1REC 0x40
-#define PCSX2_COP2REC 0x80
-#define PCSX2_REGCACHING 0x100
-
-#define CHECK_MULTIGS (Config.Options&PCSX2_GSMULTITHREAD)
-#define CHECK_DUALCORE (Config.Options&PCSX2_DUALCORE)
-#define CHECK_FRAMELIMIT (Config.Options&PCSX2_FRAMELIMIT)
-#define CHECK_SAFEIPU (Config.Options&PCSX2_SAFEIPU)
-#define CHECK_EEREC (Config.Options&PCSX2_EEREC)
-#define CHECK_VU0REC (Config.Options&PCSX2_VU0REC)
-#define CHECK_VU1REC (Config.Options&PCSX2_VU1REC)
-#define CHECK_COP2REC (Config.Options&PCSX2_COP2REC) // goes with ee option
-#define CHECK_REGCACHING (Config.Options&PCSX2_REGCACHING)
-
-typedef struct {
-	char Bios[256];
-	char GS[256];
-	char PAD1[256];
-	char PAD2[256];
-	char SPU2[256];
-	char CDVD[256];
-	char DEV9[256];
-	char USB[256];
-	char FW[256];
-	char Mcd1[256];
-	char Mcd2[256];
-	char PluginsDir[256];
-	char BiosDir[256];
-	char Lang[256];
-	u32 Options; // PCSX2_X options
-	int PsxOut;
-	int PsxType;
-	int Cdda;
-	int Mdec;
-	int Patch;
-	int ThPriority;
-	int SafeCnts;
-} PcsxConfig;
-
-PcsxConfig Config;
-
 #ifdef PCSX2_DEVBUILD
 
 typedef struct _TESTRUNARGS
@@ -209,23 +160,24 @@ extern TESTRUNARGS g_TestRun;
 	 VBlank interlaced		59.94 Hz
 	 VBlank non-interlaced	59.82 Hz
 	 HBlank					15.73426573 KHz */
-#define VBLANK_NTSC			(59.94)
-#define VBLANK_PAL			(50.00)
+#define PS2VBLANK_NTSC_INT		((int)(PS2CLK / 59.94))
+#define PS2VBLANK_NTSC  		((int)(PS2CLK / 59.82))
+#define PS2VBLANK_PAL_INT		((int)(PS2CLK / 50.00))
+#define PS2VBLANK_PAL   		((int)(PS2CLK / 49.76))
+#define VBLANK_NTSC			((Config.PsxType & 2) ? 59.94 : 59.82)
+#define VBLANK_PAL			((Config.PsxType & 2) ? 50.00 : 49.76)
 #define HBLANK_NTSC			(15734.26573)
 #define HBLANK_PAL			(15625)
 
-#define PS2VBLANK_NTSC	((int)(PS2CLK / VBLANK_NTSC))
-#define PS2VBLANK_PAL	((int)(PS2CLK / VBLANK_PAL))
-#define PS2VBLANK		((int)(Config.PsxType ? PS2VBLANK_PAL : PS2VBLANK_NTSC))
 #define PS2HBLANK_NTSC	((int)(PS2CLK / HBLANK_NTSC))
 #define PS2HBLANK_PAL	((int)(PS2CLK / HBLANK_PAL))
-#define PS2HBLANK		((int)(Config.PsxType ? PS2HBLANK_PAL : PS2HBLANK_NTSC))
+#define PS2HBLANK		((int)((Config.PsxType & 1) ? PS2HBLANK_PAL : PS2HBLANK_NTSC))
 #define PSXVBLANK_NTSC	((int)(PSXCLK / VBLANK_NTSC))
 #define PSXVBLANK_PAL	((int)(PSXCLK / VBLANK_PAL))
-#define PSXVBLANK		((int)(Config.PsxType ? PSXVBLANK_PAL : PSXVBLANK_NTSC))
+#define PSXVBLANK		((int)((Config.PsxType & 1) ? PSXVBLANK_PAL : PSXVBLANK_NTSC))
 #define PSXHBLANK_NTSC	((int)(PSXCLK / HBLANK_NTSC))
 #define PSXHBLANK_PAL	((int)(PSXCLK / HBLANK_PAL))
-#define PSXHBLANK		((int)(Config.PsxType ? PSXHBLANK_PAL : PSXHBLANK_NTSC))
+#define PSXHBLANK		((int)((Config.PsxType & 1) ? PSXHBLANK_PAL : PSXHBLANK_NTSC))
 #define PSXPIXEL        ((int)(PSXCLK / 13500000))
 #define PSXSOUNDCLK		((int)(48000))
 
@@ -266,7 +218,7 @@ extern TESTRUNARGS g_TestRun;
 
 #define gzfreeze(ptr, size) \
 	if (Mode == 1) gzwrite(f, ptr, size); \
-	if (Mode == 0) gzread(f, ptr, size);
+	else if (Mode == 0) gzread(f, ptr, size);
 
 #define gzfreezel(ptr) gzfreeze(ptr, sizeof(ptr))
 

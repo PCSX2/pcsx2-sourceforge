@@ -164,9 +164,8 @@ typedef struct decoder_s decoder_t;
 
 #define IDEC	0
 #define BDEC	1
-int dec;
-void mpeg2sliceIDEC(void* decoders);
-void mpeg2_slice (void * decoders);
+void mpeg2sliceIDEC(void* pdone);
+void mpeg2_slice(void* pdone);
 int get_macroblock_address_increment(decoder_t * const decoder);
 int get_macroblock_modes (decoder_t * const decoder);
 int get_motion_delta (decoder_t * const decoder,
@@ -182,5 +181,5 @@ void ipu_copy(struct macroblock_8 *mb8, struct macroblock_16 *mb16);
 int slice (decoder_t * const decoder, u8 * buffer);
 /* idct.c */
 void mpeg2_idct_init ();
-
+	
 #endif//__MPEG_H__

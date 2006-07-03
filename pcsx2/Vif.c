@@ -22,13 +22,9 @@
 #include "Common.h"
 #include "ix86/ix86.h"
 #include "Vif.h"
-#include "VU0.h"
 #include "VUmicro.h"
 
 #include <assert.h>
-
-// NODE: In SSE2 VIF, the code under EXTRA CODE is not 'necessary'.... but does what the real ps2 does
-// play with adding removing
 
 VIFregisters *_vifRegs;
 u32* _vifMaskRegs = NULL;
@@ -215,9 +211,6 @@ static void _writeW( u32 *dest, u32 data )
 
 static void writeX( u32 *dest, u32 data ) {
 	if (_vifRegs->code & 0x10000000) { _writeX(dest, data); return; }
-#ifdef VIF_LOG
-	VIF_LOG("writeX %x = %x\n", (u32)dest-(u32)VU1.Mem, data);
-#endif
 	if (_vifRegs->mode == 1) {
 		*dest = data + _vifRegs->r0;
 	} else 
@@ -227,13 +220,13 @@ static void writeX( u32 *dest, u32 data ) {
 	} else {
 		*dest = data;
 	}
+#ifdef VIF_LOG
+	VIF_LOG("writeX %8.8x : Mode %d, r0 = %x, writing %8.8x\n", *dest,_vifRegs->mode,_vifRegs->r0,data + _vifRegs->r0);
+#endif
 }
 
 static void writeY( u32 *dest, u32 data ) {
 	if (_vifRegs->code & 0x10000000) { _writeY(dest, data); return; }
-#ifdef VIF_LOG
-	VIF_LOG("writeY %x = %x\n", (u32)dest-(u32)VU1.Mem, data);
-#endif
 	if (_vifRegs->mode == 1) {
 		*dest = data + _vifRegs->r1;
 	} else 
@@ -243,13 +236,13 @@ static void writeY( u32 *dest, u32 data ) {
 	} else {
 		*dest = data;
 	}
+#ifdef VIF_LOG
+	VIF_LOG("writeY %8.8x : Mode %d, r1 = %x, writing %8.8x\n", *dest,_vifRegs->mode,_vifRegs->r1,data + _vifRegs->r1);
+#endif
 }
 
 static void writeZ( u32 *dest, u32 data ) {
 	if (_vifRegs->code & 0x10000000) { _writeZ(dest, data); return; }
-#ifdef VIF_LOG
-	VIF_LOG("writeZ %x = %x\n", (u32)dest-(u32)VU1.Mem, data);
-#endif
 	if (_vifRegs->mode == 1) {
 		*dest = data + _vifRegs->r2;
 	} else 
@@ -259,13 +252,13 @@ static void writeZ( u32 *dest, u32 data ) {
 	} else {
 		*dest = data;
 	}
+#ifdef VIF_LOG
+	VIF_LOG("writeZ %8.8x : Mode %d, r2 = %x, writing %8.8x\n", *dest,_vifRegs->mode,_vifRegs->r2,data + _vifRegs->r2);
+#endif
 }
 
 static void writeW( u32 *dest, u32 data ) {
 	if (_vifRegs->code & 0x10000000) { _writeW(dest, data); return; }
-#ifdef VIF_LOG
-	VIF_LOG("writeW %x = %x\n", (u32)dest-(u32)VU1.Mem, data);
-#endif
 	if (_vifRegs->mode == 1) {
 		*dest = data + _vifRegs->r3;
 	} else 
@@ -275,26 +268,25 @@ static void writeW( u32 *dest, u32 data ) {
 	} else {
 		*dest = data;
 	}
+#ifdef VIF_LOG
+	VIF_LOG("writeW %8.8x : Mode %d, r3 = %x, writing %8.8x\n", *dest,_vifRegs->mode,_vifRegs->r3,data + _vifRegs->r3);
+#endif
 }
 
 void UNPACK_S_32(u32 *dest, u32 *data) {
-	
-
-	for (i=0; i<3; i++) {
 		writeX(dest++, *data);
 		writeY(dest++, *data);
 		writeZ(dest++, *data);
 		writeW(dest++, *data++);
-	}
 }
 
 int  UNPACK_S_32part(u32 *dest, u32 *data, int size) {
 	u32 *_data = data;
 	while (size > 0) {
-		_UNPACKpart(0, writeX(dest++, *data); );
-		_UNPACKpart(1, writeY(dest++, *data); );
-		_UNPACKpart(2, writeZ(dest++, *data); );
-		_UNPACKpart(3, writeW(dest++, *data++); );
+		_UNPACKpart(0, writeX(dest++, *data) );
+		_UNPACKpart(1, writeY(dest++, *data) );
+		_UNPACKpart(2, writeZ(dest++, *data) );
+		_UNPACKpart(3, writeW(dest++, *data++) );
 		if (_vifRegs->offset == 4) _vifRegs->offset = 0;
 	}
 
@@ -305,12 +297,10 @@ int  UNPACK_S_32part(u32 *dest, u32 *data, int size) {
 	format *sdata = (format*)data; \
 	 \
  \
-	for (i=0; i<3; i++) { \
 		writeX(dest++, *sdata); \
 		writeY(dest++, *sdata); \
 		writeZ(dest++, *sdata); \
-		writeW(dest++, *sdata++); \
-	}
+		writeW(dest++, *sdata++);
 
 void UNPACK_S_16s( u32 *dest, u32 *data ) {
 	_UNPACK_S_16( s16 );
@@ -323,10 +313,10 @@ void UNPACK_S_16u( u32 *dest, u32 *data ) {
 #define _UNPACK_S_16part(format) \
 	format *sdata = (format*)data; \
 	while (size > 0) { \
-		_UNPACKpart(0, writeX(dest++, *sdata); ); \
-		_UNPACKpart(1, writeY(dest++, *sdata); ); \
-		_UNPACKpart(2, writeZ(dest++, *sdata); ); \
-		_UNPACKpart(3, writeW(dest++, *sdata++); ); \
+		_UNPACKpart(0, writeX(dest++, *sdata) ); \
+		_UNPACKpart(1, writeY(dest++, *sdata) ); \
+		_UNPACKpart(2, writeZ(dest++, *sdata) ); \
+		_UNPACKpart(3, writeW(dest++, *sdata++) ); \
 		if (_vifRegs->offset == 4) _vifRegs->offset = 0; \
 	} \
 	return (u32)sdata - (u32)data;
@@ -343,12 +333,10 @@ int  UNPACK_S_16upart(u32 *dest, u32 *data, int size) {
 	format *cdata = (format*)data; \
 	 \
  \
-	for (i=0; i<3; i++) { \
 		writeX(dest++, *cdata); \
 		writeY(dest++, *cdata); \
 		writeZ(dest++, *cdata); \
-		writeW(dest++, *cdata++); \
-	}
+		writeW(dest++, *cdata++);
 
 void UNPACK_S_8s(u32 *dest, u32 *data) {
 	_UNPACK_S_8(s8);
@@ -361,10 +349,10 @@ void UNPACK_S_8u(u32 *dest, u32 *data) {
 #define _UNPACK_S_8part(format) \
 	format *cdata = (format*)data; \
 	while (size > 0) { \
-		_UNPACKpart(0, writeX(dest++, *cdata); ); \
-		_UNPACKpart(1, writeY(dest++, *cdata); ); \
-		_UNPACKpart(2, writeZ(dest++, *cdata); ); \
-		_UNPACKpart(3, writeW(dest++, *cdata++); ); \
+		_UNPACKpart(0, writeX(dest++, *cdata) ); \
+		_UNPACKpart(1, writeY(dest++, *cdata) ); \
+		_UNPACKpart(2, writeZ(dest++, *cdata) ); \
+		_UNPACKpart(3, writeW(dest++, *cdata++) ); \
 		if (_vifRegs->offset == 4) _vifRegs->offset = 0; \
 	} \
 	return (u32)cdata - (u32)data;
@@ -378,26 +366,22 @@ int  UNPACK_S_8upart(u32 *dest, u32 *data, int size) {
 }
 
 void UNPACK_V2_32( u32 *dest, u32 *data ) {
-	
-
-	
 		writeX(dest++, *data++);
-		writeY(dest++, *data--);
-		writeZ(dest++, *data++);
+		writeY(dest++, *data++);
+		writeZ(dest++, 0);
 		writeW(dest++, 0);
 	
 }
 
 int  UNPACK_V2_32part( u32 *dest, u32 *data, int size ) {
 	u32 *_data = data;
-	
-		writeX(dest++, *data++);
-		writeY(dest++, *data--);
-		writeZ(dest++, *data++);
-		writeW(dest++, 0);;
-		
-
-	
+	while (size > 0) { 
+		_UNPACKpart(0, writeX(dest++, *data++));
+		_UNPACKpart(1, writeY(dest++, *data++));
+		_UNPACKpart_nosize(2, writeZ(dest++, 0));
+		_UNPACKpart_nosize(3, writeW(dest++, 0));
+		if (_vifRegs->offset == 4) _vifRegs->offset = 0;
+	}
 	return (u32)data - (u32)_data;
 }
 
@@ -406,9 +390,9 @@ int  UNPACK_V2_32part( u32 *dest, u32 *data, int size ) {
 	 \
  \
 		writeX(dest++, *sdata++); \
-		writeY(dest++, *sdata--); \
-		writeZ(dest++, *sdata++); \
-		writeW(dest++, *sdata); \
+		writeY(dest++, *sdata++); \
+		writeZ(dest++, 0); \
+		writeW(dest++, 0); \
 	
 
 void UNPACK_V2_16s(u32 *dest, u32 *data) {
@@ -422,11 +406,13 @@ void UNPACK_V2_16u(u32 *dest, u32 *data) {
 #define _UNPACK_V2_16part(format) \
 	format *sdata = (format*)data; \
 	\
-	writeX(dest++, *sdata++); \
-	writeY(dest++, *sdata--); \
-	writeZ(dest++, *sdata++); \
-	writeW(dest++, *sdata); \
-	 \
+	 while(size > 0) {	\
+		_UNPACKpart(0, writeX(dest++, *sdata++)); \
+		_UNPACKpart(1, writeY(dest++, *sdata++)); \
+		_UNPACKpart_nosize(2,writeZ(dest++, 0)); \
+		_UNPACKpart_nosize(3,writeW(dest++, 0)); \
+		if (_vifRegs->offset == 4) _vifRegs->offset = 0;	\
+	 }	\
 	return (u32)sdata - (u32)data;
 
 int  UNPACK_V2_16spart(u32 *dest, u32 *data, int size) {
@@ -442,9 +428,9 @@ int  UNPACK_V2_16upart(u32 *dest, u32 *data, int size) {
 	 \
  \
 		writeX(dest++, *cdata++); \
-		writeY(dest++, *cdata--); \
-		writeZ(dest++, *cdata++); \
-		writeW(dest++, *cdata); 
+		writeY(dest++, *cdata++); \
+		writeZ(dest++, 0); \
+		writeW(dest++, 0); 
 
 void UNPACK_V2_8s(u32 *dest, u32 *data) {
 	_UNPACK_V2_8(s8);
@@ -456,12 +442,13 @@ void UNPACK_V2_8u(u32 *dest, u32 *data) {
 
 #define _UNPACK_V2_8part(format) \
 	format *cdata = (format*)data; \
-	 \
-		writeX(dest++, *cdata++);  \
-		writeY(dest++, *cdata--);  \
-		writeZ(dest++, *cdata++);  \
-		writeW(dest++, *cdata);  \
-	\
+	 while(size > 0) {	\
+		_UNPACKpart(0, writeX(dest++, *cdata++)); \
+		_UNPACKpart(1, writeY(dest++, *cdata++)); \
+		_UNPACKpart_nosize(2,writeZ(dest++, 0)); \
+		_UNPACKpart_nosize(3,writeW(dest++, 0)); \
+		if (_vifRegs->offset == 4) _vifRegs->offset = 0;	\
+	 }	\
 	return (u32)cdata - (u32)data;
 
 int  UNPACK_V2_8spart(u32 *dest, u32 *data, int size) {
@@ -473,14 +460,10 @@ int  UNPACK_V2_8upart(u32 *dest, u32 *data, int size) {
 }
 
 void UNPACK_V3_32(u32 *dest, u32 *data) {
-	
-
-	for (i=0; i<3; i++) {
 		writeX(dest++, *data++);
 		writeY(dest++, *data++);
 		writeZ(dest++, *data++);
 		writeW(dest++, 0);
-	}
 }
 
 int  UNPACK_V3_32part(u32 *dest, u32 *data, int size) {
@@ -502,7 +485,7 @@ int  UNPACK_V3_32part(u32 *dest, u32 *data, int size) {
 		writeX(dest++, *sdata++); \
 		writeY(dest++, *sdata++); \
 		writeZ(dest++, *sdata++); \
-		writeW(dest++, *sdata++); 
+		writeW(dest++, 0); 
 
 void UNPACK_V3_16s(u32 *dest, u32 *data) {
 	_UNPACK_V3_16(s16);
@@ -515,11 +498,13 @@ void UNPACK_V3_16u(u32 *dest, u32 *data) {
 #define _UNPACK_V3_16part(format) \
 	format *sdata = (format*)data; \
 	 \
-		writeX(dest++, *sdata++); \
-		writeY(dest++, *sdata++); \
-		writeZ(dest++, *sdata++); \
-		writeW(dest++, *sdata++); \
-	 \
+	 while(size > 0) {	\
+		_UNPACKpart(0, writeX(dest++, *sdata++)); \
+		_UNPACKpart(1, writeY(dest++, *sdata++)); \
+		_UNPACKpart(2, writeZ(dest++, *sdata++)); \
+		_UNPACKpart_nosize(3,writeW(dest++, 0)); \
+		if (_vifRegs->offset == 4) _vifRegs->offset = 0;	\
+	 }	\
 	return (u32)sdata - (u32)data;
 
 int  UNPACK_V3_16spart(u32 *dest, u32 *data, int size) {
@@ -537,7 +522,7 @@ int  UNPACK_V3_16upart(u32 *dest, u32 *data, int size) {
 		writeX(dest++, *cdata++); \
 		writeY(dest++, *cdata++); \
 		writeZ(dest++, *cdata++); \
-		writeW(dest++, *cdata++); 
+		writeW(dest++, 0); 
 
 void UNPACK_V3_8s(u32 *dest, u32 *data) {
 	_UNPACK_V3_8(s8);
@@ -549,12 +534,13 @@ void UNPACK_V3_8u(u32 *dest, u32 *data) {
 
 #define _UNPACK_V3_8part(format) \
 	format *cdata = (format*)data; \
-	\
-		writeX(dest++, *cdata++); \
-		writeY(dest++, *cdata++); \
-		writeZ(dest++, *cdata++); \
-		writeW(dest++, *cdata++); \
-		\
+	 while(size > 0) {	\
+		_UNPACKpart(0, writeX(dest++, *cdata++)); \
+		_UNPACKpart(1, writeY(dest++, *cdata++)); \
+		_UNPACKpart(2, writeZ(dest++, *cdata++)); \
+		_UNPACKpart_nosize(3,writeW(dest++, 0)); \
+		if (_vifRegs->offset == 4) _vifRegs->offset = 0;	\
+	 }	\
 	return (u32)cdata - (u32)data;
 
 int  UNPACK_V3_8spart(u32 *dest, u32 *data, int size) {
@@ -566,26 +552,21 @@ int  UNPACK_V3_8upart(u32 *dest, u32 *data, int size) {
 }
 
 void UNPACK_V4_32( u32 *dest, u32 *data ) {
-	
-
-	for (i=0; i<3; i++) {
 		writeX(dest++, *data++);
 		writeY(dest++, *data++);
 		writeZ(dest++, *data++);
 		writeW(dest++, *data++);
-	}
 }
 
 int  UNPACK_V4_32part(u32 *dest, u32 *data, int size) {
 	u32 *_data = data;
 	while (size > 0) {
-		_UNPACKpart(0, writeX(dest++, *data++); );
-		_UNPACKpart(1, writeY(dest++, *data++); );
-		_UNPACKpart(2, writeZ(dest++, *data++); );
-		_UNPACKpart(3, writeW(dest++, *data++); );
+		_UNPACKpart(0, writeX(dest++, *data++) );
+		_UNPACKpart(1, writeY(dest++, *data++) );
+		_UNPACKpart(2, writeZ(dest++, *data++) );
+		_UNPACKpart(3, writeW(dest++, *data++) );
 		if (_vifRegs->offset == 4) _vifRegs->offset = 0;
 	}
-
 	return (u32)data - (u32)_data;
 }
 
@@ -593,12 +574,10 @@ int  UNPACK_V4_32part(u32 *dest, u32 *data, int size) {
 	format *sdata = (format*)data; \
 	 \
   \
-	for (i=0; i<3; i++) { \
 		writeX(dest++, *sdata++); \
 		writeY(dest++, *sdata++); \
 		writeZ(dest++, *sdata++); \
-		writeW(dest++, *sdata++); \
-	}
+		writeW(dest++, *sdata++);
 
 void UNPACK_V4_16s(u32 *dest, u32 *data) {
 	_UNPACK_V4_16(s16);
@@ -611,10 +590,10 @@ void UNPACK_V4_16u(u32 *dest, u32 *data) {
 #define _UNPACK_V4_16part(format) \
 	format *sdata = (format*)data; \
 	while (size > 0) { \
-		_UNPACKpart(0, writeX(dest++, *sdata++); ); \
-		_UNPACKpart(1, writeY(dest++, *sdata++); ); \
-		_UNPACKpart(2, writeZ(dest++, *sdata++); ); \
-		_UNPACKpart(3, writeW(dest++, *sdata++); ); \
+		_UNPACKpart(0, writeX(dest++, *sdata++) ); \
+		_UNPACKpart(1, writeY(dest++, *sdata++) ); \
+		_UNPACKpart(2, writeZ(dest++, *sdata++) ); \
+		_UNPACKpart(3, writeW(dest++, *sdata++) ); \
 		if (_vifRegs->offset == 4) _vifRegs->offset = 0; \
 	} \
 	return (u32)sdata - (u32)data;
@@ -631,12 +610,10 @@ int  UNPACK_V4_16upart(u32 *dest, u32 *data, int size) {
 	format *cdata = (format*)data; \
 	 \
  \
-	for (i=0; i<3; i++) { \
 		writeX(dest++, *cdata++); \
 		writeY(dest++, *cdata++); \
 		writeZ(dest++, *cdata++); \
-		writeW(dest++, *cdata++); \
-	}
+		writeW(dest++, *cdata++);
 
 void UNPACK_V4_8s(u32 *dest, u32 *data) {
 	_UNPACK_V4_8(s8);
@@ -649,10 +626,10 @@ void UNPACK_V4_8u(u32 *dest, u32 *data) {
 #define _UNPACK_V4_8part(format) \
 	format *cdata = (format*)data; \
 	while (size > 0) { \
-		_UNPACKpart(0, writeX(dest++, *cdata++); ); \
-		_UNPACKpart(1, writeY(dest++, *cdata++); ); \
-		_UNPACKpart(2, writeZ(dest++, *cdata++); ); \
-		_UNPACKpart(3, writeW(dest++, *cdata++); ); \
+		_UNPACKpart(0, writeX(dest++, *cdata++) ); \
+		_UNPACKpart(1, writeY(dest++, *cdata++) ); \
+		_UNPACKpart(2, writeZ(dest++, *cdata++) ); \
+		_UNPACKpart(3, writeW(dest++, *cdata++) ); \
 		if (_vifRegs->offset == 4) _vifRegs->offset = 0; \
 	} \
 	return (u32)cdata - (u32)data;
@@ -668,15 +645,12 @@ int  UNPACK_V4_8upart(u32 *dest, u32 *data, int size) {
 void UNPACK_V4_5(u32 *dest, u32 *data) {
 	u16 *sdata = (u16*)data;
 	u32 rgba;
-	
 
-	for (i=0; i<3; i++) {
-		rgba = *sdata++;
-		writeX(dest++, (rgba & 0x001f) << 3);
-		writeY(dest++, (rgba & 0x03e0) >> 2);
-		writeZ(dest++, (rgba & 0x7c00) >> 7);
-		writeW(dest++, (rgba & 0x8000) >> 8);
-	}
+	rgba = *sdata++;
+	writeX(dest++, (rgba & 0x001f) << 3);
+	writeY(dest++, (rgba & 0x03e0) >> 2);
+	writeZ(dest++, (rgba & 0x7c00) >> 7);
+	writeW(dest++, (rgba & 0x8000) >> 8);
 }
 
 int  UNPACK_V4_5part(u32 *dest, u32 *data, int size) {
@@ -697,6 +671,7 @@ int  UNPACK_V4_5part(u32 *dest, u32 *data, int size) {
 
 #if (defined(__i386__) || defined(__x86_64__))
 
+// sse2 highly optimized vif (~200 separate functions are built) zerofrog(@gmail.com)
 #include <xmmintrin.h>
 #include <emmintrin.h>
 
@@ -732,6 +707,8 @@ u8 s_maskwrite[256];
 void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 {
 	u32 prev = 0;
+	FreezeXMMRegs(1);
+
 	for(i = 0; i < 4; ++i, mask >>= 8, oldmask >>= 8, vif1masks += 16) {
 
 		prev |= s_maskwrite[mask&0xff];//((mask&3)==3)||((mask&0xc)==0xc)||((mask&0x30)==0x30)||((mask&0xc0)==0xc0);
@@ -766,33 +743,41 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 #define VIF_DST edi
 
 // writing masks
-#define UNPACK_Write0_Regular(r0, CL, DEST_OFFSET, MOVAPS) \
+#define UNPACK_Write0_Regular(r0, CL, DEST_OFFSET, MOVDQA) \
 { \
-	__asm MOVAPS qword ptr [VIF_DST+(DEST_OFFSET)], r0 \
+	__asm MOVDQA qword ptr [VIF_DST+(DEST_OFFSET)], r0 \
 } \
 
-#define UNPACK_Write1_Regular(r0, CL, DEST_OFFSET, MOVAPS) \
+#define UNPACK_Write1_Regular(r0, CL, DEST_OFFSET, MOVDQA) \
 { \
-	__asm MOVAPS qword ptr [VIF_DST], r0 \
+	__asm MOVDQA qword ptr [VIF_DST], r0 \
 	__asm add VIF_DST, VIF_INC \
 } \
 
 #define UNPACK_Write0_Mask UNPACK_Write0_Regular
 #define UNPACK_Write1_Mask UNPACK_Write1_Regular
 
-#define UNPACK_Write0_WriteMask(r0, CL, DEST_OFFSET, MOVAPS) \
+#define UNPACK_Write0_WriteMask(r0, CL, DEST_OFFSET, MOVDQA) \
 { \
-	__asm movaps XMM_WRITEMASK, qword ptr [eax + 64*(CL) + 48] \
 	/* masked write (dest needs to be in edi) */ \
-	__asm maskmovdqu r0, XMM_WRITEMASK \
+	__asm movdqa XMM_WRITEMASK, qword ptr [eax + 64*(CL) + 48] \
+	/*__asm maskmovdqu r0, XMM_WRITEMASK*/ \
+	__asm pand r0, XMM_WRITEMASK \
+	__asm pandn XMM_WRITEMASK, qword ptr [VIF_DST] \
+	__asm por r0, XMM_WRITEMASK \
+	__asm MOVDQA qword ptr [VIF_DST], r0 \
 	__asm add VIF_DST, 16 \
 } \
 
-#define UNPACK_Write1_WriteMask(r0, CL, DEST_OFFSET, MOVAPS) \
+#define UNPACK_Write1_WriteMask(r0, CL, DEST_OFFSET, MOVDQA) \
 { \
-	__asm movaps XMM_WRITEMASK, qword ptr [eax + 64*(0) + 48] \
+	__asm movdqa XMM_WRITEMASK, qword ptr [eax + 64*(0) + 48] \
 	/* masked write (dest needs to be in edi) */ \
-	__asm maskmovdqu r0, XMM_WRITEMASK \
+	/*__asm maskmovdqu r0, XMM_WRITEMASK*/ \
+	__asm pand r0, XMM_WRITEMASK \
+	__asm pandn XMM_WRITEMASK, qword ptr [VIF_DST] \
+	__asm por r0, XMM_WRITEMASK \
+	__asm MOVDQA qword ptr [VIF_DST], r0 \
 	__asm add VIF_DST, VIF_INC \
 } \
 
@@ -838,16 +823,16 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 #define UNPACK_Regular_SSE_2(r0) \
 { \
 	__asm paddd r0, XMM_ROW \
-	__asm movaps XMM_ROW, r0 \
+	__asm movdqa XMM_ROW, r0 \
 } \
 
 // setting up masks
 #define UNPACK_Setup_Mask_SSE(CL) \
 { \
 	__asm mov eax, _vifMaskRegs \
-	__asm movaps XMM_ROWMASK, qword ptr [eax + 64*(CL) + 16] \
-	__asm movaps XMM_ROWCOLMASK, qword ptr [eax + 64*(CL) + 32] \
-	__asm movaps XMM_WRITEMASK, qword ptr [eax + 64*(CL)] \
+	__asm movdqa XMM_ROWMASK, qword ptr [eax + 64*(CL) + 16] \
+	__asm movdqa XMM_ROWCOLMASK, qword ptr [eax + 64*(CL) + 32] \
+	__asm movdqa XMM_WRITEMASK, qword ptr [eax + 64*(CL)] \
 	__asm pand XMM_ROWMASK, XMM_ROW \
 	__asm pand XMM_ROWCOLMASK, XMM_COL \
 	__asm por XMM_ROWCOLMASK, XMM_ROWMASK \
@@ -857,8 +842,8 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 #define UNPACK_Start_Setup_Mask_SSE_1(CL) \
 { \
 	__asm mov eax, _vifMaskRegs \
-	__asm movaps XMM_ROWMASK, qword ptr [eax + 64*(CL) + 16] \
-	__asm movaps XMM_ROWCOLMASK, qword ptr [eax + 64*(CL) + 32] \
+	__asm movdqa XMM_ROWMASK, qword ptr [eax + 64*(CL) + 16] \
+	__asm movdqa XMM_ROWCOLMASK, qword ptr [eax + 64*(CL) + 32] \
 	__asm pand XMM_ROWMASK, XMM_ROW \
 	__asm pand XMM_ROWCOLMASK, XMM_COL \
 	__asm por XMM_ROWCOLMASK, XMM_ROWMASK \
@@ -870,15 +855,15 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 #define UNPACK_Setup_Mask_SSE_1_1(CL) \
 { \
 	__asm mov eax, _vifMaskRegs \
-	__asm movaps XMM_WRITEMASK, qword ptr [eax + 64*(0)] \
+	__asm movdqa XMM_WRITEMASK, qword ptr [eax + 64*(0)] \
 } \
 
 #define UNPACK_Setup_Mask_SSE_2_1(CL) { \
 	/* ignore CL, since vif.cycle.wl == 1 */ \
 	__asm mov eax, _vifMaskRegs \
-	__asm movaps XMM_ROWMASK, qword ptr [eax + 64*(0) + 16] \
-	__asm movaps XMM_ROWCOLMASK, qword ptr [eax + 64*(0) + 32] \
-	__asm movaps XMM_WRITEMASK, qword ptr [eax + 64*(0)] \
+	__asm movdqa XMM_ROWMASK, qword ptr [eax + 64*(0) + 16] \
+	__asm movdqa XMM_ROWCOLMASK, qword ptr [eax + 64*(0) + 32] \
+	__asm movdqa XMM_WRITEMASK, qword ptr [eax + 64*(0)] \
 	__asm pand XMM_ROWMASK, XMM_ROW \
 	__asm pand XMM_ROWCOLMASK, XMM_COL \
 	__asm por XMM_ROWCOLMASK, XMM_ROWMASK \
@@ -917,39 +902,40 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 #define UNPACK_INC_DST_0_WriteMask(qw)
 #define UNPACK_INC_DST_1_WriteMask(qw)
 
-// unpacks for 1,2,3,4 elements
+// unpacks for 1,2,3,4 elements (V3 uses this directly)
 #define UNPACK4_SSE(CL, TOTALCL, MaskType, ModeType) { \
 	UNPACK_Setup_##MaskType##_SSE_##ModeType##_##TOTALCL##(CL+0); \
 	UNPACK_##MaskType##_SSE_##ModeType##(XMM_R0); \
-	UNPACK_Write##TOTALCL##_##MaskType##(XMM_R0, CL, 0, movaps); \
+	UNPACK_Write##TOTALCL##_##MaskType##(XMM_R0, CL, 0, movdqa); \
 	\
 	UNPACK_Setup_##MaskType##_SSE_##ModeType##_##TOTALCL##(CL+1); \
 	UNPACK_##MaskType##_SSE_##ModeType##(XMM_R1); \
-	UNPACK_Write##TOTALCL##_##MaskType##(XMM_R1, CL+1, 16, movaps); \
+	UNPACK_Write##TOTALCL##_##MaskType##(XMM_R1, CL+1, 16, movdqa); \
 	\
 	UNPACK_Setup_##MaskType##_SSE_##ModeType##_##TOTALCL##(CL+2); \
 	UNPACK_##MaskType##_SSE_##ModeType##(XMM_R2); \
-	UNPACK_Write##TOTALCL##_##MaskType##(XMM_R2, CL+2, 32, movaps); \
+	UNPACK_Write##TOTALCL##_##MaskType##(XMM_R2, CL+2, 32, movdqa); \
 	\
 	UNPACK_Setup_##MaskType##_SSE_##ModeType##_##TOTALCL##(CL+3); \
 	UNPACK_##MaskType##_SSE_##ModeType##(XMM_R3); \
-	UNPACK_Write##TOTALCL##_##MaskType##(XMM_R3, CL+3, 48, movaps); \
+	UNPACK_Write##TOTALCL##_##MaskType##(XMM_R3, CL+3, 48, movdqa); \
 	\
 	UNPACK_INC_DST_##TOTALCL##_##MaskType##(4) \
 } \
 
+// V3 uses this directly
 #define UNPACK3_SSE(CL, TOTALCL, MaskType, ModeType) { \
 	UNPACK_Setup_##MaskType##_SSE_##ModeType##_##TOTALCL##(CL); \
 	UNPACK_##MaskType##_SSE_##ModeType##(XMM_R0); \
-	UNPACK_Write##TOTALCL##_##MaskType##(XMM_R0, CL, 0, movaps); \
+	UNPACK_Write##TOTALCL##_##MaskType##(XMM_R0, CL, 0, movdqa); \
 	\
 	UNPACK_Setup_##MaskType##_SSE_##ModeType##_##TOTALCL##(CL+1); \
 	UNPACK_##MaskType##_SSE_##ModeType##(XMM_R1); \
-	UNPACK_Write##TOTALCL##_##MaskType##(XMM_R1, CL+1, 16, movaps); \
+	UNPACK_Write##TOTALCL##_##MaskType##(XMM_R1, CL+1, 16, movdqa); \
 	\
 	UNPACK_Setup_##MaskType##_SSE_##ModeType##_##TOTALCL##(CL+2); \
 	UNPACK_##MaskType##_SSE_##ModeType##(XMM_R2); \
-	UNPACK_Write##TOTALCL##_##MaskType##(XMM_R2, CL+2, 32, movaps); \
+	UNPACK_Write##TOTALCL##_##MaskType##(XMM_R2, CL+2, 32, movdqa); \
 	\
 	UNPACK_INC_DST_##TOTALCL##_##MaskType##(3) \
 } \
@@ -957,11 +943,11 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 #define UNPACK2_SSE(CL, TOTALCL, MaskType, ModeType) { \
 	UNPACK_Setup_##MaskType##_SSE_##ModeType##_##TOTALCL##(CL); \
 	UNPACK_##MaskType##_SSE_##ModeType##(XMM_R0); \
-	UNPACK_Write##TOTALCL##_##MaskType##(XMM_R0, CL, 0, movaps); \
+	UNPACK_Write##TOTALCL##_##MaskType##(XMM_R0, CL, 0, movdqa); \
 	\
 	UNPACK_Setup_##MaskType##_SSE_##ModeType##_##TOTALCL##(CL+1); \
 	UNPACK_##MaskType##_SSE_##ModeType##(XMM_R1); \
-	UNPACK_Write##TOTALCL##_##MaskType##(XMM_R1, CL+1, 16, movaps); \
+	UNPACK_Write##TOTALCL##_##MaskType##(XMM_R1, CL+1, 16, movdqa); \
 	\
 	UNPACK_INC_DST_##TOTALCL##_##MaskType##(2) \
 } \
@@ -969,24 +955,21 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 #define UNPACK1_SSE(CL, TOTALCL, MaskType, ModeType) { \
 	UNPACK_Setup_##MaskType##_SSE_##ModeType##_##TOTALCL##(CL); \
 	UNPACK_##MaskType##_SSE_##ModeType##(XMM_R0); \
-	UNPACK_Write##TOTALCL##_##MaskType##(XMM_R0, CL, 0, movaps); \
+	UNPACK_Write##TOTALCL##_##MaskType##(XMM_R0, CL, 0, movdqa); \
 	\
 	UNPACK_INC_DST_##TOTALCL##_##MaskType##(1) \
 } \
 
 // S-32
 // only when cl==1
-#define UNPACK_S_32SSE_4(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_S_32SSE_4x(CL, TOTALCL, MaskType, ModeType, MOVDQA) { \
 	{ \
-		__asm MOVAPS XMM_R1, qword ptr [VIF_SRC] \
+		__asm MOVDQA XMM_R3, qword ptr [VIF_SRC] \
 		\
-		__asm movss XMM_R0, XMM_R1 \
-		__asm movhlps XMM_R2, XMM_R1 \
-		__asm movhlps XMM_R3, XMM_R1 \
-		__asm pshufd XMM_R0, XMM_R0, 0 \
-		__asm pshufd XMM_R1, XMM_R1, 0x55 \
-		__asm pshufd XMM_R2, XMM_R2, 0 \
-		__asm pshufd XMM_R3, XMM_R3, 0x55 \
+		__asm pshufd XMM_R0, XMM_R3, 0 \
+		__asm pshufd XMM_R1, XMM_R3, 0x55 \
+		__asm pshufd XMM_R2, XMM_R3, 0xaa \
+		__asm pshufd XMM_R3, XMM_R3, 0xff \
 	} \
 	\
 	UNPACK4_SSE(CL, TOTALCL, MaskType, ModeType); \
@@ -995,15 +978,16 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 }
 
-#define UNPACK_S_32SSE_3(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_S_32SSE_4A(CL, TOTALCL, MaskType, ModeType) UNPACK_S_32SSE_4x(CL, TOTALCL, MaskType, ModeType, movdqa)
+#define UNPACK_S_32SSE_4(CL, TOTALCL, MaskType, ModeType) UNPACK_S_32SSE_4x(CL, TOTALCL, MaskType, ModeType, movdqu)
+
+#define UNPACK_S_32SSE_3x(CL, TOTALCL, MaskType, ModeType, MOVDQA) { \
 	{ \
-		__asm MOVAPS XMM_R1, qword ptr [VIF_SRC] \
+		__asm MOVDQA XMM_R2, qword ptr [VIF_SRC] \
 		\
-		__asm movss XMM_R0, XMM_R1 \
-		__asm movhlps XMM_R2, XMM_R1 \
-		__asm pshufd XMM_R0, XMM_R0, 0 \
-		__asm pshufd XMM_R1, XMM_R1, 0x55 \
-		__asm pshufd XMM_R2, XMM_R2, 0 \
+		__asm pshufd XMM_R0, XMM_R2, 0 \
+		__asm pshufd XMM_R1, XMM_R2, 0x55 \
+		__asm pshufd XMM_R2, XMM_R2, 0xaa \
 	} \
 	\
 	UNPACK3_SSE(CL, TOTALCL, MaskType, ModeType); \
@@ -1012,12 +996,14 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 } \
 
-#define UNPACK_S_32SSE_2(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_S_32SSE_3A(CL, TOTALCL, MaskType, ModeType) UNPACK_S_32SSE_3x(CL, TOTALCL, MaskType, ModeType, movdqa)
+#define UNPACK_S_32SSE_3(CL, TOTALCL, MaskType, ModeType) UNPACK_S_32SSE_3x(CL, TOTALCL, MaskType, ModeType, movdqu)
+
+#define UNPACK_S_32SSE_2(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		__asm movlps XMM_R0, qword ptr [VIF_SRC] \
+		__asm movq XMM_R1, qword ptr [VIF_SRC] \
 		\
-		__asm MOVAPS XMM_R1, XMM_R0 \
-		__asm pshufd XMM_R0, XMM_R0, 0 \
+		__asm pshufd XMM_R0, XMM_R1, 0 \
 		__asm pshufd XMM_R1, XMM_R1, 0x55 \
 	} \
 	\
@@ -1027,9 +1013,11 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 } \
 
-#define UNPACK_S_32SSE_1(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_S_32SSE_2A UNPACK_S_32SSE_2
+
+#define UNPACK_S_32SSE_1(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		__asm movss XMM_R0, qword ptr [VIF_SRC] \
+		__asm movd XMM_R0, dword ptr [VIF_SRC] \
 		__asm pshufd XMM_R0, XMM_R0, 0 \
 	} \
 	\
@@ -1039,21 +1027,19 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 } \
 
+#define UNPACK_S_32SSE_1A UNPACK_S_32SSE_1
+
 // S-16
-#define UNPACK_S_16SSE_4(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_S_16SSE_4(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		__asm movlps XMM_R1, qword ptr [VIF_SRC] \
+		__asm movq XMM_R3, qword ptr [VIF_SRC] \
+		__asm punpcklwd XMM_R3, XMM_R3 \
+		__asm UNPACK_RIGHTSHIFT XMM_R3, 16 \
 		\
-		__asm punpcklwd XMM_R1, XMM_R1 \
-		__asm UNPACK_RIGHTSHIFT XMM_R1, 16 \
-		__asm movss XMM_R0, XMM_R1 \
-		__asm movhlps XMM_R2, XMM_R1 \
-		__asm movhlps XMM_R3, XMM_R1 \
-		\
-		__asm pshufd XMM_R0, XMM_R0, 0 \
-		__asm pshufd XMM_R1, XMM_R1, 0x55 \
-		__asm pshufd XMM_R2, XMM_R2, 0 \
-		__asm pshufd XMM_R3, XMM_R3, 0x55 \
+		__asm pshufd XMM_R0, XMM_R3, 0 \
+		__asm pshufd XMM_R1, XMM_R3, 0x55 \
+		__asm pshufd XMM_R2, XMM_R3, 0xaa \
+		__asm pshufd XMM_R3, XMM_R3, 0xff \
 	} \
 	\
 	UNPACK4_SSE(CL, TOTALCL, MaskType, ModeType); \
@@ -1062,18 +1048,17 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 }
 
-#define UNPACK_S_16SSE_3(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_S_16SSE_4A UNPACK_S_16SSE_4
+
+#define UNPACK_S_16SSE_3(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		__asm movlps XMM_R1, qword ptr [VIF_SRC] \
+		__asm movq XMM_R2, qword ptr [VIF_SRC] \
+		__asm punpcklwd XMM_R2, XMM_R2 \
+		__asm UNPACK_RIGHTSHIFT XMM_R2, 16 \
 		\
-		__asm punpcklwd XMM_R1, XMM_R1 \
-		__asm UNPACK_RIGHTSHIFT XMM_R1, 16 \
-		__asm movss XMM_R0, XMM_R1 \
-		__asm movhlps XMM_R2, XMM_R1 \
-		\
-		__asm pshufd XMM_R0, XMM_R0, 0 \
-		__asm pshufd XMM_R1, XMM_R1, 0x55 \
-		__asm pshufd XMM_R2, XMM_R2, 0 \
+		__asm pshufd XMM_R0, XMM_R2, 0 \
+		__asm pshufd XMM_R1, XMM_R2, 0x55 \
+		__asm pshufd XMM_R2, XMM_R2, 0xaa \
 	} \
 	\
 	UNPACK3_SSE(CL, TOTALCL, MaskType, ModeType); \
@@ -1082,15 +1067,15 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 } \
 
-#define UNPACK_S_16SSE_2(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_S_16SSE_3A UNPACK_S_16SSE_3
+
+#define UNPACK_S_16SSE_2(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		__asm movss XMM_R1, qword ptr [VIF_SRC] \
-		\
+		__asm movd XMM_R1, dword ptr [VIF_SRC] \
 		__asm punpcklwd XMM_R1, XMM_R1 \
 		__asm UNPACK_RIGHTSHIFT XMM_R1, 16 \
-		__asm movss XMM_R0, XMM_R1 \
 		\
-		__asm pshufd XMM_R0, XMM_R0, 0 \
+		__asm pshufd XMM_R0, XMM_R1, 0 \
 		__asm pshufd XMM_R1, XMM_R1, 0x55 \
 	} \
 	\
@@ -1100,13 +1085,13 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 } \
 
-#define UNPACK_S_16SSE_1(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_S_16SSE_2A UNPACK_S_16SSE_2
+
+#define UNPACK_S_16SSE_1(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		__asm movss XMM_R0, qword ptr [VIF_SRC] \
-		\
+		__asm movd XMM_R0, dword ptr [VIF_SRC] \
 		__asm punpcklwd XMM_R0, XMM_R0 \
 		__asm UNPACK_RIGHTSHIFT XMM_R0, 16 \
-		\
 		__asm pshufd XMM_R0, XMM_R0, 0 \
 	} \
 	\
@@ -1116,19 +1101,20 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 } \
 
+#define UNPACK_S_16SSE_1A UNPACK_S_16SSE_1
+
 // S-8
-#define UNPACK_S_8SSE_4(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_S_8SSE_4(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		__asm movss XMM_R1, qword ptr [VIF_SRC] \
+		__asm movd XMM_R3, dword ptr [VIF_SRC] \
+		__asm punpcklbw XMM_R3, XMM_R3 \
+		__asm punpcklwd XMM_R3, XMM_R3 \
+		__asm UNPACK_RIGHTSHIFT XMM_R3, 24 \
 		\
-		__asm punpcklbw XMM_R1, XMM_R1 \
-		__asm punpcklwd XMM_R1, XMM_R1 \
-		__asm UNPACK_RIGHTSHIFT XMM_R1, 24 \
-		\
-		__asm pshufd XMM_R0, XMM_R1, 0 \
-		__asm pshufd XMM_R2, XMM_R1, 0xaa \
-		__asm pshufd XMM_R3, XMM_R1, 0xff \
-		__asm pshufd XMM_R1, XMM_R1, 0x55 \
+		__asm pshufd XMM_R0, XMM_R3, 0 \
+		__asm pshufd XMM_R1, XMM_R3, 0x55 \
+		__asm pshufd XMM_R2, XMM_R3, 0xaa \
+		__asm pshufd XMM_R3, XMM_R3, 0xff \
 	} \
 	\
 	UNPACK4_SSE(CL, TOTALCL, MaskType, ModeType); \
@@ -1137,17 +1123,18 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 }
 
-#define UNPACK_S_8SSE_3(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_S_8SSE_4A UNPACK_S_8SSE_4
+
+#define UNPACK_S_8SSE_3(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		__asm movss XMM_R1, qword ptr [VIF_SRC] \
+		__asm movd XMM_R2, dword ptr [VIF_SRC] \
+		__asm punpcklbw XMM_R2, XMM_R2 \
+		__asm punpcklwd XMM_R2, XMM_R2 \
+		__asm UNPACK_RIGHTSHIFT XMM_R2, 24 \
 		\
-		__asm punpcklbw XMM_R1, XMM_R1 \
-		__asm punpcklwd XMM_R1, XMM_R1 \
-		__asm UNPACK_RIGHTSHIFT XMM_R1, 24 \
-		\
-		__asm pshufd XMM_R0, XMM_R1, 0 \
-		__asm pshufd XMM_R2, XMM_R1, 0xaa \
-		__asm pshufd XMM_R1, XMM_R1, 0x55 \
+		__asm pshufd XMM_R0, XMM_R2, 0 \
+		__asm pshufd XMM_R1, XMM_R2, 0x55 \
+		__asm pshufd XMM_R2, XMM_R2, 0xaa \
 	} \
 	\
 	UNPACK3_SSE(CL, TOTALCL, MaskType, ModeType); \
@@ -1156,10 +1143,11 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 } \
 
-#define UNPACK_S_8SSE_2(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_S_8SSE_3A UNPACK_S_8SSE_3
+
+#define UNPACK_S_8SSE_2(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		__asm movss XMM_R1, qword ptr [VIF_SRC] \
-		\
+		__asm movd XMM_R1, dword ptr [VIF_SRC] \
 		__asm punpcklbw XMM_R1, XMM_R1 \
 		__asm punpcklwd XMM_R1, XMM_R1 \
 		__asm UNPACK_RIGHTSHIFT XMM_R1, 24 \
@@ -1174,10 +1162,11 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 } \
 
-#define UNPACK_S_8SSE_1(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_S_8SSE_2A UNPACK_S_8SSE_2
+
+#define UNPACK_S_8SSE_1(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		__asm movss XMM_R0, qword ptr [VIF_SRC] \
-		\
+		__asm movd XMM_R0, dword ptr [VIF_SRC] \
 		__asm punpcklbw XMM_R0, XMM_R0 \
 		__asm punpcklwd XMM_R0, XMM_R0 \
 		__asm UNPACK_RIGHTSHIFT XMM_R0, 24 \
@@ -1190,19 +1179,16 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 } \
 
+#define UNPACK_S_8SSE_1A UNPACK_S_8SSE_1
+
 // V2-32
-#define UNPACK_V2_32SSE_4(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_V2_32SSE_4A(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		__asm MOVAPS XMM_R0, qword ptr [VIF_SRC] \
-		__asm MOVAPS XMM_R2, qword ptr [VIF_SRC+16] \
-		/* EXTRA CODE (all xorps, movlhps, shufps) */ \
-		__asm xorps XMM_R1, XMM_R1 \
-		__asm xorps XMM_R3, XMM_R3 \
+		__asm MOVDQA XMM_R0, qword ptr [VIF_SRC] \
+		__asm MOVDQA XMM_R2, qword ptr [VIF_SRC+16] \
 		\
-		__asm movhlps XMM_R1, XMM_R0 \
-		__asm movlhps XMM_R0, XMM_R3 /* EXTRA */ \
-		__asm movhlps XMM_R3, XMM_R2 \
-		__asm shufps XMM_R2, XMM_R0, 0xe4 /* EXTRA */ \
+		__asm pshufd XMM_R1, XMM_R0, 0xee \
+		__asm pshufd XMM_R3, XMM_R2, 0xee \
 	} \
 	\
 	UNPACK4_SSE(CL, TOTALCL, MaskType, ModeType); \
@@ -1211,16 +1197,25 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 }
 
-#define UNPACK_V2_32SSE_3(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_V2_32SSE_4(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		/* EXTRA CODE */ \
-		__asm xorps XMM_R2, XMM_R2 \
-		__asm xorps XMM_R1, XMM_R1 \
-		\
-		__asm MOVAPS XMM_R0, qword ptr [VIF_SRC] \
-		__asm movlps XMM_R2, qword ptr [VIF_SRC+16] \
-		__asm movhlps XMM_R1, XMM_R0 \
-		__asm shufps XMM_R0, XMM_R2, 0xe4 /* EXTRA */ \
+		__asm movq XMM_R0, qword ptr [VIF_SRC] \
+		__asm movq XMM_R1, qword ptr [VIF_SRC+8] \
+		__asm movq XMM_R2, qword ptr [VIF_SRC+16] \
+		__asm movq XMM_R3, qword ptr [VIF_SRC+24] \
+	} \
+	\
+	UNPACK4_SSE(CL, TOTALCL, MaskType, ModeType); \
+	{ \
+		__asm add VIF_SRC, 32 \
+	} \
+}
+
+#define UNPACK_V2_32SSE_3A(CL, TOTALCL, MaskType, ModeType) { \
+	{ \
+		__asm MOVDQA XMM_R0, qword ptr [VIF_SRC] \
+		__asm movq XMM_R2, qword ptr [VIF_SRC+16] \
+		__asm pshufd XMM_R1, XMM_R0, 0xee \
 	} \
 	\
 	UNPACK3_SSE(CL, TOTALCL, MaskType, ModeType); \
@@ -1229,14 +1224,23 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 } \
 
-#define UNPACK_V2_32SSE_2(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_V2_32SSE_3(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		/* EXTRA CODE */ \
-		__asm xorps XMM_R1, XMM_R1 \
-		\
-		__asm MOVAPS XMM_R0, qword ptr [VIF_SRC] \
-		__asm movhlps XMM_R1, XMM_R0 \
-		__asm shufps XMM_R0, XMM_R1, 0xe4 /* EXTRA */ \
+		__asm movq XMM_R0, qword ptr [VIF_SRC] \
+		__asm movq XMM_R1, qword ptr [VIF_SRC+8] \
+		__asm movq XMM_R2, qword ptr [VIF_SRC+16] \
+	} \
+	\
+	UNPACK3_SSE(CL, TOTALCL, MaskType, ModeType); \
+	{ \
+		__asm add VIF_SRC, 24 \
+	} \
+} \
+
+#define UNPACK_V2_32SSE_2(CL, TOTALCL, MaskType, ModeType) { \
+	{ \
+		__asm movq XMM_R0, qword ptr [VIF_SRC] \
+		__asm movq XMM_R1, qword ptr [VIF_SRC+8] \
 	} \
 	\
 	UNPACK2_SSE(CL, TOTALCL, MaskType, ModeType); \
@@ -1245,10 +1249,11 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 } \
 
-#define UNPACK_V2_32SSE_1(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_V2_32SSE_2A UNPACK_V2_32SSE_2
+
+#define UNPACK_V2_32SSE_1(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		__asm xorps XMM_R0, XMM_R0 /* EXTRA */ \
-		__asm movlps XMM_R0, qword ptr [VIF_SRC] \
+		__asm movq XMM_R0, qword ptr [VIF_SRC] \
 	} \
 	\
 	UNPACK1_SSE(CL, TOTALCL, MaskType, ModeType); \
@@ -1257,25 +1262,20 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 } \
 
+#define UNPACK_V2_32SSE_1A UNPACK_V2_32SSE_1
+
 // V2-16
-#define UNPACK_V2_16SSE_4(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_V2_16SSE_4A(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		__asm MOVAPS XMM_R0, qword ptr [VIF_SRC] \
-		\
-		__asm punpckhwd XMM_R2, XMM_R0 \
-		__asm punpcklwd XMM_R0, XMM_R0 \
+		__asm punpcklwd XMM_R0, qword ptr [VIF_SRC] \
+		__asm punpckhwd XMM_R2, qword ptr [VIF_SRC] \
 		\
 		__asm UNPACK_RIGHTSHIFT XMM_R0, 16 \
 		__asm UNPACK_RIGHTSHIFT XMM_R2, 16 \
 		\
 		/* move the lower 64 bits down*/ \
-		__asm movhlps XMM_R1, XMM_R0 \
-		__asm movhlps XMM_R3, XMM_R2 \
-		/* EXTRA CODE */ \
-		__asm movlhps XMM_R0, XMM_R0 \
-		__asm movlhps XMM_R1, XMM_R1 \
-		__asm movlhps XMM_R2, XMM_R2 \
-		__asm movlhps XMM_R3, XMM_R3 \
+		__asm pshufd XMM_R1, XMM_R0, 0xee \
+		__asm pshufd XMM_R3, XMM_R2, 0xee \
 	} \
 	\
 	UNPACK4_SSE(CL, TOTALCL, MaskType, ModeType); \
@@ -1284,10 +1284,9 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 }
 
-#define UNPACK_V2_16SSE_3(CL, TOTALCL, MaskType, ModeType, MOVAPS) \
-{ \
+#define UNPACK_V2_16SSE_4(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		__asm MOVAPS XMM_R0, qword ptr [VIF_SRC] \
+		__asm movdqu XMM_R0, qword ptr [VIF_SRC] \
 		\
 		__asm punpckhwd XMM_R2, XMM_R0 \
 		__asm punpcklwd XMM_R0, XMM_R0 \
@@ -1296,11 +1295,27 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 		__asm UNPACK_RIGHTSHIFT XMM_R2, 16 \
 		\
 		/* move the lower 64 bits down*/ \
-		__asm movhlps XMM_R1, XMM_R0 \
-		/* EXTRA CODE */ \
-		__asm movlhps XMM_R0, XMM_R0 \
-		__asm movlhps XMM_R1, XMM_R1 \
-		__asm movlhps XMM_R2, XMM_R2 \
+		__asm pshufd XMM_R1, XMM_R0, 0xee \
+		__asm pshufd XMM_R3, XMM_R2, 0xee \
+	} \
+	\
+	UNPACK4_SSE(CL, TOTALCL, MaskType, ModeType); \
+	{ \
+		__asm add VIF_SRC, 16 \
+	} \
+}
+
+#define UNPACK_V2_16SSE_3A(CL, TOTALCL, MaskType, ModeType) \
+{ \
+	{ \
+		__asm punpcklwd XMM_R0, qword ptr [VIF_SRC] \
+		__asm punpckhwd XMM_R2, qword ptr [VIF_SRC] \
+		\
+		__asm UNPACK_RIGHTSHIFT XMM_R0, 16 \
+		__asm UNPACK_RIGHTSHIFT XMM_R2, 16 \
+		\
+		/* move the lower 64 bits down*/ \
+		__asm pshufd XMM_R1, XMM_R0, 0xee \
 	} \
 	\
 	UNPACK3_SSE(CL, TOTALCL, MaskType, ModeType); \
@@ -1309,18 +1324,35 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 } \
 
-#define UNPACK_V2_16SSE_2(CL, TOTALCL, MaskType, ModeType, MOVAPS) \
+#define UNPACK_V2_16SSE_3(CL, TOTALCL, MaskType, ModeType) \
 { \
 	{ \
-		__asm movlps XMM_R0, qword ptr [VIF_SRC] \
+		__asm movdqu XMM_R0, qword ptr [VIF_SRC] \
+		\
+		__asm punpckhwd XMM_R2, XMM_R0 \
 		__asm punpcklwd XMM_R0, XMM_R0 \
+		\
+		__asm UNPACK_RIGHTSHIFT XMM_R0, 16 \
+		__asm UNPACK_RIGHTSHIFT XMM_R2, 16 \
+		\
+		/* move the lower 64 bits down*/ \
+		__asm pshufd XMM_R1, XMM_R0, 0xee \
+	} \
+	\
+	UNPACK3_SSE(CL, TOTALCL, MaskType, ModeType); \
+	{ \
+		__asm add VIF_SRC, 12 \
+	} \
+} \
+
+#define UNPACK_V2_16SSE_2A(CL, TOTALCL, MaskType, ModeType) \
+{ \
+	{ \
+		__asm punpcklwd XMM_R0, qword ptr [VIF_SRC] \
 		__asm UNPACK_RIGHTSHIFT XMM_R0, 16 \
 		\
 		/* move the lower 64 bits down*/ \
-		__asm movhlps XMM_R1, XMM_R0 \
-		/* EXTRA CODE */ \
-		__asm movlhps XMM_R0, XMM_R0 \
-		__asm movlhps XMM_R1, XMM_R1 \
+		__asm pshufd XMM_R1, XMM_R0, 0xee \
 	} \
 	\
 	UNPACK2_SSE(CL, TOTALCL, MaskType, ModeType); \
@@ -1329,14 +1361,42 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 } \
 
-#define UNPACK_V2_16SSE_1(CL, TOTALCL, MaskType, ModeType, MOVAPS) \
+#define UNPACK_V2_16SSE_2(CL, TOTALCL, MaskType, ModeType) \
 { \
 	{ \
-		__asm movss XMM_R0, qword ptr [VIF_SRC] \
+		__asm movq XMM_R0, qword ptr [VIF_SRC] \
 		__asm punpcklwd XMM_R0, XMM_R0 \
 		__asm UNPACK_RIGHTSHIFT XMM_R0, 16 \
-		/* EXTRA CODE */ \
-		__asm movlhps XMM_R0, XMM_R0 \
+		\
+		/* move the lower 64 bits down*/ \
+		__asm pshufd XMM_R1, XMM_R0, 0xee \
+	} \
+	\
+	UNPACK2_SSE(CL, TOTALCL, MaskType, ModeType); \
+	{ \
+		__asm add VIF_SRC, 8 \
+	} \
+} \
+
+#define UNPACK_V2_16SSE_1A(CL, TOTALCL, MaskType, ModeType) \
+{ \
+	{ \
+		__asm punpcklwd XMM_R0, dword ptr [VIF_SRC] \
+		__asm UNPACK_RIGHTSHIFT XMM_R0, 16 \
+	} \
+	\
+	UNPACK1_SSE(CL, TOTALCL, MaskType, ModeType); \
+	{ \
+		__asm add VIF_SRC, 4 \
+	} \
+} \
+
+#define UNPACK_V2_16SSE_1(CL, TOTALCL, MaskType, ModeType) \
+{ \
+	{ \
+		__asm movd XMM_R0, dword ptr [VIF_SRC] \
+		__asm punpcklwd XMM_R0, XMM_R0 \
+		__asm UNPACK_RIGHTSHIFT XMM_R0, 16 \
 	} \
 	\
 	UNPACK1_SSE(CL, TOTALCL, MaskType, ModeType); \
@@ -1346,9 +1406,9 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 } \
 
 // V2-8
-#define UNPACK_V2_8SSE_4(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_V2_8SSE_4(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		__asm movlps XMM_R0, qword ptr [VIF_SRC] \
+		__asm movq XMM_R0, qword ptr [VIF_SRC] \
 		\
 		__asm punpcklbw XMM_R0, XMM_R0 \
 		__asm punpckhwd XMM_R2, XMM_R0 \
@@ -1358,8 +1418,8 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 		__asm UNPACK_RIGHTSHIFT XMM_R2, 24 \
 		\
 		/* move the lower 64 bits down*/ \
-		__asm movhlps XMM_R1, XMM_R0 \
-		__asm movhlps XMM_R3, XMM_R2 \
+		__asm pshufd XMM_R1, XMM_R0, 0xee \
+		__asm pshufd XMM_R3, XMM_R2, 0xee \
 	} \
 	\
 	UNPACK4_SSE(CL, TOTALCL, MaskType, ModeType); \
@@ -1368,9 +1428,11 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 }
 
-#define UNPACK_V2_8SSE_3(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_V2_8SSE_4A UNPACK_V2_8SSE_4
+
+#define UNPACK_V2_8SSE_3(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		__asm movlps XMM_R0, qword ptr [VIF_SRC] \
+		__asm movq XMM_R0, qword ptr [VIF_SRC] \
 		\
 		__asm punpcklbw XMM_R0, XMM_R0 \
 		__asm punpckhwd XMM_R2, XMM_R0 \
@@ -1380,7 +1442,7 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 		__asm UNPACK_RIGHTSHIFT XMM_R2, 24 \
 		\
 		/* move the lower 64 bits down*/ \
-		__asm movhlps XMM_R1, XMM_R0 \
+		__asm pshufd XMM_R1, XMM_R0, 0xee \
 	} \
 	\
 	UNPACK3_SSE(CL, TOTALCL, MaskType, ModeType); \
@@ -1389,15 +1451,17 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 } \
 
-#define UNPACK_V2_8SSE_2(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_V2_8SSE_3A UNPACK_V2_8SSE_3
+
+#define UNPACK_V2_8SSE_2(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		__asm movss XMM_R0, qword ptr [VIF_SRC] \
+		__asm movd XMM_R0, dword ptr [VIF_SRC] \
 		__asm punpcklbw XMM_R0, XMM_R0 \
 		__asm punpcklwd XMM_R0, XMM_R0 \
 		__asm UNPACK_RIGHTSHIFT XMM_R0, 24 \
 		\
 		/* move the lower 64 bits down*/ \
-		__asm movhlps XMM_R1, XMM_R0 \
+		__asm pshufd XMM_R1, XMM_R0, 0xee \
 	} \
 	\
 	UNPACK2_SSE(CL, TOTALCL, MaskType, ModeType); \
@@ -1406,9 +1470,11 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 } \
 
-#define UNPACK_V2_8SSE_1(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_V2_8SSE_2A UNPACK_V2_8SSE_2
+
+#define UNPACK_V2_8SSE_1(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		__asm movss XMM_R0, qword ptr [VIF_SRC] \
+		__asm movd XMM_R0, dword ptr [VIF_SRC] \
 		__asm punpcklbw XMM_R0, XMM_R0 \
 		__asm punpcklwd XMM_R0, XMM_R0 \
 		__asm UNPACK_RIGHTSHIFT XMM_R0, 24 \
@@ -1420,45 +1486,84 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 } \
 
+#define UNPACK_V2_8SSE_1A UNPACK_V2_8SSE_1
+
 // V3-32
-#define UNPACK_V3_32SSE_4(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_V3_32SSE_4x(CL, TOTALCL, MaskType, ModeType, MOVDQA) { \
 	{ \
-		__asm MOVAPS XMM_R0, qword ptr [VIF_SRC] \
-		__asm MOVAPS XMM_R1, qword ptr [VIF_SRC+16] \
-		__asm MOVAPS XMM_R3, qword ptr [VIF_SRC+32] \
-		__asm movlhps XMM_R2, XMM_R3 \
-		__asm psrldq XMM_R3, 4 \
-		__asm movhlps XMM_R2, XMM_R1 \
-		__asm shufps XMM_R1, XMM_R0, 0xf4 \
-		__asm pshufd XMM_R1, XMM_R1, 0x12 \
+		__asm MOVDQA XMM_R0, qword ptr [VIF_SRC] \
+		__asm movdqu XMM_R1, qword ptr [VIF_SRC+12] \
 	} \
-	UNPACK4_SSE(CL, TOTALCL, MaskType, ModeType); \
+	{ \
+		UNPACK_Setup_##MaskType##_SSE_##ModeType##_##TOTALCL##(CL+0); \
+		UNPACK_##MaskType##_SSE_##ModeType##(XMM_R0); \
+		UNPACK_Write##TOTALCL##_##MaskType##(XMM_R0, CL, 0, movdqa); \
+		\
+		UNPACK_Setup_##MaskType##_SSE_##ModeType##_##TOTALCL##(CL+1); \
+		UNPACK_##MaskType##_SSE_##ModeType##(XMM_R1); \
+		UNPACK_Write##TOTALCL##_##MaskType##(XMM_R1, CL+1, 16, movdqa); \
+	} \
+	{ \
+		__asm movdqu XMM_R2, qword ptr [VIF_SRC+24] \
+		__asm movdqu XMM_R3, qword ptr [VIF_SRC+36] \
+	} \
+	{ \
+		UNPACK_Setup_##MaskType##_SSE_##ModeType##_##TOTALCL##(CL+2); \
+		UNPACK_##MaskType##_SSE_##ModeType##(XMM_R2); \
+		UNPACK_Write##TOTALCL##_##MaskType##(XMM_R2, CL+2, 32, movdqa); \
+		\
+		UNPACK_Setup_##MaskType##_SSE_##ModeType##_##TOTALCL##(CL+3); \
+		UNPACK_##MaskType##_SSE_##ModeType##(XMM_R3); \
+		UNPACK_Write##TOTALCL##_##MaskType##(XMM_R3, CL+3, 48, movdqa); \
+		\
+		UNPACK_INC_DST_##TOTALCL##_##MaskType##(4) \
+	} \
 	{ \
 		__asm add VIF_SRC, 48 \
 	} \
 }
 
-#define UNPACK_V3_32SSE_3(CL, TOTALCL, MaskType, ModeType, MOVAPS) \
+#define UNPACK_V3_32SSE_4A(CL, TOTALCL, MaskType, ModeType) UNPACK_V3_32SSE_4x(CL, TOTALCL, MaskType, ModeType, movdqa)
+#define UNPACK_V3_32SSE_4(CL, TOTALCL, MaskType, ModeType) UNPACK_V3_32SSE_4x(CL, TOTALCL, MaskType, ModeType, movdqu)
+
+#define UNPACK_V3_32SSE_3x(CL, TOTALCL, MaskType, ModeType, MOVDQA) \
 { \
 	{ \
-		__asm MOVAPS XMM_R0, qword ptr [VIF_SRC] \
-		__asm MOVAPS XMM_R1, qword ptr [VIF_SRC+16] \
-		__asm movhps XMM_R2, qword ptr [VIF_SRC+32] \
-		__asm movhlps XMM_R2, XMM_R1 \
-		__asm shufps XMM_R1, XMM_R0, 0xf4 \
-		__asm pshufd XMM_R1, XMM_R1, 0x12 \
+		__asm MOVDQA XMM_R0, qword ptr [VIF_SRC] \
+		__asm movdqu XMM_R1, qword ptr [VIF_SRC+12] \
 	} \
-	UNPACK3_SSE(CL, TOTALCL, MaskType, ModeType); \
+	{ \
+		UNPACK_Setup_##MaskType##_SSE_##ModeType##_##TOTALCL##(CL); \
+		UNPACK_##MaskType##_SSE_##ModeType##(XMM_R0); \
+		UNPACK_Write##TOTALCL##_##MaskType##(XMM_R0, CL, 0, movdqa); \
+		\
+		UNPACK_Setup_##MaskType##_SSE_##ModeType##_##TOTALCL##(CL+1); \
+		UNPACK_##MaskType##_SSE_##ModeType##(XMM_R1); \
+		UNPACK_Write##TOTALCL##_##MaskType##(XMM_R1, CL+1, 16, movdqa); \
+	} \
+	{ \
+		__asm movdqu XMM_R2, qword ptr [VIF_SRC+24] \
+	} \
+	{ \
+		UNPACK_Setup_##MaskType##_SSE_##ModeType##_##TOTALCL##(CL+2); \
+		UNPACK_##MaskType##_SSE_##ModeType##(XMM_R2); \
+		UNPACK_Write##TOTALCL##_##MaskType##(XMM_R2, CL+2, 32, movdqa); \
+		\
+		UNPACK_INC_DST_##TOTALCL##_##MaskType##(3) \
+	} \
 	{ \
 		__asm add VIF_SRC, 36 \
 	} \
 } \
 
-#define UNPACK_V3_32SSE_2(CL, TOTALCL, MaskType, ModeType, MOVAPS) \
+#define UNPACK_V3_32SSE_3A(CL, TOTALCL, MaskType, ModeType) UNPACK_V3_32SSE_3x(CL, TOTALCL, MaskType, ModeType, movdqa)
+#define UNPACK_V3_32SSE_3(CL, TOTALCL, MaskType, ModeType) UNPACK_V3_32SSE_3x(CL, TOTALCL, MaskType, ModeType, movdqu)
+
+#define UNPACK_V3_32SSE_2x(CL, TOTALCL, MaskType, ModeType, MOVDQA) \
 { \
 	{ \
-		__asm MOVAPS XMM_R0, qword ptr [VIF_SRC] \
-		__asm movups XMM_R1, qword ptr [VIF_SRC+12] \
+		__asm MOVDQA XMM_R0, qword ptr [VIF_SRC] \
+		__asm movdqu XMM_R1, qword ptr [VIF_SRC+12] \
 	} \
 	UNPACK2_SSE(CL, TOTALCL, MaskType, ModeType); \
 	{ \
@@ -1466,10 +1571,13 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 } \
 
-#define UNPACK_V3_32SSE_1(CL, TOTALCL, MaskType, ModeType, MOVAPS) \
+#define UNPACK_V3_32SSE_2A(CL, TOTALCL, MaskType, ModeType) UNPACK_V3_32SSE_2x(CL, TOTALCL, MaskType, ModeType, movdqa)
+#define UNPACK_V3_32SSE_2(CL, TOTALCL, MaskType, ModeType) UNPACK_V3_32SSE_2x(CL, TOTALCL, MaskType, ModeType, movdqu)
+
+#define UNPACK_V3_32SSE_1x(CL, TOTALCL, MaskType, ModeType, MOVDQA) \
 { \
 	{ \
-		__asm MOVAPS XMM_R0, qword ptr [VIF_SRC] \
+		__asm MOVDQA XMM_R0, qword ptr [VIF_SRC] \
 	} \
 	UNPACK1_SSE(CL, TOTALCL, MaskType, ModeType); \
 	{ \
@@ -1477,24 +1585,24 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 } \
 
+#define UNPACK_V3_32SSE_1A(CL, TOTALCL, MaskType, ModeType) UNPACK_V3_32SSE_1x(CL, TOTALCL, MaskType, ModeType, movdqa)
+#define UNPACK_V3_32SSE_1(CL, TOTALCL, MaskType, ModeType) UNPACK_V3_32SSE_1x(CL, TOTALCL, MaskType, ModeType, movdqu)
+
 // V3-16
-#define UNPACK_V3_16SSE_4(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_V3_16SSE_4(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		__asm movups XMM_R0, qword ptr [VIF_SRC] \
-		__asm movlps XMM_R3, qword ptr [VIF_SRC+16] \
+		__asm movq XMM_R0, qword ptr [VIF_SRC] \
+		__asm movq XMM_R1, qword ptr [VIF_SRC+6] \
 		\
-		__asm punpckhwd XMM_R1, XMM_R0 \
-		__asm punpcklwd XMM_R3, XMM_R3 \
 		__asm punpcklwd XMM_R0, XMM_R0 \
-		\
-		__asm movlhps XMM_R2, XMM_R3 \
-		__asm psrldq XMM_R3, 4 \
-		__asm movhlps XMM_R2, XMM_R1 \
-		__asm shufps XMM_R1, XMM_R0, 0xf4 \
-		__asm pshufd XMM_R1, XMM_R1, 0x12 \
-		\
+		__asm movq XMM_R2, qword ptr [VIF_SRC+12] \
+		__asm punpcklwd XMM_R1, XMM_R1 \
 		__asm UNPACK_RIGHTSHIFT XMM_R0, 16 \
+		__asm movq XMM_R3, qword ptr [VIF_SRC+18] \
 		__asm UNPACK_RIGHTSHIFT XMM_R1, 16 \
+		__asm punpcklwd XMM_R2, XMM_R2 \
+		__asm punpcklwd XMM_R3, XMM_R3 \
+		\
 		__asm UNPACK_RIGHTSHIFT XMM_R2, 16 \
 		__asm UNPACK_RIGHTSHIFT XMM_R3, 16 \
 	} \
@@ -1505,18 +1613,20 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 }
 
-#define UNPACK_V3_16SSE_3(CL, TOTALCL, MaskType, ModeType, MOVAPS) \
+#define UNPACK_V3_16SSE_4A UNPACK_V3_16SSE_4
+
+#define UNPACK_V3_16SSE_3(CL, TOTALCL, MaskType, ModeType) \
 { \
 	{ \
-		__asm movlps XMM_R0, qword ptr [VIF_SRC] \
-		__asm movlps XMM_R1, qword ptr [VIF_SRC+6] \
-		__asm movlps XMM_R2, qword ptr [VIF_SRC+12] \
+		__asm movq XMM_R0, qword ptr [VIF_SRC] \
+		__asm movq XMM_R1, qword ptr [VIF_SRC+6] \
 		\
 		__asm punpcklwd XMM_R0, XMM_R0 \
+		__asm movq XMM_R2, qword ptr [VIF_SRC+12] \
 		__asm punpcklwd XMM_R1, XMM_R1 \
+		__asm UNPACK_RIGHTSHIFT XMM_R0, 16 \
 		__asm punpcklwd XMM_R2, XMM_R2 \
 		\
-		__asm UNPACK_RIGHTSHIFT XMM_R0, 16 \
 		__asm UNPACK_RIGHTSHIFT XMM_R1, 16 \
 		__asm UNPACK_RIGHTSHIFT XMM_R2, 16 \
 	} \
@@ -1527,11 +1637,13 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 } \
 
-#define UNPACK_V3_16SSE_2(CL, TOTALCL, MaskType, ModeType, MOVAPS) \
+#define UNPACK_V3_16SSE_3A UNPACK_V3_16SSE_3
+
+#define UNPACK_V3_16SSE_2(CL, TOTALCL, MaskType, ModeType) \
 { \
 	{ \
-		__asm movlps XMM_R0, qword ptr [VIF_SRC] \
-		__asm movlps XMM_R1, qword ptr [VIF_SRC+6] \
+		__asm movq XMM_R0, qword ptr [VIF_SRC] \
+		__asm movq XMM_R1, qword ptr [VIF_SRC+6] \
 		\
 		__asm punpcklwd XMM_R0, XMM_R0 \
 		__asm punpcklwd XMM_R1, XMM_R1 \
@@ -1546,10 +1658,12 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 } \
 
-#define UNPACK_V3_16SSE_1(CL, TOTALCL, MaskType, ModeType, MOVAPS) \
+#define UNPACK_V3_16SSE_2A UNPACK_V3_16SSE_2
+
+#define UNPACK_V3_16SSE_1(CL, TOTALCL, MaskType, ModeType) \
 { \
 	{ \
-		__asm movlps XMM_R0, qword ptr [VIF_SRC] \
+		__asm movq XMM_R0, qword ptr [VIF_SRC] \
 		__asm punpcklwd XMM_R0, XMM_R0 \
 		__asm UNPACK_RIGHTSHIFT XMM_R0, 16 \
 	} \
@@ -1560,26 +1674,26 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 } \
 
+#define UNPACK_V3_16SSE_1A UNPACK_V3_16SSE_1
+
 // V3-8
-#define UNPACK_V3_8SSE_4(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_V3_8SSE_4(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		__asm movups XMM_R0, qword ptr [VIF_SRC] \
+		__asm movq XMM_R1, qword ptr [VIF_SRC] \
+		__asm movq XMM_R3, qword ptr [VIF_SRC+6] \
 		\
-		__asm punpckhbw XMM_R3, XMM_R0 \
-		__asm punpcklbw XMM_R0, XMM_R0 \
-		__asm punpcklwd XMM_R3, XMM_R3 \
-		__asm punpckhwd XMM_R1, XMM_R0 \
-		__asm punpcklwd XMM_R0, XMM_R0 \
-		\
-		__asm movlhps XMM_R2, XMM_R3 \
-		__asm psrldq XMM_R3, 4 \
-		__asm movhlps XMM_R2, XMM_R1 \
-		__asm shufps XMM_R1, XMM_R0, 0xf4 \
-		__asm pshufd XMM_R1, XMM_R1, 0x12 \
-		\
+		__asm punpcklbw XMM_R1, XMM_R1 \
+		__asm punpcklbw XMM_R3, XMM_R3 \
+		__asm punpcklwd XMM_R0, XMM_R1 \
+		__asm psrldq XMM_R1, 6 \
+		__asm punpcklwd XMM_R2, XMM_R3 \
+		__asm psrldq XMM_R3, 6 \
+		__asm punpcklwd XMM_R1, XMM_R1 \
 		__asm UNPACK_RIGHTSHIFT XMM_R0, 24 \
-		__asm UNPACK_RIGHTSHIFT XMM_R1, 24 \
+		__asm punpcklwd XMM_R3, XMM_R3 \
+		\
 		__asm UNPACK_RIGHTSHIFT XMM_R2, 24 \
+		__asm UNPACK_RIGHTSHIFT XMM_R1, 24 \
 		__asm UNPACK_RIGHTSHIFT XMM_R3, 24 \
 	} \
 	\
@@ -1589,17 +1703,19 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 }
 
-#define UNPACK_V3_8SSE_3(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_V3_8SSE_4A UNPACK_V3_8SSE_4
+
+#define UNPACK_V3_8SSE_3(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		__asm movss XMM_R0, qword ptr [VIF_SRC] \
-		__asm movss XMM_R1, qword ptr [VIF_SRC+3] \
-		__asm movss XMM_R2, qword ptr [VIF_SRC+6] \
+		__asm movd XMM_R0, word ptr [VIF_SRC] \
+		__asm movd XMM_R1, dword ptr [VIF_SRC+3] \
 		\
 		__asm punpcklbw XMM_R0, XMM_R0 \
+		__asm movd XMM_R2, dword ptr [VIF_SRC+6] \
 		__asm punpcklbw XMM_R1, XMM_R1 \
+		__asm punpcklwd XMM_R0, XMM_R0 \
 		__asm punpcklbw XMM_R2, XMM_R2 \
 		\
-		__asm punpcklwd XMM_R0, XMM_R0 \
 		__asm punpcklwd XMM_R1, XMM_R1 \
 		__asm punpcklwd XMM_R2, XMM_R2 \
 		\
@@ -1614,10 +1730,12 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 } \
 
-#define UNPACK_V3_8SSE_2(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_V3_8SSE_3A UNPACK_V3_8SSE_3
+
+#define UNPACK_V3_8SSE_2(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		__asm movss XMM_R0, qword ptr [VIF_SRC] \
-		__asm movss XMM_R1, qword ptr [VIF_SRC+3] \
+		__asm movd XMM_R0, dword ptr [VIF_SRC] \
+		__asm movd XMM_R1, dword ptr [VIF_SRC+3] \
 		\
 		__asm punpcklbw XMM_R0, XMM_R0 \
 		__asm punpcklbw XMM_R1, XMM_R1 \
@@ -1635,9 +1753,11 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 } \
 
-#define UNPACK_V3_8SSE_1(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_V3_8SSE_2A UNPACK_V3_8SSE_2
+
+#define UNPACK_V3_8SSE_1(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		__asm movss XMM_R0, qword ptr [VIF_SRC] \
+		__asm movd XMM_R0, dword ptr [VIF_SRC] \
 		__asm punpcklbw XMM_R0, XMM_R0 \
 		__asm punpcklwd XMM_R0, XMM_R0 \
 		__asm UNPACK_RIGHTSHIFT XMM_R0, 24 \
@@ -1649,13 +1769,15 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 } \
 
+#define UNPACK_V3_8SSE_1A UNPACK_V3_8SSE_1
+
 // V4-32
-#define UNPACK_V4_32SSE_4(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_V4_32SSE_4A(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		__asm MOVAPS XMM_R0, qword ptr [VIF_SRC] \
-		__asm MOVAPS XMM_R1, qword ptr [VIF_SRC+16] \
-		__asm MOVAPS XMM_R2, qword ptr [VIF_SRC+32] \
-		__asm MOVAPS XMM_R3, qword ptr [VIF_SRC+48] \
+		__asm movdqa XMM_R0, qword ptr [VIF_SRC] \
+		__asm movdqa XMM_R1, qword ptr [VIF_SRC+16] \
+		__asm movdqa XMM_R2, qword ptr [VIF_SRC+32] \
+		__asm movdqa XMM_R3, qword ptr [VIF_SRC+48] \
 	} \
 	UNPACK4_SSE(CL, TOTALCL, MaskType, ModeType); \
 	{ \
@@ -1663,12 +1785,25 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 }
 
-#define UNPACK_V4_32SSE_3(CL, TOTALCL, MaskType, ModeType, MOVAPS) \
+#define UNPACK_V4_32SSE_4(CL, TOTALCL, MaskType, ModeType) { \
+	{ \
+		__asm movdqu XMM_R0, qword ptr [VIF_SRC] \
+		__asm movdqu XMM_R1, qword ptr [VIF_SRC+16] \
+		__asm movdqu XMM_R2, qword ptr [VIF_SRC+32] \
+		__asm movdqu XMM_R3, qword ptr [VIF_SRC+48] \
+	} \
+	UNPACK4_SSE(CL, TOTALCL, MaskType, ModeType); \
+	{ \
+		__asm add VIF_SRC, 64 \
+	} \
+}
+
+#define UNPACK_V4_32SSE_3A(CL, TOTALCL, MaskType, ModeType) \
 { \
 	{ \
-		__asm MOVAPS XMM_R0, qword ptr [VIF_SRC] \
-		__asm MOVAPS XMM_R1, qword ptr [VIF_SRC+16] \
-		__asm MOVAPS XMM_R2, qword ptr [VIF_SRC+32] \
+		__asm movdqa XMM_R0, qword ptr [VIF_SRC] \
+		__asm movdqa XMM_R1, qword ptr [VIF_SRC+16] \
+		__asm movdqa XMM_R2, qword ptr [VIF_SRC+32] \
 	} \
 	UNPACK3_SSE(CL, TOTALCL, MaskType, ModeType); \
 	{ \
@@ -1676,11 +1811,24 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 }
 
-#define UNPACK_V4_32SSE_2(CL, TOTALCL, MaskType, ModeType, MOVAPS) \
+#define UNPACK_V4_32SSE_3(CL, TOTALCL, MaskType, ModeType) \
 { \
 	{ \
-		__asm MOVAPS XMM_R0, qword ptr [VIF_SRC] \
-		__asm MOVAPS XMM_R1, qword ptr [VIF_SRC+16] \
+		__asm movdqu XMM_R0, qword ptr [VIF_SRC] \
+		__asm movdqu XMM_R1, qword ptr [VIF_SRC+16] \
+		__asm movdqu XMM_R2, qword ptr [VIF_SRC+32] \
+	} \
+	UNPACK3_SSE(CL, TOTALCL, MaskType, ModeType); \
+	{ \
+		__asm add VIF_SRC, 48 \
+	} \
+}
+
+#define UNPACK_V4_32SSE_2A(CL, TOTALCL, MaskType, ModeType) \
+{ \
+	{ \
+		__asm movdqa XMM_R0, qword ptr [VIF_SRC] \
+		__asm movdqa XMM_R1, qword ptr [VIF_SRC+16] \
 	} \
 	UNPACK2_SSE(CL, TOTALCL, MaskType, ModeType); \
 	{ \
@@ -1688,10 +1836,33 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 }
 
-#define UNPACK_V4_32SSE_1(CL, TOTALCL, MaskType, ModeType, MOVAPS) \
+#define UNPACK_V4_32SSE_2(CL, TOTALCL, MaskType, ModeType) \
 { \
 	{ \
-		__asm MOVAPS XMM_R0, qword ptr [VIF_SRC] \
+		__asm movdqu XMM_R0, qword ptr [VIF_SRC] \
+		__asm movdqu XMM_R1, qword ptr [VIF_SRC+16] \
+	} \
+	UNPACK2_SSE(CL, TOTALCL, MaskType, ModeType); \
+	{ \
+		__asm add VIF_SRC, 32 \
+	} \
+}
+
+#define UNPACK_V4_32SSE_1A(CL, TOTALCL, MaskType, ModeType) \
+{ \
+	{ \
+		__asm movdqa XMM_R0, qword ptr [VIF_SRC] \
+	} \
+	UNPACK1_SSE(CL, TOTALCL, MaskType, ModeType); \
+	{ \
+		__asm add VIF_SRC, 16 \
+	} \
+}
+
+#define UNPACK_V4_32SSE_1(CL, TOTALCL, MaskType, ModeType) \
+{ \
+	{ \
+		__asm movdqu XMM_R0, qword ptr [VIF_SRC] \
 	} \
 	UNPACK1_SSE(CL, TOTALCL, MaskType, ModeType); \
 	{ \
@@ -1700,10 +1871,29 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 }
 
 // V4-16
-#define UNPACK_V4_16SSE_4(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_V4_16SSE_4A(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		__asm MOVAPS XMM_R0, qword ptr [VIF_SRC] \
-		__asm MOVAPS XMM_R2, qword ptr [VIF_SRC+16] \
+		__asm punpcklwd XMM_R0, qword ptr [VIF_SRC] \
+		__asm punpckhwd XMM_R1, qword ptr [VIF_SRC] \
+		__asm punpcklwd XMM_R2, qword ptr [VIF_SRC+16] \
+		__asm punpckhwd XMM_R3, qword ptr [VIF_SRC+16] \
+		\
+		__asm UNPACK_RIGHTSHIFT XMM_R1, 16 \
+		__asm UNPACK_RIGHTSHIFT XMM_R3, 16 \
+		__asm UNPACK_RIGHTSHIFT XMM_R0, 16 \
+		__asm UNPACK_RIGHTSHIFT XMM_R2, 16 \
+	} \
+	\
+	UNPACK4_SSE(CL, TOTALCL, MaskType, ModeType); \
+	{ \
+		__asm add VIF_SRC, 32 \
+	} \
+}
+
+#define UNPACK_V4_16SSE_4(CL, TOTALCL, MaskType, ModeType) { \
+	{ \
+		__asm movdqu XMM_R0, qword ptr [VIF_SRC] \
+		__asm movdqu XMM_R2, qword ptr [VIF_SRC+16] \
 		\
 		__asm punpckhwd XMM_R1, XMM_R0 \
 		__asm punpckhwd XMM_R3, XMM_R2 \
@@ -1722,11 +1912,29 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 }
 
-#define UNPACK_V4_16SSE_3(CL, TOTALCL, MaskType, ModeType, MOVAPS) \
+#define UNPACK_V4_16SSE_3A(CL, TOTALCL, MaskType, ModeType) \
 { \
 	{ \
-		__asm MOVAPS XMM_R0, qword ptr [VIF_SRC] \
-		__asm movlps XMM_R2, qword ptr [VIF_SRC+16] \
+		__asm punpcklwd XMM_R0, qword ptr [VIF_SRC] \
+		__asm punpckhwd XMM_R1, qword ptr [VIF_SRC] \
+		__asm punpcklwd XMM_R2, qword ptr [VIF_SRC+16] \
+		\
+		__asm UNPACK_RIGHTSHIFT XMM_R0, 16 \
+		__asm UNPACK_RIGHTSHIFT XMM_R1, 16 \
+		__asm UNPACK_RIGHTSHIFT XMM_R2, 16 \
+	} \
+	\
+	UNPACK3_SSE(CL, TOTALCL, MaskType, ModeType); \
+	{ \
+		__asm add VIF_SRC, 24 \
+	} \
+} \
+
+#define UNPACK_V4_16SSE_3(CL, TOTALCL, MaskType, ModeType) \
+{ \
+	{ \
+		__asm movdqu XMM_R0, qword ptr [VIF_SRC] \
+		__asm movq XMM_R2, qword ptr [VIF_SRC+16] \
 		\
 		__asm punpckhwd XMM_R1, XMM_R0 \
 		__asm punpcklwd XMM_R0, XMM_R0 \
@@ -1743,11 +1951,27 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 } \
 
-#define UNPACK_V4_16SSE_2(CL, TOTALCL, MaskType, ModeType, MOVAPS) \
+#define UNPACK_V4_16SSE_2A(CL, TOTALCL, MaskType, ModeType) \
 { \
 	{ \
-		__asm movlps XMM_R0, qword ptr [VIF_SRC] \
-		__asm movlps XMM_R1, qword ptr [VIF_SRC+8] \
+		__asm punpcklwd XMM_R0, qword ptr [VIF_SRC] \
+		__asm punpckhwd XMM_R1, qword ptr [VIF_SRC] \
+		\
+		__asm UNPACK_RIGHTSHIFT XMM_R0, 16 \
+		__asm UNPACK_RIGHTSHIFT XMM_R1, 16 \
+	} \
+	\
+	UNPACK2_SSE(CL, TOTALCL, MaskType, ModeType); \
+	{ \
+		__asm add VIF_SRC, 16 \
+	} \
+} \
+
+#define UNPACK_V4_16SSE_2(CL, TOTALCL, MaskType, ModeType) \
+{ \
+	{ \
+		__asm movq XMM_R0, qword ptr [VIF_SRC] \
+		__asm movq XMM_R1, qword ptr [VIF_SRC+8] \
 		\
 		__asm punpcklwd XMM_R0, XMM_R0 \
 		__asm punpcklwd XMM_R1, XMM_R1 \
@@ -1762,10 +1986,23 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 } \
 
-#define UNPACK_V4_16SSE_1(CL, TOTALCL, MaskType, ModeType, MOVAPS) \
+#define UNPACK_V4_16SSE_1A(CL, TOTALCL, MaskType, ModeType) \
 { \
 	{ \
-		__asm movlps XMM_R0, qword ptr [VIF_SRC] \
+		__asm punpcklwd XMM_R0, qword ptr [VIF_SRC] \
+		__asm UNPACK_RIGHTSHIFT XMM_R0, 16 \
+	} \
+	\
+	UNPACK1_SSE(CL, TOTALCL, MaskType, ModeType); \
+	{ \
+		__asm add VIF_SRC, 8 \
+	} \
+} \
+
+#define UNPACK_V4_16SSE_1(CL, TOTALCL, MaskType, ModeType) \
+{ \
+	{ \
+		__asm movq XMM_R0, qword ptr [VIF_SRC] \
 		__asm punpcklwd XMM_R0, XMM_R0 \
 		__asm UNPACK_RIGHTSHIFT XMM_R0, 16 \
 	} \
@@ -1777,10 +2014,31 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 } \
 
 // V4-8
-
-#define UNPACK_V4_8SSE_4(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_V4_8SSE_4A(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		__asm MOVAPS XMM_R0, qword ptr [VIF_SRC] \
+		__asm punpcklbw XMM_R0, qword ptr [VIF_SRC] \
+		__asm punpckhbw XMM_R2, qword ptr [VIF_SRC] \
+		\
+		__asm punpckhwd XMM_R1, XMM_R0 \
+		__asm punpckhwd XMM_R3, XMM_R2 \
+		__asm punpcklwd XMM_R0, XMM_R0 \
+		__asm punpcklwd XMM_R2, XMM_R2 \
+		\
+		__asm UNPACK_RIGHTSHIFT XMM_R1, 24 \
+		__asm UNPACK_RIGHTSHIFT XMM_R3, 24 \
+		__asm UNPACK_RIGHTSHIFT XMM_R0, 24 \
+		__asm UNPACK_RIGHTSHIFT XMM_R2, 24 \
+	} \
+	\
+	UNPACK4_SSE(CL, TOTALCL, MaskType, ModeType); \
+	{ \
+		__asm add VIF_SRC, 16 \
+	} \
+}
+
+#define UNPACK_V4_8SSE_4(CL, TOTALCL, MaskType, ModeType) { \
+	{ \
+		__asm movdqu XMM_R0, qword ptr [VIF_SRC] \
 		\
 		__asm punpckhbw XMM_R2, XMM_R0 \
 		__asm punpcklbw XMM_R0, XMM_R0 \
@@ -1803,10 +2061,30 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 }
 
-#define UNPACK_V4_8SSE_3(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_V4_8SSE_3A(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		__asm movlps XMM_R0, qword ptr [VIF_SRC] \
-		__asm movss XMM_R2, qword ptr [VIF_SRC+8] \
+		__asm punpcklbw XMM_R0, qword ptr [VIF_SRC] \
+		__asm punpckhbw XMM_R2, qword ptr [VIF_SRC] \
+		\
+		__asm punpckhwd XMM_R1, XMM_R0 \
+		__asm punpcklwd XMM_R0, XMM_R0 \
+		__asm punpcklwd XMM_R2, XMM_R2 \
+		\
+		__asm UNPACK_RIGHTSHIFT XMM_R1, 24 \
+		__asm UNPACK_RIGHTSHIFT XMM_R0, 24 \
+		__asm UNPACK_RIGHTSHIFT XMM_R2, 24 \
+	} \
+	\
+	UNPACK3_SSE(CL, TOTALCL, MaskType, ModeType); \
+	{ \
+		__asm add VIF_SRC, 12 \
+	} \
+} \
+
+#define UNPACK_V4_8SSE_3(CL, TOTALCL, MaskType, ModeType) { \
+	{ \
+		__asm movq XMM_R0, qword ptr [VIF_SRC] \
+		__asm movd XMM_R2, dword ptr [VIF_SRC+8] \
 		\
 		__asm punpcklbw XMM_R0, XMM_R0 \
 		__asm punpcklbw XMM_R2, XMM_R2 \
@@ -1826,9 +2104,26 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 } \
 
-#define UNPACK_V4_8SSE_2(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_V4_8SSE_2A(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		__asm movlps XMM_R0, qword ptr [VIF_SRC] \
+		__asm punpcklbw XMM_R0, qword ptr [VIF_SRC] \
+		\
+		__asm punpckhwd XMM_R1, XMM_R0 \
+		__asm punpcklwd XMM_R0, XMM_R0 \
+		\
+		__asm UNPACK_RIGHTSHIFT XMM_R1, 24 \
+		__asm UNPACK_RIGHTSHIFT XMM_R0, 24 \
+	} \
+	\
+	UNPACK2_SSE(CL, TOTALCL, MaskType, ModeType); \
+	{ \
+		__asm add VIF_SRC, 8 \
+	} \
+} \
+
+#define UNPACK_V4_8SSE_2(CL, TOTALCL, MaskType, ModeType) { \
+	{ \
+		__asm movq XMM_R0, qword ptr [VIF_SRC] \
 		\
 		__asm punpcklbw XMM_R0, XMM_R0 \
 		\
@@ -1845,9 +2140,22 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 	} \
 } \
 
-#define UNPACK_V4_8SSE_1(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_V4_8SSE_1A(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
-		__asm movss XMM_R0, qword ptr [VIF_SRC] \
+		__asm punpcklbw XMM_R0, qword ptr [VIF_SRC] \
+		__asm punpcklwd XMM_R0, XMM_R0 \
+		__asm UNPACK_RIGHTSHIFT XMM_R0, 24 \
+	} \
+	\
+	UNPACK1_SSE(CL, TOTALCL, MaskType, ModeType); \
+	{ \
+		__asm add VIF_SRC, 4 \
+	} \
+} \
+
+#define UNPACK_V4_8SSE_1(CL, TOTALCL, MaskType, ModeType) { \
+	{ \
+		__asm movd XMM_R0, dword ptr [VIF_SRC] \
 		__asm punpcklbw XMM_R0, XMM_R0 \
 		__asm punpcklwd XMM_R0, XMM_R0 \
 		__asm UNPACK_RIGHTSHIFT XMM_R0, 24 \
@@ -1883,7 +2191,7 @@ __declspec(align(16)) static u32 s_TempDecompress[4] = {0};
 	__asm mov byte ptr [s_TempDecompress+OFFSET+3], bl \
 } \
 
-#define UNPACK_V4_5SSE_4(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_V4_5SSE_4(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
 		__asm mov eax, dword ptr [VIF_SRC] \
 	} \
@@ -1901,7 +2209,7 @@ __declspec(align(16)) static u32 s_TempDecompress[4] = {0};
 	} \
 	DECOMPRESS_RGBA(12); \
 	{ \
-		__asm movaps XMM_R0, qword ptr [s_TempDecompress] \
+		__asm movdqa XMM_R0, qword ptr [s_TempDecompress] \
 		\
 		__asm punpckhbw XMM_R2, XMM_R0 \
 		__asm punpcklbw XMM_R0, XMM_R0 \
@@ -1923,7 +2231,9 @@ __declspec(align(16)) static u32 s_TempDecompress[4] = {0};
 	} \
 }
 
-#define UNPACK_V4_5SSE_3(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_V4_5SSE_4A UNPACK_V4_5SSE_4
+
+#define UNPACK_V4_5SSE_3(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
 		__asm mov eax, dword ptr [VIF_SRC] \
 	} \
@@ -1937,7 +2247,7 @@ __declspec(align(16)) static u32 s_TempDecompress[4] = {0};
 	} \
 	DECOMPRESS_RGBA(8); \
 	{ \
-		__asm movaps XMM_R0, qword ptr [s_TempDecompress] \
+		__asm movdqa XMM_R0, qword ptr [s_TempDecompress] \
 		\
 		__asm punpckhbw XMM_R2, XMM_R0 \
 		__asm punpcklbw XMM_R0, XMM_R0 \
@@ -1957,7 +2267,9 @@ __declspec(align(16)) static u32 s_TempDecompress[4] = {0};
 	} \
 } \
 
-#define UNPACK_V4_5SSE_2(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_V4_5SSE_3A UNPACK_V4_5SSE_3
+
+#define UNPACK_V4_5SSE_2(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
 		__asm mov eax, dword ptr [VIF_SRC] \
 	} \
@@ -1967,7 +2279,7 @@ __declspec(align(16)) static u32 s_TempDecompress[4] = {0};
 	} \
 	DECOMPRESS_RGBA(4); \
 	{ \
-		__asm movlps XMM_R0, qword ptr [s_TempDecompress] \
+		__asm movq XMM_R0, qword ptr [s_TempDecompress] \
 		\
 		__asm punpcklbw XMM_R0, XMM_R0 \
 		\
@@ -1984,13 +2296,15 @@ __declspec(align(16)) static u32 s_TempDecompress[4] = {0};
 	} \
 } \
 
-#define UNPACK_V4_5SSE_1(CL, TOTALCL, MaskType, ModeType, MOVAPS) { \
+#define UNPACK_V4_5SSE_2A UNPACK_V4_5SSE_2
+
+#define UNPACK_V4_5SSE_1(CL, TOTALCL, MaskType, ModeType) { \
 	{ \
 		__asm mov ax, word ptr [VIF_SRC] \
 	} \
 	DECOMPRESS_RGBA(0); \
 	{ \
-		__asm movss XMM_R0, qword ptr [s_TempDecompress] \
+		__asm movd XMM_R0, dword ptr [s_TempDecompress] \
 		__asm punpcklbw XMM_R0, XMM_R0 \
 		__asm punpcklwd XMM_R0, XMM_R0 \
 		\
@@ -2002,6 +2316,8 @@ __declspec(align(16)) static u32 s_TempDecompress[4] = {0};
 		__asm add VIF_SRC, 2 \
 	} \
 } \
+
+#define UNPACK_V4_5SSE_1A UNPACK_V4_5SSE_1
 
 #pragma warning(disable:4731)
 
@@ -2041,7 +2357,7 @@ __declspec(align(16)) static u32 s_TempDecompress[4] = {0};
 	{ \
 		/* save the row reg */ \
 		__asm mov eax, _vifRow \
-		__asm movaps qword ptr [eax], XMM_ROW \
+		__asm movdqa qword ptr [eax], XMM_ROW \
 		__asm mov eax, _vifRegs \
 		__asm movss dword ptr [eax+0x100], XMM_ROW \
 		__asm psrldq XMM_ROW, 4 \
@@ -2094,7 +2410,7 @@ C1_Align16: \
 				__asm test VIF_SRC, 15 \
 				__asm jz C1_UnpackAligned \
 			} \
-			UNPACK_##name##SSE_1(0, 1, MaskType, ModeType, movups); \
+			UNPACK_##name##SSE_1(0, 1, MaskType, ModeType); \
 			{ \
 				__asm cmp esi, (2*qsize) \
 				__asm jl C1_DoneWithDec \
@@ -2112,7 +2428,7 @@ C1_UnpackAligned: \
 				__asm prefetchnta [eax + 192] \
 			} \
 C1_Unpack4: \
-			UNPACK_##name##SSE_4(0, 1, MaskType, ModeType, movaps); \
+			UNPACK_##name##SSE_4A(0, 1, MaskType, ModeType); \
 			{ \
 				__asm cmp esi, (8*qsize) \
 				__asm jl C1_DoneUnpack4 \
@@ -2131,19 +2447,19 @@ C1_DoneUnpack4: \
 				/* fall through */ \
 			} \
 C1_Unpack3: \
-			UNPACK_##name##SSE_3(0, 1, MaskType, ModeType, movaps); \
+			UNPACK_##name##SSE_3A(0, 1, MaskType, ModeType); \
 			{ \
 				__asm sub esi, (3*qsize) \
 				__asm jmp C1_Done3 \
 			} \
 C1_Unpack2: \
-			UNPACK_##name##SSE_2(0, 1, MaskType, ModeType, movaps); \
+			UNPACK_##name##SSE_2A(0, 1, MaskType, ModeType); \
 			{ \
 				__asm sub esi, (2*qsize) \
 				__asm jmp C1_Done3 \
 			} \
 C1_Unpack1: \
-			UNPACK_##name##SSE_1(0, 1, MaskType, ModeType, movaps); \
+			UNPACK_##name##SSE_1A(0, 1, MaskType, ModeType); \
 C1_DoneWithDec: \
 			{ \
 				__asm sub esi, qsize \
@@ -2164,13 +2480,13 @@ C1_Done3: \
 				__asm mov VIF_INC, incdest \
 				__asm mov esi, dmasize \
 				__asm cmp esi, (2*qsize) \
-				__asm jl C2_Done3 \
 				/* move source and dest */ \
 				__asm mov VIF_DST, dest \
 				__asm mov VIF_SRC, data \
+				__asm jl C2_Done3 \
 			} \
 C2_Unpack: \
-			UNPACK_##name##SSE_2(0, 0, MaskType, ModeType, movups); \
+			UNPACK_##name##SSE_2(0, 0, MaskType, ModeType); \
  \
 			{ \
 				__asm add VIF_DST, VIF_INC /* take into account wl */ \
@@ -2189,7 +2505,7 @@ C2_Done3: \
 				__asm jl C2_Done4 \
 			} \
 			/* execute left over qw */ \
-			UNPACK_##name##SSE_1(0, 0, MaskType, ModeType, movups); \
+			UNPACK_##name##SSE_1(0, 0, MaskType, ModeType); \
 			{ \
 				__asm sub esi, qsize \
 			} \
@@ -2210,13 +2526,13 @@ C2_Done4: \
 				__asm mov VIF_INC, incdest \
 				__asm mov esi, dmasize \
 				__asm cmp esi, (3*qsize) \
-				__asm jl C3_Done5 \
 				/* move source and dest */ \
 				__asm mov VIF_DST, dest \
 				__asm mov VIF_SRC, data \
+				__asm jl C3_Done5 \
 			} \
 C3_Unpack: \
-			UNPACK_##name##SSE_3(0, 0, MaskType, ModeType, movups); \
+			UNPACK_##name##SSE_3(0, 0, MaskType, ModeType); \
  \
 			{ \
 				__asm add VIF_DST, VIF_INC /* take into account wl */ \
@@ -2239,7 +2555,7 @@ C3_Done5: \
 			} \
 			\
 			/* process 2 qws */ \
-			UNPACK_##name##SSE_2(0, 0, MaskType, ModeType, movups); \
+			UNPACK_##name##SSE_2(0, 0, MaskType, ModeType); \
 			{ \
 				__asm sub esi, (2*qsize) \
 				__asm jmp C3_Done4 \
@@ -2250,7 +2566,7 @@ C3_Done3: \
 			{ \
 				__asm sub esi, qsize \
 			} \
-			UNPACK_##name##SSE_1(0, 0, MaskType, ModeType, movups); \
+			UNPACK_##name##SSE_1(0, 0, MaskType, ModeType); \
 C3_Done4: \
 			{ \
 				POPEDI \
@@ -2282,21 +2598,21 @@ C4_Unpack: \
 				__asm cmp esi, (2*qsize) \
 				__asm jge C4_Unpack2 \
 			} \
-			UNPACK_##name##SSE_1(0, 0, MaskType, ModeType, movups); \
+			UNPACK_##name##SSE_1(0, 0, MaskType, ModeType); \
 			/* not enough data left */ \
 			{ \
 				__asm sub esi, qsize \
 				__asm jmp C4_Done \
 			} \
 C4_Unpack2: \
-			UNPACK_##name##SSE_2(0, 0, MaskType, ModeType, movups); \
+			UNPACK_##name##SSE_2(0, 0, MaskType, ModeType); \
 			/* not enough data left */ \
 			{ \
 				__asm sub esi, (2*qsize) \
 				__asm jmp C4_Done \
 			} \
 C4_Unpack3: \
-			UNPACK_##name##SSE_3(0, 0, MaskType, ModeType, movups); \
+			UNPACK_##name##SSE_3(0, 0, MaskType, ModeType); \
 			{ \
 				__asm sub esi, (3*qsize) \
 				/* more data left, process 1qw at a time */ \
@@ -2309,12 +2625,12 @@ C4_UnpackX: \
 				__asm jl C4_Done \
 				\
 			} \
-			UNPACK_##name##SSE_1(3, 0, MaskType, ModeType, movups); \
+			UNPACK_##name##SSE_1(3, 0, MaskType, ModeType); \
 			{ \
 				__asm sub esi, qsize \
 				__asm cmp VIF_INC, 1 \
 				__asm je C4_DoneLoop \
-				__asm dec VIF_INC \
+				__asm sub VIF_INC, 1 \
 				__asm jmp C4_UnpackX \
 			} \
 C4_DoneLoop: \
@@ -2612,7 +2928,10 @@ void mfifoVIF1transfer(int qwc) {
 
 	vif1ch->tadr = psHu32(DMAC_RBOR) + (vif1ch->tadr & (psHu32(DMAC_RBSR)));
 	//hwDmacIrq(1);
-	
+
+	// restore 
+	FreezeXMMRegs(0);
+	FreezeMMXRegs(0);
 }
 
 int vifMFIFOInterrupt()

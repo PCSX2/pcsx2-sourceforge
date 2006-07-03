@@ -116,6 +116,5 @@ void vif0Reset();
 void vif1Reset();
 int  vif0Freeze(gzFile f, int Mode);
 int  vif1Freeze(gzFile f, int Mode);
-void vif1FRBSTReset();
-void vif0FRBSTReset();
+
 #endif

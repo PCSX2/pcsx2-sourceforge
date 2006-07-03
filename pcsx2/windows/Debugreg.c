@@ -22,9 +22,9 @@
 
 #include "resource.h"
 #include "Debugger.h"
+#include "Debug.h"
 #include "R5900.h"
 #include "R3000a.h"
-#include "VU0.h"
 #include "VUmicro.h"
 
 HINSTANCE m_hInst;

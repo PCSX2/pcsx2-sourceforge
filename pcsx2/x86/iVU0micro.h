@@ -20,7 +20,6 @@
 #define __IVU0MICRO_H__
 
 void recResetVU0();
-void recRecompileVU0( void );
 void recExecuteVU0Block( void );
 void recClearVU0( u32 Addr, u32 Size );
 
@@ -31,14 +30,6 @@ extern void (*recVU0_UPPER_FD_00_TABLE[32])();
 extern void (*recVU0_UPPER_FD_01_TABLE[32])();
 extern void (*recVU0_UPPER_FD_10_TABLE[32])();
 extern void (*recVU0_UPPER_FD_11_TABLE[32])();
-
-extern void (*recVU1_LOWER_OPCODE[128])();
-extern void (*recVU1_UPPER_OPCODE[64])();
-
-extern void (*recVU1_UPPER_FD_00_TABLE[32])();
-extern void (*recVU1_UPPER_FD_01_TABLE[32])();
-extern void (*recVU1_UPPER_FD_10_TABLE[32])();
-extern void (*recVU1_UPPER_FD_11_TABLE[32])();
 
 void recVU0_UPPER_FD_00();
 void recVU0_UPPER_FD_01();
@@ -226,10 +217,5 @@ void recVU0MI_ESIN();
 void recVU0MI_EATAN();
 void recVU0MI_EEXP();
 void recVU0MI_XITOP();
-
-
-
- 
- 
 
 #endif /* __IVU0MICRO_H__ */

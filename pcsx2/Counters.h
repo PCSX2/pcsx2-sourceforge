@@ -26,9 +26,8 @@ typedef struct {
 	u32 CycleT, sCycleT;
 } Counter;
 
-Counter counters[5];
-
-u32 nextCounter, nextsCounter;
+extern Counter counters[6];
+extern u32 nextCounter, nextsCounter;
 
 void rcntInit();
 void rcntUpdate();

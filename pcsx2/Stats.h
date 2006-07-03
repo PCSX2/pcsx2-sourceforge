@@ -24,15 +24,15 @@
 typedef struct {
 	time_t vsyncTime;
 	u32 vsyncCount;
-	u64 eeCycles;
+	u32 eeCycles;
 	u32 eeSCycle;
-	u64 iopCycles;
+	u32 iopCycles;
 	u32 iopSCycle;
 
-	u64 ticko;
-	u64 framecount;
-	u64 vu1count;
-	u64 vif1count;
+	u32 ticko;
+	u32 framecount;
+	u32 vu1count;
+	u32 vif1count;
 } Stats;
 Stats stats;
 

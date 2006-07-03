@@ -21,7 +21,6 @@
 #include "Debug.h"
 #include "R5900.h"
 #include "InterTables.h"
-#include "VU0.h"
 #include "VUmicro.h"
 #include "ix86/ix86.h"
 
@@ -92,8 +91,8 @@ static u32 branchPC;
 #define debugI()
 #endif
 #define addcycles() 
-	/*cpuRegs.EEsCycle += cpuRegs.cycle - cpuRegs.EEoCycle; \
-	cpuRegs.EEoCycle = cpuRegs.cycle;*/
+	/*EEsCycle += cpuRegs.cycle - EEoCycle; \
+	EEoCycle = cpuRegs.cycle;*/
 
 extern void ExecuteIOP();
 u32 IOPtimer = 0;
@@ -113,7 +112,7 @@ void execI() {
 	///////////////////////////////////////////////////////
 	
 	cpuRegs.cycle++;
-	cpuRegs.CP0.n.Count++; /*count every cycles.*/
+	//cpuRegs.CP0.n.Count++; /*count every cycles.*/
 
 	if (memRead32(cpuRegs.pc, &cpuRegs.code) == -1) return;
 	
@@ -751,7 +750,10 @@ int __Deci2Call(int call, u32 *addr) {
 //			SysPrintf("deci2msg: %s", (char*)PSM(deci2addr[4]+0xc));
 			if (deci2addr == NULL) return 1;
 			if (deci2addr[1]>0xc){
-				memcpy(deci2buffer, PSM(deci2addr[4]+0xc), deci2addr[1]-0xc);
+				u8* pdeciaddr = dmaGetAddr(deci2addr[4]+0xc);
+				if( pdeciaddr == NULL ) pdeciaddr = PSM(deci2addr[4]+0xc);
+				else pdeciaddr += (deci2addr[4]+0xc)%16;
+				memcpy(deci2buffer, pdeciaddr, deci2addr[1]-0xc);
 				deci2buffer[deci2addr[1]-0xc>=255?255:deci2addr[1]-0xc]='\0';
 				SysPrintf(deci2buffer);
 			}
@@ -965,44 +967,68 @@ static void intExecuteBlock() {
 	while (!branch2) execI();
 }
 
+
+extern void iDumpVU0Registers();
+extern void iDumpVU1Registers();
+extern u32 vudump;
+
 void intExecuteVU0Block() {
 int i;
 
-//	_controlfp(_MCW_PC, _PC_24);
+#ifdef _DEBUG
+	int prevbranch;
+#endif
 
 	for (i = 128; i--;) {
-		if ((VU0.VI[REG_VPU_STAT].UL & 0x1) == 0) break;
+		
+		if ((VU0.VI[REG_VPU_STAT].UL & 0x1) == 0)
+			break;
+
+#ifdef _DEBUG
+		prevbranch = VU0.branch;
+#endif
 		vu0Exec(&VU0);
+#ifdef _DEBUG
+		if( (vudump&8) && prevbranch == 1 ) {
+			__Log("tVU: %x\n", VU0.VI[ REG_TPC ].UL);
+			iDumpVU0Registers();
+		}
+#endif
 	}
 
 	if( i < 0 && (VU0.branch || VU0.ebit) ) {
 		// execute one more
 		vu0Exec(&VU0);
 	}
-
-//	_controlfp(_MCW_PC, 0);
 }
 
 void intExecuteVU1Block() {
 
 	int i;
-
-//	_controlfp(_MCW_PC, _PC_24);
-
+#ifdef _DEBUG
+	int prevbranch;
+#endif
 
 	for (i = 128; i--;) {
-		if ((VU0.VI[REG_VPU_STAT].UL & 0x100) == 0)	break;
+		if ((VU0.VI[REG_VPU_STAT].UL & 0x100) == 0)
+			break;
+
+#ifdef _DEBUG
+		prevbranch = VU1.branch;
+#endif
 		vu1Exec(&VU1);
+#ifdef _DEBUG
+		if( (vudump&8) && prevbranch == 1 ) {
+			__Log("tVU: %x\n", VU1.VI[ REG_TPC ].UL);
+			iDumpVU1Registers();
+		}
+#endif
 	}
 
 	if( i < 0 && (VU1.branch || VU1.ebit) ) {
 		// execute one more
 		vu1Exec(&VU1);
 	}
-
-
-
-//	_controlfp(_MCW_PC, 0);
 }
 
 

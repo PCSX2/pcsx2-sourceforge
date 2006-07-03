@@ -475,10 +475,8 @@ void cpudetectInit( void )
    cpucaps.hasIntel64BitArchitecture                    = ( cpuinfo.x86Flags >> 30 ) & 1;
     //that is only for AMDs
    cpucaps.hasMultimediaExtensionsExt                   = ( cpuinfo.x86EFlags >> 22 ) & 1; //mmx2
-   cpucaps.hasStreamingSIMD3Extensions                  = ( cpuinfo.x86EFlags >> 25 ) & 1; //sse3
    cpucaps.hasAMD64BitArchitecture                      = ( cpuinfo.x86EFlags >> 29 ) & 1; //64bit cpu
    cpucaps.has3DNOWInstructionExtensionsExt             = ( cpuinfo.x86EFlags >> 30 ) & 1; //3dnow+
-   cpucaps.has3DNOWInstructionExtensions                = ( cpuinfo.x86EFlags >> 31 ) & 1; //3dnow
-
-	cpuinfo.cpuspeed = (u32 )(CPUSpeedHz( 1000 ) / 1000000);
+   cpucaps.has3DNOWInstructionExtensions                = ( cpuinfo.x86EFlags >> 31 ) & 1; //3dnow   
+   cpuinfo.cpuspeed = (u32 )(CPUSpeedHz( 1000 ) / 1000000);
 }

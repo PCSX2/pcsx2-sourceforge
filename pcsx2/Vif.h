@@ -19,8 +19,6 @@
 #ifndef __VIF_H__
 #define __VIF_H__
 
-#include "Common.h"
-
 typedef struct {
 	u8 cl, wl;
 	u8 pad[2];

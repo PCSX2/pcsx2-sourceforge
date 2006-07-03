@@ -20,7 +20,6 @@
 #define __R5900_H__
 
 #include <stdio.h>
-#include "Common.h"
 
 typedef struct {
 	int  (*Init)();
@@ -38,7 +37,7 @@ typedef struct {
 	void (*Shutdown)();
 } R5900cpu;
 
-R5900cpu *Cpu;
+extern R5900cpu *Cpu;
 extern R5900cpu intCpu;
 extern R5900cpu recCpu;
 
@@ -77,7 +76,7 @@ typedef union {
 				int unused0:3;
 				int IM:8;
 				int EIE:1;
-				int EDI:1;
+				int _EDI:1;
 				int CH:1;
 				int unused1:3;
 				int BEV:1;
@@ -100,24 +99,54 @@ typedef union {
 
 typedef struct {
     GPRregs GPR;		// GPR regs
+	// NOTE: don't change order since recompiler uses it
 	GPR_reg HI;
 	GPR_reg LO;			// hi & log 128bit wide
 	CP0regs CP0;		// is COP0 32bit?
+	u32 sa;				// shift amount (32bit), needs to be 16 byte aligned
+	u32 constzero;		// always 0, for MFSA
     u32 pc;				// Program counter
     u32 code;			// The instruction
-	u32 cycle;			// calculate cpucycles..
-	u32 sa;				// shift amount (32bit)
 	u32 eCycle[32];
 	u32 sCycle[32];		// for internal counters
+	u32 cycle;			// calculate cpucycles..
 	u32 interrupt;
 	int branch;
 	int opmode;			// operating mode
-	int EEsCycle;
 	u32 tempcycles;
-	u32 EEoCycle, IOPoCycle;
 } cpuRegisters;
 
+extern int EEsCycle;
+extern u32 EEoCycle, IOPoCycle;
 extern cpuRegisters cpuRegs;
+
+// used for optimization
+typedef union {
+	u64 UD[1];      //64 bits
+	s64 SD[1];
+	u32 UL[2];
+	s32 SL[3];
+	u16 US[4];
+	s16 SS[4];
+	u8  UC[8];
+	s8  SC[8];
+} GPR_reg64;
+
+#define GPR_IS_CONST1(reg) ((reg)<32 && (g_cpuHasConstReg&(1<<(reg))))
+#define GPR_IS_CONST2(reg1, reg2) ((g_cpuHasConstReg&(1<<(reg1)))&&(g_cpuHasConstReg&(1<<(reg2))))
+#define GPR_SET_CONST(reg) { \
+	if( (reg) < 32 ) { \
+		g_cpuHasConstReg |= (1<<(reg)); \
+		g_cpuFlushedConstReg &= ~(1<<(reg)); \
+	} \
+}
+
+#define GPR_DEL_CONST(reg) { \
+	if( (reg) < 32 ) g_cpuHasConstReg &= ~(1<<(reg)); \
+}
+
+extern GPR_reg64 g_cpuConstRegs[32];
+extern u32 g_cpuHasConstReg, g_cpuFlushedConstReg;
 
 typedef union {
 	float f;
@@ -145,46 +174,6 @@ typedef struct {
 } tlbs;
 
 extern tlbs tlb[48];
-
-// lock whenever reading/writing the cycles via TESTINT, INT
-#ifdef PCSX2_MULTICORE
-extern pthread_spinlock_t g_lockInterrupt;
-
-// for now only IPU ints
-#define LOCKINT_LOCK(n)		if( n >= 3 && n <= 4 ) pthread_spin_lock(&g_lockInterrupt)
-#define LOCKINT_UNLOCK(n)	if( n >= 3 && n <= 4 ) pthread_spin_unlock(&g_lockInterrupt)
-#define LOCKINT_DESTROY()	pthread_spin_destroy(&g_lockInterrupt)
-
-#else
-
-// slower
-extern pthread_mutex_t g_lockInterrupt;
-
-#define LOCKINT_LOCK(n)		if( n >= 3 && n <= 4 ) pthread_mutex_lock(&g_lockInterrupt)
-#define LOCKINT_UNLOCK(n)	if( n >= 3 && n <= 4 ) pthread_mutex__unlock(&g_lockInterrupt)
-#define LOCKINT_DESTROY()	pthread_mutex_destroy(&g_lockInterrupt)
-
-#endif
-
-typedef union {
-	struct {
-		float x,y,z,w;
-	} f;
-	struct {
-		u32 x,y,z,w;
-	} i;
-
-	float F[4];
-	
-	u64 UD[2];      //128 bits
-	s64 SD[2];
-	u32 UL[4];
-	s32 SL[4];
-	u16 US[8];
-	s16 SS[8];
-	u8  UC[16];
-	s8  SC[16];
-} VECTOR;
 
 #ifndef _PC_
 
@@ -250,6 +239,13 @@ void intExecuteVU1Block();
 
 void JumpCheckSym(u32 addr, u32 pc);
 void JumpCheckSymRet(u32 addr);
+
+// check to see if needs freezing
+void FreezeMMXRegs_(int save);
+void FreezeXMMRegs_(int save);
+extern u32 g_EEFreezeRegs;
+#define FreezeMMXRegs(save) if( g_EEFreezeRegs ) { FreezeMMXRegs_(save); }
+#define FreezeXMMRegs(save) if( g_EEFreezeRegs ) { FreezeXMMRegs_(save); }
 
 //exception code
 #define EXC_CODE(x)     ((x)<<2)

@@ -3,54 +3,18 @@
 [ * Improved/changed feature ]
 [ - Bug fixed (we hope)      ]
 [ ! Attention (Notes)        ]
-[ M Maintenance              ]
 
 ChangeLog:
- v0.9.1:
- * 13/05/06:[*] New logo and icon from CKemu, i wonder what that could look like? ;p
-			[-] Fixed a bug in VIF FBRST where the VIF DMA could be called on a reset that was causing MGS2 to crash.
-			    (Refraction-CKemu)
-			    
- * 09/05/06:[*] Moved repository to SVN. Play nice. Any questions... you know where to find me
-			[+] new developer blogs from me and auMatt
-				(Florin-auMatt)
-
- * 05/05/06:[*] Changed names of the SSBUS registers in PsxHw.c
-			[!] dev1 is rom bus, dev5 is cdvd bus, dev9 is ata|smap|dvr|uart|flash bus
-				(Florin)
-
- * 04/05/06:[+] Added atad and dev9 functions names to psxinterpreter.c
-				(Florin)
-
- * 01/05/06:[+] Added *pass-through* MagicGate support. It will work with pre-decrypted files
-				(Florin)
-
- * 30/04/06:[-] Fixed (almost:P) the debug bios for remote debugging in WinMain.c
-			[*] Added PSX detection in Misc.c
-			[+] Added DevBlog.txt file to Docs. Please read and contribute.
-				(Florin)
-
- * 15/04/06:[M] Removed some *shit*; please don't commit *.suo/aps/opt/plg/ncb/exp files
-			[*] added/fixed some scmd commands in cdvd.c
-				(Florin)
-
- * 13/04/06:[*] Implemented CDVD Scmd 0x3E(set OSDVER for PSTwo), Thanks to loser for info.
- 				(auMatt)
- 								
- * 12/04/06:[!] Uploaded to CVS the latest version, (fixed vc2005 project,
-			converted all files to CR/LF ending)
-			[!] When commiting to CVS, please write same text to comment as in here
-			[*] Changed the _MSC_VER version displaying; hoping ms will keep it linear :)
-			[*] Implemented properly CDVD Scmd 0x36 (get OSDVER for PStwo)
-				(Florin)
-
- * 10/04/06:[!] Changed to version 0.9.1
-			[-] Fixed some Vif FIFO bugs and moved VIF interrupt to check the channel has ended
-			[-] Fixed some counter bugs (better now i can test on my ps2!)
-			[!] This code is not perfectly stable and contains debug printouts! It is purely for the other
-				devs who dont have the latest code ;)
-				(Refraction)
  v0.9:
+ * 06/28/06:[+] MAJOR CHANGE: All recompilers and memory code rewritten.
+ 				eeRec now does block analysis, constant propagation, liveness
+ 				analysis, mmx/xmm reg caching, etc.
+ 				vuRec is about 10x faster than older vurec. Both VU0 and
+				 VU1 recs work and share the same code.
+ 				iopRec - does same as eeRec, except is simpler
+ 				Altogether, 3D scenes are 2-4x faster than 0.9 release.
+ 				(zerofrog)
+
  * 02/04/06:[+] VU0 Rec added, still buggy
 			[*] VU1 Speedups and fixes, needs more testing but seems better
 			[*] CDVD Timing Improved wait times for commands reduced.
@@ -65,10 +29,10 @@ ChangeLog:
 			[*] Difference CPU options can be mixed and matched by users choice
 			[-] SIF communication fixed, games can now be booted via the bios (in most cases)
 			[!] Lots of other fixes have been made by due to lazyness we didnt document! :D
-			[+] MTGS and Dual Core modes added which are VERY experimental!
 			[!] This is the FINAL code for 0.9 enjoy!
 				(Refraction, ZeroFrog, Saqib)
-				
+ * 15/02/06:[+] Multithreaded GS/Dual Core Support
+ 				(zerofrog)
  * 17/01/06:[-] Some changes in CDVD tray status
 				(efp)
 				

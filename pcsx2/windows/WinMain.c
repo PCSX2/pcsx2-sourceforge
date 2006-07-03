@@ -41,6 +41,10 @@
 #include "AboutDlg.h"
 #include "McdsDlg.h"
 
+#include "VU.h"
+#include "iCore.h"
+#include "iVUzerorec.h"
+
 #define COMPILEDATE         __DATE__
 
 static int efile;
@@ -87,7 +91,7 @@ void strcatz(char *dst, char *src) {
 BOOL APIENTRY CmdlineProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);//forward def
 //-------------------
 
-void RunExecute(int run, int runBios) {
+void RunExecute(int run) {
 	SetThreadPriority(GetCurrentThread(), Config.ThPriority);
 	SetPriorityClass(GetCurrentProcess(), Config.ThPriority == THREAD_PRIORITY_HIGHEST ? ABOVE_NORMAL_PRIORITY_CLASS : NORMAL_PRIORITY_CLASS);
 
@@ -122,8 +126,7 @@ void RunExecute(int run, int runBios) {
 	}
 
 	if (needReset == 1) {
-		if (runBios)
-			cpuExecuteBios();
+		cpuExecuteBios();
 		if (efile == 2)
 			efile=GetPS2ElfName(filename);
 		if (efile)
@@ -162,7 +165,7 @@ void States_Load(int num) {
 	int ret;
 
 	efile = 2;
-	RunExecute(0, TRUE);
+	RunExecute(0);
 
 	sprintf (Text, "sstates\\%8.8X.%3.3d", ElfCRC, num);
 	ret = LoadState(Text);
@@ -186,7 +189,7 @@ void States_Save(int num) {
 	else sprintf(Text, _("*PCSX2*: Error Saving State %d"), num+1);
 	StatusSet(Text);
 
-	RunExecute(1, TRUE);
+	RunExecute(1);
 }
 
 void OnStates_LoadOther() {
@@ -221,7 +224,7 @@ void OnStates_LoadOther() {
 		int ret;
 
 		efile = 2;
-		RunExecute(0, TRUE);
+		RunExecute(0);
 
 		ret = LoadState(szFileName);
 
@@ -277,7 +280,7 @@ void OnStates_SaveOther() {
 		else sprintf(Text, _("*PCSX2*: Error Loading State %s"), szFileName);
 		StatusSet(Text);
 
-		RunExecute(1, TRUE);
+		RunExecute(1);
 	}
 }
 
@@ -425,7 +428,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		//strcpy(Config.Bios, "HLE");
 		strcpy(Config.BiosDir,    "Bios\\");
 		strcpy(Config.PluginsDir, "Plugins\\");
-		Config.Options = PCSX2_FRAMELIMIT|PCSX2_SAFEIPU|PCSX2_EEREC|PCSX2_VU1REC; // default
 		Config.Patch = 1;
 
 		SysMessage(_("Pcsx2 needs to be configured"));
@@ -475,7 +477,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		_snprintf(filename, sizeof(filename), "%s", g_TestRun.ptitle);
 		needReset = 1;
 		efile = g_TestRun.efile;
-		RunExecute(1, TRUE);
+		RunExecute(1);
 		SysClose();
 		return 0; // success!
 	}
@@ -507,6 +509,7 @@ void RunGui() {
 
 #define NUM_STATES 10
 int StatesC = 0;
+extern void iDumpRegisters(u32 startpc, u32 temp);
 
 void CALLBACK KeyEvent(keyEvent* ev) {
 	char Text[256];
@@ -522,7 +525,10 @@ void CALLBACK KeyEvent(keyEvent* ev) {
 			ret = SaveState(Text);
 			break;
 		case VK_F2:
-			StatesC = (StatesC+1)%NUM_STATES;
+			if( (GetKeyState(VK_SHIFT)&0x8000) )
+				StatesC = (StatesC+NUM_STATES-1)%NUM_STATES;
+			else
+				StatesC = (StatesC+1)%NUM_STATES;
 			SysPrintf("*PCSX2*: Selected State %ld\n", StatesC);
 			if( GSchangeSaveState != NULL ) {
 				sprintf(Text, "sstates/%8.8X.%3.3d", ElfCRC, StatesC);
@@ -540,17 +546,27 @@ void CALLBACK KeyEvent(keyEvent* ev) {
 
 #ifdef PCSX2_DEVBUILD
 		case VK_F11:
-			Log=1;
-			SysPrintf("Log %x\n", Log);
+		{
+			int num;
+			FILE* f;
+			BASEBLOCKEX** ppblocks = GetAllBaseBlocks(&num, 0);
+
+			f = fopen("perflog.txt", "w");
+			while(num-- > 0 ) {
+				if( ppblocks[0]->visited > 0 ) {
+					fprintf(f, "%u %u %u %u\n", ppblocks[0]->startpc, (u32)(ppblocks[0]->ltime.QuadPart / ppblocks[0]->visited), ppblocks[0]->visited, ppblocks[0]->size);
+				}
+				ppblocks[0]->visited = 0;
+				ppblocks[0]->ltime.QuadPart = 0;
+				ppblocks++;
+			}
+			fclose(f);
+			SysPrintf("perflog.txt written\n");
 			break;
+		}
 		case VK_F12:
-			if (varLog & 0x00000001) varLog&=~0x00000001;
-			else varLog |= 0x00000001;
-			if (varLog & 0x00000400) varLog&=~0x00000400;
-			else varLog|= 0x00000400;
-			if (varLog & 0x00000800) varLog&=~0x00000800;
-			else varLog|= 0x00000800;
-			SysPrintf("varLog %x\n", varLog);
+			iDumpRegisters(cpuRegs.pc, 0);
+			SysPrintf("hardware registers dumped EE:%x, IOP:%x\n", cpuRegs.pc, psxRegs.pc);
 			break;
 #endif
 
@@ -607,14 +623,14 @@ BOOL APIENTRY AdvancedProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam
 
     switch (message) {
         case WM_INITDIALOG:
-			CheckDlgButton(hDlg, IDC_REGCACHING, CHECK_REGCACHING ? TRUE : FALSE);
-			if (Config.SafeCnts) CheckDlgButton(hDlg, IDC_SAFECOUNTERS, TRUE);
+			//CheckDlgButton(hDlg, IDC_REGCACHING, CHECK_REGCACHING ? TRUE : FALSE);
+			//if (Config.SafeCnts) CheckDlgButton(hDlg, IDC_SAFECOUNTERS, TRUE);
             return TRUE;
 
         case WM_COMMAND:
             if (LOWORD(wParam) == IDOK) {
-				Config.Options &= ~PCSX2_REGCACHING;
-				Config.Options |= IsDlgButtonChecked(hDlg, IDC_REGCACHING) ? PCSX2_REGCACHING : 0;
+				//Config.Options &= ~PCSX2_REGCACHING;
+				//Config.Options |= IsDlgButtonChecked(hDlg, IDC_REGCACHING) ? PCSX2_REGCACHING : 0;
 			
 				SaveConfig();              
 
@@ -680,17 +696,17 @@ LRESULT WINAPI MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
 				needReset = 1;
 				efile = 1;
-				RunExecute(1, TRUE);
+				RunExecute(1);
 				return TRUE;
 
 			case ID_RUN_EXECUTE:
-				RunExecute(1, TRUE);
+				RunExecute(1);
 				return TRUE;
 
 			case ID_FILE_RUNCD:
 				needReset = 1;
 				efile = 2;
-				RunExecute(1, TRUE);
+				RunExecute(1);
                 
 				return TRUE;
 
@@ -770,7 +786,7 @@ LRESULT WINAPI MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
 #ifdef PCSX2_DEVBUILD
 			case ID_DEBUG_ENTERDEBUGGER:
-				RunExecute(0, FALSE);//TRUE);
+				RunExecute(0);
                 DialogBox(gApp.hInstance, MAKEINTRESOURCE(IDD_DEBUG), NULL, (DLGPROC)DebuggerProc);
                 
 				CreateMainWindow(SW_SHOWNORMAL);
@@ -785,7 +801,7 @@ LRESULT WINAPI MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 				} else {
 					remoteDebugBios=DialogBox(gApp.hInstance, MAKEINTRESOURCE(IDD_RDEBUGPARAMS), NULL, (DLGPROC)RemoteDebuggerParamsProc);
 					if (remoteDebugBios){
-						RunExecute(0, remoteDebugBios == 1 ? TRUE : FALSE);
+						RunExecute(0);
 
 						DialogBox(gApp.hInstance, MAKEINTRESOURCE(IDD_RDEBUG), NULL, (DLGPROC)RemoteDebuggerProc);
 						CreateMainWindow(SW_SHOWNORMAL);
@@ -805,6 +821,11 @@ LRESULT WINAPI MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
 			case ID_HELP_ABOUT:
 				DialogBox(gApp.hInstance, MAKEINTRESOURCE(ABOUT_DIALOG), hWnd, (DLGPROC)AboutDlgProc);
+				return TRUE;
+
+			case ID_HELP_HELP:
+				//system("help\\index.html");
+				system("compat_list\\compat_list.html");
 				return TRUE;
 
 			case ID_CONFIG_MEMCARDS:
@@ -971,7 +992,9 @@ void CreateMainMenu() {
 	ADDMENUITEM(0,_("E&xecute"), ID_RUN_EXECUTE);
 
 	ADDSUBMENU(0,_("&Config"));
+#ifdef PCSX2_DEVBUILD
 	ADDMENUITEM(0,_("&Advanced"), ID_CONFIG_ADVANCED);
+#endif
 	ADDMENUITEM(0,_("&Patches"), ID_PATCHBROWSER);
 	ADDMENUITEM(0,_("C&pu"), ID_CONFIG_CPU);
 	ADDMENUITEM(0,_("&Memcards"), ID_CONFIG_MEMCARDS);
@@ -1010,6 +1033,7 @@ void CreateMainMenu() {
 
 
     ADDSUBMENU(0, _("&Help"));
+	ADDMENUITEM(0,_("&Compatability List..."), ID_HELP_HELP);
 	ADDMENUITEM(0,_("&About..."), ID_HELP_ABOUT);
 
 #ifndef PCSX2_DEVBUILD
@@ -1027,7 +1051,7 @@ void CreateMainWindow(int nCmdShow) {
 	int w, h;
 
 #ifdef _MSC_VER
-	sprintf(COMPILER, "(VC%d.%d)", (_MSC_VER-600)/100, (_MSC_VER-600)%100);//hacky:) works for VC6 & VC.NET
+	sprintf(COMPILER, "(VC%d)", (_MSC_VER+100)/200);//hacky:) works for VC6 & VC.NET
 #elif __BORLANDC__
 	sprintf(COMPILER, "(BC)");
 #endif
@@ -1048,11 +1072,20 @@ void CreateMainWindow(int nCmdShow) {
 	RegisterClass(&wc);
 	GetObject(hbitmap_background, sizeof(bm), &bm);
 
+	{
 #ifdef WIN32_VIRTUAL_MEM
-    sprintf(buf, _("PCSX2 - VM %s built on %s %s"), PCSX2_VERSION, COMPILEDATE, COMPILER);
+		const char* pvm = "VM";
 #else
-	sprintf(buf, _("PCSX2 - TLB %s built on %s %s"), PCSX2_VERSION, COMPILEDATE, COMPILER);
+		const char* pvm = "non VM";
 #endif
+
+#ifdef PCSX2_DEVBUILD
+		sprintf(buf, _("PCSX2 %s Watermoose - %s Compile Date - %s %s"), PCSX2_VERSION, pvm, COMPILEDATE, COMPILER);
+#else
+		sprintf(buf, _("PCSX2 %s Watermoose - %s"), PCSX2_VERSION, pvm);
+#endif
+	}
+
 	hWnd = CreateWindow("PCSX2 Main",
 						buf, WS_OVERLAPPED | WS_SYSMENU,
 						20, 20, 320, 240, NULL, NULL,
@@ -1081,9 +1114,10 @@ void CreateMainWindow(int nCmdShow) {
 
 	DestroyWindow(hStatusWnd);
 	hStatusWnd = CreateStatusWindow(WS_CHILD | WS_VISIBLE, "", hWnd, 100);
-    sprintf(buf, "PCSX2 %s", PCSX2_VERSION);
+	sprintf(buf, "F1 - save, F2 - next state, Shift+F2 - prev state, F3 - load, F8 - snapshot", PCSX2_VERSION);
 	StatusSet(buf);
 	ShowWindow(hWnd, nCmdShow);
+	SetWindowPos(hWnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE|SWP_NOSIZE);
 }
 
 BOOL Open_File_Proc(char * filename) {
@@ -1262,7 +1296,6 @@ int concolors[] = {
 	FOREGROUND_RED | FOREGROUND_GREEN,
 	FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE
 };
-extern pthread_mutex_t g_mtxLog;
 
 void SysPrintf(char *fmt, ...) {
 	va_list list;
@@ -1278,8 +1311,6 @@ void SysPrintf(char *fmt, ...) {
 	_vsnprintf(msg,511,fmt,list);
 	msg[511] = '\0';
 	va_end(list);
-
-	if( g_mtxLog != NULL ) pthread_mutex_lock(&g_mtxLog);
 
 	ptr = msg; len = strlen(msg);
 	for (i=0, j=0; i<len; i++, j++) {
@@ -1313,8 +1344,6 @@ void SysPrintf(char *fmt, ...) {
 #endif
 #endif
 	WriteConsole(gApp.hConsole, ptr, (DWORD)strlen(ptr), &tmp, 0);
-
-	if( g_mtxLog != NULL ) pthread_mutex_unlock(&g_mtxLog);
 }
 
 void SysMessage(char *fmt, ...) {
@@ -1616,56 +1645,58 @@ BOOL SysLoggedSetLockPagesPrivilege ( HANDLE hProcess, BOOL bEnable)
 	// Check the result.
 	if( Result != TRUE ) 
 	{
-	SysPrintf ("Cannot adjust token privileges, error %u.\n", GetLastError() );
-	return FALSE;
+		SysPrintf ("Cannot adjust token privileges, error %u.\n", GetLastError() );
+		return FALSE;
 	} 
 	else 
 	{
-	if( GetLastError() != ERROR_SUCCESS ) 
-	{
+		if( GetLastError() != ERROR_SUCCESS ) 
+		{
 
-		BOOL bSuc = FALSE;
-		LSA_HANDLE policy;
-		PLSA_TRANSLATED_SID2 ltsTranslatedSID;
+			BOOL bSuc = FALSE;
+			LSA_HANDLE policy;
+			PLSA_TRANSLATED_SID2 ltsTranslatedSID;
 
-		if( !DialogBox(gApp.hInstance, MAKEINTRESOURCE(IDD_USERNAME), gApp.hWnd, (DLGPROC)UserNameProc) )
-			return FALSE;
+			if( !DialogBox(gApp.hInstance, MAKEINTRESOURCE(IDD_USERNAME), gApp.hWnd, (DLGPROC)UserNameProc) )
+				return FALSE;
 
-		policy = GetPolicyHandle();
+			policy = GetPolicyHandle();
 
-		if( policy != NULL ) {
+			if( policy != NULL ) {
 
-			ltsTranslatedSID = GetSIDInformation(s_szUserName, policy);
+				ltsTranslatedSID = GetSIDInformation(s_szUserName, policy);
 
-			if( ltsTranslatedSID != NULL ) {
-				bSuc = AddPrivileges(ltsTranslatedSID->Sid, policy);
-				LsaFreeMemory(ltsTranslatedSID);
+				if( ltsTranslatedSID != NULL ) {
+					bSuc = AddPrivileges(ltsTranslatedSID->Sid, policy);
+					LsaFreeMemory(ltsTranslatedSID);
+				}
+
+				LsaClose(policy);
 			}
 
-			LsaClose(policy);
-		}
+			if( bSuc ) {
+				// Get the LUID.
+				LookupPrivilegeValue ( NULL, SE_LOCK_MEMORY_NAME, &(Info.Privilege[0].Luid));
 
-		if( bSuc ) {
-			// Get the LUID.
-			LookupPrivilegeValue ( NULL, SE_LOCK_MEMORY_NAME, &(Info.Privilege[0].Luid));
+				bSuc = AdjustTokenPrivileges ( Token, FALSE, (PTOKEN_PRIVILEGES) &Info, 0, NULL, NULL);
+			}
 
-			bSuc = AdjustTokenPrivileges ( Token, FALSE, (PTOKEN_PRIVILEGES) &Info, 0, NULL, NULL);
+			if( bSuc ) {
+				if( MessageBox(NULL, "PCSX2 just changed your SE_LOCK_MEMORY privilege in order to gain access to physical memory.\n"
+								"Log off/on and run pcsx2 again. Do you want to log off?\n",
+								"Privilege changed query", MB_YESNO) == IDYES ) {
+					ExitWindows(EWX_LOGOFF, 0);
+				}
+			}
+			else {
+				MessageBox(NULL, "Failed adding SE_LOCK_MEMORY privilege, please check the local policy.\n"
+					"Go to security settings->Local Policies->User Rights. There should be a \"Lock pages in memory\".\n"
+					"Add your user to that and log off/on. This enables pcsx2 to run at real-time by allocating physical memory.\n"
+					"Also can try Control Panel->Local Security Policy->... (this does not work on Windows XP Home)\n"
+					"(zerofrog)\n", "Virtual Memory Access Denied", MB_OK);
+				return FALSE;
+			}
 		}
-
-		if( bSuc ) {
-			MessageBox(NULL, "PCSX2 just changed your SE_LOCK_MEMORY privilege in order to gain access to physical memory.\n"
-							"Please log on/off and run pcsx2 again.\n"
-							"(zerofrog)", "Privilege changed query", MB_OK);
-		}
-		else {
-			MessageBox(NULL, "Failed adding SE_LOCK_MEMORY privilege, please check the local policy.\n"
-				"Go to security settings->Local Policies->User Rights. There should be a \"Lock pages in memory\".\n"
-				"Add your user to that and log off/on. This enables pcsx2 to run at real-time by allocating physical memory.\n"
-				"Also can try Control Panel->Local Security Policy->... (this does not work on Windows XP Home)\n"
-				"(zerofrog)\n", "Virtual Memory Access Denied", MB_OK);
-			return FALSE;
-		}
-	}
 	}
 
 	CloseHandle( Token );
@@ -1806,8 +1837,8 @@ BOOL SysMapUserPhysicalPages(PVOID Addr, ULONG_PTR NumPages, PULONG_PTR PageArra
 	BOOL bResult = MapUserPhysicalPages(Addr, NumPages, PageArray);
 
 #ifdef _DEBUG
-	if( !bResult )
-		__Log("Failed to map user pages: 0x%x:0x%x, error = %d\n", Addr, NumPages, GetLastError());
+	//if( !bResult )
+		//__Log("Failed to map user pages: 0x%x:0x%x, error = %d\n", Addr, NumPages, GetLastError());
 #endif
 
 	return bResult;

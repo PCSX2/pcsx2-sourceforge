@@ -38,12 +38,15 @@ BIOS
 */
 
 //////////
-// Rewritten by zerofrog to add os virtual memory
+// Rewritten by zerofrog(@gmail.com) to add os virtual memory
 //////////
+
 
 #if _WIN32_WINNT < 0x0500
 #define _WIN32_WINNT 0x0500
 #endif
+
+#pragma warning(disable:4799) // No EMMS at end of function
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -51,9 +54,10 @@ BIOS
 #include <sys/stat.h>
 
 #include "Common.h"
+#include "ir5900.h"
 #include "PsxMem.h"
 #include "R3000A.h"
-#include "VU0.h"
+#include "psxhw.h"
 #include "VUmicro.h"
 
 #include <assert.h>
@@ -96,12 +100,15 @@ int MemMode = 0;		// 0 is Kernel Mode, 1 is Supervisor Mode, 2 is User Mode
 	} \
 RegularRead: \
 
+//#define CHECK_GSMEM_ASM_REC() // rec everything above
+
 #else
 #define CHECK_GSMEM(mem)
 #define CHECK_GSMEM_ASM()
+#define CHECK_GSMEM_ASM_REC(mem)
 #endif
 
-static u16 ba0R16(u32 mem) {
+u16 ba0R16(u32 mem) {
 #ifdef MEM_LOG
 	//MEM_LOG("ba00000 Memory read16 address %x\n", mem);
 #endif
@@ -124,6 +131,30 @@ static u16 ba0R16(u32 mem) {
 /////////////////////////////
 #ifdef WIN32_VIRTUAL_MEM
 
+//#define VM_RETRANSLATE(mem) (PS2MEM_BASE_+mem)
+
+// Some games read/write between different addrs but same physical memory
+// this causes major slowdowns because it goes into the exception handler, so use this (zerofrog)
+u32 VM_RETRANSLATE(u32 mem)
+{
+	u8* p, *pbase;
+	if( (mem&0xffff0000) == 0x50000000 ) // reserved scratch pad mem
+		return PS2MEM_BASE_+mem;
+
+	p = (u8*)dmaGetAddrBase(mem), *pbase;
+	
+	// do manual LUT since IPU/SPR seems to use addrs 0x3000xxxx quite often
+	if( memLUT[ (p-PS2MEM_BASE)>>12 ].aPFNs == NULL ) {
+		return PS2MEM_BASE_+mem;
+	}
+
+	pbase = (u8*)memLUT[ (p-PS2MEM_BASE)>>12 ].aVFNs[0];
+	if( pbase != NULL )
+		p = pbase + ((u32)p&0xfff);
+
+	return (u32)p;
+}
+
 PSMEMORYMAP initMemoryMap(ULONG_PTR* aPFNs, ULONG_PTR* aVFNs)
 {
 	PSMEMORYMAP m;
@@ -132,7 +163,10 @@ PSMEMORYMAP initMemoryMap(ULONG_PTR* aPFNs, ULONG_PTR* aVFNs)
 	return m;
 }
 
-//#define VM_HACK
+// only do vm hack for release
+#ifndef PCSX2_DEVBUILD
+#define VM_HACK
+#endif
 
 static int XmmExtendedRegOffset = 160;
 
@@ -309,7 +343,7 @@ int memInit() {
 	PHYSICAL_ALLOC(PS2MEM_PSX, 0x00200000, s_psxM);
 	PHYSICAL_ALLOC(PS2MEM_VU0MICRO, 0x00010000, s_psVuMem);
 
-	VIRTUAL_ALLOC(PS2MEM_PSXHW, 0x00010000, PAGE_NOACCESS);
+	VIRTUAL_ALLOC(PS2MEM_PSXHW, 0x00010000, PAGE_READWRITE);
 	VIRTUAL_ALLOC(PS2MEM_PSXHW4, 0x00010000, PAGE_NOACCESS);
 	VIRTUAL_ALLOC(PS2MEM_GS, 0x00002000, PAGE_READWRITE);
 	VIRTUAL_ALLOC(PS2MEM_DEV9, 0x00010000, PAGE_NOACCESS);
@@ -334,6 +368,9 @@ int memInit() {
 	if( pExtraMem != PS2MEM_BASE+0x20000000 )
 		goto eCleanupAndExit;
 	
+	// special addrs mmap
+	VIRTUAL_ALLOC(PS2MEM_BASE+0x5fff0000, 0x10000, PAGE_READWRITE);
+
 	// alloc virtual mappings
 	memLUT = (PSMEMORYMAP*)_aligned_malloc(0x100000 * sizeof(PSMEMORYMAP), 16);
 	memset(memLUT, 0, sizeof(PSMEMORYMAP)*0x100000);
@@ -355,8 +392,7 @@ int memInit() {
 		goto eCleanupAndExit;
 
 	// figure out xmm reg offset
-	__asm movups xmm0, s_testmem
-
+//	__asm movups xmm0, s_testmem
 //	__try {
 //		u8* p = 0;
 //		__asm {
@@ -377,7 +413,6 @@ eCleanupAndExit:
 	if( pExtraMem != NULL )
 		VirtualFree(pExtraMem, 0x0e000000, MEM_RELEASE);
 	memShutdown();
-	MessageBox(NULL, "Not enough memory.", "Query", MB_OK);
 	return -1;
 }
 
@@ -579,7 +614,8 @@ EXCEPTION_DISPOSITION SysPageFaultExceptionFilter(
 			if( SysMapUserPhysicalPages((void*)(addr&~0xfff), 1, pmap->aPFNs) )
 				return ExceptionContinueExecution;
 
-			SysPrintf("Fatal error, virtual page 0x%x cannot be found %d\n", addr-(u32)PS2MEM_BASE, GetLastError());
+			SysPrintf("Fatal error, virtual page 0x%x cannot be found %d (p:%x,v:%x)\n",
+				addr-(u32)PS2MEM_BASE, GetLastError(), pmap->aPFNs[0], pmap->aVFNs[0]);
 		}
 	}
 	else {
@@ -627,7 +663,8 @@ DefaultHandler:
 	return EXCEPTION_CONTINUE_EXECUTION;
 }
 
-u32 recMemRead8()  {
+u8 recMemRead8()
+{
 
 	register u32 mem;
 	__asm mov mem, ecx // already anded with ~0xa0000000
@@ -656,22 +693,260 @@ u32 recMemRead8()  {
 	return 0;
 }
 
-u32 recMemRead16()  {
+void _eeReadConstMem8(int mmreg, u32 mem, int sign)
+{
+	assert( !IS_XMMREG(mmreg));
+
+	if( IS_MMXREG(mmreg) ) {
+		SetMMXstate();
+		MOVDMtoMMX(mmreg&0xf, mem-3);
+		assert(0);
+	}
+	else {
+		if( sign ) MOVSX32M8toR(mmreg, mem);
+		else MOVZX32M8toR(mmreg, mem);
+	}
+}
+
+void _eeReadConstMem16(int mmreg, u32 mem, int sign)
+{
+	assert( !IS_XMMREG(mmreg));
+
+	if( IS_MMXREG(mmreg) ) {
+		SetMMXstate();
+		MOVDMtoMMX(mmreg&0xf, mem-2);
+		assert(0);
+	}
+	else {
+		if( sign ) MOVSX32M16toR(mmreg, mem);
+		else MOVZX32M16toR(mmreg, mem);
+	}
+}
+
+void _eeReadConstMem32(int mmreg, u32 mem)
+{
+	if( IS_XMMREG(mmreg) ) SSEX_MOVD_M32_to_XMM(mmreg&0xf, mem);
+	else if( IS_MMXREG(mmreg) ) {
+		SetMMXstate();
+		MOVDMtoMMX(mmreg&0xf, mem);
+	}
+	else MOV32MtoR(mmreg, mem);
+}
+
+void _eeReadConstMem128(int mmreg, u32 mem)
+{
+	if( IS_MMXREG(mmreg) ) {
+		SetMMXstate();
+		MOVQMtoR((mmreg>>4)&0xf, mem+8);
+		MOVQMtoR(mmreg&0xf, mem);
+	}
+	else SSEX_MOVDQA_M128_to_XMM( mmreg&0xf, mem);
+}
+
+void _eeWriteConstMem8(u32 mem, int mmreg)
+{
+	assert( !IS_XMMREG(mmreg) && !IS_MMXREG(mmreg) );
+	if( IS_CONSTREG(mmreg) ) MOV8ItoM(mem, g_cpuConstRegs[((mmreg>>16)&0x1f)].UL[0]);
+	else if( IS_PSXCONSTREG(mmreg) ) MOV8ItoM(mem, g_psxConstRegs[((mmreg>>16)&0x1f)]);
+	else MOV8RtoM(mem, mmreg);
+}
+
+void _eeWriteConstMem16(u32 mem, int mmreg)
+{
+	assert( !IS_XMMREG(mmreg) && !IS_MMXREG(mmreg) );
+	if( IS_CONSTREG(mmreg) ) MOV16ItoM(mem, g_cpuConstRegs[((mmreg>>16)&0x1f)].UL[0]);
+	else if( IS_PSXCONSTREG(mmreg) ) MOV16ItoM(mem, g_psxConstRegs[((mmreg>>16)&0x1f)]);
+	else MOV16RtoM(mem, mmreg);
+}
+
+void _eeWriteConstMem16OP(u32 mem, int mmreg, int op)
+{
+	assert( !IS_XMMREG(mmreg) && !IS_MMXREG(mmreg) );
+	switch(op) {
+		case 0: // and
+			if( IS_CONSTREG(mmreg) ) AND16ItoM(mem, g_cpuConstRegs[((mmreg>>16)&0x1f)].UL[0]);
+			else if( IS_PSXCONSTREG(mmreg) ) AND16ItoM(mem, g_psxConstRegs[((mmreg>>16)&0x1f)]);
+			else AND16RtoM(mem, mmreg);
+			break;
+		case 1: // and
+			if( IS_CONSTREG(mmreg) ) OR16ItoM(mem, g_cpuConstRegs[((mmreg>>16)&0x1f)].UL[0]);
+			else if( IS_PSXCONSTREG(mmreg) ) OR16ItoM(mem, g_psxConstRegs[((mmreg>>16)&0x1f)]);
+			else OR16RtoM(mem, mmreg);
+			break;
+		default: assert(0);
+	}
+}
+
+void _eeWriteConstMem32(u32 mem, int mmreg)
+{
+	if( IS_XMMREG(mmreg) ) SSE2_MOVD_XMM_to_M32(mem, mmreg&0xf);
+	else if( IS_MMXREG(mmreg) ) {
+		SetMMXstate();
+		MOVDMMXtoM(mem, mmreg&0xf);
+	}
+	else if( IS_CONSTREG(mmreg) ) MOV32ItoM(mem, g_cpuConstRegs[((mmreg>>16)&0x1f)].UL[0]);
+	else if( IS_PSXCONSTREG(mmreg) ) MOV32ItoM(mem, g_psxConstRegs[((mmreg>>16)&0x1f)]);
+	else MOV32RtoM(mem, mmreg);
+}
+
+void _eeWriteConstMem32OP(u32 mem, int mmreg, int op)
+{
+	switch(op) {
+		case 0: // and
+			if( IS_XMMREG(mmreg) ) {
+				_deleteEEreg((mmreg>>16)&0x1f, 1);
+				SSE2_PAND_M128_to_XMM(mmreg&0xf, mem);
+				SSE2_MOVD_XMM_to_M32(mem, mmreg&0xf);
+			}
+			else if( IS_MMXREG(mmreg) ) {
+				_deleteEEreg((mmreg>>16)&0x1f, 1);
+				SetMMXstate();
+				PANDMtoR(mmreg&0xf, mem);
+				MOVDMMXtoM(mem, mmreg&0xf);
+			}
+			else if( IS_CONSTREG(mmreg) ) {
+				AND32ItoM(mem, g_cpuConstRegs[((mmreg>>16)&0x1f)].UL[0]);
+			}
+			else if( IS_PSXCONSTREG(mmreg) ) {
+				AND32ItoM(mem, g_psxConstRegs[((mmreg>>16)&0x1f)]);
+			}
+			else {
+				AND32RtoM(mem, mmreg&0xf);
+			}
+			break;
+
+		case 1: // or
+			if( IS_XMMREG(mmreg) ) {
+				_deleteEEreg((mmreg>>16)&0x1f, 1);
+				SSE2_POR_M128_to_XMM(mmreg&0xf, mem);
+				SSE2_MOVD_XMM_to_M32(mem, mmreg&0xf);
+			}
+			else if( IS_MMXREG(mmreg) ) {
+				_deleteEEreg((mmreg>>16)&0x1f, 1);
+				SetMMXstate();
+				PORMtoR(mmreg&0xf, mem);
+				MOVDMMXtoM(mem, mmreg&0xf);
+			}
+			else if( IS_CONSTREG(mmreg) ) {
+				OR32ItoM(mem, g_cpuConstRegs[((mmreg>>16)&0x1f)].UL[0]);
+			}
+			else if( IS_PSXCONSTREG(mmreg) ) {
+				OR32ItoM(mem, g_psxConstRegs[((mmreg>>16)&0x1f)]);
+			}
+			else {
+				OR32RtoM(mem, mmreg&0xf);
+			}
+			break;
+
+		case 2: // not and
+			if( mmreg & MEM_XMMTAG ) {
+				_deleteEEreg(mmreg>>16, 1);
+				SSEX_PANDN_M128_to_XMM(mmreg&0xf, mem);
+				SSEX_MOVD_XMM_to_M32(mem, mmreg&0xf);
+			}
+			else if( mmreg & MEM_MMXTAG ) {
+				_deleteEEreg(mmreg>>16, 1);
+				PANDNMtoR(mmreg&0xf, mem);
+				MOVDMMXtoM(mem, mmreg&0xf);
+			}
+			else if( IS_CONSTREG(mmreg) ) {
+				AND32ItoM(mem, ~g_cpuConstRegs[((mmreg>>16)&0x1f)].UL[0]);
+			}
+			else if( IS_PSXCONSTREG(mmreg) ) {
+				AND32ItoM(mem, ~g_psxConstRegs[((mmreg>>16)&0x1f)]);
+			}
+			else {
+				NOT32R(mmreg&0xf);
+				AND32RtoM(mem, mmreg&0xf);
+			}
+			break;
+
+		default: assert(0);
+	}
+}
+
+void _eeWriteConstMem64(u32 mem, int mmreg)
+{
+	if( IS_XMMREG(mmreg) ) SSE_MOVLPS_XMM_to_M64(mem, mmreg&0xf);
+	else if( IS_MMXREG(mmreg) ) {
+		SetMMXstate();
+		MOVQRtoM(mem, mmreg&0xf);
+	}
+	else if( IS_CONSTREG(mmreg) ) {
+		MOV32ItoM(mem, g_cpuConstRegs[((mmreg>>16)&0x1f)].UL[0]);
+		MOV32ItoM(mem+4, g_cpuConstRegs[((mmreg>>16)&0x1f)].UL[1]);
+	}
+	else assert(0);
+}
+
+void _eeWriteConstMem128(u32 mem, int mmreg)
+{
+	if( IS_MMXREG(mmreg) ) {
+		SetMMXstate();
+		MOVQRtoM(mem, mmreg&0xf);
+		MOVQRtoM(mem+8, (mmreg>>4)&0xf);
+	}
+	else if( IS_CONSTREG(mmreg) ) {
+		SetMMXstate();
+		MOV32ItoM(mem, g_cpuConstRegs[((mmreg>>16)&0x1f)].UL[0]);
+		MOV32ItoM(mem+4, g_cpuConstRegs[((mmreg>>16)&0x1f)].UL[1]);
+		MOVQRtoM(mem+8, mmreg&0xf);
+	}
+	else SSEX_MOVDQA_XMM_to_M128(mem, mmreg&0xf);
+}
+
+void _eeMoveMMREGtoR(x86IntRegType to, int mmreg)
+{
+	if( IS_XMMREG(mmreg) ) SSE2_MOVD_XMM_to_R(to, mmreg&0xf);
+	else if( IS_MMXREG(mmreg) ) {
+		SetMMXstate();
+		MOVD32MMXtoR(to, mmreg&0xf);
+	}
+	else if( IS_CONSTREG(mmreg) ) MOV32ItoR(to, g_cpuConstRegs[((mmreg>>16)&0x1f)].UL[0]);
+	else if( IS_PSXCONSTREG(mmreg) ) MOV32ItoR(to, g_psxConstRegs[((mmreg>>16)&0x1f)]);
+	else if( mmreg != to ) MOV32RtoR(to, mmreg);
+}
+
+int recMemConstRead8(u32 x86reg, u32 mem, u32 sign)
+{
+	mem = TRANSFORM_ADDR(mem);
+
+	switch( mem>>16 ) {
+		case 0x1f40: return psxHw4ConstRead8(x86reg, mem, sign);
+		case 0x1000: return hwConstRead8(x86reg, mem, sign);
+		case 0x1f80: return psxHwConstRead8(x86reg, mem, sign);
+		case 0x1200: return gsConstRead8(x86reg, mem, sign);
+		case 0x1400:
+		{
+			iFlushCall(0);
+			PUSH32I(mem & ~0x04000000);
+			CALLFunc((u32)DEV9read8);
+			if( sign ) MOVSX32R8toR(EAX, EAX);
+			else MOVZX32R8toR(EAX, EAX);
+			return 1;
+		}
+			
+		default:
+			_eeReadConstMem8(x86reg, VM_RETRANSLATE(mem), sign);
+			return 0;
+	}
+}
+
+u16 recMemRead16()  {
 
 	register u32 mem;
 	__asm mov mem, ecx // already anded with ~0xa0000000
 
-	switch( (mem&~0xffff) ) {
-		case 0x10000000: return hwRead16(mem);
-		case 0x1f800000: return psxHwRead16(mem);
-		case 0x12000000: return *(u16*)(PS2MEM_BASE+(mem&~0xc00));
-		case 0x18000000: return 0;
-		case 0x1a000000: return ba0R16(mem);
-		case 0x1f900000:
-		case 0x1f000000:
-			SysPrintf("SPU2Reaad receemem16 %x\n", mem);
+	switch( mem>>16 ) {
+		case 0x1000: return hwRead16(mem);
+		case 0x1f80: return psxHwRead16(mem);
+		case 0x1200: return *(u16*)(PS2MEM_BASE+(mem&~0xc00));
+		case 0x1800: return 0;
+		case 0x1a00: return ba0R16(mem);
+		case 0x1f90:
+		case 0x1f00:
 			return SPU2read(mem);
-		case 0x14000000:
+		case 0x1400:
 		{
 			u32 ret = DEV9read16(mem & ~0x04000000);
 			SysPrintf("DEV9 read8 %8.8lx: %2.2lx\n", mem & ~0x04000000, ret);
@@ -690,20 +965,64 @@ u32 recMemRead16()  {
 	return 0;
 }
 
+int recMemConstRead16(u32 x86reg, u32 mem, u32 sign)
+{
+	mem = TRANSFORM_ADDR(mem);
+
+	switch( mem>>16 ) {
+		case 0x1000: return hwConstRead16(x86reg, mem, sign);
+		case 0x1f80: return psxHwConstRead16(x86reg, mem, sign);
+		case 0x1200: return gsConstRead16(x86reg, mem, sign);
+		case 0x1800: 
+			if( IS_MMXREG(x86reg) ) PXORRtoR(x86reg&0xf, x86reg&0xf);
+			else XOR32RtoR(x86reg, x86reg);
+			return 0;
+		case 0x1a00:
+			iFlushCall(0);
+			PUSH32I(mem);
+			CALLFunc((u32)ba0R16);
+			ADD32ItoR(ESP, 4);
+			if( sign ) MOVSX32R16toR(EAX, EAX);
+			else MOVZX32R16toR(EAX, EAX);
+			return 1;
+
+		case 0x1f90:
+		case 0x1f00:
+			iFlushCall(0);
+			PUSH32I(mem);
+			CALLFunc((u32)SPU2read);
+			if( sign ) MOVSX32R16toR(EAX, EAX);
+			else MOVZX32R16toR(EAX, EAX);
+			return 1;
+
+		case 0x1400:
+			iFlushCall(0);
+			PUSH32I(mem & ~0x04000000);
+			CALLFunc((u32)DEV9read16);
+			if( sign ) MOVSX32R16toR(EAX, EAX);
+			else MOVZX32R16toR(EAX, EAX);
+			return 1;
+
+		default:
+			_eeReadConstMem16(x86reg, VM_RETRANSLATE(mem), sign);
+			return 0;
+	}
+}
+
 __declspec(naked)
 u32 recMemRead32()  {
 	// ecx is address - already anded with ~0xa0000000
 	__asm {
 
 		mov edx, ecx
-		and edx, 0xffff0000
-		cmp edx, 0x10000000
+		shr edx, 16
+		cmp dx, 0x1000
 		je hwread
-		cmp edx, 0x1f800000
+		cmp dx, 0x1f80
 		je psxhwread
-		cmp edx, 0x12000000
+		cmp dx, 0x1200
 		je gsread
-		cmp edx, 0x14000000
+		cmp dx, 0x1400
 		je devread
 
 		// default read
@@ -730,7 +1049,7 @@ hwread:
 			// ipu
 hwdefread2:
 			push ecx
-			call IPU_read32
+			call ipuRead32
 			add esp, 4	
 			ret
 			
@@ -798,15 +1117,38 @@ devread:
 	}
 }
 
-void recMemRead64(u64 *out)  {
-	
+int recMemConstRead32(u32 x86reg, u32 mem)
+{
+	mem = TRANSFORM_ADDR(mem);
+
+	switch( (mem&~0xffff) ) {
+		case 0x10000000: return hwConstRead32(x86reg, mem);
+		case 0x1f800000: return psxHwConstRead32(x86reg, mem);
+		case 0x12000000: return gsConstRead32(x86reg, mem);
+		case 0x14000000:
+			iFlushCall(0);
+			PUSH32I(mem & ~0x04000000);
+			CALLFunc((u32)DEV9read32);
+			return 1;
+
+		default:
+			_eeReadConstMem32(x86reg, VM_RETRANSLATE(mem));
+			return 0;
+	}
+}
+
+void recMemRead64(u64 *out)
+{	
 	register u32 mem;
 	__asm mov mem, ecx // already anded with ~0xa0000000
 
 	switch( (mem&0xffff0000) ) {
 		case 0x10000000: *out = hwRead64(mem); return;
+		case 0x11000000: *out = *(u64*)(PS2MEM_BASE+mem); return;
 		case 0x12000000: *out = *(u64*)(PS2MEM_BASE+(mem&~0xc00)); return;
+		
 		default:
+			//assert(0);
 			*out = *(u64*)(PS2MEM_BASE+mem);
 			return;
 	}
@@ -815,6 +1157,23 @@ void recMemRead64(u64 *out)  {
 	MEM_LOG("Unknown Memory read32  from address %8.8x (Status=%8.8x)\n", mem, cpuRegs.CP0.n.Status);
 #endif
 	cpuTlbMissR(mem, cpuRegs.branch);
+}
+
+void recMemConstRead64(u32 mem, int mmreg)
+{
+	mem = TRANSFORM_ADDR(mem);
+
+	switch( (mem&0xffff0000) ) {
+		case 0x10000000: hwConstRead64(mem, mmreg); return;
+		case 0x12000000: gsConstRead64(mem, mmreg); return;
+		default:
+			if( IS_XMMREG(mmreg) ) SSE_MOVLPS_M64_to_XMM(mmreg&0xff, VM_RETRANSLATE(mem));
+			else {
+				MOVQMtoR(mmreg, VM_RETRANSLATE(mem));
+				SetMMXstate();
+			}
+			return;
+	}
 }
 
 void recMemRead128(u64 *out)  {
@@ -830,8 +1189,12 @@ void recMemRead128(u64 *out)  {
 			out[0] = *(u64*)(PS2MEM_BASE+(mem&~0xc00));
 			out[1] = *(u64*)(PS2MEM_BASE+(mem&~0xc00)+8);
 			return;
-
+		case 0x11000000:
+			out[0] = *(u64*)(PS2MEM_BASE+mem);
+			out[1] = *(u64*)(PS2MEM_BASE+mem+8);
+			return;
 		default:
+			//assert(0);
 			out[0] = *(u64*)(PS2MEM_BASE+mem);
 			out[1] = *(u64*)(PS2MEM_BASE+mem+8);
 			return;
@@ -843,26 +1206,55 @@ void recMemRead128(u64 *out)  {
 	cpuTlbMissR(mem, cpuRegs.branch);
 }
 
-void recMemWrite8(u8  value)   {
-	
-	register u32 mem;
-	__asm mov mem, ecx // already anded with ~0xa0000000
+void recMemConstRead128(u32 mem, int xmmreg)
+{
+	mem = TRANSFORM_ADDR(mem);
 
 	switch( (mem&0xffff0000) ) {
-		case 0x1f400000: psxHw4Write8(mem, value); return;
-		case 0x10000000: hwWrite8(mem, value); return;
-		case 0x1f800000: psxHwWrite8(mem, value); return;
-		case 0x12000000: gsWrite8(mem, value); return;
-		case 0x14000000:
+		case 0x10000000: hwConstRead128(mem, xmmreg); return;
+		case 0x12000000: gsConstRead128(mem, xmmreg); return;
+		default:
+			_eeReadConstMem128(xmmreg, VM_RETRANSLATE(mem));
+			return;
+	}
+}
+
+void errwrite()
+{
+	int i, bit, tempeax;
+	__asm mov i, ecx
+	__asm mov tempeax, eax
+	__asm mov bit, edx
+	SysPrintf("Error write%d at %x\n", bit, i);
+	assert(0);
+	__asm mov eax, tempeax
+	__asm mov ecx, i
+}
+
+void recMemWrite8()
+{
+	register u32 mem;
+	register u8 value;
+	__asm mov mem, ecx // already anded with ~0xa0000000
+	__asm mov value, al
+
+	switch( mem>>16 ) {
+		case 0x1f40: psxHw4Write8(mem, value); return;
+		case 0x1000: hwWrite8(mem, value); return;
+		case 0x1f80: psxHwWrite8(mem, value); return;
+		case 0x1200: gsWrite8(mem, value); return;
+		case 0x1400:
 			DEV9write8(mem & ~0x04000000, value);
 			SysPrintf("DEV9 write8 %8.8lx: %2.2lx\n", mem & ~0x04000000, value);
 			return;
 
+#ifdef _DEBUG
+		case 0x1100: assert(0);
+#endif
 		default:
+			// vus, bad addrs, etc
 			CHECK_GSMEM(mem);
 			*(u8*)(PS2MEM_BASE+mem) = value;
-
-			REC_CLEARM(mem&~3);
 			return;
 	}
 
@@ -872,28 +1264,71 @@ void recMemWrite8(u8  value)   {
 	cpuTlbMissW(mem, cpuRegs.branch);
 }
 
-void recMemWrite16(u16 value)   {
+int recMemConstWrite8(u32 mem, int mmreg)
+{
+	mem = TRANSFORM_ADDR(mem);
+
+	switch( mem>>16 ) {
+		case 0x1f40: psxHw4ConstWrite8(mem, mmreg); return 0;
+		case 0x1000: hwConstWrite8(mem, mmreg); return 0;
+		case 0x1f80: psxHwConstWrite8(mem, mmreg); return 0;
+		case 0x1200: gsConstWrite8(mem, mmreg); return 0;
+		case 0x1400:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(mem & ~0x04000000);
+			CALLFunc((u32)DEV9write8);
+			return 0;
+
+		case 0x1100:
+			_eeWriteConstMem8(PS2MEM_BASE_+mem, mmreg);
+
+			if( mem < 0x11004000 ) {
+				PUSH32I(1);
+				PUSH32I(mem&0x3ff8);
+				CALLFunc((u32)Cpu->ClearVU0);
+				ADD32ItoR(ESP, 8);
+			}
+			else if( mem >= 0x11008000 && mem < 0x1100c0000 ) {
+				PUSH32I(1);
+				PUSH32I(mem&0x3ff8);
+				CALLFunc((u32)Cpu->ClearVU1);
+				ADD32ItoR(ESP, 8);
+			}
+			return 0;
+
+		default:
+			CHECK_GSMEM_ASM_REC(mem);
+			_eeWriteConstMem8(PS2MEM_BASE_+mem, mmreg);
+			return 1;
+	}
+}
+
+void recMemWrite16()   {
 
 	register u32 mem;
+	register u16 value;
 	__asm mov mem, ecx // already anded with ~0xa0000000
+	__asm mov value, ax
 
-	switch( (mem&0xffff0000) ) {
-		case 0x10000000: hwWrite16(mem, value); return;
-		case 0x1f800000: psxHwWrite16(mem, value); return;
-		case 0x12000000: gsWrite16(mem, value); return;
-		case 0x1f900000:
-		case 0x1f000000: SPU2write(mem, value); return;
-		case 0x14000000:
+	switch( mem>>16 ) {
+		case 0x1000: hwWrite16(mem, value); return;
+		case 0x1f80: psxHwWrite16(mem, value); return;
+		case 0x1200: gsWrite16(mem, value); return;
+		case 0x1f90:
+		case 0x1f00: SPU2write(mem, value); return;
+		case 0x1400:
 			DEV9write16(mem & ~0x04000000, value);
 			SysPrintf("DEV9 write16 %8.8lx: %4.4lx\n", mem & ~0x04000000, value);
 			return;
 
+#ifdef _DEBUG
+		case 0x1100: assert(0);
+#endif
 		default:
+			// vus, bad addrs, etc
 			CHECK_GSMEM(mem);
-
 			*(u16*)(PS2MEM_BASE+mem) = value;
-
-			REC_CLEARM(mem&~3);
 			return;
 	}
 
@@ -901,6 +1336,52 @@ void recMemWrite16(u16 value)   {
 	MEM_LOG("Unknown Memory write16  to  address %x with data %4.4x\n", mem, value);
 #endif
 	cpuTlbMissW(mem, cpuRegs.branch);
+}
+
+int recMemConstWrite16(u32 mem, int mmreg)
+{
+	mem = TRANSFORM_ADDR(mem);
+
+	switch( mem>>16 ) {
+		case 0x1000: hwConstWrite16(mem, mmreg); return 0;
+		case 0x1f80: psxHwConstWrite16(mem, mmreg); return 0;
+		case 0x1200: gsConstWrite16(mem, mmreg); return 0;
+		case 0x1f90:
+		case 0x1f00:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(mem);
+			CALLFunc((u32)SPU2write);
+			return 0;
+		case 0x1400:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(mem & ~0x04000000);
+			CALLFunc((u32)DEV9write16);
+			return 0;
+
+		case 0x1100:
+			_eeWriteConstMem16(PS2MEM_BASE_+mem, mmreg);
+
+			if( mem < 0x11004000 ) {
+				PUSH32I(1);
+				PUSH32I(mem&0x3ff8);
+				CALLFunc((u32)Cpu->ClearVU0);
+				ADD32ItoR(ESP, 8);
+			}
+			else if( mem >= 0x11008000 && mem < 0x1100c0000 ) {
+				PUSH32I(1);
+				PUSH32I(mem&0x3ff8);
+				CALLFunc((u32)Cpu->ClearVU1);
+				ADD32ItoR(ESP, 8);
+			}
+			return 0;
+
+		default:
+			CHECK_GSMEM_ASM_REC(mem);
+			_eeWriteConstMem16(PS2MEM_BASE_+mem, mmreg);
+			return 1;
+	}
 }
 
 C_ASSERT( sizeof(BASEBLOCK) == 8 );
@@ -912,15 +1393,17 @@ void recMemWrite32()
 	__asm {
 
 		mov edx, ecx
-		and edx, 0xffff0000
-		cmp edx, 0x10000000
+		shr edx, 16
+		cmp dx, 0x1000
 		je hwwrite
-		cmp edx, 0x1f800000
+		cmp dx, 0x1f80
 		je psxwrite
-		cmp edx, 0x12000000
+		cmp dx, 0x1200
 		je gswrite
-		cmp edx, 0x14000000
+		cmp dx, 0x1400
 		je devwrite
+		cmp dx, 0x1100
+		je vuwrite
 	}
 
 	CHECK_GSMEM_ASM();
@@ -928,31 +1411,6 @@ void recMemWrite32()
 	__asm {
 		// default write
 		mov dword ptr [ecx+PS2MEM_BASE_], eax
-
-		// check if mem is executable, and clear it
-		cmp ecx, maxrecmem
-		jb CheckClear
-		ret
-
-CheckClear:
-		mov edx, ecx
-		shr edx, 14
-		and edx, 0xfffffffc
-		add edx, recLUT
-		test dword ptr [edx], 0xffffffff
-		jnz Clear32
-		ret
-
-Clear32:
-		// recLUT[mem>>16] + 2*(mem&0xfffc)
-		mov edx, dword ptr [edx]
-		mov eax, ecx
-		and eax, 0xfffc
-		// edx += 2*eax
-		shl eax, 1
-		add edx, eax
-		test dword ptr [edx], 0xffffffff
-		jnz CallClear
 		ret
 
 hwwrite:
@@ -980,77 +1438,101 @@ devwrite:
 		call DEV9write32
 		add esp, 8
 		ret
+vuwrite:
+		// default write
+		mov dword ptr [ecx+PS2MEM_BASE_], eax
+		
+		cmp ecx, 0x11004000
+		jge vu1write
+		and ecx, 0x3ff8
+		// clear vu0mem
+		mov eax, Cpu
+		push 1
+		push ecx
+		call [eax]Cpu.ClearVU0
+		add esp, 8
+		ret
 
-CallClear:
-		sub esp, 16
-		mov dword ptr [esp+12], ecx
-		mov dword ptr [esp+8], edx
-		sub ecx, 4 // mem -= 4
-		sub edx, 8
-		mov dword ptr [esp+4], ecx
-		mov dword ptr [esp], edx
-		call recClearMem
+vu1write:
+		cmp ecx, 0x11008000
+		jl vuend
+		cmp ecx, 0x1100c000
+		jge vuend
+		// clear vu1mem
+		and ecx, 0x3ff8
+		mov eax, Cpu
+		push 1
+		push ecx
+		call [eax]Cpu.ClearVU1
 		add esp, 8
-		call recClearMem
-		add esp, 8
+vuend:
 		ret
 	}
 }
 
-extern void recClear64();
+int recMemConstWrite32(u32 mem, int mmreg)
+{
+	mem = TRANSFORM_ADDR(mem);
 
-static u32 temp;
-__declspec(naked)
-void recMemWrite64()
+	switch( mem&0xffff0000 ) {
+		case 0x10000000: hwConstWrite32(mem, mmreg); return 0;
+		case 0x1f800000: psxHwConstWrite32(mem, mmreg); return 0;
+		case 0x12000000: gsConstWrite32(mem, mmreg); return 0;
+		case 0x1f900000:
+		case 0x1f000000:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(mem);
+			CALLFunc((u32)SPU2write);
+			return 0;
+		case 0x14000000:
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(mem & ~0x04000000);
+			CALLFunc((u32)DEV9write32);
+			return 0;
+
+		case 0x1100:
+			_eeWriteConstMem32(PS2MEM_BASE_+mem, mmreg);
+
+			if( mem < 0x11004000 ) {
+				PUSH32I(1);
+				PUSH32I(mem&0x3ff8);
+				CALLFunc((u32)Cpu->ClearVU0);
+				ADD32ItoR(ESP, 8);
+			}
+			else if( mem >= 0x11008000 && mem < 0x1100c0000 ) {
+				PUSH32I(1);
+				PUSH32I(mem&0x3ff8);
+				CALLFunc((u32)Cpu->ClearVU1);
+				ADD32ItoR(ESP, 8);
+			}
+			return 0;
+
+		default:
+			CHECK_GSMEM_ASM_REC(mem);
+			_eeWriteConstMem32(PS2MEM_BASE_+mem, mmreg);
+			return 1;
+	}
+}
+
+__declspec(naked) void recMemWrite64()
 {
 	__asm {
-
 		mov edx, ecx
-		and edx, 0xffff0000
-		cmp edx, 0x10000000
+		shr edx, 16
+		cmp dx, 0x1000
 		je hwwrite
-		cmp edx, 0x12000000
+		cmp dx, 0x1200
 		je gswrite
+		cmp dx, 0x1100
+		je vuwrite
 	}
-
-	CHECK_GSMEM_ASM();
 
 	__asm {
 		// default write
-		movlps xmm0, qword ptr [eax]
-		movlps qword ptr [ecx+PS2MEM_BASE_], xmm0
-		//movq	mm0,[eax]
-		//movntq [ecx+PS2MEM_BASE_], mm0
-		//emms
-
-		// check if mem is executable, and clear it
-		cmp ecx, maxrecmem
-		jb CheckClear
-		ret
-
-CheckClear:
-		// check if mem is executable, and clear it
-		mov edx, ecx
-		shr edx, 14
-		and edx, 0xfffffffc
-		add edx, recLUT
-		cmp dword ptr [edx], 0
-		jne Clear64
-		ret
-
-Clear64:
-		// recLUT[mem>>16] + 2*(mem&0xffff)
-		mov edx, dword ptr [edx]
-		mov eax, ecx
-		and eax, 0xfffc
-		// edx += 2*eax
-		shl eax, 1
-		add edx, eax
-		cmp dword ptr [edx], 0
-		jne CallClear
-		cmp dword ptr [edx+8], 0
-		jne CallClear
-		ret
+		mov edx, 64
+		call errwrite
 
 hwwrite:
 		push dword ptr [eax+4]
@@ -1068,14 +1550,71 @@ gswrite:
 		add esp, 12
 		ret
 
-CallClear:
-		// one prev inst
-		call recClear64
+vuwrite:
+		mov ebx, dword ptr [eax]
+		mov edx, dword ptr [eax+4]
+		mov dword ptr [ecx+PS2MEM_BASE_], ebx
+		mov dword ptr [ecx+PS2MEM_BASE_+4], edx
+		
+		cmp ecx, 0x11004000
+		jge vu1write
+		and ecx, 0x3ff8
+		// clear vu0mem
+		mov eax, Cpu
+		push 2
+		push ecx
+		call [eax]Cpu.ClearVU0
+		add esp, 8
+		ret
+
+vu1write:
+		cmp ecx, 0x11008000
+		jl vuend
+		cmp ecx, 0x1100c000
+		jge vuend
+		// clear vu1mem
+		and ecx, 0x3ff8
+		mov eax, Cpu
+		push 2
+		push ecx
+		call [eax]Cpu.ClearVU1
+		add esp, 8
+vuend:
 		ret
 	}
 }
 
-extern void recClear128();
+int recMemConstWrite64(u32 mem, int mmreg)
+{
+	mem = TRANSFORM_ADDR(mem);
+
+	switch( (mem>>16) ) {
+		case 0x1000: hwConstWrite64(mem, mmreg); return 0;
+		case 0x1200: gsConstWrite64(mem, mmreg); return 0;
+
+		case 0x1100:
+			_eeWriteConstMem64(PS2MEM_BASE_+mem, mmreg);
+
+			if( mem < 0x11004000 ) {
+				PUSH32I(2);
+				PUSH32I(mem&0x3ff8);
+				CALLFunc((u32)Cpu->ClearVU0);
+				ADD32ItoR(ESP, 8);
+			}
+			else if( mem >= 0x11008000 && mem < 0x1100c0000 ) {
+				PUSH32I(2);
+				PUSH32I(mem&0x3ff8);
+				CALLFunc((u32)Cpu->ClearVU1);
+				ADD32ItoR(ESP, 8);
+			}
+			return 0;
+
+		default:
+			CHECK_GSMEM_ASM_REC(mem);
+			_eeWriteConstMem64(PS2MEM_BASE_+mem, mmreg);
+			return 1;
+	}
+}
 
 __declspec(naked)
 void recMemWrite128()
@@ -1083,57 +1622,18 @@ void recMemWrite128()
 	__asm {
 
 		mov edx, ecx
-		and edx, 0xffff0000
-		cmp edx, 0x10000000
+		shr edx, 16
+		cmp dx, 0x1000
 		je hwwrite
-		cmp edx, 0x12000000
+		cmp dx, 0x1200
 		je gswrite
+		cmp dx, 0x1100
+		je vuwrite
 	}
 
-	CHECK_GSMEM_ASM();
-
 	__asm {
-		// default write
-		movaps xmm0, qword ptr [eax]
-		movaps qword ptr [ecx+PS2MEM_BASE_], xmm0
-
-		// check if mem is executable, and clear it
-		cmp ecx, maxrecmem
-		jb CheckClear
-		ret
-
-CheckClear:
-		// check if mem is executable, and clear it
-		mov edx, ecx
-		shr edx, 14
-		and edx, 0xfffffffc
-		add edx, recLUT
-		cmp dword ptr [edx], 0
-		jne Clear128
-		ret
-
-Clear128:
-		// recLUT[mem>>16] + 2*(mem&0xffff)
-		mov edx, dword ptr [edx]
-		mov eax, ecx
-		and eax, 0xfffc
-		// edx += 2*eax
-		shl eax, 1
-		add edx, eax
-		cmp dword ptr [edx], 0
-		jne CallClear
-		cmp dword ptr [edx+8], 0
-		jne CallClear
-		cmp dword ptr [edx+16], 0
-		jne CallClear
-		cmp dword ptr [edx+24], 0
-		jne CallClear
-		ret
-
-CallClear:
-		// one prev inst
-		call recClear128
-		ret
+		mov edx, 128
+		call errwrite
 
 hwwrite:
 
@@ -1143,20 +1643,113 @@ hwwrite:
 		add esp, 8
 		ret
 
+vuwrite:
+		mov ebx, dword ptr [eax]
+		mov edx, dword ptr [eax+4]
+		mov edi, dword ptr [eax+8]
+		mov eax, dword ptr [eax+12]
+		mov dword ptr [ecx+PS2MEM_BASE_], ebx
+		mov dword ptr [ecx+PS2MEM_BASE_+4], edx
+		mov dword ptr [ecx+PS2MEM_BASE_+8], edi
+		mov dword ptr [ecx+PS2MEM_BASE_+12], eax
+
+		cmp ecx, 0x11004000
+		jge vu1write
+		and ecx, 0x3ff8
+		// clear vu0mem
+		mov eax, Cpu
+		push 4
+		push ecx
+		call [eax]Cpu.ClearVU0
+		add esp, 8
+		ret
+
+vu1write:
+		cmp ecx, 0x11008000
+		jl vuend
+		cmp ecx, 0x1100c000
+		jge vuend
+		// clear vu1mem
+		and ecx, 0x3ff8
+		mov eax, Cpu
+		push 4
+		push ecx
+		call [eax]Cpu.ClearVU1
+		add esp, 8
+vuend:
+
+		// default write
+		//movaps xmm7, qword ptr [eax]
+
+		// removes possible exceptions and saves on remapping memory
+		// *might* be faster for certain games, no way to tell
+//		cmp ecx, 0x20000000
+//		jb Write128
+//
+//		// look for better mapping
+//		mov edx, ecx
+//		shr edx, 12
+//		shl edx, 3
+//		add edx, memLUT
+//		mov edx, dword ptr [edx + 4]
+//		cmp edx, 0
+//		je Write128
+//		mov edx, dword ptr [edx]
+//		cmp edx, 0
+//		je Write128
+//		and ecx, 0xfff
+//		movaps qword ptr [ecx+edx], xmm7
+//		jmp CheckOverwrite
+//Write128:
+		//movaps qword ptr [ecx+PS2MEM_BASE_], xmm7
+		ret
+
 gswrite:
 		sub esp, 8
-		movlps xmm0, qword ptr [eax]
-		movlps qword ptr [esp], xmm0
+		movlps xmm7, qword ptr [eax]
+		movlps qword ptr [esp], xmm7
 		push ecx
 		call gsWrite64
 
 		// call again for upper 8 bytes
-		movlps xmm0, qword ptr [eax+8]
-		movlps qword ptr [esp+4], xmm0
+		movlps xmm7, qword ptr [eax+8]
+		movlps qword ptr [esp+4], xmm7
 		add [esp], 8
 		call gsWrite64
 		add esp, 12
 		ret
+	}
+}
+
+int recMemConstWrite128(u32 mem, int mmreg)
+{
+	mem = TRANSFORM_ADDR(mem);
+
+	switch( (mem&0xffff0000) ) {
+		case 0x10000000: hwConstWrite128(mem, mmreg); return 0;
+		case 0x12000000: gsConstWrite128(mem, mmreg); return 0;
+
+		case 0x1100:
+			_eeWriteConstMem128(PS2MEM_BASE_+mem, mmreg);
+
+			if( mem < 0x11004000 ) {
+				PUSH32I(4);
+				PUSH32I(mem&0x3ff8);
+				CALLFunc((u32)Cpu->ClearVU0);
+				ADD32ItoR(ESP, 8);
+			}
+			else if( mem >= 0x11008000 && mem < 0x1100c0000 ) {
+				PUSH32I(4);
+				PUSH32I(mem&0x3ff8);
+				CALLFunc((u32)Cpu->ClearVU1);
+				ADD32ItoR(ESP, 8);
+			}
+			return 0;
+
+		default:
+			CHECK_GSMEM_ASM_REC(mem);
+			_eeWriteConstMem128(PS2MEM_BASE_+mem, mmreg);
+			return 1;
 	}
 }
 
@@ -1249,7 +1842,6 @@ int  memRead16(u32 mem, u16 *out)  {
 		case 0x1a000000: *out = ba0R16(mem); return 0;
 		case 0x1f900000:
 		case 0x1f000000:
-			SysPrintf("SPU2Reaad2 eemem16 %x\n", mem);
 			*out = SPU2read(mem); return 0;
 			break;
 		case 0x14000000:
@@ -1281,7 +1873,6 @@ int  memRead16RS(u32 mem, u64 *out)  {
 		case 0x1a000000: *out = (s16)ba0R16(mem); return 0;
 		case 0x1f900000:
 		case 0x1f000000:
-			SysPrintf("SPU2Reaad eemem16rs %x\n", mem);
 			*out = (s16)SPU2read(mem); return 0;
 			break;
 		case 0x14000000:
@@ -1313,7 +1904,6 @@ int  memRead16RU(u32 mem, u64 *out)  {
 		case 0x1a000000: *out = (u16)ba0R16(mem); return 0;
 		case 0x1f900000:
 		case 0x1f000000:
-			SysPrintf("SPU2Reaad eemem16ru %x\n", mem);
 			*out = (u16)SPU2read(mem ); return 0;
 			break;
 		case 0x14000000:
@@ -1471,7 +2061,10 @@ void memWrite8 (u32 mem, u8  value)   {
 			CHECK_GSMEM(mem);
 
 			*(u8*)(PS2MEM_BASE+mem) = value;
-
+			
+			if (CHECK_EEREC) {
+				REC_CLEARM(mem&~3);
+			}
 			return;
 	}
 
@@ -1499,7 +2092,9 @@ void memWrite16(u32 mem, u16 value)   {
 			CHECK_GSMEM(mem);
 
 			*(u16*)(PS2MEM_BASE+mem) = value;
-
+			if (CHECK_EEREC) {
+				REC_CLEARM(mem&~3);
+			}
 			return;
 	}
 
@@ -1527,6 +2122,9 @@ void memWrite32(u32 mem, u32 value)
 			CHECK_GSMEM(mem);
 			*(u32*)(PS2MEM_BASE+mem) = value;
 
+			if (CHECK_EEREC) {
+				REC_CLEARM(mem);
+			}
 			return;
 	}
 
@@ -1547,6 +2145,10 @@ void memWrite64(u32 mem, u64 value)   {
 			CHECK_GSMEM(mem);
 			*(u64*)(PS2MEM_BASE+mem) = value;
 
+			if (CHECK_EEREC) {
+				REC_CLEARM(mem);
+				REC_CLEARM(mem+4);
+			}
 			return;
 	}
 
@@ -1573,6 +2175,12 @@ void memWrite128(u32 mem, u64 *value) {
 			*(u64*)(PS2MEM_BASE+mem) = value[0];
 			*(u64*)(PS2MEM_BASE+mem+8) = value[1];
 
+			if (CHECK_EEREC) {
+				REC_CLEARM(mem);
+				REC_CLEARM(mem+4);
+				REC_CLEARM(mem+8);
+				REC_CLEARM(mem+12);
+			}
 			return;
 	}
 
@@ -1583,6 +2191,20 @@ void memWrite128(u32 mem, u64 *value) {
 }
 
 #else
+
+u8  *psM; //32mb Main Ram
+u8  *psR; //4mb rom area
+u8  *psR1; //256kb rom1 area (actually 196kb, but can't mask this)
+u8  *psR2; // 0x00080000
+u8  *psER; // 0x001C0000
+u8  *psS; //0.015 mb, scratch pad
+
+uptr *memLUTR;
+uptr *memLUTW;
+uptr *memLUTRK;
+uptr *memLUTWK;
+uptr *memLUTRU;
+uptr *memLUTWU;
 
 /////////////////////////////
 // REGULAR MEM START 
@@ -1870,7 +2492,6 @@ int  memRead16(u32 mem, u16 *out)  {
 			SysPrintf("DEV9 read16 %8.8lx: %4.4lx\n", mem & ~0xa4000000, *out);
 			return 0;
 		case 8: // spu2
-			SysPrintf("SPU2Reaad eemem16 %x\n", mem);
 			*out = SPU2read(mem & ~0xa0000000); return 0;
 	}
 
@@ -1917,7 +2538,6 @@ int  memRead16RS(u32 mem, u64 *out)  {
 			SysPrintf("DEV9 read16 %8.8lx: %4.4lx\n", mem & ~0xa4000000, *out);
 			return 0;
 		case 8: // spu2
-			SysPrintf("SPU2Reaad eemem16s %x\n", mem);
 			*out = (s16)SPU2read(mem & ~0xa0000000); return 0;
 	}
 
@@ -1964,7 +2584,6 @@ int  memRead16RU(u32 mem, u64 *out)  {
 			SysPrintf("DEV9 read16 %8.8lx: %4.4lx\n", mem & ~0xa4000000, *out);
 			return 0;
 		case 8: // spu2
-			SysPrintf("SPU2Reaad eemem16u %x\n", mem);
 			*out = (u16)SPU2read(mem & ~0xa0000000); return 0;
 	}
 
@@ -1999,7 +2618,7 @@ int memRead32(u32 mem, u32 *out)  {
 			return 0;
 	}
 
-#ifdef MEM_LOG
+#ifdef PCSX2_DEVBUILD
 	MEM_LOG("Unknown Memory read32  from address %8.8x (Status=%8.8x)\n", mem, cpuRegs.CP0.n.Status);
 #endif
 	cpuTlbMissR(mem, cpuRegs.branch);
@@ -2036,7 +2655,7 @@ int  memRead32RS(u32 mem, u64 *out)  {
 			return 0;
 	}
 
-#ifdef MEM_LOG
+#ifdef PCSX2_DEVBUILD
 	MEM_LOG("Unknown Memory read32  from address %8.8x (Status=%8.8x)\n", mem, cpuRegs.CP0.n.Status);
 #endif
 	cpuTlbMissR(mem, cpuRegs.branch);
@@ -2073,7 +2692,7 @@ int  memRead32RU(u32 mem, u64 *out)  {
 			return 0;
 	}
 
-#ifdef MEM_LOG
+#ifdef PCSX2_DEVBUILD
 	MEM_LOG("Unknown Memory read32  from address %8.8x (Status=%8.8x)\n", mem, cpuRegs.CP0.n.Status);
 #endif
 	cpuTlbMissR(mem, cpuRegs.branch);

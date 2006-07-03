@@ -524,11 +524,14 @@
 #define IDC_CPU_MULTI3                  1260
 #define IDC_CPU_FRAMELIMIT              1260
 #define IDC_CPU_FRAMELIMIT2             1261
-#define IDC_CPU_SAFEIPU                 1261
 #define IDC_CPU_EEREC                   1262
 #define IDC_CPU_VU1REC                  1263
 #define IDC_CHECK4                      1264
 #define IDC_CPU_VU0REC                  1264
+#define IDC_CPU_NEWCOP2                 1265
+#define IDC_CPU_FORCEABS                1266
+#define IDC_CPU_VU1REC2                 1268
+#define IDC_CPU_SVUREC                  1268
 #define IDC_LOG                         1500
 #define IDC_CPULOG                      1500
 #define IDC_MEMLOG                      1501
@@ -622,6 +625,7 @@
 #define ID_SAFECNTS                     40060
 #define ID_SPU2HACK                     40061
 #define ID_VSYNCRATE                    40062
+#define ID_HELP_HELP                    40063
 #define ID_LANGS                        50000
 
 // Next default values for new objects

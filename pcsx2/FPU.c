@@ -159,7 +159,7 @@ void CVT_S()   { _FdValf_ = (float)(s32)_FsValUl_; }
 void CVT_W()   {
 	if ( ( _FsValUl_ & 0x7F800000 ) <= 0x4E800000 ) { _FdValUl_ = (s32)(float)_FsValf_; }
 	else if ( _FsValUl_ & 0x80000000 ) { _FdValUl_ = 0x80000000; }
-	else { _FsValUl_ = 0x7fffffff; }
+	else { _FdValUl_ = 0x7fffffff; }
 }
 
 void RSQRT_S() {

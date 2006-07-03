@@ -21,7 +21,7 @@
 
 #include <stdio.h>
 
-#include "PsxCommon.h"
+extern u32 g_psxNextBranchCycle;
 
 typedef struct {
 	int  (*Init)();
@@ -32,20 +32,18 @@ typedef struct {
 	void (*Shutdown)();
 } R3000Acpu;
 
-R3000Acpu *psxCpu;
+extern R3000Acpu *psxCpu;
 extern R3000Acpu psxInt;
-#ifndef DISABLE_REC
 extern R3000Acpu psxRec;
-#endif
 
 typedef union {
 	struct {
 		u32 r0, at, v0, v1, a0, a1, a2, a3,
 			t0, t1, t2, t3, t4, t5, t6, t7,
 			s0, s1, s2, s3, s4, s5, s6, s7,
-			t8, t9, k0, k1, gp, sp, s8, ra, lo, hi;
+			t8, t9, k0, k1, gp, sp, s8, ra, hi, lo; // hi needs to be at index 32! don't change
 	} n;
-	u32 r[34]; /* Lo, Hi in r[33] and r[34] */
+	u32 r[34]; /* Lo, Hi in r[33] and r[32] */
 } GPRRegs;
 
 typedef union {
@@ -135,7 +133,23 @@ typedef struct {
 	u32 _smflag[32];
 } psxRegisters;
 
-psxRegisters psxRegs;
+extern psxRegisters psxRegs;
+
+#define PSX_IS_CONST1(reg) ((reg)<32 && (g_psxHasConstReg&(1<<(reg))))
+#define PSX_IS_CONST2(reg1, reg2) ((g_psxHasConstReg&(1<<(reg1)))&&(g_psxHasConstReg&(1<<(reg2))))
+#define PSX_SET_CONST(reg) { \
+	if( (reg) < 32 ) { \
+		g_psxHasConstReg |= (1<<(reg)); \
+		g_psxFlushedConstReg &= ~(1<<(reg)); \
+	} \
+}
+
+#define PSX_DEL_CONST(reg) { \
+	if( (reg) < 32 ) g_psxHasConstReg &= ~(1<<(reg)); \
+}
+
+extern u32 g_psxConstRegs[32];
+extern u32 g_psxHasConstReg, g_psxFlushedConstReg;
 
 #ifndef _PC_
 
@@ -182,6 +196,9 @@ psxRegisters psxRegs;
 //#define _BranchTarget_  ((short)_Im_ * 4 + _PC_)                 // Calculates the target during a branch instruction
 
 #define _SetLink(x)     psxRegs.GPR.r[x] = _PC_ + 4;       // Sets the return address in the link register
+
+extern int EEsCycle;
+extern u32 EEoCycle, IOPoCycle;
 
 #endif
 

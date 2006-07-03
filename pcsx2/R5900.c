@@ -23,7 +23,6 @@
 #include "Memory.h"
 #include "Hw.h"
 #include "Debug.h"
-#include "VU0.h"
 #include "R3000A.h"
 #include "VUmicro.h"
 
@@ -32,24 +31,24 @@ static int inter;
 __declspec(align(16)) cpuRegisters cpuRegs;
 __declspec(align(16)) fpuRegisters fpuRegs;
 __declspec(align(16)) tlbs tlb[48];
+__declspec(align(16)) GPR_reg64 g_cpuConstRegs[32] = {0};
+u32 g_cpuHasConstReg = 0, g_cpuFlushedConstReg = 0;
+R5900cpu *Cpu;
 
-#ifdef PCSX2_MULTICORE
-pthread_spinlock_t g_lockInterrupt = PTHREAD_SPINLOCK_INITIALIZER;
-#else
-
-// slower
-pthread_mutex_t g_lockInterrupt = PTHREAD_MUTEX_INITIALIZER;
-#endif
+int EEsCycle;
+u32 EEoCycle, IOPoCycle;
 
 void ExecuteIOP()
 {
 	psxCpu->ExecuteBlock();
 }
 
-int cpuInit() {
+int cpuInit()
+{
 	int ret;
+	extern DWORD dwSaveVersion;
 
-	SysPrintf("PCSX2 v" PCSX2_VERSION "\n");
+	SysPrintf("PCSX2 v" PCSX2_VERSION " save ver: %x\n", dwSaveVersion);
 	SysPrintf("Color Legend: White - PCSX2 message\n");
 	SysPrintf(COLOR_GREEN "              Green - EE sio2 printf\n" COLOR_RESET);
 	SysPrintf(COLOR_RED   "              Red   - IOP printf\n" COLOR_RESET);
@@ -57,6 +56,10 @@ int cpuInit() {
 	InitFPUOps();
 	cpudetectInit();
 
+	if( CHECK_EEREC ) Config.Options |= PCSX2_COP2REC;
+	else Config.Options &= ~PCSX2_COP2REC;
+
+	cpuRegs.constzero = 0;
 	Cpu = CHECK_EEREC ? &recCpu : &intCpu;
 
 	ret = Cpu->Init();
@@ -68,7 +71,31 @@ int cpuInit() {
 	}
 
 #ifdef WIN32_VIRTUAL_MEM
-	if (memInit() == -1) return -1;
+	if (memInit() == -1) {
+		PROCESS_INFORMATION pi;
+		STARTUPINFO si;
+		char strdir[255], strexe[255];
+		if( MessageBox(NULL, "Failed to allocate enough physical memory to run pcsx2. Try closing\n"
+			"down background programs, restarting windows, or buying more memory.\n\n"
+			"Launch TLB version of pcsx2 (pcsx2t.exe)?", "Memory Allocation Error", MB_YESNO) == IDYES ) {
+
+			GetCurrentDirectory(ARRAYSIZE(strdir), strdir);
+			_snprintf(strexe, ARRAYSIZE(strexe), "%s\\pcsx2t.exe", strdir);
+
+			memset(&si, 0, sizeof(si));
+
+			if( !CreateProcess(strexe, "", NULL, NULL, FALSE, DETACHED_PROCESS|CREATE_NEW_PROCESS_GROUP, NULL, strdir, &si, &pi)) {
+				_snprintf(strdir, ARRAYSIZE(strexe), "Failed to launch %s\n", strexe);
+				MessageBox(NULL, strdir, "Failure", MB_OK);
+			}
+			else {
+				CloseHandle(pi.hProcess);
+				CloseHandle(pi.hThread);
+			}
+		}
+
+		return -1;
+	}
 #endif
 	if (hwInit() == -1) return -1;
 	if (vu0Init() == -1) return -1;
@@ -109,9 +136,8 @@ void cpuReset() {
 	psxReset();
 }
 
-void cpuShutdown() {
-	LOCKINT_DESTROY();
-
+void cpuShutdown()
+{
 	hwShutdown();
 //	biosShutdown();
 	psxShutdown();
@@ -221,8 +247,6 @@ void cpuTlbMissW(u32 addr, u32 bd) {
 	cpuTlbMiss(addr, bd, EXC_CODE_TLBS);
 }
 
-
-
 void JumpCheckSym(u32 addr, u32 pc) {
 #if 0
 //	if (addr == 0x80051770) { SysPrintf("Log!: %s\n", PSM(cpuRegs.GPR.n.a0.UL[0])); Log=1; varLog|= 0x40000000; }
@@ -295,21 +319,16 @@ void cpuTestMissingHwInts() {
 }
 
 #define TESTINT(n, callback) { \
-	LOCKINT_LOCK(n); \
 	if ( (cpuRegs.interrupt & (1 << n)) ) { \
-		if( ((cpuRegs.cycle - cpuRegs.sCycle[n]) >= cpuRegs.eCycle[n]) ) { \
-			LOCKINT_UNLOCK(n); \
+		if( ((int)(cpuRegs.cycle - cpuRegs.sCycle[n]) >= cpuRegs.eCycle[n]) ) { \
 			if (callback() == 1) { \
-				/* insetad of relocking, just do an atomic op */ \
-				/*InterlockedAnd(&cpuRegs.interrupt, ~(1 << n));*/ \
 				cpuRegs.interrupt &= ~(1 << n); \
 			} \
 		} \
-		else if( g_nextBranchCycle - cpuRegs.sCycle[n] > cpuRegs.eCycle[n] ) { \
+		else if( (int)(g_nextBranchCycle - cpuRegs.sCycle[n]) > cpuRegs.eCycle[n] ) { \
 			g_nextBranchCycle = cpuRegs.sCycle[n] + cpuRegs.eCycle[n]; \
 		} \
 	} \
-	LOCKINT_UNLOCK(n); \
 } \
 
 void _cpuTestInterrupts() {
@@ -335,53 +354,72 @@ void _cpuTestInterrupts() {
 	TESTINT(31, dmacInterrupt);
 }
 
+u32 s_iLastCOP0Cycle = 0;
+static void _cpuTestTIMR() {
+	cpuRegs.CP0.n.Count += cpuRegs.cycle-s_iLastCOP0Cycle;
+	s_iLastCOP0Cycle = cpuRegs.cycle;
 
-#define EE_WAIT_CYCLE 256
+	if ( (cpuRegs.CP0.n.Status.val & 0x8000) &&
+		cpuRegs.CP0.n.Count >= cpuRegs.CP0.n.Compare && cpuRegs.CP0.n.Count < cpuRegs.CP0.n.Compare+1000 ) {
+		SysPrintf("timr intr: %x, %x\n", cpuRegs.CP0.n.Count, cpuRegs.CP0.n.Compare);
+		cpuException(0x808000, cpuRegs.branch);
+	}
+}
+
+#define EE_WAIT_CYCLE 512
 
 // if cpuRegs.cycle is greater than this cycle, should check cpuBranchTest for updates
 u32 g_nextBranchCycle = 0;
-extern u32 g_psxNextBranchCycle;
-u32 s_temp = 1;
-u32 s_count = 0;
 u32 s_lastvsync[2];
-
-void logtime(int index) { __Log("%u %u %d\n", cpuRegs.cycle-s_lastvsync[1], timeGetTime()-s_lastvsync[0], index); }
+extern u8 g_globalXMMSaved, g_globalMMXSaved;
+u32 loaded = 0;
 
 void cpuBranchTest()
 {
+	assert( !g_globalXMMSaved && !g_globalMMXSaved );
+	g_EEFreezeRegs = 0;
+
+//	if( !loaded && cpuRegs.cycle > 0x06000000 ) {
+//		char strstate[255];
+//		sprintf(strstate, "sstates/%8.8x.000", ElfCRC);
+//		LoadState(strstate);
+//		loaded = 1;
+//	}
+
 	g_nextBranchCycle = cpuRegs.cycle + EE_WAIT_CYCLE;
 
-	if ((cpuRegs.cycle - nextsCounter) >= nextCounter)
+	if ((int)(cpuRegs.cycle - nextsCounter) >= nextCounter)
 		rcntUpdate();
 
 	if (cpuRegs.interrupt)
 		_cpuTestInterrupts();
 
-//	if( s_count++ == 300) {
-//		logtime(0);
-//		s_count = 0;
-//	}
-
-	if( g_nextBranchCycle-nextsCounter >= nextCounter )
+	if( (int)(g_nextBranchCycle-nextsCounter) >= nextCounter )
 		g_nextBranchCycle = nextsCounter+nextCounter;
 
-/*#ifdef CPU_LOG
-	cpuTestMissingHwInts();
-#endif*/
+//#ifdef CPU_LOG
+//	cpuTestMissingHwInts();
+//#endif
+	_cpuTestTIMR();
 
-	cpuRegs.EEsCycle += cpuRegs.cycle - cpuRegs.EEoCycle;
-	cpuRegs.EEoCycle = cpuRegs.cycle;
+	EEsCycle += cpuRegs.cycle - EEoCycle;
+	EEoCycle = cpuRegs.cycle;
 
-	
 	psxCpu->ExecuteBlock();
-	
 	
 	if (VU0.VI[REG_VPU_STAT].UL & 0x1) {
 		Cpu->ExecuteVU0Block();
 	}
-	if (VU0.VI[REG_VPU_STAT].UL & 0x100) {
-		Cpu->ExecuteVU1Block();
-	}
+	// don't need in svurec
+//	if (VU0.VI[REG_VPU_STAT].UL & 0x100) {
+//		Cpu->ExecuteVU1Block();
+//	}
+
+	if( (int)cpuRegs.cycle-(int)g_nextBranchCycle > 0 )
+		g_nextBranchCycle = cpuRegs.cycle+1;
+
+	assert( !g_globalXMMSaved && !g_globalMMXSaved );
+	g_EEFreezeRegs = 1;
 }
 
 static void _cpuTestINTC() {
@@ -402,14 +440,6 @@ static void _cpuTestDMAC() {
 				INT(31, 4);
 			}
 		}
-	}
-}
-
-static void _cpuTestTIMR() {
-	if (cpuRegs.CP0.n.Status.val & 0x8000 &&
-		cpuRegs.CP0.n.Count >= cpuRegs.CP0.n.Compare) {
-//		SysPrintf("timr intr: %x, %x\n", cpuRegs.CP0.n.Count, cpuRegs.CP0.n.Compare);
-		cpuException(0x808000, cpuRegs.branch);
 	}
 }
 

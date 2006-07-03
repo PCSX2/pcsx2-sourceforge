@@ -25,8 +25,22 @@
 extern "C" {
 #endif
 
-void* SuperVU1GetProgram(u32 startpc);
-void SuperVU1Clear(u32 startpc, u32 size);
+void SuperVUInit(int vuindex); // if vuindex is -1, inits the global VU resources
+void SuperVUDestroy(int vuindex); // if vuindex is -1, destroys everything
+void SuperVUReset(int vuindex); // if vuindex is -1, resets everything
+
+void SuperVUExecuteProgram(u32 startpc, int vuindex);
+void SuperVUClear(u32 startpc, u32 size, int vuindex);
+
+u32 SuperVUGetRecTimes(int clear);
+
+// read = 0, will write to reg
+// read = 1, will read from reg
+// read = 2, addr of previously written reg (used for status and clip flags)
+u32 SuperVUGetVIAddr(int reg, int read);
+
+// if p == 0, flush q else flush p; if wait is != 0, waits for p/q
+void SuperVUFlush(int p, int wait);
 
 #ifdef __cplusplus
 }

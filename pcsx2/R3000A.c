@@ -22,8 +22,15 @@
 
 #include "PsxCommon.h"
 
+// used for constant propagation
+R3000Acpu *psxCpu;
+u32 g_psxConstRegs[32];
+u32 g_psxHasConstReg, g_psxFlushedConstReg;
 
-int psxInit() {
+__declspec(align(16)) psxRegisters psxRegs;
+
+int psxInit()
+{
 	psxCpu = CHECK_EEREC ? &psxRec : &psxInt;
 
 #ifdef PCSX2_DEVBUILD
@@ -127,12 +134,12 @@ void psxException(u32 code, u32 bd) {
 
 #define PSX_TESTINT(n, callback) \
 	if (psxRegs.interrupt & (1 << n)) { \
-		if ((psxRegs.cycle - psxRegs.sCycle[n]) >= psxRegs.eCycle[n]) { \
+		if ((int)(psxRegs.cycle - psxRegs.sCycle[n]) >= psxRegs.eCycle[n]) { \
 			if (callback() == 1) { \
 				psxRegs.interrupt&= ~(1 << n); \
 			} \
 		} \
-		else if( g_psxNextBranchCycle - psxRegs.sCycle[n] > psxRegs.eCycle[n] ) \
+		else if( (int)(g_psxNextBranchCycle - psxRegs.sCycle[n]) > psxRegs.eCycle[n] ) \
 			g_psxNextBranchCycle = psxRegs.sCycle[n] + psxRegs.eCycle[n]; \
 	}
 
@@ -150,25 +157,28 @@ static void _psxTestInterrupts() {
 	PSX_TESTINT(21, usbInterrupt);
 }
 
-#define IOP_WAIT_CYCLE 32
+#define IOP_WAIT_CYCLE 64
 
-void psxBranchTest() {
-
-	cpuRegs.EEsCycle -= (psxRegs.cycle - cpuRegs.IOPoCycle) << 3;
-	cpuRegs.IOPoCycle = psxRegs.cycle;
-	if( cpuRegs.EEsCycle > 0 )
-		g_psxNextBranchCycle = psxRegs.cycle + min(IOP_WAIT_CYCLE, (cpuRegs.EEsCycle>>3));
+void psxBranchTest()
+{
+	EEsCycle -= (psxRegs.cycle - IOPoCycle) << 3;
+	IOPoCycle = psxRegs.cycle;
+	if( EEsCycle > 0 )
+		g_psxNextBranchCycle = psxRegs.cycle + min(IOP_WAIT_CYCLE, (EEsCycle>>3));
 	else
 		g_psxNextBranchCycle = psxRegs.cycle;
 
-	if (psxRegs.cycle - psxNextsCounter >= psxNextCounter)
+	if ((int)(psxRegs.cycle - psxNextsCounter) >= psxNextCounter)
 		psxRcntUpdate();
 
 	if (psxRegs.interrupt) {
 		_psxTestInterrupts();
 	}
 
-	if( g_psxNextBranchCycle-(u32)psxNextsCounter >= (u32)psxNextCounter )
+//	if( (int)psxRegs.cycle-(int)g_psxNextBranchCycle > 0 )
+//		g_psxNextBranchCycle = psxRegs.cycle+1;
+//	else
+	if( (int)(g_psxNextBranchCycle-psxNextsCounter) >= (u32)psxNextCounter )
 		g_psxNextBranchCycle = (u32)psxNextsCounter+(u32)psxNextCounter;
 
 	if (psxHu32(0x1078)) {
@@ -179,13 +189,8 @@ void psxBranchTest() {
 //#endif
 				psxException(0, 0);
 			}
-		} 		
+		}
 	}
-	
-//	Log=1;
-//	if (psxRegs.cycle > 0x02286000) { varLog |= 0x00C00000; Log=1; }
-//	if (psxRegs.cycle > 0x001cf000 &&
-//		psxRegs.cycle < 0x001d8000) Log=1; else Log=0;
 }
 
 void psxExecuteBios() {
@@ -207,4 +212,3 @@ void psxRestartCPU()
 	}
 	psxCpu->Reset();
 }
-

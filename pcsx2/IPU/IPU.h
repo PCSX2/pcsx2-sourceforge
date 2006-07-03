@@ -107,8 +107,9 @@ typedef union {
 //
 typedef struct {
 	u32 BP;		// Bit stream point
-	u32 IFC;	// Input FIFO counter
-	u32 FP;		// FIFO point
+	u16 IFC;	// Input FIFO counter
+	u8 FP;		// FIFO point
+	u8 bufferhasnew;
 } tIPU_BP;
 
 #ifdef __WIN32__
@@ -182,17 +183,27 @@ void dmaIPU1();
 int ipuInit();
 void ipuReset();
 void ipuShutdown();
+int  ipuFreeze(gzFile f, int Mode);
+BOOL ipuCanFreeze();
 
-void IPU_write32(u32 mem,u32 value);
-void IPU_write64(u32 mem,u64 value);
-u32 IPU_read32(u32 mem);
-u64 IPU_read64(u32 mem);
+u32 ipuRead32(u32 mem);
+int ipuConstRead32(u32 x86reg, u32 mem);
+
+u64 ipuRead64(u32 mem);
+void ipuConstRead64(u32 mem, int mmreg);
+
+void ipuWrite32(u32 mem,u32 value);
+void ipuConstWrite32(u32 mem, int mmreg);
+
+void ipuWrite64(u32 mem,u64 value);
+void ipuConstWrite64(u32 mem, int mmreg);
+
 int ipu0Interrupt();
 int ipu1Interrupt();
 
-void getBits(u8 *address, u32 size, u32 advance);
-void getBits32(u8 *address, u32 advance);
-void getBits16(u8 *address, u32 advance);
-void getBits8(u8 *address, u32 advance);
+u8 getBits32(u8 *address, u32 advance);
+u8 getBits16(u8 *address, u32 advance);
+u8 getBits8(u8 *address, u32 advance);
+int getBits(u8 *address, u32 size, u32 advance);
 
 #endif

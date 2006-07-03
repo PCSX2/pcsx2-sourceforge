@@ -31,18 +31,18 @@
 				FavorSizeOrSpeed="1"
 				OmitFramePointers="TRUE"
 				EnableFiberSafeOptimizations="TRUE"
-				OptimizeForProcessor="0"
+				OptimizeForProcessor="2"
 				OptimizeForWindowsApplication="FALSE"
-				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../ix86-32&quot;;../libs"
+				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../ix86-32&quot;;../libs;../../pcl"
 				PreprocessorDefinitions="NDEBUG,WIN32,_WINDOWS,__MSCW32__,__WIN32__,__i386__,ENABLE_NLS,PACKAGE=\&quot;pcsx2\&quot;;WIN32_VIRTUAL_MEM;PCSX2_DEVBUILD"
 				StringPooling="TRUE"
 				MinimalRebuild="FALSE"
 				ExceptionHandling="TRUE"
-				RuntimeLibrary="0"
+				RuntimeLibrary="4"
 				StructMemberAlignment="5"
 				BufferSecurityCheck="FALSE"
 				EnableFunctionLevelLinking="FALSE"
-				EnableEnhancedInstructionSet="2"
+				EnableEnhancedInstructionSet="0"
 				PrecompiledHeaderFile=".\Release/pcsx2.pch"
 				AssemblerListingLocation=".\Release/"
 				ObjectFile=".\Release/"
@@ -60,6 +60,7 @@
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"
 				AdditionalLibraryDirectories="..\"
+				GenerateDebugInformation="FALSE"
 				ProgramDatabaseFile=".\Release/pcsx2.pdb"
 				SubSystem="2"
 				TargetMachine="1"/>
@@ -79,7 +80,7 @@
 			<Tool
 				Name="VCResourceCompilerTool"
 				PreprocessorDefinitions="NDEBUG"
-				Culture="1032"/>
+				Culture="0"/>
 			<Tool
 				Name="VCWebServiceProxyGeneratorTool"/>
 			<Tool
@@ -103,7 +104,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				OptimizeForProcessor="2"
-				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../ix86-32&quot;;../libs"
+				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../ix86-32&quot;;../libs;../../pcl"
 				PreprocessorDefinitions="_DEBUG,WIN32,_WINDOWS,__MSCW32__,__WIN32__,__i386__,ENABLE_NLS,PACKAGE=\&quot;pcsx2\&quot;;WIN32_VIRTUAL_MEM;PCSX2_DEVBUILD"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="5"
@@ -123,7 +124,7 @@
 				Name="VCLinkerTool"
 				AdditionalOptions="/MACHINE:I386"
 				AdditionalDependencies="odbc32.lib odbccp32.lib comctl32.lib ../libs/gnu_gettext.lib ws2_32.lib winmm.lib ../libs/pthreadVC2.lib"
-				OutputFile="G:\Files\ps2\pcsx2SSE2-0.8.1\pcsx2SSE2\pcsx2d.exe"
+				OutputFile="../../pcsx2exe/pcsx2d.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"
 				AdditionalLibraryDirectories="..\"
@@ -159,7 +160,7 @@
 				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
 		</Configuration>
 		<Configuration
-			Name="Debug TLB|Win32"
+			Name="Debut TLB|Win32"
 			OutputDirectory="$(ConfigurationName)"
 			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="1"
@@ -170,16 +171,16 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				OptimizeForProcessor="2"
-				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../ix86-32&quot;;../libs"
+				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../ix86-32&quot;;../libs;../../pcl"
 				PreprocessorDefinitions="_DEBUG,WIN32,_WINDOWS,__MSCW32__,__WIN32__,__i386__,ENABLE_NLS,PACKAGE=\&quot;pcsx2\&quot;;PCSX2_DEVBUILD"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="5"
 				StructMemberAlignment="5"
 				RuntimeTypeInfo="TRUE"
-				PrecompiledHeaderFile=".\Debug TLB/pcsx2.pch"
-				AssemblerListingLocation=".\Debug TLB/"
-				ObjectFile=".\Debug TLB/"
-				ProgramDataBaseFileName=".\Debug TLB/"
+				PrecompiledHeaderFile=".\DebugTLB/pcsx2.pch"
+				AssemblerListingLocation=".\DebugTLB/"
+				ObjectFile=".\DebugTLB/"
+				ProgramDataBaseFileName=".\DebugTLB/"
 				WarningLevel="3"
 				SuppressStartupBanner="TRUE"
 				DebugInformationFormat="3"
@@ -195,7 +196,7 @@
 				SuppressStartupBanner="TRUE"
 				AdditionalLibraryDirectories="..\"
 				GenerateDebugInformation="TRUE"
-				ProgramDatabaseFile=".\Debug TLB/pcsx2.pdb"
+				ProgramDatabaseFile=".\DebugTLB/pcsx2.pdb"
 				SubSystem="2"/>
 			<Tool
 				Name="VCMIDLTool"
@@ -246,8 +247,8 @@
 				EnableFiberSafeOptimizations="TRUE"
 				OptimizeForProcessor="0"
 				OptimizeForWindowsApplication="FALSE"
-				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../ix86-32&quot;;../libs"
-				PreprocessorDefinitions="NDEBUG,WIN32,_WINDOWS,__MSCW32__,__WIN32__,__i386__,ENABLE_NLS,PACKAGE=\&quot;pcsx2\&quot;;PCSX2_DEVBUILD"
+				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../ix86-32&quot;;../libs;../../pcl"
+				PreprocessorDefinitions="NDEBUG,WIN32,_WINDOWS,__MSCW32__,__WIN32__,__i386__,ENABLE_NLS,PACKAGE=\&quot;pcsx2\&quot;"
 				StringPooling="TRUE"
 				ExceptionHandling="TRUE"
 				RuntimeLibrary="4"
@@ -292,6 +293,86 @@
 				Name="VCResourceCompilerTool"
 				PreprocessorDefinitions="NDEBUG"
 				Culture="1032"/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"/>
+			<Tool
+				Name="VCWebDeploymentTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+		</Configuration>
+		<Configuration
+			Name="Release (to Public)|Win32"
+			OutputDirectory="$(ConfigurationName)"
+			IntermediateDirectory="$(ConfigurationName)"
+			ConfigurationType="1"
+			UseOfMFC="0"
+			ATLMinimizesCRunTimeLibraryUsage="FALSE"
+			CharacterSet="2">
+			<Tool
+				Name="VCCLCompilerTool"
+				AdditionalOptions="/Ob0"
+				Optimization="3"
+				GlobalOptimizations="TRUE"
+				InlineFunctionExpansion="0"
+				EnableIntrinsicFunctions="TRUE"
+				ImproveFloatingPointConsistency="FALSE"
+				FavorSizeOrSpeed="1"
+				OmitFramePointers="TRUE"
+				EnableFiberSafeOptimizations="TRUE"
+				OptimizeForProcessor="2"
+				OptimizeForWindowsApplication="FALSE"
+				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../ix86-32&quot;;../libs;../../pcl"
+				PreprocessorDefinitions="NDEBUG,WIN32,_WINDOWS,__MSCW32__,__WIN32__,__i386__,ENABLE_NLS,PACKAGE=\&quot;pcsx2\&quot;;WIN32_VIRTUAL_MEM"
+				StringPooling="TRUE"
+				MinimalRebuild="FALSE"
+				ExceptionHandling="TRUE"
+				RuntimeLibrary="4"
+				StructMemberAlignment="5"
+				BufferSecurityCheck="FALSE"
+				EnableFunctionLevelLinking="FALSE"
+				EnableEnhancedInstructionSet="0"
+				PrecompiledHeaderFile=".\Release (to Public)/pcsx2.pch"
+				AssemblerListingLocation=".\Release (to Public)/"
+				ObjectFile=".\Release (to Public)/"
+				ProgramDataBaseFileName=".\Release (to Public)/"
+				WarningLevel="3"
+				SuppressStartupBanner="TRUE"
+				CompileAs="0"/>
+			<Tool
+				Name="VCCustomBuildTool"/>
+			<Tool
+				Name="VCLinkerTool"
+				AdditionalOptions="/MACHINE:I386"
+				AdditionalDependencies="odbc32.lib odbccp32.lib comctl32.lib ../libs/gnu_gettext.lib ws2_32.lib winmm.lib ../libs/pthreadVC2.lib"
+				OutputFile="../../pcsx2exe/pcsx2r.exe"
+				LinkIncremental="1"
+				SuppressStartupBanner="TRUE"
+				AdditionalLibraryDirectories="..\"
+				GenerateDebugInformation="FALSE"
+				ProgramDatabaseFile=".\Release (to Public)/pcsx2.pdb"
+				SubSystem="2"
+				TargetMachine="1"/>
+			<Tool
+				Name="VCMIDLTool"
+				PreprocessorDefinitions="NDEBUG"
+				MkTypLibCompatible="TRUE"
+				SuppressStartupBanner="TRUE"
+				TargetEnvironment="1"
+				TypeLibraryName=".\Release/pcsx2.tlb"/>
+			<Tool
+				Name="VCPostBuildEventTool"/>
+			<Tool
+				Name="VCPreBuildEventTool"/>
+			<Tool
+				Name="VCPreLinkEventTool"/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				PreprocessorDefinitions="NDEBUG"
+				Culture="0"/>
 			<Tool
 				Name="VCWebServiceProxyGeneratorTool"/>
 			<Tool
@@ -413,13 +494,19 @@
 						AssemblerOutput="4"/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Debug TLB|Win32">
+					Name="Debut TLB|Win32">
 					<Tool
 						Name="VCCLCompilerTool"
 						AssemblerOutput="4"/>
 				</FileConfiguration>
 				<FileConfiguration
 					Name="Release TLB|Win32">
+					<Tool
+						Name="VCCLCompilerTool"
+						AssemblerOutput="4"/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release (to Public)|Win32">
 					<Tool
 						Name="VCCLCompilerTool"
 						AssemblerOutput="4"/>
@@ -580,14 +667,6 @@
 			Filter="">
 			<File
 				RelativePath="..\..\Counters.c">
-				<FileConfiguration
-					Name="Release|Win32">
-					<Tool
-						Name="VCCLCompilerTool"
-						OmitFramePointers="FALSE"
-						EnableFiberSafeOptimizations="FALSE"
-						RuntimeLibrary="0"/>
-				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\..\Counters.h">
@@ -597,16 +676,10 @@
 			Name="VU"
 			Filter="">
 			<File
-				RelativePath="..\..\x86\ivu1zerorec.h">
-			</File>
-			<File
 				RelativePath="..\..\VU.h">
 			</File>
 			<File
 				RelativePath="..\..\VU0.c">
-			</File>
-			<File
-				RelativePath="..\..\VU0.h">
 			</File>
 			<File
 				RelativePath="..\..\VU0micro.c">
@@ -752,13 +825,19 @@
 							ObjectFile="$(IntDir)/$(InputName)1.obj"/>
 					</FileConfiguration>
 					<FileConfiguration
-						Name="Debug TLB|Win32">
+						Name="Debut TLB|Win32">
 						<Tool
 							Name="VCCLCompilerTool"
 							ObjectFile="$(IntDir)/$(InputName)1.obj"/>
 					</FileConfiguration>
 					<FileConfiguration
 						Name="Release TLB|Win32">
+						<Tool
+							Name="VCCLCompilerTool"
+							ObjectFile="$(IntDir)/$(InputName)1.obj"/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release (to Public)|Win32">
 						<Tool
 							Name="VCCLCompilerTool"
 							ObjectFile="$(IntDir)/$(InputName)1.obj"/>
@@ -779,13 +858,19 @@
 							ObjectFile="$(IntDir)/$(InputName)1.obj"/>
 					</FileConfiguration>
 					<FileConfiguration
-						Name="Debug TLB|Win32">
+						Name="Debut TLB|Win32">
 						<Tool
 							Name="VCCLCompilerTool"
 							ObjectFile="$(IntDir)/$(InputName)1.obj"/>
 					</FileConfiguration>
 					<FileConfiguration
 						Name="Release TLB|Win32">
+						<Tool
+							Name="VCCLCompilerTool"
+							ObjectFile="$(IntDir)/$(InputName)1.obj"/>
+					</FileConfiguration>
+					<FileConfiguration
+						Name="Release (to Public)|Win32">
 						<Tool
 							Name="VCCLCompilerTool"
 							ObjectFile="$(IntDir)/$(InputName)1.obj"/>
@@ -875,6 +960,12 @@
 			Name="x86"
 			Filter="">
 			<File
+				RelativePath="..\..\x86\iCore.cpp">
+			</File>
+			<File
+				RelativePath="..\..\x86\iCore.h">
+			</File>
+			<File
 				RelativePath="..\..\x86\iCP0.c">
 			</File>
 			<File
@@ -893,13 +984,22 @@
 				RelativePath="..\..\x86\iMMI.h">
 			</File>
 			<File
-				RelativePath="..\..\x86\iR3000A.c">
+				RelativePath="..\..\x86\iR3000A.cpp">
+			</File>
+			<File
+				RelativePath="..\..\x86\iR3000A.h">
+			</File>
+			<File
+				RelativePath="..\..\x86\iR3000Atables.cpp">
 			</File>
 			<File
 				RelativePath="..\..\x86\iR5900.c">
 			</File>
 			<File
 				RelativePath="..\..\x86\iR5900.h">
+			</File>
+			<File
+				RelativePath="..\..\x86\ir5900tables.c">
 			</File>
 			<File
 				RelativePath="..\..\x86\iVU0micro.c">
@@ -921,6 +1021,12 @@
 			</File>
 			<File
 				RelativePath="..\..\x86\iVUops.h">
+			</File>
+			<File
+				RelativePath="..\..\x86\iVUzerorec.cpp">
+			</File>
+			<File
+				RelativePath="..\..\x86\iVUzerorec.h">
 			</File>
 			<File
 				RelativePath="..\..\x86\recCOP2.c">
@@ -1071,6 +1177,19 @@
 			</File>
 			<File
 				RelativePath="..\..\zlib\zutil.h">
+			</File>
+		</Filter>
+		<Filter
+			Name="PCL"
+			Filter="">
+			<File
+				RelativePath="..\..\pcl\pcl.c">
+			</File>
+			<File
+				RelativePath="..\..\pcl\pcl.h">
+			</File>
+			<File
+				RelativePath="..\..\pcl\pcl_config.h">
 			</File>
 		</Filter>
 		<File

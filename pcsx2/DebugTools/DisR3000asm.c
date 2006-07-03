@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "Debug.h"
 #include "R5900.h"
 #include "R3000A.h"
 #include "DisASM.h"

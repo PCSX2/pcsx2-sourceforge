@@ -1028,6 +1028,8 @@ void psxDma3(u32 madr, u32 bcr, u32 chcr) {
 
 			break;
 		case 0x41000200:
+			//SysPrintf("unhandled cdrom dma3: madr: %x, bcr: %x, chcr %x\n", madr, bcr, chcr);
+			// size = 16 * 32 * 4 (one sector)
 /*			PSXMu8(madr+0) = 0x10;
 			PSXMu8(madr+1) = 0x00;
 			PSXMu8(madr+2) = 0x03;

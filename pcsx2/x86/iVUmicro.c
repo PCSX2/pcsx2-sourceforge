@@ -1,7 +1,3 @@
-                                                                     
-                                                                     
-                                                                     
-                                             
 /*  Pcsx2 - Pc Ps2 Emulator
  *  Copyright (C) 2002-2003  Pcsx2 Team
  *
@@ -21,6 +17,7 @@
  */
 
 #include <stdlib.h>
+#include <assert.h>
 #include <string.h>
 
 #include "Common.h"
@@ -30,13 +27,13 @@
 #include "iMMI.h"
 #include "iFPU.h"
 #include "iCP0.h"
-#include "VU0.h"
 #include "VUmicro.h"
 #include "VUflags.h"
 #include "iVUmicro.h"
 #include "iVU0micro.h"
 #include "iVU1micro.h"
 #include "iVUops.h"
+#include "iVUzerorec.h"
 
 #ifdef __MSCW32__
 #pragma warning(disable:4244)
@@ -45,6 +42,7 @@
 
 int vucycle;
 int vucycleold;
+_vuopinfo *cinfo = NULL;
 
 //Lower/Upper instructions can use that..
 #define _Ft_ (( VU->code >> 16) & 0x1F)  // The rt part of the instruction register 
@@ -55,6 +53,8 @@ int vucycleold;
 #define _Y (( VU->code>>23) & 0x1)
 #define _Z (( VU->code>>22) & 0x1)
 #define _W (( VU->code>>21) & 0x1)
+
+#define _XYZW_SS (_X+_Y+_Z+_W==1)
 
 #define _Fsf_ (( VU->code >> 21) & 0x03)
 #define _Ftf_ (( VU->code >> 23) & 0x03)
@@ -68,31 +68,17 @@ int vucycleold;
 #define VU_VFw_ADDR(x)  (int)&VU->VF[x].UL[3]
 
 #define VU_REGR_ADDR    (int)&VU->VI[REG_R]
-#define VU_REGI_ADDR    (int)&VU->VI[REG_I]
 #define VU_REGQ_ADDR    (int)&VU->VI[REG_Q]
-#define VU_REGMAC_ADDR  (int)&VU0.VI[REG_MAC_FLAG]
+#define VU_REGMAC_ADDR  (int)&VU->VI[REG_MAC_FLAG]
 
-#define VU_VI_ADDR(x)   (int)&VU->VI[x].UL
+#define VU_VI_ADDR(x, read) GetVIAddr(VU, x, read, info)
 
 #define VU_ACCx_ADDR    (int)&VU->ACC.UL[0]
 #define VU_ACCy_ADDR    (int)&VU->ACC.UL[1]
 #define VU_ACCz_ADDR    (int)&VU->ACC.UL[2]
 #define VU_ACCw_ADDR    (int)&VU->ACC.UL[3]
 
-
-/********************************/
-/*     HELP FUNCTIONS           */
-/********************************/
-
-#define _X_OR_Y   ((( VU->code >> 24 ) & 0x1 ) || (( VU->code >> 23 ) & 0x1 ) )
-#define _Z_OR_W   ((( VU->code >> 22 ) & 0x1 ) || (( VU->code >> 21 ) & 0x1 ) )
-#define _X_AND_Y  ((( VU->code >> 24 ) & 0x1 ) && (( VU->code >> 23 ) & 0x1 ) )
-#define _Z_AND_W  ((( VU->code >> 22 ) & 0x1 ) && (( VU->code >> 21 ) & 0x1 ) )
-#define _X_AND_Z  ((( VU->code >> 24 ) & 0x1 ) && (( VU->code >> 22 ) & 0x1 ) )
-#define _Y_AND_Z  ((( VU->code >> 23 ) & 0x1 ) && (( VU->code >> 22 ) & 0x1 ) )
-#define _Y_AND_W  ((( VU->code >> 23 ) & 0x1 ) && (( VU->code >> 21 ) & 0x1 ) )
 #define _X_Y_Z_W  ((( VU->code >> 21 ) & 0xF ) )
-
 
 __declspec(align(16)) float recMult_float_to_int4[4] = { 16.0, 16.0, 16.0, 16.0 };
 __declspec(align(16)) float recMult_float_to_int12[4] = { 4096.0, 4096.0, 4096.0, 4096.0 };
@@ -102,12 +88,8 @@ __declspec(align(16)) float recMult_int_to_float4[4] = { 0.0625f, 0.0625f, 0.062
 __declspec(align(16)) float recMult_int_to_float12[4] = { 0.000244140625, 0.000244140625, 0.000244140625, 0.000244140625 };
 __declspec(align(16)) float recMult_int_to_float15[4] = { 0.000030517578125, 0.000030517578125, 0.000030517578125, 0.000030517578125 };
 static s32 bpc;
-
-extern void _flushVF_XMMReg(VURegs* VU, int vfreg);
-
-#ifdef __MSCW32__
-__declspec(align(16)) 
-#endif
+_VURegsNum* g_VUregs = NULL;
+u8 g_MACFlagTransform[256] = {0}; // used to flip xyzw bits
 
 static int SSEmovMask[ 16 ][ 4 ] =
 {
@@ -131,6 +113,14 @@ static int SSEmovMask[ 16 ][ 4 ] =
 
 #define VU_SWAPSRC 0xf090 // don't touch
 
+#define _vuIsRegSwappedWithTemp() (VU_SWAPSRC & (1<<_X_Y_Z_W))
+
+// use for allocating vi regs
+#define ALLOCTEMPX86(mode) _allocX86reg(-1, X86TYPE_TEMP, 0, ((info&PROCESS_VU_SUPER)?0:MODE_NOFRAME)|mode)
+#define ALLOCVI(vi, mode) _allocX86reg(-1, X86TYPE_VI|((VU==&VU1)?X86TYPE_VU1:0), vi, ((info&PROCESS_VU_SUPER)?0:MODE_NOFRAME)|mode)
+#define ADD_VI_NEEDED(vi) _addNeededX86reg(X86TYPE_VI|(VU==&VU1?X86TYPE_VU1:0), vi);
+
+// 1 - src, 0 - dest				   wzyx
 void VU_MERGE0(int dest, int src) { // 0000
 }
 void VU_MERGE1(int dest, int src) { // 1000
@@ -147,40 +137,30 @@ void VU_MERGE3(int dest, int src) { // 1100
 void VU_MERGE4(int dest, int src) { // 0010s
 	SSE_MOVSS_XMM_to_XMM(src, dest);
 	SSE_SHUFPS_XMM_to_XMM(src, dest, 0xe4);
+	SSE_MOVAPS_XMM_to_XMM(dest, src);
 }
 void VU_MERGE5(int dest, int src) { // 1010
-	SSE_SHUFPS_XMM_to_XMM(src, dest, 0x8d);
-	if(cpucaps.hasStreamingSIMD2Extensions)
-		SSE2_PSHUFD_XMM_to_XMM(dest, src, 0x72);
-	else
-		SSE2EMU_PSHUFD_XMM_to_XMM(dest, src, 0x72);
+	SSE_SHUFPS_XMM_to_XMM(dest, src, 0xd8);
+	SSE_SHUFPS_XMM_to_XMM(dest, dest, 0xd8);
 }
 void VU_MERGE6(int dest, int src) { // 0110
-	SSE_SHUFPS_XMM_to_XMM(src, dest, 0xc9);
-	if(cpucaps.hasStreamingSIMD2Extensions)
-		SSE2_PSHUFD_XMM_to_XMM(dest, src, 0xd2);
-	else
-		SSE2EMU_PSHUFD_XMM_to_XMM(dest, src, 0xd2);
+	SSE_SHUFPS_XMM_to_XMM(dest, src, 0x9c);
+	SSE_SHUFPS_XMM_to_XMM(dest, dest, 0x78);
 }
 void VU_MERGE7(int dest, int src) { // 1110s
 	SSE_MOVSS_XMM_to_XMM(src, dest);
+	SSE_MOVAPS_XMM_to_XMM(dest, src);
 }
 void VU_MERGE8(int dest, int src) { // 0001
 	SSE_MOVSS_XMM_to_XMM(dest, src);
 }
 void VU_MERGE9(int dest, int src) { // 1001
-	SSE_SHUFPS_XMM_to_XMM(src, dest, 0x9c);
-	if(cpucaps.hasStreamingSIMD2Extensions)
-		SSE2_PSHUFD_XMM_to_XMM(dest, src, 0x78);
-	else
-		SSE2EMU_PSHUFD_XMM_to_XMM(dest, src, 0x78);
+	SSE_SHUFPS_XMM_to_XMM(dest, src, 0xc9);
+	SSE_SHUFPS_XMM_to_XMM(dest, dest, 0xd2);
 }
 void VU_MERGE10(int dest, int src) { // 0101
-	SSE_SHUFPS_XMM_to_XMM(src, dest, 0xd8);
-	if(cpucaps.hasStreamingSIMD2Extensions)
-		SSE2_PSHUFD_XMM_to_XMM(dest, src, 0xd8);
-	else
-		SSE2EMU_PSHUFD_XMM_to_XMM(dest, src, 0xd8);
+	SSE_SHUFPS_XMM_to_XMM(dest, src, 0x8d);
+	SSE_SHUFPS_XMM_to_XMM(dest, dest, 0x72);
 }
 void VU_MERGE11(int dest, int src) { // 1101
 	SSE_MOVSS_XMM_to_XMM(dest, src);
@@ -188,16 +168,20 @@ void VU_MERGE11(int dest, int src) { // 1101
 }
 void VU_MERGE12(int dest, int src) { // 0011s
 	SSE_SHUFPS_XMM_to_XMM(src, dest, 0xe4);
+	SSE_MOVAPS_XMM_to_XMM(dest, src);
 }
 void VU_MERGE13(int dest, int src) { // 1011s
 	SSE_MOVHLPS_XMM_to_XMM(dest, src);
 	SSE_SHUFPS_XMM_to_XMM(src, dest, 0x64);
+	SSE_MOVAPS_XMM_to_XMM(dest, src);
 }
 void VU_MERGE14(int dest, int src) { // 0111s
 	SSE_MOVHLPS_XMM_to_XMM(dest, src);
 	SSE_SHUFPS_XMM_to_XMM(src, dest, 0xc4);
+	SSE_MOVAPS_XMM_to_XMM(dest, src);
 }
 void VU_MERGE15(int dest, int src) { // 1111s
+	SSE_MOVAPS_XMM_to_XMM(dest, src);
 }
 
 typedef void (*VUMERGEFN)(int dest, int src);
@@ -207,53 +191,92 @@ static VUMERGEFN s_VuMerge[16] = {
 	VU_MERGE8, VU_MERGE9, VU_MERGE10, VU_MERGE11,
 	VU_MERGE12, VU_MERGE13, VU_MERGE14, VU_MERGE15 };
 
-#define SWAP(x, y) *(u32*)&y ^= *(u32*)&x ^= *(u32*)&y ^= *(u32*)&x;
-
 #define VU_MERGE_REGS(dest, src) { \
-	assert( xmmregs[src].type == XMMTYPE_TEMP ); \
-	s_VuMerge[_X_Y_Z_W](dest, src); \
-	if( VU_SWAPSRC & (1<<_X_Y_Z_W) ) { \
-		/* swap */ \
-		xmmregs[src] = xmmregs[dest]; \
-		xmmregs[dest].inuse = 0; \
-		SWAP(dest, src); \
-	} \
-	else { \
-		_freeXMMreg(src); \
-	} \
+	if( dest != src ) s_VuMerge[_X_Y_Z_W](dest, src); \
 } \
 
 #define VU_MERGE_REGS_CUSTOM(dest, src, xyzw) { \
-	assert( xmmregs[src].type == XMMTYPE_TEMP ); \
-	s_VuMerge[xyzw](dest, src); \
-	if( VU_SWAPSRC & (1<<xyzw) ) { \
-		/* swap */ \
-		xmmregs[src] = xmmregs[dest]; \
-		xmmregs[dest].inuse = 0; \
-		SWAP(dest, src); \
-	} \
-	else { \
-		_freeXMMreg(src); \
-	} \
+	if( dest != src ) s_VuMerge[xyzw](dest, src); \
 } \
 
-void _unpackVF_xyzw(int dstreg, int srcreg, int xyzw) {
-	if(cpucaps.hasStreamingSIMD2Extensions) 
-	{
+void _unpackVF_xyzw(int dstreg, int srcreg, int xyzw)
+{
+	// don't use pshufd
+	if( dstreg == srcreg || !cpucaps.hasStreamingSIMD3Extensions) {
+		if( dstreg != srcreg ) SSE_MOVAPS_XMM_to_XMM(dstreg, srcreg);
 		switch (xyzw) {
-			case 0: SSE2_PSHUFD_XMM_to_XMM(dstreg, srcreg, 0x00); break;
-			case 1: SSE2_PSHUFD_XMM_to_XMM(dstreg, srcreg, 0x55); break;
-			case 2: SSE2_PSHUFD_XMM_to_XMM(dstreg, srcreg, 0xaa); break;
-			case 3: SSE2_PSHUFD_XMM_to_XMM(dstreg, srcreg, 0xff); break;
-		}
-	} else {
-		switch (xyzw) {
-			case 0: SSE2EMU_PSHUFD_XMM_to_XMM(dstreg, srcreg, 0x00); break;
-			case 1: SSE2EMU_PSHUFD_XMM_to_XMM(dstreg, srcreg, 0x55); break;
-			case 2: SSE2EMU_PSHUFD_XMM_to_XMM(dstreg, srcreg, 0xaa); break;
-			case 3: SSE2EMU_PSHUFD_XMM_to_XMM(dstreg, srcreg, 0xff); break;
+			case 0: SSE_SHUFPS_XMM_to_XMM(dstreg, dstreg, 0x00); break;
+			case 1: SSE_SHUFPS_XMM_to_XMM(dstreg, dstreg, 0x55); break;
+			case 2: SSE_SHUFPS_XMM_to_XMM(dstreg, dstreg, 0xaa); break;
+			case 3: SSE_SHUFPS_XMM_to_XMM(dstreg, dstreg, 0xff); break;
 		}
 	}
+	else {
+		switch (xyzw) {
+			case 0:
+				SSE3_MOVSLDUP_XMM_to_XMM(dstreg, srcreg);
+				SSE_MOVLHPS_XMM_to_XMM(dstreg, dstreg);
+				break;
+			case 1:
+				SSE3_MOVSHDUP_XMM_to_XMM(dstreg, srcreg);
+				SSE_MOVLHPS_XMM_to_XMM(dstreg, dstreg);
+				break;
+			case 2:
+				SSE3_MOVSLDUP_XMM_to_XMM(dstreg, srcreg);
+				SSE_MOVHLPS_XMM_to_XMM(dstreg, dstreg);
+				break;
+			case 3:
+				SSE3_MOVSHDUP_XMM_to_XMM(dstreg, srcreg);
+				SSE_MOVHLPS_XMM_to_XMM(dstreg, dstreg);
+				break;
+		}
+	}
+}
+
+void _unpackVFSS_xyzw(int dstreg, int srcreg, int xyzw)
+{
+	switch (xyzw) {
+		case 0:
+			if( dstreg != srcreg ) SSE_MOVAPS_XMM_to_XMM(dstreg, srcreg);
+			break;
+		case 1:
+			if( cpucaps.hasStreamingSIMD3Extensions ) SSE3_MOVSHDUP_XMM_to_XMM(dstreg, srcreg);
+			else {
+				if( dstreg != srcreg ) SSE_MOVAPS_XMM_to_XMM(dstreg, srcreg);
+				SSE_SHUFPS_XMM_to_XMM(dstreg, dstreg, 0x55);
+			}
+			break;
+		case 2:
+			SSE_MOVHLPS_XMM_to_XMM(dstreg, srcreg);
+			break;
+		case 3:
+			if( cpucaps.hasStreamingSIMD3Extensions && dstreg != srcreg ) {
+				SSE3_MOVSHDUP_XMM_to_XMM(dstreg, srcreg);
+				SSE_MOVHLPS_XMM_to_XMM(dstreg, dstreg);
+			}
+			else {
+				if( dstreg != srcreg ) SSE_MOVAPS_XMM_to_XMM(dstreg, srcreg);
+				SSE_SHUFPS_XMM_to_XMM(dstreg, dstreg, 0xff);
+			}
+			break;
+	}
+}
+
+void _vuFlipRegSS(VURegs * VU, int reg)
+{
+	assert( _XYZW_SS );
+	if( _Y ) SSE_SHUFPS_XMM_to_XMM(reg, reg, 0xe1);
+	else if( _Z ) SSE_SHUFPS_XMM_to_XMM(reg, reg, 0xc6);
+	else if( _W ) SSE_SHUFPS_XMM_to_XMM(reg, reg, 0x27);
+}
+
+void _vuMoveSS(VURegs * VU, int dstreg, int srcreg)
+{
+	assert( _XYZW_SS );
+	if( _Y ) _unpackVFSS_xyzw(dstreg, srcreg, 1);
+	else if( _Z ) _unpackVFSS_xyzw(dstreg, srcreg, 2);
+	else if( _W ) _unpackVFSS_xyzw(dstreg, srcreg, 3);
+	else _unpackVFSS_xyzw(dstreg, srcreg, 0);
 }
 
 void _recvuFMACflush(VURegs * VU) {
@@ -298,18 +321,37 @@ void _recvuTestPipes(VURegs * VU) {
 void _recvuFMACTestStall(VURegs * VU, int reg, int xyzw) {
 	int cycle;
 	int i;
+	u32 mask = 0;
 
 	for (i=0; i<8; i++) {
 		if (VU->fmac[i].enable == 0) continue;
 		if (VU->fmac[i].reg == reg &&
-			VU->fmac[i].xyzw & xyzw) break;
+			(VU->fmac[i].xyzw & xyzw)) break;
 	}
 
 	if (i == 8) return;
 
+	// do a perchannel delay
+	// old code
 	cycle = VU->fmac[i].Cycle - (vucycle - VU->fmac[i].sCycle);
 	VU->fmac[i].enable = 0;
 
+	// new code
+//	mask = VU->fmac[i].xyzw & xyzw;
+//	if( mask & 1 ) mask = 4; // w
+//	else if( mask & 2 ) mask = 3; // z
+//	else if( mask & 4 ) mask = 2; // y
+//	else if( mask & 8 ) mask = 1; // x
+//
+//	assert( (int)VU->fmac[i].sCycle < (int)vucycle );
+//	cycle = 0;
+//	if( vucycle - VU->fmac[i].sCycle < mask )
+//		cycle = mask - (vucycle - VU->fmac[i].sCycle);
+//
+//	VU->fmac[i].xyzw &= ~xyzw;	
+//	if( !VU->fmac[i].xyzw )
+//		VU->fmac[i].enable = 0;
+	
 //	SysPrintf("FMAC stall %d\n", cycle);
 	vucycle+= cycle;
 	_recvuTestPipes(VU);
@@ -352,11 +394,17 @@ void _recvuEFUAdd(VURegs * VU, int cycles) {
 }
 
 void _recvuTestFMACStalls(VURegs * VU, _VURegsNum *VUregsn) {
-	if (VUregsn->VFread0) {
-		_recvuFMACTestStall(VU, VUregsn->VFread0, VUregsn->VFr0xyzw);
+
+	if( VUregsn->VFread0 && (VUregsn->VFread0 == VUregsn->VFread1) ) {
+		_recvuFMACTestStall(VU, VUregsn->VFread0, VUregsn->VFr0xyzw|VUregsn->VFr1xyzw);
 	}
-	if (VUregsn->VFread1) {
-		_recvuFMACTestStall(VU, VUregsn->VFread1, VUregsn->VFr1xyzw);
+	else {
+		if (VUregsn->VFread0) {
+			_recvuFMACTestStall(VU, VUregsn->VFread0, VUregsn->VFr0xyzw);
+		}
+		if (VUregsn->VFread1) {
+			_recvuFMACTestStall(VU, VUregsn->VFread1, VUregsn->VFr1xyzw);
+		}
 	}
 }
 
@@ -447,7 +495,7 @@ void _recvuAddLowerStalls(VURegs * VU, _VURegsNum *VUregsn) {
 }
 
 
-void SuperVU1AnalyzeOp(VURegs *VU, _vuopinfo *info, _VURegsNum* pCodeRegs)
+void SuperVUAnalyzeOp(VURegs *VU, _vuopinfo *info, _VURegsNum* pCodeRegs)
 {
 	_VURegsNum* lregs;
 	_VURegsNum* uregs;
@@ -525,11 +573,6 @@ void SuperVU1AnalyzeOp(VURegs *VU, _vuopinfo *info, _VURegsNum* pCodeRegs)
 			break;
 	}
 
-	if (uregs->VIwrite & (1 << REG_CLIP_FLAG)) {
-		info->clipflag = 4;
-		uregs->VIwrite &= ~(1 << REG_CLIP_FLAG);
-	}
-
 	if (uregs->VIread & (1 << REG_Q)) {
 		info->q |= 2;
 	}
@@ -542,7 +585,7 @@ void SuperVU1AnalyzeOp(VURegs *VU, _vuopinfo *info, _VURegsNum* pCodeRegs)
 	// check upper flags
 	if (ptr[1] & 0x80000000) { // I flag
 		info->cycle = vucycle;
-
+		memset(lregs, 0, sizeof(lregs));
 	} else {
 
 		VU->code = ptr[0]; 
@@ -562,7 +605,7 @@ void SuperVU1AnalyzeOp(VURegs *VU, _vuopinfo *info, _VURegsNum* pCodeRegs)
 		if (lregs->VIwrite & (1 << REG_Q)) {
 			info->q |= 4;
 			info->cycles = lregs->cycles;
-			//info->pqinst = (1 << ((VU->code&3)==2)); // rsqrt is 2
+			info->pqinst = (VU->code&2)>>1; // rsqrt is 2
 		}
 		else if (lregs->pipe == VUPIPE_FDIV) {
 			info->q |= 8|1;
@@ -574,38 +617,41 @@ void SuperVU1AnalyzeOp(VURegs *VU, _vuopinfo *info, _VURegsNum* pCodeRegs)
 			info->p |= 4;
 			info->cycles = lregs->cycles;
 
-//			switch( VU->code & 0xff ) {
-//				case 0xfd: info->pqinst = 0; break; //eatan
-//				case 0x7c: info->pqinst = 0; break; //eatanxy
-//				case 0x7d: info->pqinst = 0; break; //eatanzy
-//				case 0xfe: info->pqinst = 1; break; //eexp
-//				case 0xfc: info->pqinst = 2; break; //esin
-//				case 0x3f: info->pqinst = 3; break; //erleng
-//				case 0x3e: info->pqinst = 4; break; //eleng
-//				case 0x3d: info->pqinst = 4; break; //ersadd
-//				case 0xbd: info->pqinst = 4; break; //ersqrt
-//				case 0xbe: info->pqinst = 5; break; //ercpr
-//				case 0xbc: info->pqinst = 5; break; //esqrt
-//				case 0x7e: info->pqinst = 5; break; //esum
-//				case 0x3c: info->pqinst = 6; break; //esadd
-//				default: assert(0);
-//			}
+			switch( VU->code & 0xff ) {
+				case 0xfd: info->pqinst = 0; break; //eatan
+				case 0x7c: info->pqinst = 0; break; //eatanxy
+				case 0x7d: info->pqinst = 0; break; //eatanzy
+				case 0xfe: info->pqinst = 1; break; //eexp
+				case 0xfc: info->pqinst = 2; break; //esin
+				case 0x3f: info->pqinst = 3; break; //erleng
+				case 0x3e: info->pqinst = 4; break; //eleng
+				case 0x3d: info->pqinst = 4; break; //ersadd
+				case 0xbd: info->pqinst = 4; break; //ersqrt
+				case 0xbe: info->pqinst = 5; break; //ercpr
+				case 0xbc: info->pqinst = 5; break; //esqrt
+				case 0x7e: info->pqinst = 5; break; //esum
+				case 0x3c: info->pqinst = 6; break; //esadd
+				default: assert(0);
+			}
 		}
 		else if (lregs->pipe == VUPIPE_EFU) {
 			info->p |= 8|1;
 		}
 
-//		if (lregs->VIread & (1 << REG_CLIP_FLAG)) {
-//			info->clipflag|= 2;
-//		}
-//
-//		if (lregs->VIread & (1 << REG_STATUS_FLAG)) {
-//			info->statusflag|= 2;
-//		}
-//
-//		if (lregs->VIread & (1 << REG_MAC_FLAG)) {
-//			info->macflag|= 2;
-//		}
+		if (lregs->VIread & (1 << REG_STATUS_FLAG)) info->statusflag|= VUOP_READ;
+		if (lregs->VIread & (1 << REG_MAC_FLAG)) info->macflag|= VUOP_READ;
+
+		if (lregs->VIwrite & (1 << REG_STATUS_FLAG)) info->statusflag|= VUOP_WRITE;
+		if (lregs->VIwrite & (1 << REG_MAC_FLAG)) info->macflag|= VUOP_WRITE;
+
+		if (lregs->VIread & (1 << REG_Q)) {
+			info->q |= 2;
+		}
+
+		if (lregs->VIread & (1 << REG_P)) {
+			assert( VU == &VU1 );
+			info->p |= 2;
+		}
 
 		_recvuAddLowerStalls(VU, lregs);
 	}
@@ -616,485 +662,281 @@ void SuperVU1AnalyzeOp(VURegs *VU, _vuopinfo *info, _VURegsNum* pCodeRegs)
 	vucycle++;
 }
 
-// Analyze an op - first pass
-void _vurecAnalyzeOp(VURegs *VU, _vuopinfo *info) {
-	_VURegsNum lregs;
-	_VURegsNum uregs;
-	int *ptr; 
+int eeVURecompileCode(VURegs *VU, _VURegsNum* regs)
+{
+	int info = 0;
+	int vfread0=-1, vfread1 = -1, vfwrite = -1, vfacc = -1, vftemp=-1;
 
-//	SysPrintf("_vurecAnalyzeOp %x; %p\n", pc, info);
-	ptr = (int*)&VU->Micro[pc]; 
-	pc += 8; 
+	assert( regs != NULL );
 
-/*	SysPrintf("_vurecAnalyzeOp Upper: %s\n", disVU1MicroUF( ptr[1], pc ) );
-	if ((ptr[1] & 0x80000000) == 0) {
-		SysPrintf("_vurecAnalyzeOp Lower: %s\n", disVU1MicroLF( ptr[0], pc ) );
-	}*/
-	if (ptr[1] & 0x40000000) {
-		branch |= 8; 
-	} 
- 
-	VU->code = ptr[1];
-	if (VU == &VU1) {
-		VU1regs_UPPER_OPCODE[VU->code & 0x3f](&uregs);
-	} else {
-		VU0regs_UPPER_OPCODE[VU->code & 0x3f](&uregs);
+	if( regs->VFread0 ) _addNeededVFtoXMMreg(regs->VFread0);
+	if( regs->VFread1 ) _addNeededVFtoXMMreg(regs->VFread1);
+	if( regs->VFwrite ) _addNeededVFtoXMMreg(regs->VFwrite);
+	if( regs->VIread & (1<<REG_ACC_FLAG) ) _addNeededACCtoXMMreg();
+	if( regs->VIread & (1<<REG_VF0_FLAG) ) _addNeededVFtoXMMreg(0);
+
+	// alloc
+	if( regs->VFread0 ) vfread0 = _allocVFtoXMMreg(VU, -1, regs->VFread0, MODE_READ);
+	else if( regs->VIread & (1<<REG_VF0_FLAG) ) vfread0 = _allocVFtoXMMreg(VU, -1, 0, MODE_READ);
+	if( regs->VFread1 ) vfread1 = _allocVFtoXMMreg(VU, -1, regs->VFread1, MODE_READ);
+	else if( (regs->VIread & (1<<REG_VF0_FLAG)) && regs->VFr1xyzw != 0xff) vfread1 = _allocVFtoXMMreg(VU, -1, 0, MODE_READ);
+
+	if( regs->VIread & (1<<REG_ACC_FLAG )) {
+		vfacc = _allocACCtoXMMreg(VU, -1, ((regs->VIwrite&(1<<REG_ACC_FLAG))?MODE_WRITE:0)|MODE_READ);
+	}
+	else if( regs->VIwrite & (1<<REG_ACC_FLAG) ) {
+		vfacc = _allocACCtoXMMreg(VU, -1, MODE_WRITE|(regs->VFwxyzw != 0xf?MODE_READ:0));
 	}
 
-	_recvuTestUpperStalls(VU, &uregs);
-	switch(VU->code & 0x3f) {
-		case 0x10: case 0x11: case 0x12: case 0x13:
-		case 0x14: case 0x15: case 0x16: case 0x17:
-		case 0x1d: case 0x1f:
-		case 0x2b: case 0x2f:
-			break;
-
-		case 0x3c:
-			switch ((VU->code >> 6) & 0x1f) {
-				case 0x4: case 0x5:
-					break;
-				default:
-					info->statusflag|= 4;
-					info->macflag|= 4;
-					break;
-			}
-			break;
-		case 0x3d:
-			switch ((VU->code >> 6) & 0x1f) {
-				case 0x4: case 0x5: case 0x7:
-					break;
-				default:
-					info->statusflag|= 4;
-					info->macflag|= 4;
-					break;
-			}
-			break;
-		case 0x3e:
-			switch ((VU->code >> 6) & 0x1f) {
-				case 0x4: case 0x5:
-					break;
-				default:
-					info->statusflag|= 4;
-					info->macflag|= 4;
-					break;
-			}
-			break;
-		case 0x3f:
-			switch ((VU->code >> 6) & 0x1f) {
-				case 0x4: case 0x5: case 0x7: case 0xb:
-					break;
-				default:
-					info->statusflag|= 4;
-					info->macflag|= 4;
-					break;
-			}
-			break;
-
-		default:
-			info->statusflag|= 4;
-			info->macflag|= 4;
-			break;
-	}
-//SysPrintf("%x\n", info->macflag);
-
-	if (uregs.VIwrite & (1 << REG_CLIP_FLAG)) {
-		info->clipflag |= 4;
+	if( regs->VFwrite ) {
+		assert( !(regs->VIwrite&(1<<REG_ACC_FLAG)) );
+		vfwrite = _allocVFtoXMMreg(VU, -1, regs->VFwrite, MODE_WRITE|(regs->VFwxyzw != 0xf?MODE_READ:0));
 	}
 
-	if (uregs.VIread & (1 << REG_Q)) {
-		info->q |= 2;
+	if( vfacc>= 0 ) info |= PROCESS_EE_SET_ACC(vfacc);
+	if( vfwrite >= 0 ) {
+		if( regs->VFwrite == _Ft_ && vfread1 < 0 ) {
+			info |= PROCESS_EE_SET_T(vfwrite);
+		}
+		else {
+			assert( regs->VFwrite == _Fd_ );
+			info |= PROCESS_EE_SET_D(vfwrite);
+		}
 	}
 
-	if (uregs.VIread & (1 << REG_P)) {
-		assert( VU == &VU1 );
-		info->p |= 2;
+	if( vfread0 >= 0 ) info |= PROCESS_EE_SET_S(vfread0);
+	if( vfread1 >= 0 ) info |= PROCESS_EE_SET_T(vfread1);
+
+	vftemp = _allocTempXMMreg(XMMT_FPS, -1);
+	info |= PROCESS_VU_SET_TEMP(vftemp);
+
+	if( regs->VIwrite & (1 << REG_CLIP_FLAG) ) {
+		// CLIP inst, need two extra temp registers, put it EEREC_D and EEREC_ACC
+		int t1reg = _allocTempXMMreg(XMMT_FPS, -1);
+		int t2reg = _allocTempXMMreg(XMMT_FPS, -1);
+
+		info |= PROCESS_EE_SET_D(t1reg);
+		info |= PROCESS_EE_SET_ACC(t2reg);
+
+		_freeXMMreg(t1reg); // don't need
+		_freeXMMreg(t2reg); // don't need
+	}
+	else if( regs->VIwrite & (1<<REG_P) ) {
+		int t1reg = _allocTempXMMreg(XMMT_FPS, -1);
+		info |= PROCESS_EE_SET_D(t1reg);
+		_freeXMMreg(t1reg); // don't need
 	}
 
-	/* check upper flags */ 
-	if (ptr[1] & 0x80000000) { /* I flag */ 
-		info->cycle = vucycle;
+	_freeXMMreg(vftemp); // don't need it
 
-	} else {
-
-		VU->code = ptr[0]; 
-		if (VU == &VU1) {
-			VU1regs_LOWER_OPCODE[VU->code >> 25](&lregs);
-		} else {
-			VU0regs_LOWER_OPCODE[VU->code >> 25](&lregs);
-		}
-
-		_recvuTestLowerStalls(VU, &lregs);
-		info->cycle = vucycle;
-
-		if (lregs.pipe == VUPIPE_BRANCH) {
-			branch |= 1;
-		}
-
-		if (lregs.VIwrite & (1 << REG_Q)) {
-//			SysPrintf("write to Q\n");
-			info->q |= 4;
-			info->cycles = lregs.cycles;
-		}
-		else if (lregs.pipe == VUPIPE_FDIV) {
-			info->q |= 8|1;
-		}
-
-		if (lregs.VIwrite & (1 << REG_P)) {
-//			SysPrintf("write to P\n");
-			info->p |= 4;
-			info->cycles = lregs.cycles;
-		}
-		else if (lregs.pipe == VUPIPE_EFU) {
-			assert( VU == &VU1 );
-			info->p |= 8|1;
-		}
-
-		if (lregs.VIread & (1 << REG_CLIP_FLAG)) {
-			info->clipflag|= 2;
-		}
-
-		if (lregs.VIread & (1 << REG_STATUS_FLAG)) {
-			info->statusflag|= 2;
-		}
-
-		if (lregs.VIread & (1 << REG_MAC_FLAG)) {
-			info->macflag|= 2;
-		}
-
-		_recvuAddLowerStalls(VU, &lregs);
-	}
-	_recvuAddUpperStalls(VU, &uregs);
-
-	_recvuTestPipes(VU);
-
-	vucycle++;
-}
-
-/* Analyze a block - second pass */
-void _vurecAnalyzeBlock(VURegs *VU, _vuopinfo *info, int count) {
-	int i, j;
-	int qcycle=-1;
-	int pcycle=-1;
-	int** cyclearray;
-
-	if (VU == &VU0) cyclearray = (int**)&recVU0cycles[VU0.VI[ REG_TPC ].UL];
-	else cyclearray = (int**)&recVU1cycles[VU1.VI[ REG_TPC ].UL];
+	if( cinfo->statusflag & 1 ) info |= PROCESS_VU_UPDATEFLAGS;
+	if( cinfo->macflag & 1) info |= PROCESS_VU_UPDATEFLAGS;
 	
-	if (*cyclearray != 0) free((void*)*cyclearray);
-	*cyclearray = (int*)malloc(count*sizeof(int));
-	assert(*cyclearray);
+	if( regs->pipe == 0xff ) info |= PROCESS_VU_COP2;
 
-	for (i=0; i<count; i++) {
-//		SysPrintf("_vurecAnalyzeBlock %x: cycle=%d\n", pc, info[i].cycle);
-
-		/*if (info[i].statusflag & 2) {
-			for (j=i-1; j>=0; j--) {
-				if (info[j].statusflag & 4 &&
-					info[j].cycle <= (info[i-1].cycle-3)) break;
-			}
-			if (j>=0) info[j].statusflag|= 1;
-		}*/
-
-		if (info[i].macflag & 2) {
-			for (j=i-1; j>=0; j--) {
-				if (info[j].macflag & 4 &&
-					info[j].cycle <= (info[i-1].cycle-3)) break;
-			}
-			if (j>=0) info[j].macflag|= 1;
-		}
-
-		if (qcycle != -1 &&
-			info[i].q == 1) {
-			qcycle = -1;
-		}
-
-		if (info[i].q &4) {
-//			SysPrintf("write at q\n");
-			if (qcycle != -1) {
-				info[i-1].q |= 8;
-			}
-			qcycle = info[i].cycle + info[i].cycles;
-		}
-
-		if (qcycle != -1 &&
-			info[i].cycle >= qcycle) {
-///			SysPrintf("flush q\n");
-			qcycle = -1;
-			info[i-1].q |= 8;
-		}
-
-		if (pcycle != -1 &&
-			info[i].p == 1) {
-			assert( VU == &VU1 );
-			pcycle = -1;
-		}
-
-		if (info[i].p & 4) {
-			if (pcycle != -1) {
-				assert( VU == &VU1 );
-				info[i-1].p |= 8;
-			}
-			pcycle = info[i].cycle + info[i].cycles;
-		}
-
-		if (pcycle != -1 && info[i].cycle >= pcycle) {
-			assert( VU == &VU1 );
-			pcycle = -1;
-			info[i-1].p |= 8;
-		}
-
-		if (i==0)
-			(*cyclearray)[i] = info[i].cycle - ( vucycleold - 1 );
-		else
-			(*cyclearray)[i] = info[i].cycle - info[i-1].cycle;
-	}
-
-	for (i=count-1; i>=0; i--) {
-		if (info[i].cycle >= (info[count-1].cycle-3)) {
-			if (info[i].macflag & 4) info[i].macflag |= 1;
-		} else {
-			if (info[i].macflag & 4) {
-				info[i].macflag |= 1;
-				break;
-			}
-		}
-	}
-
-	if (qcycle != -1 && info[count-1].cycle+1 >= qcycle) {
-		info[count-1].q |= 8;
-		qcycle = -1;
-	}
-
-	if (VU == &VU0) {
-		if (qcycle != -1)
-			*(int*)&recVU0Q[VU0.VI[ REG_TPC ].UL] = qcycle - info[count-1].cycle;
-		else *(int*)&recVU0Q[VU0.VI[ REG_TPC ].UL] = 0;
-	}
-	else {
-		if (qcycle != -1)
-			*(int*)&recVU1Q[VU1.VI[ REG_TPC ].UL] = qcycle - info[count-1].cycle;
-		else *(int*)&recVU1Q[VU1.VI[ REG_TPC ].UL] = 0;
-	}
-
-	if (pcycle != -1 && info[count-1].cycle+1 >= pcycle) {
-		assert( VU == &VU1 );
-		info[count-1].p |= 8;
-		pcycle = -1;
-	}
-
-	if( VU == &VU1 ) {
-		if (pcycle != -1) {
-			*(int*)&recVU1P[VU1.VI[ REG_TPC ].UL] = pcycle - info[count-1].cycle;
-		}
-		else 
-			*(int*)&recVU1P[VU1.VI[ REG_TPC ].UL] = 0;
-	}
+	return info;
 }
 
-/******************************/
-/*        VU Flags            */
-/******************************/
+// returns the correct VI addr
+u32 GetVIAddr(VURegs * VU, int reg, int read, int info)
+{
+	if( info & PROCESS_VU_SUPER ) return SuperVUGetVIAddr(reg, read);
+	if( info & PROCESS_VU_COP2 ) return (u32)&VU->VI[reg].UL;
 
-void recResetFlags( void ) {
+	if( read != 1 ) {
+		if( reg == REG_MAC_FLAG ) return (u32)&VU->macflag;
+		if( reg == REG_CLIP_FLAG ) return (u32)&VU->clipflag;
+		if( reg == REG_STATUS_FLAG ) return (u32)&VU->statusflag;
+		if( reg == REG_Q ) return (u32)&VU->q;
+		if( reg == REG_P ) return (u32)&VU->p;
+	}
+
+	return (u32)&VU->VI[reg].UL;
 }
+
+// gets a temp reg that is not EEREC_TEMP
+int _vuGetTempXMMreg(int info)
+{
+	int t1reg = -1;
+
+	if( _hasFreeXMMreg() ) {
+		t1reg = _allocTempXMMreg(XMMT_FPS, -1);
+		if( t1reg == EEREC_TEMP && _hasFreeXMMreg() ) {
+			int t = _allocTempXMMreg(XMMT_FPS, -1);
+			_freeXMMreg(t1reg);
+			t1reg = t;
+			_freeXMMreg(t1reg);
+		}
+		else {
+			_freeXMMreg(t1reg);
+			t1reg = -1;
+		}
+	}
+	
+	return t1reg;
+}
+
+__declspec(align(16)) u32 g_minvals[4] = {0xff7fffff, 0xff7fffff, 0xff7fffff, 0xff7fffff};
+__declspec(align(16)) u32 g_maxvals[4] = {0x7f7fffff, 0x7f7fffff, 0x7f7fffff, 0x7f7fffff};
+
+static __declspec(align(16)) int const_clip[] = {
+	0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff,
+	0x80000000, 0x80000000, 0x80000000, 0x80000000 };
 
 static __declspec(align(16)) u32 s_FloatMinMax[] = {
 	0x007fffff, 0x007fffff, 0x007fffff, 0x007fffff,
-	0x7f7fffff, 0x7f7fffff, 0x7f7fffff, 0x7f7fffff };
+	0x7f7fffff, 0x7f7fffff, 0x7f7fffff, 0x7f7fffff,
+	0,			0,			0,			0 };
 
-void recVU_MAC_UPDATE(VURegs * VU, int reg, int xyzw) {
-	int t0reg = _allocTempXMMreg(-1);
-	int t1reg;
+static __declspec(align(16)) float s_fones[] = { 1.0f, 1.0f, 1.0f, 1.0f, -1.0f, -1.0f, -1.0f, -1.0f };
+static __declspec(align(16)) u32 s_mask[] = {0x7fffff, 0x7fffff, 0x7fffff, 0x7fffff };
+static __declspec(align(16)) u32 s_expmask[] = {0x7f800000, 0x7f800000, 0x7f800000, 0x7f800000};
 
-	if (xyzw != 0) t1reg = _allocTempXMMreg(-1);
+void CheckForOverflowSS_(int fdreg, int t0reg)
+{
+	assert( t0reg != fdreg );
+	SSE_XORPS_XMM_to_XMM(t0reg, t0reg);
+	SSE_CMPORDSS_XMM_to_XMM(t0reg, fdreg);
+	SSE_ANDPS_XMM_to_XMM(fdreg, t0reg);
 
-	if(cpucaps.hasStreamingSIMD2Extensions) 
-	{
-		switch(xyzw) {
-			case 0:
-				SSE2_MOVD_XMM_to_R32(EAX, reg);
-				break;
-			case 1:
-				SSE2_PSHUFD_XMM_to_XMM(t0reg, reg, 0x55);
-				SSE2_MOVD_XMM_to_R32(EAX, t0reg);
-				break;
-			case 2:
-				SSE2_PSHUFD_XMM_to_XMM(t0reg, reg, 0xaa);
-				SSE2_MOVD_XMM_to_R32(EAX, t0reg);
-				break;
-			case 3:
-				SSE2_PSHUFD_XMM_to_XMM(t0reg, reg, 0xff);
-				SSE2_MOVD_XMM_to_R32(EAX, t0reg);
-				break;
-		}
-	} else {
-		switch(xyzw) {
-			case 0:
-				SSE2EMU_MOVD_XMM_to_R32(EAX, reg);
-				break;
-			case 1:
-				SSE2EMU_PSHUFD_XMM_to_XMM(t0reg, reg, 0x55);
-				SSE2EMU_MOVD_XMM_to_R32(EAX, t0reg);
-				break;
-			case 2:
-				SSE2EMU_PSHUFD_XMM_to_XMM(t0reg, reg, 0xaa);
-				SSE2EMU_MOVD_XMM_to_R32(EAX, t0reg);
-				break;
-			case 3:
-				SSE2EMU_PSHUFD_XMM_to_XMM(t0reg, reg, 0xff);
-				SSE2EMU_MOVD_XMM_to_R32(EAX, t0reg);
-				break;
-		}
-	}
-
-	MOV32RtoR(ECX, EAX);
-	AND32ItoR(ECX, 0x7f800000);
-
-	// overflow
-	CMP32ItoR(ECX, 0x7f800000);
-	j8Ptr[ 0 ] = JNE8( 0 );
-
-	// if exp==256, set overflow
-	OR32ItoR(EDX, 1<<(15-xyzw));
-
-	// sign
-	MOV32RtoR(ECX, EAX);
-	SHR32ItoR(EAX, 31);
-	SHL32ItoR(EAX, 4+(3-xyzw));
-	OR32RtoR(EDX, EAX);
-
-	j8Ptr[ 1 ] = JMP8( 0 );
-
-	// else
-	x86SetJ8( j8Ptr[ 0 ] );
-
-	// underflow
-	CMP32ItoR(ECX, 0);
-	j8Ptr[ 2 ] = JNE8( 0 );
-
-	// set zero, underflow and sign
-	OR32ItoR(EDX, 1<<(3-xyzw));
-
-	// sign
-	MOV32RtoR(ECX, EAX);
-	SHR32ItoR(EAX, 31);
-	SHL32ItoR(EAX, 4+(3-xyzw));
-	OR32RtoR(EDX, EAX);
-
-	AND32RtoR(ECX, 0x7fffffff);
-	CMP32ItoR(ECX, 0);
-
-	j8Ptr[ 4 ] = JE8( 0 );
-	OR32ItoR(EDX, 1<<(11-xyzw));
-	j8Ptr[ 3 ] = JMP8( 0 );
-
-	// else
-	x86SetJ8( j8Ptr[ 2 ] );
-
-	// sign
-	SHR32ItoR(EAX, 31);
-	SHL32ItoR(EAX, 4+((3-xyzw)));
-	OR32RtoR(EDX, EAX);
-
-	// zero
-	if (xyzw == 0) {
-		SSE_XORPS_XMM_to_XMM(t0reg, t0reg);
-		SSE_CMPEQSS_XMM_to_XMM(t0reg, reg);
-		if(cpucaps.hasStreamingSIMD2Extensions) SSE2_MOVD_XMM_to_R32(EAX, t0reg);
-		else SSE2EMU_MOVD_XMM_to_R32(EAX, t0reg);
-	} else {
-		SSE_XORPS_XMM_to_XMM(t1reg, t1reg);
-		SSE_CMPEQSS_XMM_to_XMM(t1reg, t0reg);
-		if(cpucaps.hasStreamingSIMD2Extensions) SSE2_MOVD_XMM_to_R32(EAX, t1reg);
-		else SSE2EMU_MOVD_XMM_to_R32(EAX, t1reg);
-	}
-
-	AND32ItoR(EAX, 0x1);
-	SHL32ItoR(EAX, 0+(3-xyzw));
-	OR32RtoR(EDX, EAX);
-
-	x86SetJ8( j8Ptr[ 1 ] );
-	x86SetJ8( j8Ptr[ 3 ] );
-	x86SetJ8( j8Ptr[ 4 ] );
-
-	_freeXMMreg(t0reg);
-	if (xyzw != 0) _freeXMMreg(t1reg);
+//	SSE_MOVSS_M32_to_XMM(t0reg, (u32)s_expmask);
+//	SSE_ANDPS_XMM_to_XMM(t0reg, fdreg);
+//	SSE_CMPNESS_M32_to_XMM(t0reg, (u32)s_expmask);
+//	SSE_ANDPS_XMM_to_XMM(fdreg, t0reg);
 }
 
-void recVU_MAC_UPDATExyzw(VURegs * VU, int reg) {
-	if (_X) { recVU_MAC_UPDATE(VU, reg, 0); }
-	if (_Y) { recVU_MAC_UPDATE(VU, reg, 1); }
-	if (_Z) { recVU_MAC_UPDATE(VU, reg, 2); }
-	if (_W) { recVU_MAC_UPDATE(VU, reg, 3); }
+void CheckForOverflow_(int fdreg, int t0reg)
+{
+//	SSE_MAXPS_M128_to_XMM(fdreg, (u32)g_minvals);
+//	SSE_MINPS_M128_to_XMM(fdreg, (u32)g_maxvals);
+
+	SSE_XORPS_XMM_to_XMM(t0reg, t0reg);
+	SSE_CMPORDPS_XMM_to_XMM(t0reg, fdreg);
+	SSE_ANDPS_XMM_to_XMM(fdreg, t0reg);
+
+//	SSE_MOVAPS_M128_to_XMM(t0reg, (u32)s_expmask);
+//	SSE_ANDPS_XMM_to_XMM(t0reg, fdreg);
+//	SSE_CMPNEPS_M128_to_XMM(t0reg, (u32)s_expmask);
+//	//SSE_ORPS_M128_to_XMM(t0reg, (u32)g_minvals);
+//	SSE_ANDPS_XMM_to_XMM(fdreg, t0reg);
 }
 
-// if macmode == 0, read from _X_Y_Z_W,
-// if macmode == 1, only update xyz (regardless of _X_Y_Z_W)
-// if macmode == 2, only update status flags
-void recVUMI_STAT_REG_UPDATE(VURegs *VU, int reg, int macmode) {
-	XOR32RtoR(EDX, EDX);
+void CheckForOverflow(int info, int regd)
+{
+	if( CHECK_FORCEABS && EEREC_TEMP != regd) {
+		// changing the order produces different results (tektag)
+		CheckForOverflow_(regd, EEREC_TEMP);
+	}
+}
 
-	switch(macmode) {
-		case 0:
-			if (_X_Y_Z_W == 0xf) {
-				recVU_MAC_UPDATExyzw(VU, reg);
-			} else {
-				if (_X) { recVU_MAC_UPDATE(VU, reg, 0); }
-				if (_Y) { recVU_MAC_UPDATE(VU, reg, 1); }
-				if (_Z) { recVU_MAC_UPDATE(VU, reg, 2); }
-				if (_W) { recVU_MAC_UPDATE(VU, reg, 3); }
-			}
+// if unordered replaces with 0x7f7fffff (note, loses sign)
+void ClampUnordered(int regd, int t0reg, int dosign)
+{
+	SSE_XORPS_XMM_to_XMM(t0reg, t0reg);
+	SSE_CMPORDPS_XMM_to_XMM(t0reg, regd);
+	SSE_ANDPS_XMM_to_XMM(regd, t0reg);
+	SSE_ANDNPS_M128_to_XMM(t0reg, (u32)g_maxvals);
+	SSE_ORPS_XMM_to_XMM(regd, t0reg);
+}
 
-			MOV32RtoM((uptr)&VU->macflag, EDX);
-			break;
+// VU Flags
+// NOTE: flags don't compute under/over flows since it is highly unlikely
+// that games used them. Including them will lower performance.
+void recUpdateFlags(VURegs * VU, int reg, int info)
+{
+	u32 flagmask;
+	u8* pjmp;
+	u32 macaddr, stataddr, prevstataddr;
+	int x86macflag, x86newflag, x86oldflag;
+	const static u8 macarr[16] = {0, 8, 4, 12, 2, 10, 6, 14, 1, 9, 5, 13, 3, 11, 7, 15 };
+	if( !(info & PROCESS_VU_UPDATEFLAGS) )
+		return;
 
-		case 1:
-			recVU_MAC_UPDATE(VU, reg, 0);
-			recVU_MAC_UPDATE(VU, reg, 1);
-			recVU_MAC_UPDATE(VU, reg, 2);
+	flagmask = macarr[_X_Y_Z_W];
+	macaddr = VU_VI_ADDR(REG_MAC_FLAG, 0);
+	stataddr = VU_VI_ADDR(REG_STATUS_FLAG, 0);
+	assert( stataddr != 0);
+	prevstataddr = VU_VI_ADDR(REG_STATUS_FLAG, 2);
 
-			MOV32RtoM((uptr)&VU->macflag, EDX);
-			break;
+	// 20 insts
+	x86newflag = ALLOCTEMPX86(MODE_8BITREG);
+	x86macflag = ALLOCTEMPX86(0);
+	x86oldflag = ALLOCTEMPX86(0);
+	
+	// can do with 8 bits since only computing zero/sign flags
+	if( EEREC_TEMP != reg ) {
+		SSE_XORPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
+		SSE_CMPEQPS_XMM_to_XMM(EEREC_TEMP, reg);
 
-		case 2:
-			MOV32MtoR(EDX, (uptr)&VU->macflag);
-			break;
+		MOV32MtoR(x86oldflag, prevstataddr);
 
-		default: __assume(0);
+		SSE_MOVMSKPS_XMM_to_R32(x86newflag, EEREC_TEMP); // zero
+
+		XOR32RtoR(EAX, EAX);
+
+		SSE_ANDNPS_XMM_to_XMM(EEREC_TEMP, reg); // necessary!
+
+		AND32ItoR(x86newflag, 0x0f&flagmask);
+		pjmp = JZ8(0);
+		OR32ItoR(EAX, 1);
+		x86SetJ8(pjmp);
+
+		SSE_MOVMSKPS_XMM_to_R32(x86macflag, EEREC_TEMP); // sign
+
+		SHL32ItoR(x86newflag, 4);
+		AND32ItoR(x86macflag, 0x0f&flagmask);
+		pjmp = JZ8(0);
+		OR32ItoR(EAX, 2);
+		x86SetJ8(pjmp);
+
+		OR32RtoR(x86macflag, x86newflag);
+	}
+	else {
+		SSE_MOVMSKPS_XMM_to_R32(x86macflag, reg); // mask is < 0 (including 80000000)
+
+		MOV32MtoR(x86oldflag, prevstataddr);
+		XOR32RtoR(EAX, EAX);
+
+		SSE_CMPEQPS_M128_to_XMM(EEREC_TEMP, (u32)&s_FloatMinMax[8]);
+		
+		SSE_MOVMSKPS_XMM_to_R32(x86newflag, EEREC_TEMP); // zero
+
+		NOT32R(x86newflag);
+		AND32RtoR(x86macflag, x86newflag);
+
+		AND32ItoR(x86macflag, 0xf&flagmask);
+		pjmp = JZ8(0);
+		OR32ItoR(EAX, 2);
+		x86SetJ8(pjmp);
+
+		NOT32R(x86newflag);
+
+		AND32ItoR(x86newflag, 0xf&flagmask);
+		pjmp = JZ8(0);
+		OR32ItoR(EAX, 1);
+		x86SetJ8(pjmp);
+
+		SHL32ItoR(x86newflag, 4);
+		OR32RtoR(x86macflag, x86newflag);
 	}
 
-	SSE_MINPS_M128_to_XMM(reg, (int)(s_FloatMinMax+4));
+	// x86macflag - new untransformed mac flag, EAX - new status bits, x86oldflag - old status flag
+	// x86macflag = zero_wzyx | sign_wzyx
+	MOV8RmtoROffset(x86newflag, x86macflag, (u32)g_MACFlagTransform); // transform
+	//MOV16RmSOffsettoR(x86newflag, x86macflag, (u32)g_MACFlagTransform, 1);
+	MOV32RtoR(x86macflag, x86oldflag);
+	SHL32ItoR(x86macflag, 6);
+	MOV8RtoM(macaddr, x86newflag);
+	OR32RtoR(x86oldflag, x86macflag);
 
-	MOV32MtoR(ECX, (uptr)&VU->statusflag);
-	MOV32RtoR(EAX, ECX);
-	AND32ItoR(ECX, 0xC30);
-	AND32ItoR(EAX, 0xF);
-	SHL32ItoR(EAX, 6);
-	OR32RtoR(ECX, EAX);
+	AND32ItoR(x86oldflag, 0x0c0);
+	OR32RtoR(x86oldflag, EAX);
+	MOV32RtoM(stataddr, x86oldflag);
 
-	TEST32ItoR(EDX, 0x000F);
-	j8Ptr[0] = JZ8(0);
-	OR32ItoR(ECX, (1<<0));
-	x86SetJ8(j8Ptr[0]); 
-
-	TEST32ItoR(EDX, 0x00F0);
-	j8Ptr[0] = JZ8(0);
-	OR32ItoR(ECX, (1<<1));
-	x86SetJ8(j8Ptr[0]); 
-
-	TEST32ItoR(EDX, 0x0F00);
-	j8Ptr[0] = JZ8(0);
-	OR32ItoR(ECX, (1<<2));
-	x86SetJ8(j8Ptr[0]); 
-
-	TEST32ItoR(EDX, 0xF000);
-	j8Ptr[0] = JZ8(0);
-	OR32ItoR(ECX, (1<<3));
-	x86SetJ8(j8Ptr[0]); 
-
-	MOV32RtoM((uptr)&VU->statusflag, ECX);
+	_freeX86reg(x86macflag);
+	_freeX86reg(x86newflag);
+	_freeX86reg(x86oldflag);
 }
-
 
 /******************************/
 /*   VU Upper instructions    */
@@ -1120,2761 +962,3010 @@ static __declspec(align(16)) int const_abs_table[16][4] =
    { 0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff },
 };
 
-
-void _vurecABS(VURegs *VU) {
-	int t0reg;
-	int fsreg;
-	int ftreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ | MODE_WRITE);
-	t0reg = _allocTempXMMreg(-1);
-
-	SSE_MOVAPS_XMM_to_XMM(t0reg, fsreg);
-	
-	if(cpucaps.hasStreamingSIMD2Extensions) {
-		// this is the cheapest way to do abs... but it's fast
-		SSE2_PSLLD_I8_to_XMM(t0reg, 1);
-		SSE2_PSRLD_I8_to_XMM(t0reg, 1);
-	}
-	else {
-		SSE_ANDPS_M128_to_XMM(t0reg, (int)&const_abs_table[ _X_Y_Z_W ][ 0 ] );
-	}
-
-	VU_MERGE_REGS(ftreg, t0reg);
-}
-
-void _vurecABSxyzw(VURegs *VU) {
-	int fsreg;
-	int ftreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_WRITE);
-
-	if(cpucaps.hasStreamingSIMD2Extensions) {
-		// this is the cheapest way to do abs... but it's fast
-		if (_Ft_ == _Fs_) {
-			SSE2_PSLLD_I8_to_XMM(ftreg, 1);
-			SSE2_PSRLD_I8_to_XMM(ftreg, 1);
-		}
-		else {
-			SSE_MOVAPS_XMM_to_XMM(ftreg, fsreg);
-			SSE2_PSLLD_I8_to_XMM(ftreg, 1);
-			SSE2_PSRLD_I8_to_XMM(ftreg, 1);
-		}
-	}
-	else {
-		if( _Ft_ == _Fs_ ) {
-			SSE_ANDPS_M128_to_XMM(ftreg, (int)&const_abs_table[ _X_Y_Z_W ][ 0 ] );
-		} else {
-			SSE_MOVAPS_XMM_to_XMM(ftreg, fsreg);
-			SSE_ANDPS_M128_to_XMM(ftreg, (int)&const_abs_table[ _X_Y_Z_W ][ 0 ] );
-		}
-	}
-}
-
-void recVUMI_ABS(VURegs *VU) {
-    if ( _Ft_ == 0 ) return;
-
-	if (_X_Y_Z_W != 0xf) {
-		_vurecABS(VU);
-	} else {
-		_vurecABSxyzw(VU);
-	}
-
-	_clearNeededXMMregs();
-}
-
-void recVUMI_ADD(VURegs *VU) {
-	int t0reg;
-	int fsreg;
-	int ftreg;
-	int fdreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	if (_Fd_) _addNeededVFtoXMMreg(_Fd_);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ);
-
-	if (_X_Y_Z_W != 0xf) {
-		if (_Fd_) fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_READ | MODE_WRITE);
-		else fdreg = _allocTempXMMreg(-1);
-		t0reg = _allocTempXMMreg(-1);
-
-		SSE_MOVAPS_XMM_to_XMM(t0reg, fsreg);
-		SSE_ADDPS_XMM_to_XMM(t0reg, ftreg);
-
-		VU_MERGE_REGS(fdreg, t0reg);
-	} else {
-		if (_Fd_) fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_WRITE);
-		else fdreg = _allocTempXMMreg(-1);
-
-		if (fdreg == fsreg) {
-			SSE_ADDPS_XMM_to_XMM(fdreg, ftreg);
-		} else
-		if (fdreg == ftreg) {
-			SSE_ADDPS_XMM_to_XMM(fdreg, fsreg);
-		} else {
-			SSE_MOVAPS_XMM_to_XMM(fdreg, fsreg);
-			SSE_ADDPS_XMM_to_XMM(fdreg, ftreg);
-		}
-	}
-
-	if (cinfo->statusflag & 0x1 ||
-		cinfo->macflag & 0x1) {
-		recVUMI_STAT_REG_UPDATE(VU, fdreg, 0);
-	}
-	if (_Fd_ == 0) _freeXMMreg(fdreg);
-	_clearNeededXMMregs();
-}
-
-void recVUMI_ADD_iq(VURegs *VU, int addr) {
-	int t0reg;
-	int fsreg;
-	int fdreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	if (_Fd_) _addNeededVFtoXMMreg(_Fd_);
-	t0reg = _allocTempXMMreg(-1);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-
-	SSE_MOVSS_M32_to_XMM(t0reg, addr); 
-	if(cpucaps.hasStreamingSIMD2Extensions) SSE2_PSHUFD_XMM_to_XMM(t0reg, t0reg, 0x00);
-	else SSE2EMU_PSHUFD_XMM_to_XMM(t0reg, t0reg, 0x00);
-
-	if (_X_Y_Z_W != 0xf) {
-		if (_Fd_) fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_READ | MODE_WRITE);
-		else fdreg = _allocTempXMMreg(-1);
-
-		SSE_ADDPS_XMM_to_XMM(t0reg, fsreg);
-		VU_MERGE_REGS(fdreg, t0reg);
-	} else {
-		if (_Fd_) fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_WRITE);
-		else fdreg = _allocTempXMMreg(-1);
-
-		if (fdreg == fsreg) {
-			SSE_ADDPS_XMM_to_XMM(fdreg, t0reg);
-		} else {
-			SSE_MOVAPS_XMM_to_XMM(fdreg, fsreg);
-			SSE_ADDPS_XMM_to_XMM(fdreg, t0reg);
-		}
-
-		_freeXMMreg(t0reg);
-	}
-
-	if (cinfo->statusflag & 0x1 ||
-		cinfo->macflag & 0x1) {
-		recVUMI_STAT_REG_UPDATE(VU, fdreg, 0);
-	}
-	if (_Fd_ == 0) _freeXMMreg(fdreg);
-	_clearNeededXMMregs();
-}
-
-void recVUMI_ADD_xyzw(VURegs *VU, int xyzw) {
-	int t0reg;
-	int fsreg;
-	int ftreg;
-	int fdreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	if (_Fd_) _addNeededVFtoXMMreg(_Fd_);
-	t0reg = _allocTempXMMreg(-1);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ);
-
-	_unpackVF_xyzw(t0reg, ftreg, xyzw);
-
-	if (_X_Y_Z_W != 0xf) {
-		if (_Fd_) fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_READ | MODE_WRITE);
-		else fdreg = _allocTempXMMreg(-1);
-
-		SSE_ADDPS_XMM_to_XMM(t0reg, fsreg);
-		VU_MERGE_REGS(fdreg, t0reg);
-	} else {
-		if (_Fd_) fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_WRITE);
-		else fdreg = _allocTempXMMreg(-1);
-
-		if (_Fd_ == 0 || _Fd_ != _Fs_) SSE_MOVAPS_XMM_to_XMM(fdreg, fsreg);
-		SSE_ADDPS_XMM_to_XMM(fdreg, t0reg);
-
-		_freeXMMreg(t0reg);
-	}
-	
-	if (cinfo->statusflag & 0x1 ||
-		cinfo->macflag & 0x1) {
-		recVUMI_STAT_REG_UPDATE(VU, fdreg, 0);
-	}
-	if (_Fd_ == 0) _freeXMMreg(fdreg);
-	_clearNeededXMMregs();
-}
-
-void recVUMI_ADDi(VURegs *VU) { recVUMI_ADD_iq(VU, VU_REGI_ADDR); }
-void recVUMI_ADDq(VURegs *VU) { recVUMI_ADD_iq(VU, VU_REGQ_ADDR); }
-void recVUMI_ADDx(VURegs *VU) { recVUMI_ADD_xyzw(VU, 0); }
-void recVUMI_ADDy(VURegs *VU) { recVUMI_ADD_xyzw(VU, 1); }
-void recVUMI_ADDz(VURegs *VU) { recVUMI_ADD_xyzw(VU, 2); }
-void recVUMI_ADDw(VURegs *VU) { recVUMI_ADD_xyzw(VU, 3); }
-
-void recVUMI_ADDA(VURegs *VU) {
-	int t0reg;
-	int accreg;
-	int fsreg;
-	int ftreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	_addNeededACCtoXMMreg(VU);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ);
-
-	if (_X_Y_Z_W != 0xf) {
-		t0reg = _allocTempXMMreg(-1);
-		accreg = _allocACCtoXMMreg(VU, -1, MODE_READ | MODE_WRITE);
-
-		SSE_MOVAPS_XMM_to_XMM(t0reg, fsreg);
-		SSE_ADDPS_XMM_to_XMM(t0reg, ftreg);
-
-		VU_MERGE_REGS(accreg, t0reg);
-	} else {
-		accreg = _allocACCtoXMMreg(VU, -1, MODE_WRITE);
-		SSE_MOVAPS_XMM_to_XMM(accreg, fsreg);
-		SSE_ADDPS_XMM_to_XMM(accreg, ftreg);
-	}
-
-	if (cinfo->statusflag & 0x1 ||
-		cinfo->macflag & 0x1) {
-		recVUMI_STAT_REG_UPDATE(VU, accreg, 0);
-	}
-	_clearNeededXMMregs();
-}
-
-void recVUMI_ADDA_iq(VURegs *VU, int addr) {
-	int t0reg;
-	int accreg;
-	int fsreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededACCtoXMMreg(VU);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-
-	if (_X_Y_Z_W != 0xf) {
-		t0reg = _allocTempXMMreg(-1);
-		accreg = _allocACCtoXMMreg(VU, -1, MODE_READ | MODE_WRITE);
-
-		SSE_MOVSS_M32_to_XMM(t0reg, addr); 
-		if(cpucaps.hasStreamingSIMD2Extensions) SSE2_PSHUFD_XMM_to_XMM(t0reg, t0reg, 0x00);
-		else SSE2EMU_PSHUFD_XMM_to_XMM(t0reg, t0reg, 0x00);
-
-		SSE_ADDPS_XMM_to_XMM(t0reg, fsreg);
-		VU_MERGE_REGS(accreg, t0reg);
-	} else {
-		accreg = _allocACCtoXMMreg(VU, -1, MODE_WRITE);
-
-		SSE_MOVSS_M32_to_XMM(accreg, addr); 
-		if(cpucaps.hasStreamingSIMD2Extensions) SSE2_PSHUFD_XMM_to_XMM(accreg, accreg, 0x00);
-		else SSE2EMU_PSHUFD_XMM_to_XMM(accreg, accreg, 0x00);
-
-		SSE_ADDPS_XMM_to_XMM(accreg, fsreg);
-	}
-
-	if (cinfo->statusflag & 0x1 ||
-		cinfo->macflag & 0x1) {
-		recVUMI_STAT_REG_UPDATE(VU, accreg, 0);
-	}
-	_clearNeededXMMregs();
-}
-
-void recVUMI_ADDAi(VURegs *VU) { recVUMI_ADDA_iq(VU, VU_REGI_ADDR); }
-void recVUMI_ADDAq(VURegs *VU) { recVUMI_ADDA_iq(VU, VU_REGQ_ADDR); }
-
-void recVUMI_ADDA_xyzw(VURegs *VU, int xyzw) {
-	int t0reg;
-	int accreg;
-	int fsreg;
-	int ftreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	_addNeededACCtoXMMreg(VU);
-	t0reg = _allocTempXMMreg(-1);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ);
-
-	_unpackVF_xyzw(t0reg, ftreg, xyzw);
-	SSE_ADDPS_XMM_to_XMM(t0reg, fsreg);
-
-	if (_X_Y_Z_W != 0xf) {
-		accreg = _allocACCtoXMMreg(VU, -1, MODE_READ | MODE_WRITE);
-		VU_MERGE_REGS(accreg, t0reg);
-	} else {
-		accreg = _allocACCtoXMMreg(VU, -1, MODE_WRITE);
-		SSE_MOVAPS_XMM_to_XMM(accreg, t0reg);
-		_freeXMMreg(t0reg);
-	}
-
-	if (cinfo->statusflag & 0x1 ||
-		cinfo->macflag & 0x1) {
-		recVUMI_STAT_REG_UPDATE(VU, accreg, 0);
-	}
-	_clearNeededXMMregs();
-}
-
-void recVUMI_ADDAx(VURegs *VU) { recVUMI_ADDA_xyzw(VU, 0); }
-void recVUMI_ADDAy(VURegs *VU) { recVUMI_ADDA_xyzw(VU, 1); }
-void recVUMI_ADDAz(VURegs *VU) { recVUMI_ADDA_xyzw(VU, 2); }
-void recVUMI_ADDAw(VURegs *VU) { recVUMI_ADDA_xyzw(VU, 3); }
-
-void recVUMI_SUB(VURegs *VU) {
-	int t0reg;
-	int fsreg;
-	int ftreg;
-	int fdreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	if (_Fd_) _addNeededVFtoXMMreg(_Fd_);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ);
-
-	if (_X_Y_Z_W != 0xf) {
-		if (_Fd_) fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_READ | MODE_WRITE);
-		else fdreg = _allocTempXMMreg(-1);
-		t0reg = _allocTempXMMreg(-1);
-
-		SSE_MOVAPS_XMM_to_XMM(t0reg, fsreg);
-		SSE_SUBPS_XMM_to_XMM(t0reg, ftreg);
-
-		VU_MERGE_REGS(fdreg, t0reg);
-	} else {
-		if (_Fd_) fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_WRITE);
-		else fdreg = _allocTempXMMreg(-1);
-
-		if (fdreg == fsreg) {
-			SSE_SUBPS_XMM_to_XMM(fdreg, ftreg);
-		} else
-		if (fdreg == ftreg) {
-			t0reg = _allocTempXMMreg(-1);
-
-			SSE_MOVAPS_XMM_to_XMM(t0reg, fsreg);
-			SSE_SUBPS_XMM_to_XMM(t0reg, fdreg);
-			SSE_MOVAPS_XMM_to_XMM(fdreg, t0reg);
-
-			_freeXMMreg(t0reg);
-		} else {
-			SSE_MOVAPS_XMM_to_XMM(fdreg, fsreg);
-			SSE_SUBPS_XMM_to_XMM(fdreg, ftreg);
-		}
-	}
-
-	if (cinfo->statusflag & 0x1 ||
-		cinfo->macflag & 0x1) {
-		recVUMI_STAT_REG_UPDATE(VU, fdreg, 0);
-	}
-	if (_Fd_ == 0) _freeXMMreg(fdreg);
-
-	_clearNeededXMMregs();
-}
-
-void recVUMI_SUB_iq(VURegs *VU, int addr) {
-	int t0reg;
-	int t1reg;
-	int fsreg;
-	int fdreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	if (_Fd_) _addNeededVFtoXMMreg(_Fd_);
-	t0reg = _allocTempXMMreg(-1);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-
-	SSE_MOVSS_M32_to_XMM(t0reg, addr); 
-	if(cpucaps.hasStreamingSIMD2Extensions) SSE2_PSHUFD_XMM_to_XMM(t0reg, t0reg, 0x00);
-	else SSE2EMU_PSHUFD_XMM_to_XMM(t0reg, t0reg, 0x00);
-
-	if (_X_Y_Z_W != 0xf) {
-		if (_Fd_) fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_READ | MODE_WRITE);
-		else fdreg = _allocTempXMMreg(-1);
-		t1reg = _allocTempXMMreg(-1);
-
-		SSE_MOVAPS_XMM_to_XMM(t1reg, fsreg);
-		SSE_SUBPS_XMM_to_XMM(t1reg, t0reg);
-
-		VU_MERGE_REGS(fdreg, t1reg);
-	} else {
-		if (_Fd_) fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_WRITE);
-		else fdreg = _allocTempXMMreg(-1);
-
-		if (_Fd_ == 0 || _Fd_ != _Fs_) SSE_MOVAPS_XMM_to_XMM(fdreg, fsreg);
-		SSE_SUBPS_XMM_to_XMM(fdreg, t0reg);
-	}
-
-	_freeXMMreg(t0reg);
-
-	if (cinfo->statusflag & 0x1 ||
-		cinfo->macflag & 0x1) {
-		recVUMI_STAT_REG_UPDATE(VU, fdreg, 0);
-	}
-	if (_Fd_ == 0) _freeXMMreg(fdreg);
-	_clearNeededXMMregs();
-}
-
-void recVUMI_SUB_xyzw(VURegs *VU, int xyzw) {
-	int t0reg;
-	int t1reg;
-	int fsreg;
-	int ftreg;
-	int fdreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	if (_Fd_) _addNeededVFtoXMMreg(_Fd_);
-	t0reg = _allocTempXMMreg(-1);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ);
-
-	_unpackVF_xyzw(t0reg, ftreg, xyzw);
-
-	if (_X_Y_Z_W != 0xf) {
-		if (_Fd_) fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_READ | MODE_WRITE);
-		else fdreg = _allocTempXMMreg(-1);
-		t1reg = _allocTempXMMreg(-1);
-
-		SSE_MOVAPS_XMM_to_XMM(t1reg, fsreg);
-		SSE_SUBPS_XMM_to_XMM(t1reg, t0reg);
-
-		VU_MERGE_REGS(fdreg, t1reg);
-	} else {
-		if (_Fd_) fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_WRITE);
-		else fdreg = _allocTempXMMreg(-1);
-
-		if (_Fd_ == 0 || _Fd_ != _Fs_) SSE_MOVAPS_XMM_to_XMM(fdreg, fsreg);
-		SSE_SUBPS_XMM_to_XMM(fdreg, t0reg);
-	}
-
-	_freeXMMreg(t0reg);
-
-	if (cinfo->statusflag & 0x1 ||
-		cinfo->macflag & 0x1) {
-		recVUMI_STAT_REG_UPDATE(VU, fdreg, 0);
-	}
-	if (_Fd_ == 0) _freeXMMreg(fdreg);
-	_clearNeededXMMregs();
-}
-
-void recVUMI_SUBi(VURegs *VU) { recVUMI_SUB_iq(VU, VU_REGI_ADDR); }
-void recVUMI_SUBq(VURegs *VU) { recVUMI_SUB_iq(VU, VU_REGQ_ADDR); }
-void recVUMI_SUBx(VURegs *VU) { recVUMI_SUB_xyzw(VU, 0); }
-void recVUMI_SUBy(VURegs *VU) { recVUMI_SUB_xyzw(VU, 1); }
-void recVUMI_SUBz(VURegs *VU) { recVUMI_SUB_xyzw(VU, 2); }
-void recVUMI_SUBw(VURegs *VU) { recVUMI_SUB_xyzw(VU, 3); }
-
-void recVUMI_SUBA(VURegs *VU) {
-	int t0reg;
-	int fsreg;
-	int ftreg;
-	int accreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	_addNeededACCtoXMMreg(VU);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ);
-
-	if (_X_Y_Z_W != 0xf) {
-		accreg = _allocACCtoXMMreg(VU, -1, MODE_READ | MODE_WRITE);
-		t0reg = _allocTempXMMreg(-1);
-
-		SSE_MOVAPS_XMM_to_XMM(t0reg, fsreg);
-		SSE_SUBPS_XMM_to_XMM(t0reg, ftreg);
-
-		VU_MERGE_REGS(accreg, t0reg);
-	} else {
-		accreg = _allocACCtoXMMreg(VU, -1, MODE_WRITE);
-
-		SSE_MOVAPS_XMM_to_XMM(accreg, fsreg);
-		SSE_SUBPS_XMM_to_XMM(accreg, ftreg);
-	}
-
-	if (cinfo->statusflag & 0x1 ||
-		cinfo->macflag & 0x1) {
-		recVUMI_STAT_REG_UPDATE(VU, accreg, 0);
-	}
-	_clearNeededXMMregs();
-}
-
-void recVUMI_SUBA_iq(VURegs *VU, int addr) {
-	int t0reg;
-	int t1reg;
-	int fsreg;
-	int accreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededACCtoXMMreg(VU);
-	t0reg = _allocTempXMMreg(-1);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-
-	SSE_MOVSS_M32_to_XMM(t0reg, addr); 
-	if(cpucaps.hasStreamingSIMD2Extensions) SSE2_PSHUFD_XMM_to_XMM(t0reg, t0reg, 0x00);
-	else SSE2EMU_PSHUFD_XMM_to_XMM(t0reg, t0reg, 0x00);
-
-	if (_X_Y_Z_W != 0xf) {
-		accreg = _allocACCtoXMMreg(VU, -1, MODE_READ | MODE_WRITE);
-		t1reg = _allocTempXMMreg(-1);
-
-		SSE_MOVAPS_XMM_to_XMM(t1reg, fsreg);
-		SSE_SUBPS_XMM_to_XMM(t1reg, t0reg);
-
-		VU_MERGE_REGS(accreg, t1reg);
-	} else {
-		accreg = _allocACCtoXMMreg(VU, -1, MODE_WRITE);
-
-		SSE_MOVAPS_XMM_to_XMM(accreg, fsreg);
-		SSE_SUBPS_XMM_to_XMM(accreg, t0reg);
-	}
-
-	_freeXMMreg(t0reg);
-
-	if (cinfo->statusflag & 0x1 ||
-		cinfo->macflag & 0x1) {
-		recVUMI_STAT_REG_UPDATE(VU, accreg, 0);
-	}
-	_clearNeededXMMregs();
-}
-
-void recVUMI_SUBA_xyzw(VURegs *VU, int xyzw) {
-	int t0reg;
-	int t1reg;
-	int fsreg;
-	int ftreg;
-	int accreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	_addNeededACCtoXMMreg(VU);
-	t0reg = _allocTempXMMreg(-1);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ);
-
-	_unpackVF_xyzw(t0reg, ftreg, xyzw);
-
-	if (_X_Y_Z_W != 0xf) {
-		accreg = _allocACCtoXMMreg(VU, -1, MODE_READ | MODE_WRITE);
-		t1reg = _allocTempXMMreg(-1);
-
-		SSE_MOVAPS_XMM_to_XMM(t1reg, fsreg);
-		SSE_SUBPS_XMM_to_XMM(t1reg, t0reg);
-
-		VU_MERGE_REGS(accreg, t1reg);
-	} else {
-		accreg = _allocACCtoXMMreg(VU, -1, MODE_WRITE);
-
-		SSE_MOVAPS_XMM_to_XMM(accreg, fsreg);
-		SSE_SUBPS_XMM_to_XMM(accreg, t0reg);
-	}
-
-	_freeXMMreg(t0reg);
-
-	if (cinfo->statusflag & 0x1 ||
-		cinfo->macflag & 0x1) {
-		recVUMI_STAT_REG_UPDATE(VU, accreg, 0);
-	}
-	_clearNeededXMMregs();
-}
-
-void recVUMI_SUBAi(VURegs *VU) { recVUMI_SUBA_iq(VU, VU_REGI_ADDR); }
-void recVUMI_SUBAq(VURegs *VU) { recVUMI_SUBA_iq(VU, VU_REGQ_ADDR); }
-void recVUMI_SUBAx(VURegs *VU) { recVUMI_SUBA_xyzw(VU, 0); }
-void recVUMI_SUBAy(VURegs *VU) { recVUMI_SUBA_xyzw(VU, 1); }
-void recVUMI_SUBAz(VURegs *VU) { recVUMI_SUBA_xyzw(VU, 2); }
-void recVUMI_SUBAw(VURegs *VU) { recVUMI_SUBA_xyzw(VU, 3); }
-
-void recVUMI_MUL(VURegs *VU) {
-	int t0reg;
-	int fsreg;
-	int ftreg;
-	int fdreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	if (_Fd_) _addNeededVFtoXMMreg(_Fd_);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ);
-
-	if (_X_Y_Z_W != 0xf) {
-		if (_Fd_) fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_READ | MODE_WRITE);
-		else fdreg = _allocTempXMMreg(-1);
-		t0reg = _allocTempXMMreg(-1);
-
-		SSE_MOVAPS_XMM_to_XMM(t0reg, fsreg);
-		SSE_MULPS_XMM_to_XMM(t0reg, ftreg);
-
-		VU_MERGE_REGS(fdreg, t0reg);
-	} else {
-		if (_Fd_) fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_WRITE);
-		else fdreg = _allocTempXMMreg(-1);
-
-		if (fdreg == fsreg) {
-			SSE_MULPS_XMM_to_XMM(fdreg, ftreg);
-		} else
-		if (fdreg == ftreg) {
-			SSE_MULPS_XMM_to_XMM(fdreg, fsreg);
-		} else {
-			SSE_MOVAPS_XMM_to_XMM(fdreg, fsreg);
-			SSE_MULPS_XMM_to_XMM(fdreg, ftreg);
-		}
-	}
-
-	if (cinfo->statusflag & 0x1 ||
-		cinfo->macflag & 0x1) {
-		recVUMI_STAT_REG_UPDATE(VU, fdreg, 0);
-	}
-	if (_Fd_ == 0) _freeXMMreg(fdreg);
-	_clearNeededXMMregs();
-}
-
-void recVUMI_MUL_iq(VURegs *VU, int addr) {
-	int t0reg;
-	int fsreg;
-	int fdreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	if (_Fd_) _addNeededVFtoXMMreg(_Fd_);
-	t0reg = _allocTempXMMreg(-1);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-
-	SSE_MOVSS_M32_to_XMM(t0reg, addr); 
-	if(cpucaps.hasStreamingSIMD2Extensions) SSE2_PSHUFD_XMM_to_XMM(t0reg, t0reg, 0x00);
-	else SSE2EMU_PSHUFD_XMM_to_XMM(t0reg, t0reg, 0x00);
-
-	if (_X_Y_Z_W != 0xf) {
-		if (_Fd_) fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_READ | MODE_WRITE);
-		else fdreg = _allocTempXMMreg(-1);
-
-		SSE_MULPS_XMM_to_XMM(t0reg, fsreg);
-
-		VU_MERGE_REGS(fdreg, t0reg);
-	} else {
-		if (_Fd_) fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_WRITE);
-		else fdreg = _allocTempXMMreg(-1);
-
-		if (fdreg == fsreg) {
-			SSE_MULPS_XMM_to_XMM(fdreg, t0reg);
-		} else {
-			SSE_MOVAPS_XMM_to_XMM(fdreg, fsreg);
-			SSE_MULPS_XMM_to_XMM(fdreg, t0reg);
-		}
-
-		_freeXMMreg(t0reg);
-	}
-
-	if (cinfo->statusflag & 0x1 ||
-		cinfo->macflag & 0x1) {
-		recVUMI_STAT_REG_UPDATE(VU, fdreg, 0);
-	}
-	if (_Fd_ == 0) _freeXMMreg(fdreg);
-	_clearNeededXMMregs();
-}
-
-void recVUMI_MUL_xyzw(VURegs *VU, int xyzw) {
-	int t0reg;
-	int fsreg;
-	int ftreg;
-	int fdreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	if (_Fd_) _addNeededVFtoXMMreg(_Fd_);
-	t0reg = _allocTempXMMreg(-1);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ);
-
-	_unpackVF_xyzw(t0reg, ftreg, xyzw);
-
-	if (_X_Y_Z_W != 0xf) {
-		if (_Fd_) fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_READ | MODE_WRITE);
-		else fdreg = _allocTempXMMreg(-1);
-
-		SSE_MULPS_XMM_to_XMM(t0reg, fsreg);
-
-		VU_MERGE_REGS(fdreg, t0reg);
-	} else {
-		if (_Fd_) fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_WRITE);
-		else fdreg = _allocTempXMMreg(-1);
-
-		if (fdreg == fsreg) {
-			SSE_MULPS_XMM_to_XMM(fdreg, t0reg);
-		} else {
-			SSE_MOVAPS_XMM_to_XMM(fdreg, fsreg);
-			SSE_MULPS_XMM_to_XMM(fdreg, t0reg);
-		}
-
-		_freeXMMreg(t0reg);
-	}
-
-	if (cinfo->statusflag & 0x1 ||
-		cinfo->macflag & 0x1) {
-		recVUMI_STAT_REG_UPDATE(VU, fdreg, 0);
-	}
-	if (_Fd_ == 0) _freeXMMreg(fdreg);
-	_clearNeededXMMregs();
-}
-
-void recVUMI_MULi(VURegs *VU) { recVUMI_MUL_iq(VU, VU_REGI_ADDR); }
-void recVUMI_MULq(VURegs *VU) { recVUMI_MUL_iq(VU, VU_REGQ_ADDR); }
-void recVUMI_MULx(VURegs *VU) { recVUMI_MUL_xyzw(VU, 0); }
-void recVUMI_MULy(VURegs *VU) { recVUMI_MUL_xyzw(VU, 1); }
-void recVUMI_MULz(VURegs *VU) { recVUMI_MUL_xyzw(VU, 2); }
-void recVUMI_MULw(VURegs *VU) { recVUMI_MUL_xyzw(VU, 3); }
-
-void recVUMI_MULA( VURegs *VU ) {
-	int t0reg;
-	int accreg;
-	int fsreg;
-	int ftreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	_addNeededACCtoXMMreg(VU);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ);
-
-	if (_X_Y_Z_W != 0xf) {
-		t0reg = _allocTempXMMreg(-1);
-		accreg = _allocACCtoXMMreg(VU, -1, MODE_READ | MODE_WRITE);
-
-		SSE_MOVAPS_XMM_to_XMM(t0reg, fsreg);
-		SSE_MULPS_XMM_to_XMM(t0reg, ftreg);
-
-		VU_MERGE_REGS(accreg, t0reg);
-	} else {
-		accreg = _allocACCtoXMMreg(VU, -1, MODE_WRITE);
-		SSE_MOVAPS_XMM_to_XMM(accreg, fsreg);
-		SSE_MULPS_XMM_to_XMM(accreg, ftreg);
-	}
-
-	if (cinfo->statusflag & 0x1 ||
-		cinfo->macflag & 0x1) {
-		recVUMI_STAT_REG_UPDATE(VU, accreg, 0);
-	}
-	_clearNeededXMMregs();
-}
-
-void recVUMI_MULA_iq(VURegs *VU, int addr) {
-	int t0reg;
-	int accreg;
-	int fsreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededACCtoXMMreg(VU);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-
-	if (_X_Y_Z_W != 0xf) {
-		t0reg = _allocTempXMMreg(-1);
-		accreg = _allocACCtoXMMreg(VU, -1, MODE_READ | MODE_WRITE);
-
-		SSE_MOVSS_M32_to_XMM(t0reg, addr); 
-		if(cpucaps.hasStreamingSIMD2Extensions) SSE2_PSHUFD_XMM_to_XMM(t0reg, t0reg, 0x00);
-		else SSE2EMU_PSHUFD_XMM_to_XMM(t0reg, t0reg, 0x00);
-
-		SSE_MULPS_XMM_to_XMM(t0reg, fsreg);
-
-		VU_MERGE_REGS(accreg, t0reg);
-	} else {
-		accreg = _allocACCtoXMMreg(VU, -1, MODE_WRITE);
-
-		SSE_MOVSS_M32_to_XMM(accreg, addr); 
-		if(cpucaps.hasStreamingSIMD2Extensions) SSE2_PSHUFD_XMM_to_XMM(accreg, accreg, 0x00);
-		else SSE2EMU_PSHUFD_XMM_to_XMM(accreg, accreg, 0x00);
-
-		SSE_MULPS_XMM_to_XMM(accreg, fsreg);
-	}
-
-	if (cinfo->statusflag & 0x1 ||
-		cinfo->macflag & 0x1) {
-		recVUMI_STAT_REG_UPDATE(VU, accreg, 0);
-	}
-	_clearNeededXMMregs();
-}
-
-void recVUMI_MULAi(VURegs *VU) { recVUMI_MULA_iq(VU, VU_REGI_ADDR); }
-void recVUMI_MULAq(VURegs *VU) { recVUMI_MULA_iq(VU, VU_REGQ_ADDR); }
-
-void recVUMI_MULA_xyzw(VURegs *VU, int xyzw) {
-	int t0reg;
-	int accreg;
-	int fsreg;
-	int ftreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	_addNeededACCtoXMMreg(VU);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ);
-
-	if (_X_Y_Z_W != 0xf) {
-		accreg = _allocACCtoXMMreg(VU, -1, MODE_READ | MODE_WRITE);
-		t0reg = _allocTempXMMreg(-1);
-
-		_unpackVF_xyzw(t0reg, ftreg, xyzw);
-		SSE_MULPS_XMM_to_XMM(t0reg, fsreg);
-
-		VU_MERGE_REGS(accreg, t0reg);
-	} else {
-		accreg = _allocACCtoXMMreg(VU, -1, MODE_WRITE);
-		_unpackVF_xyzw(accreg, ftreg, xyzw);
-		SSE_MULPS_XMM_to_XMM(accreg, fsreg);
-	}
-
-	if (cinfo->statusflag & 0x1 ||
-		cinfo->macflag & 0x1) {
-		recVUMI_STAT_REG_UPDATE(VU, accreg, 0);
-	}
-	
-	_clearNeededXMMregs();
-}
-
-void recVUMI_MULAx(VURegs *VU) { recVUMI_MULA_xyzw(VU, 0); }
-void recVUMI_MULAy(VURegs *VU) { recVUMI_MULA_xyzw(VU, 1); }
-void recVUMI_MULAz(VURegs *VU) { recVUMI_MULA_xyzw(VU, 2); }
-void recVUMI_MULAw(VURegs *VU) { recVUMI_MULA_xyzw(VU, 3); }
-
-void recVUMI_MADD(VURegs *VU) {
-	int t0reg;
-	int accreg;
-	int fsreg;
-	int ftreg;
-	int fdreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	if (_Fd_) _addNeededVFtoXMMreg(_Fd_);
-	_addNeededACCtoXMMreg(VU);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ);
-	accreg = _allocACCtoXMMreg(VU, -1, MODE_READ);
-
-	if (_X_Y_Z_W != 0xf) {
-		if (_Fd_) fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_READ | MODE_WRITE);
-		else fdreg = _allocTempXMMreg(-1);
-		t0reg = _allocTempXMMreg(-1);
-
-		SSE_MOVAPS_XMM_to_XMM(t0reg, fsreg);
-		SSE_MULPS_XMM_to_XMM(t0reg, ftreg);
-		SSE_ADDPS_XMM_to_XMM(t0reg, accreg);
-
-		VU_MERGE_REGS(fdreg, t0reg);
-	} else {
-		if (_Fd_) fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_WRITE);
-		else fdreg = _allocTempXMMreg(-1);
-
-		if (fdreg == ftreg) {
-			t0reg = _allocTempXMMreg(-1);
-
-			SSE_MOVAPS_XMM_to_XMM(t0reg, fsreg);
-			SSE_MULPS_XMM_to_XMM(t0reg, ftreg);
-			SSE_ADDPS_XMM_to_XMM(t0reg, accreg);
-			SSE_MOVAPS_XMM_to_XMM(fdreg, t0reg);
-
-			_freeXMMreg(t0reg);
-		}
-		else {
-			if (_Fd_ == 0 || _Fd_ != _Fs_) SSE_MOVAPS_XMM_to_XMM(fdreg, fsreg);
-			SSE_MULPS_XMM_to_XMM(fdreg, ftreg);
-			SSE_ADDPS_XMM_to_XMM(fdreg, accreg);
-		}
-	}
-
-	if (cinfo->statusflag & 0x1 ||
-		cinfo->macflag & 0x1) {
-		recVUMI_STAT_REG_UPDATE(VU, fdreg, 0);
-	}
-	if (_Fd_ == 0) _freeXMMreg(fdreg);
-	_clearNeededXMMregs();
-}
-
-void recVUMI_MADD_iq(VURegs *VU, int addr) {
-	int t0reg;
-	int accreg;
-	int fsreg;
-	int fdreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	if (_Fd_) _addNeededVFtoXMMreg(_Fd_);
-	_addNeededACCtoXMMreg(VU);
-	t0reg = _allocTempXMMreg(-1);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	accreg = _allocACCtoXMMreg(VU, -1, MODE_READ);
-
-	SSE_MOVSS_M32_to_XMM(t0reg, addr); 
-	if(cpucaps.hasStreamingSIMD2Extensions) SSE2_PSHUFD_XMM_to_XMM(t0reg, t0reg, 0x00);
-	else SSE2EMU_PSHUFD_XMM_to_XMM(t0reg, t0reg, 0x00);
-
-	if (_X_Y_Z_W != 0xf) {
-		if (_Fd_) fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_READ | MODE_WRITE);
-		else fdreg = _allocTempXMMreg(-1);
-
-		SSE_MULPS_XMM_to_XMM(t0reg, fsreg);
-		SSE_ADDPS_XMM_to_XMM(t0reg, accreg);
-
-		VU_MERGE_REGS(fdreg, t0reg);
-	} else {
-		if (_Fd_) fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_WRITE);
-		else fdreg = _allocTempXMMreg(-1);
-
-		if (_Fd_ == 0 || _Fd_ != _Fs_) SSE_MOVAPS_XMM_to_XMM(fdreg, fsreg);
-		SSE_MULPS_XMM_to_XMM(fdreg, t0reg);
-		SSE_ADDPS_XMM_to_XMM(fdreg, accreg);
-
-		_freeXMMreg(t0reg);
-	}
-
-	if (cinfo->statusflag & 0x1 ||
-		cinfo->macflag & 0x1) {
-		recVUMI_STAT_REG_UPDATE(VU, fdreg, 0);
-	}
-	if (_Fd_ == 0) _freeXMMreg(fdreg);
-	_clearNeededXMMregs();
-}
-
-void recVUMI_MADD_xyzw(VURegs *VU, int xyzw) {
-	int t0reg;
-	int accreg;
-	int fsreg;
-	int ftreg;
-	int fdreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	if (_Fd_) _addNeededVFtoXMMreg(_Fd_);
-	_addNeededACCtoXMMreg(VU);
-	t0reg = _allocTempXMMreg(-1);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ);
-	accreg = _allocACCtoXMMreg(VU, -1, MODE_READ);
-
-	_unpackVF_xyzw(t0reg, ftreg, xyzw);
-
-	if (_X_Y_Z_W != 0xf) {
-		if (_Fd_) fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_READ | MODE_WRITE);
-		else fdreg = _allocTempXMMreg(-1);
-
-		SSE_MULPS_XMM_to_XMM(t0reg, fsreg);
-		SSE_ADDPS_XMM_to_XMM(t0reg, accreg);
-
-		VU_MERGE_REGS(fdreg, t0reg);
-	} else {
-		if (_Fd_) fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_WRITE);
-		else fdreg = _allocTempXMMreg(-1);
-
-		if (_Fd_ == 0 || _Fd_ != _Fs_) SSE_MOVAPS_XMM_to_XMM(fdreg, fsreg);
-		SSE_MULPS_XMM_to_XMM(fdreg, t0reg);
-		SSE_ADDPS_XMM_to_XMM(fdreg, accreg);
-		_freeXMMreg(t0reg);
-	}
-
-	if (cinfo->statusflag & 0x1 ||
-		cinfo->macflag & 0x1) {
-		recVUMI_STAT_REG_UPDATE(VU, fdreg, 0);
-	}
-	if (_Fd_ == 0) _freeXMMreg(fdreg);
-	_clearNeededXMMregs();
-}
-
-void recVUMI_MADDi(VURegs *VU) { recVUMI_MADD_iq(VU, VU_REGI_ADDR); }
-void recVUMI_MADDq(VURegs *VU) { recVUMI_MADD_iq(VU, VU_REGQ_ADDR); }
-void recVUMI_MADDx(VURegs *VU) { recVUMI_MADD_xyzw(VU, 0); }
-void recVUMI_MADDy(VURegs *VU) { recVUMI_MADD_xyzw(VU, 1); }
-void recVUMI_MADDz(VURegs *VU) { recVUMI_MADD_xyzw(VU, 2); }
-void recVUMI_MADDw(VURegs *VU) { recVUMI_MADD_xyzw(VU, 3); }
-
-void recVUMI_MADDA( VURegs *VU ) {
-	int t0reg;
-	int accreg;
-	int fsreg;
-	int ftreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	_addNeededACCtoXMMreg(VU);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ);
-	accreg = _allocACCtoXMMreg(VU, -1, MODE_READ | MODE_WRITE);
-	t0reg = _allocTempXMMreg(-1);
-
-	SSE_MOVAPS_XMM_to_XMM(t0reg, fsreg);
-	SSE_MULPS_XMM_to_XMM(t0reg, ftreg);
-
-	if (_X_Y_Z_W != 0xf) {
-		SSE_ADDPS_XMM_to_XMM(t0reg, accreg);
-		VU_MERGE_REGS(accreg, t0reg);
-	} else {
-		SSE_ADDPS_XMM_to_XMM(accreg, t0reg);
-		_freeXMMreg(t0reg);
-	}
-
-	if (cinfo->statusflag & 0x1 ||
-		cinfo->macflag & 0x1) {
-		recVUMI_STAT_REG_UPDATE(VU, accreg, 0);
-	}
-	_clearNeededXMMregs();
-}
-
-void recVUMI_MADDA_iq( VURegs *VU, int addr) {
-	int t0reg;
-	int accreg;
-	int fsreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededACCtoXMMreg(VU);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	accreg = _allocACCtoXMMreg(VU, -1, MODE_READ | MODE_WRITE);
-	t0reg = _allocTempXMMreg(-1);
-
-	SSE_MOVSS_M32_to_XMM(t0reg, addr); 
-	if(cpucaps.hasStreamingSIMD2Extensions) SSE2_PSHUFD_XMM_to_XMM(t0reg, t0reg, 0x00);
-	else SSE2EMU_PSHUFD_XMM_to_XMM(t0reg, t0reg, 0x00);
-
-	SSE_MULPS_XMM_to_XMM(t0reg, fsreg);
-
-	if (_X_Y_Z_W != 0xf) {
-		SSE_ADDPS_XMM_to_XMM(t0reg, accreg);
-
-		VU_MERGE_REGS(accreg, t0reg);
-	} else {
-		SSE_ADDPS_XMM_to_XMM(accreg, t0reg);
-		_freeXMMreg(t0reg);
-	}
-
-	if (cinfo->statusflag & 0x1 ||
-		cinfo->macflag & 0x1) {
-		recVUMI_STAT_REG_UPDATE(VU, accreg, 0);
-	}
-	_clearNeededXMMregs();
-}
-
-void recVUMI_MADDAi( VURegs *VU ) { recVUMI_MADDA_iq( VU, VU_REGI_ADDR ); }
-void recVUMI_MADDAq( VURegs *VU ) { recVUMI_MADDA_iq( VU, VU_REGQ_ADDR ); }
-
-void recVUMI_MADDA_xyzw(VURegs *VU, int xyzw) {
-	int t0reg;
-	int accreg;
-	int fsreg;
-	int ftreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	_addNeededACCtoXMMreg(VU);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ);
-	accreg = _allocACCtoXMMreg(VU, -1, MODE_READ | MODE_WRITE);
-	t0reg = _allocTempXMMreg(-1);
-	_unpackVF_xyzw(t0reg, ftreg, xyzw);
-
-	SSE_MULPS_XMM_to_XMM(t0reg, fsreg);
-
-	if (_X_Y_Z_W != 0xf) {
-		SSE_ADDPS_XMM_to_XMM(t0reg, accreg);
-		VU_MERGE_REGS(accreg, t0reg);
-	} else {
-		SSE_ADDPS_XMM_to_XMM(accreg, t0reg);
-		_freeXMMreg(t0reg);
-	}
-
-	if (cinfo->statusflag & 0x1 ||
-		cinfo->macflag & 0x1) {
-		recVUMI_STAT_REG_UPDATE(VU, accreg, 0);
-	}
-	_clearNeededXMMregs();
-}
-
-void recVUMI_MADDAx( VURegs *VU ) { recVUMI_MADDA_xyzw(VU, 0); }
-void recVUMI_MADDAy( VURegs *VU ) { recVUMI_MADDA_xyzw(VU, 1); }
-void recVUMI_MADDAz( VURegs *VU ) { recVUMI_MADDA_xyzw(VU, 2); }
-void recVUMI_MADDAw( VURegs *VU ) { recVUMI_MADDA_xyzw(VU, 3); }
-
-void recVUMI_MSUB(VURegs *VU) {
-	int t0reg;
-	int t1reg;
-	int accreg;
-	int fsreg;
-	int ftreg;
-	int fdreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	if (_Fd_) _addNeededVFtoXMMreg(_Fd_);
-	_addNeededACCtoXMMreg(VU);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ);
-	accreg = _allocACCtoXMMreg(VU, -1, MODE_READ);
-
-	if (_X_Y_Z_W != 0xf) {
-		if (_Fd_) fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_READ | MODE_WRITE);
-		else fdreg = _allocTempXMMreg(-1);
-		t0reg = _allocTempXMMreg(-1);
-		t1reg = _allocTempXMMreg(-1);
-
-		SSE_MOVAPS_XMM_to_XMM(t0reg, fsreg);
-		SSE_MULPS_XMM_to_XMM(t0reg, ftreg);
-		SSE_MOVAPS_XMM_to_XMM(t1reg, accreg);
-		SSE_SUBPS_XMM_to_XMM(t1reg, t0reg);
-
-		VU_MERGE_REGS(fdreg, t1reg);
-		_freeXMMreg(t0reg);
-	} else {
-		if (_Fd_) fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_WRITE);
-		else fdreg = _allocTempXMMreg(-1);
-		t0reg = _allocTempXMMreg(-1);
-
-		SSE_MOVAPS_XMM_to_XMM(t0reg, fsreg);
-		SSE_MULPS_XMM_to_XMM(t0reg, ftreg);
-		SSE_MOVAPS_XMM_to_XMM(fdreg, accreg);
-		SSE_SUBPS_XMM_to_XMM(fdreg, t0reg);
-
-		_freeXMMreg(t0reg);
-	}
-
-	if (cinfo->statusflag & 0x1 ||
-		cinfo->macflag & 0x1) {
-		recVUMI_STAT_REG_UPDATE(VU, fdreg, 0);
-	}
-	if (_Fd_ == 0) _freeXMMreg(fdreg);
-	_clearNeededXMMregs();
-}
-
-void recVUMI_MSUB_iq(VURegs *VU, int addr) {
-	int t0reg;
-	int t1reg;
-	int accreg;
-	int fsreg;
-	int fdreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	if (_Fd_) _addNeededVFtoXMMreg(_Fd_);
-	_addNeededACCtoXMMreg(VU);
-	t0reg = _allocTempXMMreg(-1);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	accreg = _allocACCtoXMMreg(VU, -1, MODE_READ);
-
-	SSE_MOVSS_M32_to_XMM(t0reg, addr); 
-	if(cpucaps.hasStreamingSIMD2Extensions) SSE2_PSHUFD_XMM_to_XMM(t0reg, t0reg, 0x00);
-	else SSE2EMU_PSHUFD_XMM_to_XMM(t0reg, t0reg, 0x00);
-
-	if (_X_Y_Z_W != 0xf) {
-		if (_Fd_) fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_READ | MODE_WRITE);
-		else fdreg = _allocTempXMMreg(-1);
-		t1reg = _allocTempXMMreg(-1);
-
-		SSE_MULPS_XMM_to_XMM(t0reg, fsreg);
-		SSE_MOVAPS_XMM_to_XMM(t1reg, accreg);
-		SSE_SUBPS_XMM_to_XMM(t1reg, t0reg);
-
-		VU_MERGE_REGS(fdreg, t1reg);
-	} else {
-		if (_Fd_) fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_WRITE);
-		else fdreg = _allocTempXMMreg(-1);
-
-		SSE_MULPS_XMM_to_XMM(t0reg, fsreg);
-		SSE_MOVAPS_XMM_to_XMM(fdreg, accreg);
-		SSE_SUBPS_XMM_to_XMM(fdreg, t0reg);
-	}
-
-	_freeXMMreg(t0reg);
-	if (cinfo->statusflag & 0x1 ||
-		cinfo->macflag & 0x1) {
-		recVUMI_STAT_REG_UPDATE(VU, fdreg, 0);
-	}
-	if (_Fd_ == 0) _freeXMMreg(fdreg);
-	_clearNeededXMMregs();
-}
-
-void recVUMI_MSUB_xyzw(VURegs *VU, int xyzw) {
-	int t0reg;
-	int t1reg;
-	int accreg;
-	int fsreg;
-	int ftreg;
-	int fdreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	if (_Fd_) _addNeededVFtoXMMreg(_Fd_);
-	_addNeededACCtoXMMreg(VU);
-	t0reg = _allocTempXMMreg(-1);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ);
-	accreg = _allocACCtoXMMreg(VU, -1, MODE_READ);
-
-	_unpackVF_xyzw(t0reg, ftreg, xyzw);
-
-	if (_X_Y_Z_W != 0xf) {
-		if (_Fd_) fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_READ | MODE_WRITE);
-		else fdreg = _allocTempXMMreg(-1);
-		t1reg = _allocTempXMMreg(-1);
-
-		SSE_MULPS_XMM_to_XMM(t0reg, fsreg);
-		SSE_MOVAPS_XMM_to_XMM(t1reg, accreg);
-		SSE_SUBPS_XMM_to_XMM(t1reg, t0reg);
-
-		VU_MERGE_REGS(fdreg, t1reg);
-	} else {
-		if (_Fd_) fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_WRITE);
-		else fdreg = _allocTempXMMreg(-1);
-
-		SSE_MULPS_XMM_to_XMM(t0reg, fsreg);
-		SSE_MOVAPS_XMM_to_XMM(fdreg, accreg);
-		SSE_SUBPS_XMM_to_XMM(fdreg, t0reg);
-	}
-
-	_freeXMMreg(t0reg);
-	if (cinfo->statusflag & 0x1 ||
-		cinfo->macflag & 0x1) {
-		recVUMI_STAT_REG_UPDATE(VU, fdreg, 0);
-	}
-	if (_Fd_ == 0) _freeXMMreg(fdreg);
-	_clearNeededXMMregs();
-}
-
-void recVUMI_MSUBi(VURegs *VU) { recVUMI_MSUB_iq(VU, VU_REGI_ADDR); }
-void recVUMI_MSUBq(VURegs *VU) { recVUMI_MSUB_iq(VU, VU_REGQ_ADDR); }
-void recVUMI_MSUBx(VURegs *VU) { recVUMI_MSUB_xyzw(VU, 0); }
-void recVUMI_MSUBy(VURegs *VU) { recVUMI_MSUB_xyzw(VU, 1); }
-void recVUMI_MSUBz(VURegs *VU) { recVUMI_MSUB_xyzw(VU, 2); }
-void recVUMI_MSUBw(VURegs *VU) { recVUMI_MSUB_xyzw(VU, 3); }
-
-void recVUMI_MSUBA( VURegs *VU ) {
-	int t0reg;
-	int t1reg;
-	int accreg;
-	int fsreg;
-	int ftreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	_addNeededACCtoXMMreg(VU);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ);
-	accreg = _allocACCtoXMMreg(VU, -1, MODE_READ | MODE_WRITE);
-	t0reg = _allocTempXMMreg(-1);
-
-	SSE_MOVAPS_XMM_to_XMM(t0reg, fsreg);
-	SSE_MULPS_XMM_to_XMM(t0reg, ftreg);
-
-	if (_X_Y_Z_W != 0xf) {
-		t1reg = _allocTempXMMreg(-1);
-
-		SSE_MOVAPS_XMM_to_XMM(t1reg, accreg);
-		SSE_SUBPS_XMM_to_XMM(t1reg, t0reg);
-
-		VU_MERGE_REGS(accreg, t1reg);
-	} else {
-		SSE_SUBPS_XMM_to_XMM(accreg, t0reg);
-	}
-
-	_freeXMMreg(t0reg);
-	if (cinfo->statusflag & 0x1 ||
-		cinfo->macflag & 0x1) {
-		recVUMI_STAT_REG_UPDATE(VU, accreg, 0);
-	}
-	_clearNeededXMMregs();
-}
-
-void recVUMI_MSUBA_iq( VURegs *VU, int addr) {
-	int t0reg;
-	int t1reg;
-	int accreg;
-	int fsreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededACCtoXMMreg(VU);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	accreg = _allocACCtoXMMreg(VU, -1, MODE_READ | MODE_WRITE);
-	t0reg = _allocTempXMMreg(-1);
-
-	SSE_MOVSS_M32_to_XMM(t0reg, addr); 
-	if(cpucaps.hasStreamingSIMD2Extensions) SSE2_PSHUFD_XMM_to_XMM(t0reg, t0reg, 0x00);
-	else SSE2EMU_PSHUFD_XMM_to_XMM(t0reg, t0reg, 0x00);
-
-	SSE_MULPS_XMM_to_XMM(t0reg, fsreg);
-
-	if (_X_Y_Z_W != 0xf) {
-		t1reg = _allocTempXMMreg(-1);
-
-		SSE_MOVAPS_XMM_to_XMM(t1reg, accreg);
-		SSE_SUBPS_XMM_to_XMM(t1reg, t0reg);
-
-		VU_MERGE_REGS(accreg, t1reg);
-	} else {
-		SSE_SUBPS_XMM_to_XMM(accreg, t0reg);
-	}
-
-	if (cinfo->statusflag & 0x1 ||
-		cinfo->macflag & 0x1) {
-		recVUMI_STAT_REG_UPDATE(VU, accreg, 0);
-	}
-	_clearNeededXMMregs();
-}
-
-void recVUMI_MSUBA_xyzw(VURegs *VU, int xyzw) {
-	int t0reg;
-	int t1reg;
-	int accreg;
-	int fsreg;
-	int ftreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	_addNeededACCtoXMMreg(VU);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ);
-	accreg = _allocACCtoXMMreg(VU, -1, MODE_READ | MODE_WRITE);
-	t0reg = _allocTempXMMreg(-1);
-	_unpackVF_xyzw(t0reg, ftreg, xyzw);
-
-	SSE_MULPS_XMM_to_XMM(t0reg, fsreg);
-
-	if (_X_Y_Z_W != 0xf) {
-		t1reg = _allocTempXMMreg(-1);
-
-		SSE_MOVAPS_XMM_to_XMM(t1reg, accreg);
-		SSE_SUBPS_XMM_to_XMM(t1reg, t0reg);
-
-		VU_MERGE_REGS(accreg, t1reg);
-	} else {
-		SSE_SUBPS_XMM_to_XMM(accreg, t0reg);
-	}
-
-	if (cinfo->statusflag & 0x1 ||
-		cinfo->macflag & 0x1) {
-		recVUMI_STAT_REG_UPDATE(VU, accreg, 0);
-	}
-	_clearNeededXMMregs();
-}
-
-void recVUMI_MSUBAi( VURegs *VU ) { recVUMI_MSUBA_iq( VU, VU_REGI_ADDR ); }
-void recVUMI_MSUBAq( VURegs *VU ) { recVUMI_MSUBA_iq( VU, VU_REGQ_ADDR ); }
-void recVUMI_MSUBAx( VURegs *VU ) { recVUMI_MSUBA_xyzw(VU, 0); }
-void recVUMI_MSUBAy( VURegs *VU ) { recVUMI_MSUBA_xyzw(VU, 1); }
-void recVUMI_MSUBAz( VURegs *VU ) { recVUMI_MSUBA_xyzw(VU, 2); }
-void recVUMI_MSUBAw( VURegs *VU ) { recVUMI_MSUBA_xyzw(VU, 3); }
-
-void recVUMI_MAX(VURegs *VU) {
-	int t0reg;
-	int fsreg;
-	int ftreg;
-	int fdreg;
-
-	if ( _Fd_ == 0 ) return;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	_addNeededVFtoXMMreg(_Fd_);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ);
-
-	if (_X_Y_Z_W != 0xf) {
-		fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_READ | MODE_WRITE);
-		t0reg = _allocTempXMMreg(-1);
-
-		SSE_MOVAPS_XMM_to_XMM(t0reg, fsreg);
-		SSE_MAXPS_XMM_to_XMM(t0reg, ftreg);
-
-		VU_MERGE_REGS(fdreg, t0reg);
-	} else {
-		fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_WRITE);
-
-		if (_Fd_ == _Ft_) {
-			t0reg = _allocTempXMMreg(-1);
-			SSE_MOVAPS_XMM_to_XMM(t0reg, fsreg);
-			SSE_MAXPS_XMM_to_XMM(t0reg, ftreg);
-			SSE_MOVAPS_XMM_to_XMM(fdreg, t0reg);
-			_freeXMMreg(t0reg);
-		}
-		else {
-			if (_Fd_ != _Fs_) SSE_MOVAPS_XMM_to_XMM(fdreg, fsreg);
-			SSE_MAXPS_XMM_to_XMM(fdreg, ftreg);
-		}
-	}
-
-	_clearNeededXMMregs();
-}
-
-void recVUMI_MAX_iq(VURegs *VU, int addr) {
-	int t0reg;
-	int fsreg;
-	int fdreg;
-
-	if ( _Fd_ == 0 ) return;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Fd_);
-	t0reg = _allocTempXMMreg(-1);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-
-	SSE_MOVSS_M32_to_XMM(t0reg, addr); 
-	if(cpucaps.hasStreamingSIMD2Extensions) SSE2_PSHUFD_XMM_to_XMM(t0reg, t0reg, 0x00);
-	else SSE2EMU_PSHUFD_XMM_to_XMM(t0reg, t0reg, 0x00);
-
-	if (_X_Y_Z_W != 0xf) {
-		fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_READ | MODE_WRITE);
-
-		SSE_MAXPS_XMM_to_XMM(t0reg, fsreg);
-		VU_MERGE_REGS(fdreg, t0reg);
-	} else {
-		fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_WRITE);
-
-		if (_Fd_ != _Fs_) SSE_MOVAPS_XMM_to_XMM(fdreg, fsreg);
-		SSE_MAXPS_XMM_to_XMM(fdreg, t0reg);
-		_freeXMMreg(t0reg);
-	}
-
-	_clearNeededXMMregs();
-}
-
-void recVUMI_MAX_xyzw(VURegs *VU, int xyzw) {
-	int t0reg;
-	int fsreg;
-	int ftreg;
-	int fdreg;
-
-	if ( _Fd_ == 0 ) return;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	_addNeededVFtoXMMreg(_Fd_);
-	t0reg = _allocTempXMMreg(-1);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ);
-
-	_unpackVF_xyzw(t0reg, ftreg, xyzw);
-
-	if (_X_Y_Z_W != 0xf) {
-		fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_READ | MODE_WRITE);
-
-		SSE_MAXPS_XMM_to_XMM(t0reg, fsreg);
-		VU_MERGE_REGS(fdreg, t0reg);
-	} else {
-		fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_WRITE);
-
-		if (_Fd_ != _Fs_) SSE_MOVAPS_XMM_to_XMM(fdreg, fsreg);
-		SSE_MAXPS_XMM_to_XMM(fdreg, t0reg);
-		_freeXMMreg(t0reg);
-	}
-
-	_clearNeededXMMregs();
-}
-
-void recVUMI_MAXi(VURegs *VU) { recVUMI_MAX_iq(VU, VU_REGI_ADDR); }
-void recVUMI_MAXx(VURegs *VU) { recVUMI_MAX_xyzw(VU, 0); }
-void recVUMI_MAXy(VURegs *VU) { recVUMI_MAX_xyzw(VU, 1); }
-void recVUMI_MAXz(VURegs *VU) { recVUMI_MAX_xyzw(VU, 2); }
-void recVUMI_MAXw(VURegs *VU) { recVUMI_MAX_xyzw(VU, 3); }
-
-void recVUMI_MINI(VURegs *VU) {
-	int t0reg;
-	int fsreg;
-	int ftreg;
-	int fdreg;
-
-	if ( _Fd_ == 0 ) return;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	_addNeededVFtoXMMreg(_Fd_);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ);
-
-	if (_X_Y_Z_W != 0xf) {
-		fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_READ | MODE_WRITE);
-		t0reg = _allocTempXMMreg(-1);
-
-		SSE_MOVAPS_XMM_to_XMM(t0reg, fsreg);
-		SSE_MINPS_XMM_to_XMM(t0reg, ftreg);
-
-		VU_MERGE_REGS(fdreg, t0reg);
-	} else {
-		fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_WRITE);
-
-		if (_Fd_ == _Ft_) {
-			t0reg = _allocTempXMMreg(-1);
-			SSE_MOVAPS_XMM_to_XMM(t0reg, fsreg);
-			SSE_MINPS_XMM_to_XMM(t0reg, ftreg);
-			SSE_MOVAPS_XMM_to_XMM(fdreg, t0reg);
-			_freeXMMreg(t0reg);
-		}
-		else {
-			if (_Fd_ != _Fs_) SSE_MOVAPS_XMM_to_XMM(fdreg, fsreg);
-			SSE_MINPS_XMM_to_XMM(fdreg, ftreg);
-		}
-	}
-
-	_clearNeededXMMregs();
-}
-
-void recVUMI_MINI_iq(VURegs *VU, int addr) {
-	int t0reg;
-	int fsreg;
-	int fdreg;
-
-	if ( _Fd_ == 0 ) return;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Fd_);
-	t0reg = _allocTempXMMreg(-1);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-
-	SSE_MOVSS_M32_to_XMM(t0reg, addr); 
-	if(cpucaps.hasStreamingSIMD2Extensions) SSE2_PSHUFD_XMM_to_XMM(t0reg, t0reg, 0x00);
-	else SSE2EMU_PSHUFD_XMM_to_XMM(t0reg, t0reg, 0x00);
-
-	if (_X_Y_Z_W != 0xf) {
-		fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_READ | MODE_WRITE);
-
-		SSE_MINPS_XMM_to_XMM(t0reg, fsreg);
-		VU_MERGE_REGS(fdreg, t0reg);
-	} else {
-		fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_WRITE);
-
-		if (_Fd_ != _Fs_) SSE_MOVAPS_XMM_to_XMM(fdreg, fsreg);
-		SSE_MINPS_XMM_to_XMM(fdreg, t0reg);
-		_freeXMMreg(t0reg);
-	}
-
-	_clearNeededXMMregs();
-}
-
-void recVUMI_MINI_xyzw(VURegs *VU, int xyzw) {
-	int t0reg;
-	int fsreg;
-	int ftreg;
-	int fdreg;
-
-	if ( _Fd_ == 0 ) return;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	_addNeededVFtoXMMreg(_Fd_);
-	t0reg = _allocTempXMMreg(-1);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ);
-
-	_unpackVF_xyzw(t0reg, ftreg, xyzw);
-
-	if (_X_Y_Z_W != 0xf) {
-		fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_READ | MODE_WRITE);
-
-		SSE_MINPS_XMM_to_XMM(t0reg, fsreg);
-		VU_MERGE_REGS(fdreg, t0reg);
-	} else {
-		fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_WRITE);
-
-		if (_Fd_ != _Fs_) SSE_MOVAPS_XMM_to_XMM(fdreg, fsreg);
-		SSE_MINPS_XMM_to_XMM(fdreg, t0reg);
-		_freeXMMreg(t0reg);
-	}
-
-	_clearNeededXMMregs();
-}
-
-void recVUMI_MINIi(VURegs *VU) { recVUMI_MINI_iq(VU, VU_REGI_ADDR); }
-void recVUMI_MINIx(VURegs *VU) { recVUMI_MINI_xyzw(VU, 0); }
-void recVUMI_MINIy(VURegs *VU) { recVUMI_MINI_xyzw(VU, 1); }
-void recVUMI_MINIz(VURegs *VU) { recVUMI_MINI_xyzw(VU, 2); }
-void recVUMI_MINIw(VURegs *VU) { recVUMI_MINI_xyzw(VU, 3); }
-
-void recVUMI_OPMULA( VURegs *VU )
+void recVUMI_ABS(VURegs *VU, int info)
 {
-	int t0reg, t1reg, accreg, fsreg, ftreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	_addNeededACCtoXMMreg(VU);
-	t0reg = _allocTempXMMreg(-1);
-	t1reg = _allocTempXMMreg(-1);
-	accreg = _allocACCtoXMMreg(VU, -1, MODE_WRITE|MODE_READ);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ);
-
-	if(cpucaps.hasStreamingSIMD2Extensions) {
-		SSE2_PSHUFD_XMM_to_XMM( t0reg, fsreg, 0xC9 );           // XMM0 = WXZY
-		SSE2_PSHUFD_XMM_to_XMM( t1reg, ftreg, 0xD2 );           // XMM1 = WYXZ
-	}
-	else {
-		SSE2EMU_PSHUFD_XMM_to_XMM( t0reg, fsreg, 0xC9 );           // XMM0 = WXZY
-		SSE2EMU_PSHUFD_XMM_to_XMM( t1reg, ftreg, 0xD2 );           // XMM1 = WYXZ
-	}
-
-	SSE_MULPS_XMM_to_XMM( t0reg, t1reg );
-	VU_MERGE_REGS_CUSTOM(accreg, t0reg, 14);
-
-	_freeXMMreg(t1reg);
-	if ((cinfo->statusflag & 0x1) || (cinfo->macflag & 0x1) ) {
-		recVUMI_STAT_REG_UPDATE(VU, accreg, 1);
-	}
-
-	_clearNeededXMMregs();
-}
-
-void recVUMI_OPMSUB( VURegs *VU )
-{
-	int t0reg, t1reg, accreg, fsreg, ftreg, fdreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	_addNeededACCtoXMMreg(VU);
-
-	if (_Fd_) {
-		_addNeededVFtoXMMreg(_Fd_);
-		fdreg = _allocVFtoXMMreg(VU, -1, _Fd_, MODE_WRITE|MODE_READ);
-	}
-	else
-		fdreg = _allocTempXMMreg(-1);
-
-	t0reg = _allocTempXMMreg(-1);
-	t1reg = _allocTempXMMreg(-1);
-	accreg = _allocACCtoXMMreg(VU, -1, MODE_READ);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ);
-
-	if(cpucaps.hasStreamingSIMD2Extensions) {
-		SSE2_PSHUFD_XMM_to_XMM( t0reg, fsreg, 0xC9 );           // XMM0 = WXZY
-		SSE2_PSHUFD_XMM_to_XMM( t1reg, ftreg, 0xD2 );           // XMM1 = WYXZ
-	}
-	else {
-		SSE2EMU_PSHUFD_XMM_to_XMM( t0reg, fsreg, 0xC9 );           // XMM0 = WXZY
-		SSE2EMU_PSHUFD_XMM_to_XMM( t1reg, ftreg, 0xD2 );           // XMM1 = WYXZ
-	}
-
-	SSE_MULPS_XMM_to_XMM( t0reg, t1reg);
-	SSE_MOVAPS_XMM_to_XMM(t1reg, accreg);
-	SSE_SUBPS_XMM_to_XMM( t1reg, t0reg);
-	VU_MERGE_REGS_CUSTOM(fdreg, t1reg, 14);
-
-	_freeXMMreg(t0reg);
-	if ((cinfo->statusflag & 0x1) || (cinfo->macflag & 0x1)) {
-		recVUMI_STAT_REG_UPDATE(VU, fdreg, 1);
-	}
-
-	if( _Fd_ == 0 ) _freeXMMreg(fdreg);
-
-	_clearNeededXMMregs();
-}
-
-void recVUMI_NOP( VURegs *VU ) 
-{
-}
-
-void recVUMI_FTOI0(VURegs *VU) {
-	int t0reg;
-	int fsreg;
-	int ftreg;
-
-	if ( _Ft_ == 0 ) return; 
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-
-	if (_X_Y_Z_W != 0xf) {
-		ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ | MODE_WRITE);
-		t0reg = _allocTempXMMreg(-1);
-
-        if(cpucaps.hasStreamingSIMD2Extensions) SSE2_CVTPS2DQ_XMM_to_XMM(t0reg, fsreg);
-		else SSE2EMU_CVTPS2DQ_XMM_to_XMM(t0reg, fsreg);
-		VU_MERGE_REGS(ftreg, t0reg);
-	} else {
-		ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_WRITE);
-        if(cpucaps.hasStreamingSIMD2Extensions) SSE2_CVTPS2DQ_XMM_to_XMM(ftreg, fsreg);
-		else SSE2EMU_CVTPS2DQ_XMM_to_XMM(ftreg, fsreg);
-	}
-
-	_clearNeededXMMregs();
-}
-
-void recVUMI_FTOIX(VURegs *VU, int addr)
-{
-	int t0reg;
-	int fsreg;
-	int ftreg;
-
-	if ( _Ft_ == 0 ) return; 
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-
-	if (_X_Y_Z_W != 0xf) {
-		ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ | MODE_WRITE);
-		t0reg = _allocTempXMMreg(-1);
-
-		SSE_MOVAPS_XMM_to_XMM(t0reg, fsreg);
-		SSE_MULPS_M128_to_XMM(t0reg, addr);
-		if(cpucaps.hasStreamingSIMD2Extensions) SSE2_CVTPS2DQ_XMM_to_XMM(t0reg, t0reg);
-		else SSE2EMU_CVTPS2DQ_XMM_to_XMM(t0reg, t0reg);
-
-		VU_MERGE_REGS(ftreg, t0reg);
-	} else {
-		ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_WRITE);
-		if (_Ft_ != _Fs_) SSE_MOVAPS_XMM_to_XMM(ftreg, fsreg);
-		SSE_MULPS_M128_to_XMM(ftreg, addr);
-		if(cpucaps.hasStreamingSIMD2Extensions) SSE2_CVTPS2DQ_XMM_to_XMM(ftreg, ftreg);
-		else SSE2EMU_CVTPS2DQ_XMM_to_XMM(ftreg, ftreg);
-	}
-
-	_clearNeededXMMregs();
-}
-
-void recVUMI_FTOI4( VURegs *VU ) {
-	recVUMI_FTOIX(VU, (int)&recMult_float_to_int4[0]);
-}
-
-void recVUMI_FTOI12( VURegs *VU ) {
-	recVUMI_FTOIX(VU, (int)&recMult_float_to_int12[0]);
-}
-
-void recVUMI_FTOI15( VURegs *VU ) {
-	recVUMI_FTOIX(VU, (int)&recMult_float_to_int15[0]);
-}
-
-void recVUMI_ITOF0( VURegs *VU )
-{
-	int t0reg;
-	int ftreg;
-	int fsreg;
-	
 	if ( _Ft_ == 0 ) return;
 
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-
 	if (_X_Y_Z_W != 0xf) {
-		ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ | MODE_WRITE);
-		fsreg = _checkVFtoXMMreg(VU, _Fs_);
-		t0reg = _allocTempXMMreg(-1);
+		SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+		SSE_ANDPS_M128_to_XMM(EEREC_TEMP, (int)&const_abs_table[ _X_Y_Z_W ][ 0 ] );
 
-		if( fsreg < 0 ) {
-			if(cpucaps.hasStreamingSIMD2Extensions) SSE2_CVTDQ2PS_M128_to_XMM(t0reg, VU_VFx_ADDR( _Fs_ ));
-			else SSE2EMU_CVTDQ2PS_M128_to_XMM(t0reg, VU_VFx_ADDR( _Fs_ ));
+		VU_MERGE_REGS(EEREC_T, EEREC_TEMP);
+	} else {
+		if( EEREC_T != EEREC_S ) SSE_MOVAPS_XMM_to_XMM(EEREC_T, EEREC_S);
+		SSE_ANDPS_M128_to_XMM(EEREC_T, (int)&const_abs_table[ _X_Y_Z_W ][ 0 ] );	
+	}
+}
+
+__declspec(align(16)) float s_two[4] = {0,0,0,2};
+
+void recVUMI_ADD(VURegs *VU, int info)
+{
+	if( !_Fd_ ) info |= PROCESS_EE_SET_D(EEREC_TEMP);
+
+	if( _Fs_ == 0 && _Ft_ == 0 ) {
+		if( _X_Y_Z_W != 0xf ) {
+			SSE_MOVAPS_M128_to_XMM(EEREC_TEMP, (u32)s_two);
+			VU_MERGE_REGS(EEREC_D, EEREC_TEMP);
 		}
 		else {
-			if(cpucaps.hasStreamingSIMD2Extensions) SSE2_CVTDQ2PS_XMM_to_XMM(t0reg, fsreg);
+			SSE_MOVAPS_M128_to_XMM(EEREC_D, (u32)s_two);
+		}
+	}
+	else {
+		if( _X_Y_Z_W == 8 ) {
+			if (EEREC_D == EEREC_S) SSE_ADDSS_XMM_to_XMM(EEREC_D, EEREC_T);
+			else if (EEREC_D == EEREC_T) SSE_ADDSS_XMM_to_XMM(EEREC_D, EEREC_S);
 			else {
-				_freeXMMreg(fsreg);
-				SSE2EMU_CVTDQ2PS_M128_to_XMM(t0reg, VU_VFx_ADDR( _Fs_ ));
+				SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_S);
+				SSE_ADDSS_XMM_to_XMM(EEREC_D, EEREC_T);
 			}
 		}
+		else if (_X_Y_Z_W != 0xf) {
+			SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+			SSE_ADDPS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
 
-		VU_MERGE_REGS(ftreg, t0reg);
-	} else {
-		ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_WRITE);
-		fsreg = _checkVFtoXMMreg(VU, _Fs_);
-
-		if( fsreg < 0 ) {
-			if(cpucaps.hasStreamingSIMD2Extensions) SSE2_CVTDQ2PS_M128_to_XMM(ftreg, VU_VFx_ADDR( _Fs_ ));
-			else SSE2EMU_CVTDQ2PS_M128_to_XMM(ftreg, VU_VFx_ADDR( _Fs_ ));
+			VU_MERGE_REGS(EEREC_D, EEREC_TEMP);
 		}
 		else {
-			if( cpucaps.hasStreamingSIMD2Extensions ) SSE2_CVTDQ2PS_XMM_to_XMM(ftreg, fsreg);
+			if (EEREC_D == EEREC_S) SSE_ADDPS_XMM_to_XMM(EEREC_D, EEREC_T);
+			else if (EEREC_D == EEREC_T) SSE_ADDPS_XMM_to_XMM(EEREC_D, EEREC_S);
 			else {
-				_freeXMMreg(fsreg);
-				SSE2EMU_CVTDQ2PS_M128_to_XMM(ftreg, VU_VFx_ADDR( _Fs_ ));
+				SSE_MOVAPS_XMM_to_XMM(EEREC_D, EEREC_S);
+				SSE_ADDPS_XMM_to_XMM(EEREC_D, EEREC_T);
 			}
 		}
 	}
 
-	_clearNeededXMMregs();
+	recUpdateFlags(VU, EEREC_D, info);
 }
 
-void recVUMI_ITOFX(VURegs *VU, int addr)
+void recVUMI_ADD_iq(VURegs *VU, int addr, int info)
 {
-	int t0reg, fsreg, ftreg;
+	if( !_Fd_ ) info |= PROCESS_EE_SET_D(EEREC_TEMP);
 
+	if( _XYZW_SS ) {
+		if( EEREC_D == EEREC_TEMP ) {
+			_vuFlipRegSS(VU, EEREC_S);
+			SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_S);
+			SSE_ADDSS_M32_to_XMM(EEREC_D, addr);
+			_vuFlipRegSS(VU, EEREC_S);
+		}
+		else if( EEREC_D == EEREC_S ) {
+			_vuFlipRegSS(VU, EEREC_D);
+			SSE_ADDSS_M32_to_XMM(EEREC_D, addr);
+			_vuFlipRegSS(VU, EEREC_D);
+		}
+		else {
+			if( _X ) {
+				if( EEREC_D != EEREC_S ) SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_S);
+				SSE_ADDSS_M32_to_XMM(EEREC_D, addr);
+			}
+			else {
+				SSE_MOVSS_M32_to_XMM(EEREC_TEMP, addr);
+				SSE_SHUFPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP, 0x00);
+				SSE_ADDPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+				VU_MERGE_REGS(EEREC_D, EEREC_TEMP);
+			}
+		}
+	}
+	else {
+		if( _X_Y_Z_W != 0xf || EEREC_D == EEREC_S || EEREC_D == EEREC_TEMP) {
+			SSE_MOVSS_M32_to_XMM(EEREC_TEMP, addr); 
+			SSE_SHUFPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP, 0x00);
+		}
+
+		if (_X_Y_Z_W != 0xf) {
+			SSE_ADDPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+			VU_MERGE_REGS(EEREC_D, EEREC_TEMP);
+		} else {
+			if( EEREC_D == EEREC_TEMP ) SSE_ADDPS_XMM_to_XMM(EEREC_D, EEREC_S);
+			else if( EEREC_D == EEREC_S ) SSE_ADDPS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+			else {
+				SSE_MOVSS_M32_to_XMM(EEREC_D, addr); 
+				SSE_SHUFPS_XMM_to_XMM(EEREC_D, EEREC_D, 0x00);
+				SSE_ADDPS_XMM_to_XMM(EEREC_D, EEREC_S);
+			}
+		}
+	}
+
+	recUpdateFlags(VU, EEREC_D, info);
+
+	if( addr == VU_REGQ_ADDR ) CheckForOverflow(info, EEREC_D);
+}
+
+void recVUMI_ADD_xyzw(VURegs *VU, int xyzw, int info)
+{
+	if( !_Fd_ ) info |= PROCESS_EE_SET_D(EEREC_TEMP);
+
+	if( _Ft_ == 0 && xyzw < 3 ) {
+		// just move
+		if( _X_Y_Z_W != 0xf ) {
+			SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+			VU_MERGE_REGS(EEREC_D, EEREC_TEMP);
+		}
+		else {
+			if( EEREC_D != EEREC_S ) SSE_MOVAPS_XMM_to_XMM(EEREC_D, EEREC_S);
+		}
+	}
+	else if( _X_Y_Z_W == 8 ) {
+		if( EEREC_D == EEREC_TEMP ) {
+			_unpackVFSS_xyzw(EEREC_TEMP, EEREC_T, xyzw);
+			SSE_ADDSS_XMM_to_XMM(EEREC_D, EEREC_S);
+		}
+		else {
+			if( xyzw == 0 ) {
+				if( EEREC_D != EEREC_S ) SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_S);
+				SSE_ADDSS_XMM_to_XMM(EEREC_D, EEREC_T);
+			}
+			else {
+				_unpackVFSS_xyzw(EEREC_TEMP, EEREC_T, xyzw);
+				if( EEREC_D != EEREC_S ) SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_S);
+				SSE_ADDSS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+			}
+		}
+	}
+	else if( _Fs_ == 0 && !_W ) {
+		// just move
+		_unpackVF_xyzw(EEREC_TEMP, EEREC_T, xyzw);
+		VU_MERGE_REGS(EEREC_D, EEREC_TEMP);
+	}
+	else {
+		if( _X_Y_Z_W != 0xf || EEREC_D == EEREC_S || EEREC_D == EEREC_TEMP)
+			_unpackVF_xyzw(EEREC_TEMP, EEREC_T, xyzw);
+		
+		if (_X_Y_Z_W != 0xf) {
+			SSE_ADDPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+			VU_MERGE_REGS(EEREC_D, EEREC_TEMP);
+		} else {
+			if( EEREC_D == EEREC_TEMP ) SSE_ADDPS_XMM_to_XMM(EEREC_D, EEREC_S);
+			else if( EEREC_D == EEREC_S ) SSE_ADDPS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+			else {
+				_unpackVF_xyzw(EEREC_D, EEREC_T, xyzw);
+				SSE_ADDPS_XMM_to_XMM(EEREC_D, EEREC_S);
+			}
+		}
+	}
+	
+	recUpdateFlags(VU, EEREC_D, info);
+}
+
+void recVUMI_ADDi(VURegs *VU, int info) { recVUMI_ADD_iq(VU, VU_VI_ADDR(REG_I, 1), info); }
+void recVUMI_ADDq(VURegs *VU, int info) { recVUMI_ADD_iq(VU, VU_REGQ_ADDR, info); }
+void recVUMI_ADDx(VURegs *VU, int info) { recVUMI_ADD_xyzw(VU, 0, info); }
+void recVUMI_ADDy(VURegs *VU, int info) { recVUMI_ADD_xyzw(VU, 1, info); }
+void recVUMI_ADDz(VURegs *VU, int info) { recVUMI_ADD_xyzw(VU, 2, info); }
+void recVUMI_ADDw(VURegs *VU, int info) { recVUMI_ADD_xyzw(VU, 3, info); }
+
+void recVUMI_ADDA(VURegs *VU, int info)
+{
+	if( _X_Y_Z_W == 8 ) {
+		if (EEREC_ACC == EEREC_S) SSE_ADDSS_XMM_to_XMM(EEREC_ACC, EEREC_T);
+		else if (EEREC_ACC == EEREC_T) SSE_ADDSS_XMM_to_XMM(EEREC_ACC, EEREC_S);
+		else {
+			SSE_MOVSS_XMM_to_XMM(EEREC_ACC, EEREC_S);
+			SSE_ADDSS_XMM_to_XMM(EEREC_ACC, EEREC_T);
+		}
+	}
+	else if (_X_Y_Z_W != 0xf) {
+		SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+		SSE_ADDPS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+
+		VU_MERGE_REGS(EEREC_ACC, EEREC_TEMP);
+	}
+	else {
+		if( EEREC_ACC == EEREC_S ) SSE_ADDPS_XMM_to_XMM(EEREC_ACC, EEREC_T);
+		else if( EEREC_ACC == EEREC_T ) SSE_ADDPS_XMM_to_XMM(EEREC_ACC, EEREC_S);
+		else {
+			SSE_MOVAPS_XMM_to_XMM(EEREC_ACC, EEREC_S);
+			SSE_ADDPS_XMM_to_XMM(EEREC_ACC, EEREC_T);
+		}
+	}
+
+	recUpdateFlags(VU, EEREC_ACC, info);
+}
+
+void recVUMI_ADDA_iq(VURegs *VU, int addr, int info)
+{
+	if( _XYZW_SS ) {
+		assert( EEREC_ACC != EEREC_TEMP );
+		if( EEREC_ACC == EEREC_S ) {
+			_vuFlipRegSS(VU, EEREC_ACC);
+			SSE_ADDSS_M32_to_XMM(EEREC_ACC, addr);
+			_vuFlipRegSS(VU, EEREC_ACC);
+		}
+		else {
+			if( _X ) {
+				SSE_MOVSS_XMM_to_XMM(EEREC_ACC, EEREC_S);
+				SSE_ADDSS_M32_to_XMM(EEREC_ACC, addr);
+			}
+			else {
+				SSE_MOVSS_M32_to_XMM(EEREC_TEMP, addr);
+				SSE_SHUFPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP, 0x00);
+				SSE_ADDPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+				VU_MERGE_REGS(EEREC_ACC, EEREC_TEMP);
+			}
+		}
+	}
+	else {
+		if( _X_Y_Z_W != 0xf || EEREC_ACC == EEREC_S ) {
+			SSE_MOVSS_M32_to_XMM(EEREC_TEMP, addr); 
+			SSE_SHUFPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP, 0x00);
+		}
+
+		if (_X_Y_Z_W != 0xf) {
+			SSE_ADDPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+			VU_MERGE_REGS(EEREC_ACC, EEREC_TEMP);
+		}
+		else {
+			if( EEREC_ACC == EEREC_S ) SSE_ADDPS_XMM_to_XMM(EEREC_ACC, EEREC_TEMP);
+			else {
+				SSE_MOVSS_M32_to_XMM(EEREC_ACC, addr); 
+				SSE_SHUFPS_XMM_to_XMM(EEREC_ACC, EEREC_ACC, 0x00);
+				SSE_ADDPS_XMM_to_XMM(EEREC_ACC, EEREC_S);
+			}
+		}
+	}
+
+	recUpdateFlags(VU, EEREC_ACC, info);
+}
+
+void recVUMI_ADDA_xyzw(VURegs *VU, int xyzw, int info)
+{
+	if( _X_Y_Z_W == 8 ) {
+		if( xyzw == 0 ) {
+			SSE_MOVSS_XMM_to_XMM(EEREC_ACC, EEREC_S);
+			SSE_ADDSS_XMM_to_XMM(EEREC_ACC, EEREC_T);
+		}
+		else {
+			_unpackVFSS_xyzw(EEREC_TEMP, EEREC_T, xyzw);
+			if( _Fs_ == 0 ) {
+				SSE_MOVSS_XMM_to_XMM(EEREC_ACC, EEREC_TEMP);
+			}
+			else {
+				SSE_MOVSS_XMM_to_XMM(EEREC_ACC, EEREC_S);
+				SSE_ADDSS_XMM_to_XMM(EEREC_ACC, EEREC_TEMP);
+			}
+		}
+	}
+	else {
+		if( _X_Y_Z_W != 0xf || EEREC_ACC == EEREC_S )
+			_unpackVF_xyzw(EEREC_TEMP, EEREC_T, xyzw);
+
+		if (_X_Y_Z_W != 0xf) {
+			SSE_ADDPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+
+			VU_MERGE_REGS(EEREC_ACC, EEREC_TEMP);
+		} else {
+			if( EEREC_ACC == EEREC_S ) SSE_ADDPS_XMM_to_XMM(EEREC_ACC, EEREC_TEMP);
+			else {
+				_unpackVF_xyzw(EEREC_ACC, EEREC_T, xyzw);
+				SSE_ADDPS_XMM_to_XMM(EEREC_ACC, EEREC_S);
+			}
+		}
+	}
+
+	recUpdateFlags(VU, EEREC_ACC, info);
+}
+
+void recVUMI_ADDAi(VURegs *VU, int info) { recVUMI_ADDA_iq(VU, VU_VI_ADDR(REG_I, 1), info); }
+void recVUMI_ADDAq(VURegs *VU, int info) { recVUMI_ADDA_iq(VU, VU_REGQ_ADDR, info); }
+void recVUMI_ADDAx(VURegs *VU, int info) { recVUMI_ADDA_xyzw(VU, 0, info); }
+void recVUMI_ADDAy(VURegs *VU, int info) { recVUMI_ADDA_xyzw(VU, 1, info); }
+void recVUMI_ADDAz(VURegs *VU, int info) { recVUMI_ADDA_xyzw(VU, 2, info); }
+void recVUMI_ADDAw(VURegs *VU, int info) { recVUMI_ADDA_xyzw(VU, 3, info); }
+
+void recVUMI_SUB(VURegs *VU, int info)
+{
+	if( !_Fd_ ) info |= PROCESS_EE_SET_D(EEREC_TEMP);
+
+	if( EEREC_S == EEREC_T ) {
+		if (_X_Y_Z_W != 0xf) SSE_ANDPS_M128_to_XMM(EEREC_D, (u32)&SSEmovMask[15-_X_Y_Z_W][0]);
+		else SSE_XORPS_XMM_to_XMM(EEREC_D, EEREC_D);
+	}
+	else if( _X_Y_Z_W == 8 ) {
+		if (EEREC_D == EEREC_S) SSE_SUBSS_XMM_to_XMM(EEREC_D, EEREC_T);
+		else if (EEREC_D == EEREC_T) {
+			SSE_MOVSS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+			SSE_SUBSS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+			SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+		}
+		else {
+			SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_S);
+			SSE_SUBSS_XMM_to_XMM(EEREC_D, EEREC_T);
+		}
+	}
+	else {
+		if (_X_Y_Z_W != 0xf) {
+			SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+			if( _Ft_ > 0 || _W ) SSE_SUBPS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+
+			VU_MERGE_REGS(EEREC_D, EEREC_TEMP);
+		}
+		else {
+			if (EEREC_D == EEREC_S) SSE_SUBPS_XMM_to_XMM(EEREC_D, EEREC_T);
+			else if (EEREC_D == EEREC_T) {
+				SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+				SSE_SUBPS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+				SSE_MOVAPS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+			}
+			else {
+				SSE_MOVAPS_XMM_to_XMM(EEREC_D, EEREC_S);
+				SSE_SUBPS_XMM_to_XMM(EEREC_D, EEREC_T);
+			}
+		}
+	}
+
+	recUpdateFlags(VU, EEREC_D, info);
+	// neopets works better with this?
+	//CheckForOverflow(info, EEREC_D);
+}
+
+void recVUMI_SUB_iq(VURegs *VU, int addr, int info)
+{
+	if( !_Fd_ ) info |= PROCESS_EE_SET_D(EEREC_TEMP);
+
+	if( _XYZW_SS ) {
+		if( EEREC_D == EEREC_TEMP ) {
+			_vuFlipRegSS(VU, EEREC_S);
+			SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_S);
+			SSE_SUBSS_M32_to_XMM(EEREC_D, addr);
+			_vuFlipRegSS(VU, EEREC_S);
+		}
+		else if( EEREC_D == EEREC_S ) {
+			_vuFlipRegSS(VU, EEREC_D);
+			SSE_SUBSS_M32_to_XMM(EEREC_D, addr);
+			_vuFlipRegSS(VU, EEREC_D);
+		}
+		else {
+			if( _X ) {
+				if( EEREC_D != EEREC_S ) SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_S);
+				SSE_SUBSS_M32_to_XMM(EEREC_D, addr);
+			}
+			else {
+				_vuMoveSS(VU, EEREC_TEMP, EEREC_S);
+				_vuFlipRegSS(VU, EEREC_D);
+				SSE_SUBSS_M32_to_XMM(EEREC_TEMP, addr);
+				SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+				_vuFlipRegSS(VU, EEREC_D);
+			}
+		}
+	}
+	else {
+		SSE_MOVSS_M32_to_XMM(EEREC_TEMP, addr); 
+		SSE_SHUFPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP, 0x00);
+
+		if (_X_Y_Z_W != 0xf) {
+			int t1reg = _vuGetTempXMMreg(info);
+
+			if( t1reg >= 0 ) {
+				SSE_MOVAPS_XMM_to_XMM(t1reg, EEREC_S);
+				SSE_SUBPS_XMM_to_XMM(t1reg, EEREC_TEMP);
+
+				VU_MERGE_REGS(EEREC_D, t1reg);
+				_freeXMMreg(t1reg);
+			}
+			else {
+				// negate
+				SSE_XORPS_M128_to_XMM(EEREC_TEMP, (u32)&const_clip[4]);
+				SSE_ADDPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+				VU_MERGE_REGS(EEREC_D, EEREC_TEMP);
+			}
+		}
+		else {
+			if( EEREC_D == EEREC_TEMP ) {
+				SSE_XORPS_M128_to_XMM(EEREC_D, (u32)&const_clip[4]);
+				SSE_ADDPS_XMM_to_XMM(EEREC_D, EEREC_S);
+			}
+			else {
+				if (EEREC_D != EEREC_S) SSE_MOVAPS_XMM_to_XMM(EEREC_D, EEREC_S);
+				SSE_SUBPS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+			}
+		}
+	}
+
+	recUpdateFlags(VU, EEREC_D, info);
+
+	if( addr == VU_REGQ_ADDR ) CheckForOverflow(info, EEREC_D);
+}
+
+static __declspec(align(16)) s_unaryminus[4] = {0x80000000, 0, 0, 0};
+
+void recVUMI_SUB_xyzw(VURegs *VU, int xyzw, int info)
+{
+	if( !_Fd_ ) info |= PROCESS_EE_SET_D(EEREC_TEMP);
+
+	if( _X_Y_Z_W == 8 ) {
+		if( EEREC_D == EEREC_TEMP ) {
+			_unpackVFSS_xyzw(EEREC_TEMP, EEREC_T, xyzw);
+			SSE_SUBSS_XMM_to_XMM(EEREC_D, EEREC_S);
+		}
+		else {
+			if( xyzw == 0 ) {
+				if( EEREC_D == EEREC_T ) {
+					if( _Fs_ > 0 ) SSE_SUBSS_XMM_to_XMM(EEREC_D, EEREC_S);
+					SSE_XORPS_M128_to_XMM(EEREC_D, (u32)s_unaryminus);
+				}
+				else {
+					if( EEREC_D != EEREC_S ) SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_S);
+					SSE_SUBSS_XMM_to_XMM(EEREC_D, EEREC_T);
+				}
+			}
+			else {
+				_unpackVFSS_xyzw(EEREC_TEMP, EEREC_T, xyzw);
+				SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_S);
+				SSE_SUBSS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+			}
+		}
+	}
+//	else if( _XYZW_SS && xyzw == 0 ) {
+//		if( EEREC_D == EEREC_S ) {
+//			if( EEREC_D == EEREC_T ) {
+//				SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+//				_vuFlipRegSS(VU, EEREC_D);
+//				SSE_SUBSS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+//				_vuFlipRegSS(VU, EEREC_D);
+//			}
+//			else {
+//				_vuFlipRegSS(VU, EEREC_D);
+//				SSE_SUBSS_XMM_to_XMM(EEREC_D, EEREC_T);
+//				_vuFlipRegSS(VU, EEREC_D);
+//			}
+//		}
+//		else if( EEREC_D == EEREC_T ) {
+//			_unpackVFSS_xyzw(EEREC_TEMP, EEREC_S, _Y?1:(_Z?2:3));
+//			SSE_SUBSS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+//			_vuFlipRegSS(VU, EEREC_D);
+//			SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+//			_vuFlipRegSS(VU, EEREC_D);
+//		}
+//		else {
+//			_unpackVFSS_xyzw(EEREC_TEMP, EEREC_S, _Y?1:(_Z?2:3));
+//			_vuFlipRegSS(VU, EEREC_D);
+//			SSE_SUBSS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+//			SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+//			_vuFlipRegSS(VU, EEREC_D);
+//		}
+//	}
+	else {
+		_unpackVF_xyzw(EEREC_TEMP, EEREC_T, xyzw);
+
+		if (_X_Y_Z_W != 0xf) {
+			int t1reg = _vuGetTempXMMreg(info);
+
+			if( t1reg >= 0 ) {
+				SSE_MOVAPS_XMM_to_XMM(t1reg, EEREC_S);
+				SSE_SUBPS_XMM_to_XMM(t1reg, EEREC_TEMP);
+
+				VU_MERGE_REGS(EEREC_D, t1reg);
+				_freeXMMreg(t1reg);
+			}
+			else {
+				// negate
+				SSE_XORPS_M128_to_XMM(EEREC_TEMP, (u32)&const_clip[4]);
+				SSE_ADDPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+				VU_MERGE_REGS(EEREC_D, EEREC_TEMP);
+			}
+		}
+		else {
+			if( EEREC_D == EEREC_TEMP ) {
+				SSE_XORPS_M128_to_XMM(EEREC_D, (u32)&const_clip[4]);
+				SSE_ADDPS_XMM_to_XMM(EEREC_D, EEREC_S);
+			}
+			else {
+				if( EEREC_D != EEREC_S ) SSE_MOVAPS_XMM_to_XMM(EEREC_D, EEREC_S);
+				SSE_SUBPS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+			}
+		}
+	}
+
+	recUpdateFlags(VU, EEREC_D, info);
+}
+
+void recVUMI_SUBi(VURegs *VU, int info) { recVUMI_SUB_iq(VU, VU_VI_ADDR(REG_I, 1), info); }
+void recVUMI_SUBq(VURegs *VU, int info) { recVUMI_SUB_iq(VU, VU_REGQ_ADDR, info); }
+void recVUMI_SUBx(VURegs *VU, int info) { recVUMI_SUB_xyzw(VU, 0, info); }
+void recVUMI_SUBy(VURegs *VU, int info) { recVUMI_SUB_xyzw(VU, 1, info); }
+void recVUMI_SUBz(VURegs *VU, int info) { recVUMI_SUB_xyzw(VU, 2, info); }
+void recVUMI_SUBw(VURegs *VU, int info) { recVUMI_SUB_xyzw(VU, 3, info); }
+
+void recVUMI_SUBA(VURegs *VU, int info)
+{
+	if( EEREC_S == EEREC_T ) {
+		if (_X_Y_Z_W != 0xf) SSE_ANDPS_M128_to_XMM(EEREC_ACC, (u32)&SSEmovMask[15-_X_Y_Z_W][0]);
+		else SSE_XORPS_XMM_to_XMM(EEREC_ACC, EEREC_ACC);
+	}
+	else if( _X_Y_Z_W == 8 ) {
+		if (EEREC_ACC == EEREC_S) SSE_SUBSS_XMM_to_XMM(EEREC_ACC, EEREC_T);
+		else if (EEREC_ACC == EEREC_T) {
+			SSE_MOVSS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+			SSE_SUBSS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+			SSE_MOVSS_XMM_to_XMM(EEREC_ACC, EEREC_TEMP);
+		}
+		else {
+			SSE_MOVSS_XMM_to_XMM(EEREC_ACC, EEREC_S);
+			SSE_SUBSS_XMM_to_XMM(EEREC_ACC, EEREC_T);
+		}
+	}
+	else if (_X_Y_Z_W != 0xf) {
+		SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+		SSE_SUBPS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+
+		VU_MERGE_REGS(EEREC_ACC, EEREC_TEMP);
+	}
+	else {
+		if( EEREC_ACC == EEREC_S ) SSE_SUBPS_XMM_to_XMM(EEREC_ACC, EEREC_T);
+		else if( EEREC_ACC == EEREC_T ) {
+			SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+			SSE_SUBPS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+			SSE_MOVAPS_XMM_to_XMM(EEREC_ACC, EEREC_TEMP);
+		}
+		else {
+			SSE_MOVAPS_XMM_to_XMM(EEREC_ACC, EEREC_S);
+			SSE_SUBPS_XMM_to_XMM(EEREC_ACC, EEREC_T);
+		}
+	}
+
+	recUpdateFlags(VU, EEREC_ACC, info);
+}
+
+void recVUMI_SUBA_iq(VURegs *VU, int addr, int info)
+{
+	if( _XYZW_SS ) {
+		if( EEREC_ACC == EEREC_S ) {
+			_vuFlipRegSS(VU, EEREC_ACC);
+			SSE_SUBSS_M32_to_XMM(EEREC_ACC, addr);
+			_vuFlipRegSS(VU, EEREC_ACC);
+		}
+		else {
+			if( _X ) {
+				SSE_MOVSS_XMM_to_XMM(EEREC_ACC, EEREC_S);
+				SSE_SUBSS_M32_to_XMM(EEREC_ACC, addr);
+			}
+			else {
+				_vuMoveSS(VU, EEREC_TEMP, EEREC_S);
+				_vuFlipRegSS(VU, EEREC_ACC);
+				SSE_SUBSS_M32_to_XMM(EEREC_TEMP, addr);
+				SSE_MOVSS_XMM_to_XMM(EEREC_ACC, EEREC_TEMP);
+				_vuFlipRegSS(VU, EEREC_ACC);
+			}
+		}
+	}
+	else {
+		SSE_MOVSS_M32_to_XMM(EEREC_TEMP, addr); 
+		SSE_SHUFPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP, 0x00);
+
+		if (_X_Y_Z_W != 0xf) {
+			int t1reg = _vuGetTempXMMreg(info);
+
+			if( t1reg >= 0 ) {
+				SSE_MOVAPS_XMM_to_XMM(t1reg, EEREC_S);
+				SSE_SUBPS_XMM_to_XMM(t1reg, EEREC_TEMP);
+
+				VU_MERGE_REGS(EEREC_ACC, t1reg);
+				_freeXMMreg(t1reg);
+			}
+			else {
+				// negate
+				SSE_XORPS_M128_to_XMM(EEREC_TEMP, (u32)&const_clip[4]);
+				SSE_ADDPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+				VU_MERGE_REGS(EEREC_ACC, EEREC_TEMP);
+			}
+		}
+		else {
+			if( EEREC_ACC != EEREC_S ) SSE_MOVAPS_XMM_to_XMM(EEREC_ACC, EEREC_S);
+			SSE_SUBPS_XMM_to_XMM(EEREC_ACC, EEREC_TEMP);
+		}
+	}
+
+	recUpdateFlags(VU, EEREC_ACC, info);
+}
+
+void recVUMI_SUBA_xyzw(VURegs *VU, int xyzw, int info)
+{
+	if( _X_Y_Z_W == 8 ) {
+		if( xyzw == 0 ) {
+			SSE_MOVSS_XMM_to_XMM(EEREC_ACC, EEREC_S);
+			SSE_SUBSS_XMM_to_XMM(EEREC_ACC, EEREC_T);
+		}
+		else {
+			_unpackVFSS_xyzw(EEREC_TEMP, EEREC_T, xyzw);
+			SSE_MOVSS_XMM_to_XMM(EEREC_ACC, EEREC_S);
+			SSE_SUBSS_XMM_to_XMM(EEREC_ACC, EEREC_TEMP);
+		}
+	}
+	else {
+		_unpackVF_xyzw(EEREC_TEMP, EEREC_T, xyzw);
+
+		if (_X_Y_Z_W != 0xf) {
+			int t1reg = _vuGetTempXMMreg(info);
+
+			if( t1reg >= 0 ) {
+				SSE_MOVAPS_XMM_to_XMM(t1reg, EEREC_S);
+				SSE_SUBPS_XMM_to_XMM(t1reg, EEREC_TEMP);
+
+				VU_MERGE_REGS(EEREC_ACC, t1reg);
+				_freeXMMreg(t1reg);
+			}
+			else {
+				// negate
+				SSE_XORPS_M128_to_XMM(EEREC_TEMP, (u32)&const_clip[4]);
+				SSE_ADDPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+				VU_MERGE_REGS(EEREC_ACC, EEREC_TEMP);
+			}
+		}
+		else {
+			if( EEREC_ACC != EEREC_S ) SSE_MOVAPS_XMM_to_XMM(EEREC_ACC, EEREC_S);
+			SSE_SUBPS_XMM_to_XMM(EEREC_ACC, EEREC_TEMP);
+		}
+	}
+
+	recUpdateFlags(VU, EEREC_ACC, info);
+}
+
+void recVUMI_SUBAi(VURegs *VU, int info) { recVUMI_SUBA_iq(VU, VU_VI_ADDR(REG_I, 1), info); }
+void recVUMI_SUBAq(VURegs *VU, int info) { recVUMI_SUBA_iq(VU, VU_REGQ_ADDR, info); }
+void recVUMI_SUBAx(VURegs *VU, int info) { recVUMI_SUBA_xyzw(VU, 0, info); }
+void recVUMI_SUBAy(VURegs *VU, int info) { recVUMI_SUBA_xyzw(VU, 1, info); }
+void recVUMI_SUBAz(VURegs *VU, int info) { recVUMI_SUBA_xyzw(VU, 2, info); }
+void recVUMI_SUBAw(VURegs *VU, int info) { recVUMI_SUBA_xyzw(VU, 3, info); }
+
+void recVUMI_MUL_toD(VURegs *VU, int regd, int info)
+{
+	if (_X_Y_Z_W == 1 && (_Ft_ == 0 || _Fs_==0) ) { // W
+		SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, _Ft_ ? EEREC_T : EEREC_S);
+		VU_MERGE_REGS(regd, EEREC_TEMP);
+	}
+	else if( _Fd_ == _Fs_ && _Fs_ == _Ft_ && _XYZW_SS ) {
+		_vuFlipRegSS(VU, EEREC_D);
+		SSE_MULSS_XMM_to_XMM(EEREC_D, EEREC_D);
+		_vuFlipRegSS(VU, EEREC_D);
+	}
+	else if( _X_Y_Z_W == 8 ) {
+		if (regd == EEREC_S) SSE_MULSS_XMM_to_XMM(regd, EEREC_T);
+		else if (regd == EEREC_T) SSE_MULSS_XMM_to_XMM(regd, EEREC_S);
+		else {
+			SSE_MOVSS_XMM_to_XMM(regd, EEREC_S);
+			SSE_MULSS_XMM_to_XMM(regd, EEREC_T);
+		}
+	}
+	else if (_X_Y_Z_W != 0xf) {
+		SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+		SSE_MULPS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+
+		VU_MERGE_REGS(regd, EEREC_TEMP);
+	}
+	else {
+		if (regd == EEREC_S) SSE_MULPS_XMM_to_XMM(regd, EEREC_T);
+		else if (regd == EEREC_T) SSE_MULPS_XMM_to_XMM(regd, EEREC_S);
+		else {
+			SSE_MOVAPS_XMM_to_XMM(regd, EEREC_S);
+			SSE_MULPS_XMM_to_XMM(regd, EEREC_T);
+		}
+	}
+}
+
+void recVUMI_MUL_iq_toD(VURegs *VU, int addr, int regd, int info)
+{
+	if( _XYZW_SS ) {
+		if( regd == EEREC_TEMP ) {
+			_vuFlipRegSS(VU, EEREC_S);
+			SSE_MOVSS_XMM_to_XMM(regd, EEREC_S);
+			SSE_MULSS_M32_to_XMM(regd, addr);
+			_vuFlipRegSS(VU, EEREC_S);
+		}
+		else if( regd == EEREC_S ) {
+			_vuFlipRegSS(VU, regd);
+			SSE_MULSS_M32_to_XMM(regd, addr);
+			_vuFlipRegSS(VU, regd);
+		}
+		else {
+			if( _X ) {
+				SSE_MOVSS_XMM_to_XMM(regd, EEREC_S);
+				SSE_MULSS_M32_to_XMM(regd, addr);
+			}
+			else {
+				SSE_MOVSS_M32_to_XMM(EEREC_TEMP, addr);
+				SSE_SHUFPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP, 0x00);
+				SSE_MULPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+				VU_MERGE_REGS(regd, EEREC_TEMP);
+			}
+		}
+	}
+	else {
+		if( _X_Y_Z_W != 0xf || regd == EEREC_TEMP || regd == EEREC_S ) {
+			SSE_MOVSS_M32_to_XMM(EEREC_TEMP, addr); 
+			SSE_SHUFPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP, 0x00);
+		}
+
+		if (_X_Y_Z_W != 0xf) {
+			SSE_MULPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+			VU_MERGE_REGS(regd, EEREC_TEMP);
+		}
+		else {
+			if( regd == EEREC_TEMP ) SSE_MULPS_XMM_to_XMM(regd, EEREC_S);
+			else if (regd == EEREC_S) SSE_MULPS_XMM_to_XMM(regd, EEREC_TEMP);
+			else {
+				SSE_MOVSS_M32_to_XMM(regd, addr); 
+				SSE_SHUFPS_XMM_to_XMM(regd, regd, 0x00);
+				SSE_MULPS_XMM_to_XMM(regd, EEREC_S);
+			}		
+		}
+	}
+}
+
+void recVUMI_MUL_xyzw_toD(VURegs *VU, int xyzw, int regd, int info)
+{
+	if( _Ft_ == 0 ) {
+		if( xyzw < 3 ) {
+			if (_X_Y_Z_W != 0xf) {	
+				SSE_XORPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
+				VU_MERGE_REGS(regd, EEREC_TEMP);
+			}
+			else {
+				SSE_XORPS_XMM_to_XMM(regd, regd);
+			}
+		}
+		else {
+			assert(xyzw==3);
+			if (_X_Y_Z_W != 0xf) {
+				SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+				VU_MERGE_REGS(regd, EEREC_TEMP);
+			}
+			else if( regd != EEREC_S ) SSE_MOVAPS_XMM_to_XMM(regd, EEREC_S);
+		}
+	}
+	else if( _X_Y_Z_W == 8 ) {
+		if( regd == EEREC_TEMP ) {
+			_unpackVFSS_xyzw(EEREC_TEMP, EEREC_T, xyzw);
+			SSE_MULSS_XMM_to_XMM(regd, EEREC_S);
+		}
+		else {
+			if( xyzw == 0 ) {
+				SSE_MOVSS_XMM_to_XMM(regd, EEREC_S);
+				SSE_MULSS_XMM_to_XMM(regd, EEREC_T);
+			}
+			else {
+				_unpackVFSS_xyzw(EEREC_TEMP, EEREC_T, xyzw);
+				SSE_MOVSS_XMM_to_XMM(regd, EEREC_S);
+				SSE_MULSS_XMM_to_XMM(regd, EEREC_TEMP);
+			}
+		}
+	}
+	else {
+		if( _X_Y_Z_W != 0xf || regd == EEREC_TEMP || regd == EEREC_S )
+			_unpackVF_xyzw(EEREC_TEMP, EEREC_T, xyzw);
+
+		if (_X_Y_Z_W != 0xf) {	
+			SSE_MULPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+			VU_MERGE_REGS(regd, EEREC_TEMP);
+		}
+		else {
+			if( regd == EEREC_TEMP ) SSE_MULPS_XMM_to_XMM(regd, EEREC_S);
+			else if (regd == EEREC_S) SSE_MULPS_XMM_to_XMM(regd, EEREC_TEMP);
+			else {
+				_unpackVF_xyzw(regd, EEREC_T, xyzw);
+				SSE_MULPS_XMM_to_XMM(regd, EEREC_S);
+			}
+		}
+	}
+}
+
+void recVUMI_MUL(VURegs *VU, int info)
+{
+	if( !_Fd_ ) info |= PROCESS_EE_SET_D(EEREC_TEMP);
+	recVUMI_MUL_toD(VU, EEREC_D, info);
+	recUpdateFlags(VU, EEREC_D, info);
+}
+
+void recVUMI_MUL_iq(VURegs *VU, int addr, int info)
+{
+	if( !_Fd_ ) info |= PROCESS_EE_SET_D(EEREC_TEMP);
+	recVUMI_MUL_iq_toD(VU, addr, EEREC_D, info);
+	recUpdateFlags(VU, EEREC_D, info);
+	if( addr == VU_REGQ_ADDR ) CheckForOverflow(info, EEREC_D);
+}
+
+void recVUMI_MUL_xyzw(VURegs *VU, int xyzw, int info)
+{
+	if( !_Fd_ ) info |= PROCESS_EE_SET_D(EEREC_TEMP);
+	recVUMI_MUL_xyzw_toD(VU, xyzw, EEREC_D, info);
+	recUpdateFlags(VU, EEREC_D, info);
+}
+
+void recVUMI_MULi(VURegs *VU, int info) { recVUMI_MUL_iq(VU, VU_VI_ADDR(REG_I, 1), info); }
+void recVUMI_MULq(VURegs *VU, int info) { recVUMI_MUL_iq(VU, VU_REGQ_ADDR, info); }
+void recVUMI_MULx(VURegs *VU, int info) { recVUMI_MUL_xyzw(VU, 0, info); }
+void recVUMI_MULy(VURegs *VU, int info) { recVUMI_MUL_xyzw(VU, 1, info); }
+void recVUMI_MULz(VURegs *VU, int info) { recVUMI_MUL_xyzw(VU, 2, info); }
+void recVUMI_MULw(VURegs *VU, int info) { recVUMI_MUL_xyzw(VU, 3, info); }
+
+void recVUMI_MULA( VURegs *VU, int info )
+{
+	recVUMI_MUL_toD(VU, EEREC_ACC, info);
+	recUpdateFlags(VU, EEREC_ACC, info);
+}
+
+void recVUMI_MULA_iq(VURegs *VU, int addr, int info)
+{	
+	recVUMI_MUL_iq_toD(VU, addr, EEREC_ACC, info);
+	recUpdateFlags(VU, EEREC_ACC, info);
+}
+
+void recVUMI_MULA_xyzw(VURegs *VU, int xyzw, int info)
+{
+	recVUMI_MUL_xyzw_toD(VU, xyzw, EEREC_ACC, info);
+	recUpdateFlags(VU, EEREC_ACC, info);
+}
+
+void recVUMI_MULAi(VURegs *VU, int info) { recVUMI_MULA_iq(VU, VU_VI_ADDR(REG_I, 1), info); }
+void recVUMI_MULAq(VURegs *VU, int info) { recVUMI_MULA_iq(VU, VU_REGQ_ADDR, info); }
+void recVUMI_MULAx(VURegs *VU, int info) { recVUMI_MULA_xyzw(VU, 0, info); }
+void recVUMI_MULAy(VURegs *VU, int info) { recVUMI_MULA_xyzw(VU, 1, info); }
+void recVUMI_MULAz(VURegs *VU, int info) { recVUMI_MULA_xyzw(VU, 2, info); }
+void recVUMI_MULAw(VURegs *VU, int info) { recVUMI_MULA_xyzw(VU, 3, info); }
+
+void recVUMI_MADD_toD(VURegs *VU, int regd, int info)
+{
+	if( _X_Y_Z_W == 8 ) {
+		if( regd == EEREC_ACC ) {
+			SSE_MOVSS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+			SSE_MULSS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+			SSE_ADDSS_XMM_to_XMM(regd, EEREC_TEMP);
+		}
+		else if (regd == EEREC_T) {
+			SSE_MULSS_XMM_to_XMM(regd, EEREC_S);
+			SSE_ADDSS_XMM_to_XMM(regd, EEREC_ACC);
+		}
+		else if (regd == EEREC_S) {
+			SSE_MULSS_XMM_to_XMM(regd, EEREC_T);
+			SSE_ADDSS_XMM_to_XMM(regd, EEREC_ACC);
+		}
+		else {
+			SSE_MOVSS_XMM_to_XMM(regd, EEREC_S);
+			SSE_MULSS_XMM_to_XMM(regd, EEREC_T);
+			SSE_ADDSS_XMM_to_XMM(regd, EEREC_ACC);
+		}
+	}
+	else if (_X_Y_Z_W != 0xf) {
+		SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+		SSE_MULPS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+		SSE_ADDPS_XMM_to_XMM(EEREC_TEMP, EEREC_ACC);
+
+		VU_MERGE_REGS(regd, EEREC_TEMP);
+	}
+	else {
+		if( regd == EEREC_ACC ) {
+			SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+			SSE_MULPS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+			SSE_ADDPS_XMM_to_XMM(regd, EEREC_TEMP);
+		}
+		else if (regd == EEREC_T) {
+			SSE_MULPS_XMM_to_XMM(regd, EEREC_S);
+			SSE_ADDPS_XMM_to_XMM(regd, EEREC_ACC);
+		}
+		else if (regd == EEREC_S) {
+			SSE_MULPS_XMM_to_XMM(regd, EEREC_T);
+			SSE_ADDPS_XMM_to_XMM(regd, EEREC_ACC);
+		}
+		else {
+			SSE_MOVAPS_XMM_to_XMM(regd, EEREC_S);
+			SSE_MULPS_XMM_to_XMM(regd, EEREC_T);
+			SSE_ADDPS_XMM_to_XMM(regd, EEREC_ACC);
+		}
+	}
+}
+
+void recVUMI_MADD_iq_toD(VURegs *VU, int addr, int regd, int info)
+{
+	if( _X_Y_Z_W == 8 ) {
+		if( regd == EEREC_ACC ) {
+			if( _Fs_ == 0 ) {
+				// add addr to w
+				SSE_SHUFPS_XMM_to_XMM(regd, regd, 0x27);
+				SSE_ADDSS_M32_to_XMM(regd, addr);
+				SSE_SHUFPS_XMM_to_XMM(regd, regd, 0x27);
+			}
+			else {
+				assert( EEREC_TEMP < XMMREGS );
+				SSE_MOVSS_M32_to_XMM(EEREC_TEMP, addr);
+				SSE_MULSS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+				SSE_ADDSS_XMM_to_XMM(regd, EEREC_TEMP);
+			}
+		}
+		else if( regd == EEREC_S ) {
+			SSE_MULSS_M32_to_XMM(regd, addr);
+			SSE_ADDSS_XMM_to_XMM(regd, EEREC_ACC);
+		}
+		else {
+			SSE_MOVSS_XMM_to_XMM(regd, EEREC_S);
+			SSE_MULSS_M32_to_XMM(regd, addr);
+			SSE_ADDSS_XMM_to_XMM(regd, EEREC_ACC);
+		}
+	}
+	else {
+		if( _Fs_ == 0 ) {
+			// add addr to w
+			if( _W ) {
+				SSE_SHUFPS_XMM_to_XMM(regd, regd, 0x27);
+				SSE_ADDSS_M32_to_XMM(regd, addr);
+				SSE_SHUFPS_XMM_to_XMM(regd, regd, 0x27);
+			}
+
+			return;
+		}
+
+		if( _X_Y_Z_W != 0xf || regd == EEREC_ACC || regd == EEREC_TEMP || regd == EEREC_S ) {
+			SSE_MOVSS_M32_to_XMM(EEREC_TEMP, addr);
+			SSE_SHUFPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP, 0x00);
+		}
+
+		if (_X_Y_Z_W != 0xf) {
+			SSE_MULPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+			SSE_ADDPS_XMM_to_XMM(EEREC_TEMP, EEREC_ACC);
+
+			VU_MERGE_REGS(regd, EEREC_TEMP);
+		}
+		else {
+			if( regd == EEREC_ACC ) {
+				SSE_MULPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+				SSE_ADDPS_XMM_to_XMM(regd, EEREC_TEMP);
+			}
+			else if( regd == EEREC_S ) {
+				SSE_MULPS_XMM_to_XMM(regd, EEREC_TEMP);
+				SSE_ADDPS_XMM_to_XMM(regd, EEREC_ACC);
+			}
+			else if( regd == EEREC_TEMP ) {
+				SSE_MULPS_XMM_to_XMM(regd, EEREC_S);
+				SSE_ADDPS_XMM_to_XMM(regd, EEREC_ACC);
+			}
+			else {
+				SSE_MOVSS_M32_to_XMM(regd, addr);
+				SSE_SHUFPS_XMM_to_XMM(regd, regd, 0x00);
+				SSE_MULPS_XMM_to_XMM(regd, EEREC_S);
+				SSE_ADDPS_XMM_to_XMM(regd, EEREC_ACC);
+			}
+		}
+	}
+}
+
+void recVUMI_MADD_xyzw_toD(VURegs *VU, int xyzw, int regd, int info)
+{
+	if( _Ft_ == 0 ) {
+
+		if( xyzw == 3 ) {
+			// just add
+			if( _X_Y_Z_W == 8 ) {
+				if( regd == EEREC_S ) SSE_ADDSS_XMM_to_XMM(regd, EEREC_ACC);
+				else {
+					if( regd != EEREC_ACC ) SSE_MOVSS_XMM_to_XMM(regd, EEREC_ACC);
+					SSE_ADDSS_XMM_to_XMM(regd, EEREC_S);
+				}
+			}
+			else {
+				if( _X_Y_Z_W != 0xf ) {
+					SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+					SSE_ADDPS_XMM_to_XMM(EEREC_TEMP, EEREC_ACC);
+
+					VU_MERGE_REGS(regd, EEREC_TEMP);
+				}
+				else {
+					if( regd == EEREC_S ) SSE_ADDPS_XMM_to_XMM(regd, EEREC_ACC);
+					else {
+						if( regd != EEREC_ACC ) SSE_MOVAPS_XMM_to_XMM(regd, EEREC_ACC);
+						SSE_ADDPS_XMM_to_XMM(regd, EEREC_S);
+					}
+				}
+			}
+		}
+		else {
+			// just move acc to regd
+			if( _X_Y_Z_W != 0xf ) {
+				SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_ACC);
+				VU_MERGE_REGS(regd, EEREC_TEMP);
+			}
+			else {
+				if( regd != EEREC_ACC ) SSE_MOVAPS_XMM_to_XMM(regd, EEREC_ACC);
+			}
+		}
+
+		return;
+	}
+
+	if( _X_Y_Z_W == 8 ) {
+		_unpackVFSS_xyzw(EEREC_TEMP, EEREC_T, xyzw);
+
+		if( regd == EEREC_ACC ) {
+			SSE_MULSS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+			SSE_ADDSS_XMM_to_XMM(regd, EEREC_TEMP);
+		}
+		else if( regd == EEREC_S ) {
+			SSE_MULSS_XMM_to_XMM(regd, EEREC_TEMP);
+			SSE_ADDSS_XMM_to_XMM(regd, EEREC_ACC);
+		}
+		else if( regd == EEREC_TEMP ) {
+			SSE_MULSS_XMM_to_XMM(regd, EEREC_S);
+			SSE_ADDSS_XMM_to_XMM(regd, EEREC_ACC);
+		}
+		else {
+			SSE_MOVSS_XMM_to_XMM(regd, EEREC_ACC);
+			SSE_MULSS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+			SSE_ADDSS_XMM_to_XMM(regd, EEREC_TEMP);
+		}
+	}
+	else {
+		if( _X_Y_Z_W != 0xf || regd == EEREC_ACC || regd == EEREC_TEMP || regd == EEREC_S )
+			_unpackVF_xyzw(EEREC_TEMP, EEREC_T, xyzw);
+
+		if (_X_Y_Z_W != 0xf) {
+			SSE_MULPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+			SSE_ADDPS_XMM_to_XMM(EEREC_TEMP, EEREC_ACC);
+
+			VU_MERGE_REGS(regd, EEREC_TEMP);
+		}
+		else {
+			if( regd == EEREC_ACC ) {
+				SSE_MULPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+				SSE_ADDPS_XMM_to_XMM(regd, EEREC_TEMP);
+			}
+			else if( regd == EEREC_S ) {
+				SSE_MULPS_XMM_to_XMM(regd, EEREC_TEMP);
+				SSE_ADDPS_XMM_to_XMM(regd, EEREC_ACC);
+			}
+			else if( regd == EEREC_TEMP ) {
+				SSE_MULPS_XMM_to_XMM(regd, EEREC_S);
+				SSE_ADDPS_XMM_to_XMM(regd, EEREC_ACC);
+			}
+			else {
+				_unpackVF_xyzw(regd, EEREC_T, xyzw);
+				SSE_MULPS_XMM_to_XMM(regd, EEREC_S);
+				SSE_ADDPS_XMM_to_XMM(regd, EEREC_ACC);
+			}
+		}
+	}
+}
+
+void recVUMI_MADD(VURegs *VU, int info)
+{
+	if( !_Fd_ ) info |= PROCESS_EE_SET_D(EEREC_TEMP);
+	recVUMI_MADD_toD(VU, EEREC_D, info);
+	recUpdateFlags(VU, EEREC_D, info);
+}
+
+void recVUMI_MADD_iq(VURegs *VU, int addr, int info)
+{
+	if( !_Fd_ ) info |= PROCESS_EE_SET_D(EEREC_TEMP);
+	recVUMI_MADD_iq_toD(VU, addr, EEREC_D, info);
+	recUpdateFlags(VU, EEREC_D, info);
+
+	if( addr == VU_REGQ_ADDR ) CheckForOverflow(info, EEREC_D);
+}
+
+void recVUMI_MADD_xyzw(VURegs *VU, int xyzw, int info)
+{
+	if( !_Fd_ ) info |= PROCESS_EE_SET_D(EEREC_TEMP);
+	recVUMI_MADD_xyzw_toD(VU, xyzw, EEREC_D, info);
+	recUpdateFlags(VU, EEREC_D, info);
+
+	// fixes suikoden 5 chars
+	CheckForOverflow(info, EEREC_D);
+}
+
+void recVUMI_MADDi(VURegs *VU, int info) { recVUMI_MADD_iq(VU, VU_VI_ADDR(REG_I, 1), info); }
+void recVUMI_MADDq(VURegs *VU, int info) { recVUMI_MADD_iq(VU, VU_REGQ_ADDR, info); }
+void recVUMI_MADDx(VURegs *VU, int info) { recVUMI_MADD_xyzw(VU, 0, info); }
+void recVUMI_MADDy(VURegs *VU, int info) { recVUMI_MADD_xyzw(VU, 1, info); }
+void recVUMI_MADDz(VURegs *VU, int info) { recVUMI_MADD_xyzw(VU, 2, info); }
+void recVUMI_MADDw(VURegs *VU, int info) { recVUMI_MADD_xyzw(VU, 3, info); }
+
+void recVUMI_MADDA( VURegs *VU, int info )
+{
+	recVUMI_MADD_toD(VU, EEREC_ACC, info);
+	recUpdateFlags(VU, EEREC_ACC, info);
+}
+
+void recVUMI_MADDAi( VURegs *VU , int info)
+{
+	recVUMI_MADD_iq_toD( VU, VU_VI_ADDR(REG_I, 1), EEREC_ACC, info);
+	recUpdateFlags(VU, EEREC_ACC, info);
+}
+
+void recVUMI_MADDAq( VURegs *VU , int info)
+{
+	recVUMI_MADD_iq_toD( VU, VU_REGQ_ADDR, EEREC_ACC, info);
+	recUpdateFlags(VU, EEREC_ACC, info);
+}
+
+void recVUMI_MADDAx( VURegs *VU , int info)
+{
+	recVUMI_MADD_xyzw_toD(VU, 0, EEREC_ACC, info);
+	recUpdateFlags(VU, EEREC_ACC, info);
+}
+
+void recVUMI_MADDAy( VURegs *VU , int info)
+{
+	recVUMI_MADD_xyzw_toD(VU, 1, EEREC_ACC, info);
+	recUpdateFlags(VU, EEREC_ACC, info);
+}
+
+void recVUMI_MADDAz( VURegs *VU , int info)
+{
+	recVUMI_MADD_xyzw_toD(VU, 2, EEREC_ACC, info);
+	recUpdateFlags(VU, EEREC_ACC, info);
+}
+
+void recVUMI_MADDAw( VURegs *VU , int info)
+{
+	recVUMI_MADD_xyzw_toD(VU, 3, EEREC_ACC, info);
+	recUpdateFlags(VU, EEREC_ACC, info);
+}
+
+void recVUMI_MSUB_toD(VURegs *VU, int regd, int info)
+{
+	if (_X_Y_Z_W != 0xf) {
+		int t1reg = _vuGetTempXMMreg(info);
+
+		SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+		SSE_MULPS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+
+		if( t1reg >= 0 ) {
+			SSE_MOVAPS_XMM_to_XMM(t1reg, EEREC_ACC);
+			SSE_SUBPS_XMM_to_XMM(t1reg, EEREC_TEMP);
+
+			VU_MERGE_REGS(regd, t1reg);
+			_freeXMMreg(t1reg);
+		}
+		else {
+			SSE_XORPS_M128_to_XMM(EEREC_TEMP, (u32)&const_clip[4]);
+			SSE_ADDPS_XMM_to_XMM(EEREC_TEMP, EEREC_ACC);
+			VU_MERGE_REGS(regd, EEREC_TEMP);
+		}
+	}
+	else {
+		if( regd == EEREC_S ) {
+			assert( regd != EEREC_ACC );
+			SSE_MULPS_XMM_to_XMM(regd, EEREC_T);
+			SSE_SUBPS_XMM_to_XMM(regd, EEREC_ACC);
+			SSE_XORPS_M128_to_XMM(regd, (u32)&const_clip[4]);
+		}
+		else if( regd == EEREC_T ) {
+			assert( regd != EEREC_ACC );
+			SSE_MULPS_XMM_to_XMM(regd, EEREC_S);
+			SSE_SUBPS_XMM_to_XMM(regd, EEREC_ACC);
+			SSE_XORPS_M128_to_XMM(regd, (u32)&const_clip[4]);
+		}
+		else if( regd == EEREC_TEMP ) {
+			SSE_MOVAPS_XMM_to_XMM(regd, EEREC_S);
+			SSE_MULPS_XMM_to_XMM(regd, EEREC_T);
+			SSE_SUBPS_XMM_to_XMM(regd, EEREC_ACC);
+			SSE_XORPS_M128_to_XMM(regd, (u32)&const_clip[4]);
+		}
+		else {
+			SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+			if( regd != EEREC_ACC ) SSE_MOVAPS_XMM_to_XMM(regd, EEREC_ACC);
+			SSE_MULPS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+			SSE_SUBPS_XMM_to_XMM(regd, EEREC_TEMP);	
+		}
+	}
+}
+
+void recVUMI_MSUB_temp_toD(VURegs *VU, int regd, int info)
+{
+	if (_X_Y_Z_W != 0xf) {
+		int t1reg = _vuGetTempXMMreg(info);
+
+		SSE_MULPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+
+		if( t1reg >= 0 ) {
+			SSE_MOVAPS_XMM_to_XMM(t1reg, EEREC_ACC);
+			SSE_SUBPS_XMM_to_XMM(t1reg, EEREC_TEMP);
+
+			VU_MERGE_REGS(regd, t1reg);
+			_freeXMMreg(t1reg);
+		}
+		else {
+			SSE_XORPS_M128_to_XMM(EEREC_TEMP, (u32)&const_clip[4]);
+			SSE_ADDPS_XMM_to_XMM(EEREC_TEMP, EEREC_ACC);
+			VU_MERGE_REGS(regd, EEREC_TEMP);
+		}
+	}
+	else {
+		if( regd == EEREC_ACC ) {
+			SSE_MULPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+			SSE_SUBPS_XMM_to_XMM(regd, EEREC_TEMP);	
+		}
+		else if( regd == EEREC_S ) {
+			SSE_MULPS_XMM_to_XMM(regd, EEREC_TEMP);
+			SSE_SUBPS_XMM_to_XMM(regd, EEREC_ACC);
+			SSE_XORPS_M128_to_XMM(regd, (u32)&const_clip[4]);
+		}
+		else if( regd == EEREC_TEMP ) {
+			SSE_MULPS_XMM_to_XMM(regd, EEREC_S);
+			SSE_SUBPS_XMM_to_XMM(regd, EEREC_ACC);
+			SSE_XORPS_M128_to_XMM(regd, (u32)&const_clip[4]);
+		}
+		else {
+			if( regd != EEREC_ACC ) SSE_MOVAPS_XMM_to_XMM(regd, EEREC_ACC);
+			SSE_MULPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+			SSE_SUBPS_XMM_to_XMM(regd, EEREC_TEMP);	
+		}
+	}
+}
+
+void recVUMI_MSUB_iq_toD(VURegs *VU, int regd, int addr, int info)
+{
+	SSE_MOVSS_M32_to_XMM(EEREC_TEMP, addr); 
+	SSE_SHUFPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP, 0x00);
+	recVUMI_MSUB_temp_toD(VU, regd, info);
+}
+
+void recVUMI_MSUB_xyzw_toD(VURegs *VU, int regd, int xyzw, int info)
+{
+	_unpackVF_xyzw(EEREC_TEMP, EEREC_T, xyzw);
+	recVUMI_MSUB_temp_toD(VU, regd, info);
+}
+
+void recVUMI_MSUB(VURegs *VU, int info)
+{
+	if( !_Fd_ ) info |= PROCESS_EE_SET_D(EEREC_TEMP);
+	recVUMI_MSUB_toD(VU, EEREC_D, info);
+	recUpdateFlags(VU, EEREC_D, info);
+}
+
+void recVUMI_MSUB_iq(VURegs *VU, int addr, int info)
+{
+	if( !_Fd_ ) info |= PROCESS_EE_SET_D(EEREC_TEMP);
+	recVUMI_MSUB_iq_toD(VU, EEREC_D, addr, info);
+	recUpdateFlags(VU, EEREC_D, info);
+
+	if( addr == VU_REGQ_ADDR ) CheckForOverflow(info, EEREC_D);
+}
+
+void recVUMI_MSUBi(VURegs *VU, int info) { recVUMI_MSUB_iq(VU, VU_VI_ADDR(REG_I, 1), info); }
+void recVUMI_MSUBq(VURegs *VU, int info) { recVUMI_MSUB_iq(VU, VU_REGQ_ADDR, info); }
+void recVUMI_MSUBx(VURegs *VU, int info)
+{
+	recVUMI_MSUB_xyzw_toD(VU, EEREC_D, 0, info);
+	recUpdateFlags(VU, EEREC_D, info);
+}
+
+void recVUMI_MSUBy(VURegs *VU, int info)
+{
+	recVUMI_MSUB_xyzw_toD(VU, EEREC_D, 1, info);
+	recUpdateFlags(VU, EEREC_D, info);
+}
+
+void recVUMI_MSUBz(VURegs *VU, int info)
+{
+	recVUMI_MSUB_xyzw_toD(VU, EEREC_D, 2, info);
+	recUpdateFlags(VU, EEREC_D, info);
+}
+
+void recVUMI_MSUBw(VURegs *VU, int info)
+{
+	recVUMI_MSUB_xyzw_toD(VU, EEREC_D, 3, info);
+	recUpdateFlags(VU, EEREC_D, info);
+}
+
+void recVUMI_MSUBA( VURegs *VU, int info )
+{
+	recVUMI_MSUB_toD(VU, EEREC_ACC, info);
+	recUpdateFlags(VU, EEREC_ACC, info);
+}
+
+void recVUMI_MSUBAi( VURegs *VU, int info )
+{
+	recVUMI_MSUB_iq_toD( VU, EEREC_ACC, VU_VI_ADDR(REG_I, 1), info );
+	recUpdateFlags(VU, EEREC_ACC, info);
+}
+
+void recVUMI_MSUBAq( VURegs *VU, int info )
+{
+	recVUMI_MSUB_iq_toD( VU, EEREC_ACC, VU_REGQ_ADDR, info );
+	recUpdateFlags(VU, EEREC_ACC, info);
+}
+
+void recVUMI_MSUBAx( VURegs *VU, int info )
+{
+	recVUMI_MSUB_xyzw_toD(VU, EEREC_ACC, 0, info);
+	recUpdateFlags(VU, EEREC_ACC, info);
+}
+
+void recVUMI_MSUBAy( VURegs *VU, int info )
+{
+	recVUMI_MSUB_xyzw_toD(VU, EEREC_ACC, 1, info);
+	recUpdateFlags(VU, EEREC_ACC, info);
+}
+
+void recVUMI_MSUBAz( VURegs *VU, int info )
+{
+	recVUMI_MSUB_xyzw_toD(VU, EEREC_ACC, 2, info);
+	recUpdateFlags(VU, EEREC_ACC, info);
+}
+
+void recVUMI_MSUBAw( VURegs *VU, int info )
+{
+	recVUMI_MSUB_xyzw_toD(VU, EEREC_ACC, 3, info);
+	recUpdateFlags(VU, EEREC_ACC, info);
+}
+
+void recVUMI_MAX(VURegs *VU, int info)
+{	
+	if ( _Fd_ == 0 ) return;
+
+	if( _X_Y_Z_W == 8 ) {
+		if (EEREC_D == EEREC_S) SSE_MAXSS_XMM_to_XMM(EEREC_D, EEREC_T);
+		else if (EEREC_D == EEREC_T) SSE_MAXSS_XMM_to_XMM(EEREC_D, EEREC_S);
+		else {
+			SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_S);
+			SSE_MAXSS_XMM_to_XMM(EEREC_D, EEREC_T);
+		}
+	}
+	else if (_X_Y_Z_W != 0xf) {
+		SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+		SSE_MAXPS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+
+		VU_MERGE_REGS(EEREC_D, EEREC_TEMP);
+	}
+	else {
+		if( EEREC_D == EEREC_S ) SSE_MAXPS_XMM_to_XMM(EEREC_D, EEREC_T);
+		else if( EEREC_D == EEREC_T ) SSE_MAXPS_XMM_to_XMM(EEREC_D, EEREC_S);
+		else {
+			SSE_MOVAPS_XMM_to_XMM(EEREC_D, EEREC_S);
+			SSE_MAXPS_XMM_to_XMM(EEREC_D, EEREC_T);
+		}
+	}
+}
+
+void recVUMI_MAX_iq(VURegs *VU, int addr, int info)
+{	
+	if ( _Fd_ == 0 ) return;
+
+	if( _XYZW_SS ) {
+		if( EEREC_D == EEREC_TEMP ) {
+			_vuFlipRegSS(VU, EEREC_S);
+			SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_S);
+			SSE_MAXSS_M32_to_XMM(EEREC_D, addr);
+			_vuFlipRegSS(VU, EEREC_S);
+		}
+		else if( EEREC_D == EEREC_S ) {
+			_vuFlipRegSS(VU, EEREC_D);
+			SSE_MAXSS_M32_to_XMM(EEREC_D, addr);
+			_vuFlipRegSS(VU, EEREC_D);
+		}
+		else {
+			if( _X ) {
+				SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_S);
+				SSE_MAXSS_M32_to_XMM(EEREC_D, addr);
+			}
+			else {
+				_vuMoveSS(VU, EEREC_TEMP, EEREC_S);
+				_vuFlipRegSS(VU, EEREC_D);
+				SSE_MAXSS_M32_to_XMM(EEREC_TEMP, addr);
+				SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+				_vuFlipRegSS(VU, EEREC_D);
+			}
+		}
+	}
+	else if (_X_Y_Z_W != 0xf) {
+		SSE_MOVSS_M32_to_XMM(EEREC_TEMP, addr); 
+		SSE_SHUFPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP, 0x00);
+		SSE_MAXPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+		VU_MERGE_REGS(EEREC_D, EEREC_TEMP);
+	}
+	else {
+		if(EEREC_D == EEREC_S) {
+			SSE_MOVSS_M32_to_XMM(EEREC_TEMP, addr);
+			SSE_SHUFPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP, 0x00);
+			SSE_MAXPS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+		}
+		else {
+			SSE_MOVSS_M32_to_XMM(EEREC_D, addr);
+			SSE_SHUFPS_XMM_to_XMM(EEREC_D, EEREC_D, 0x00);
+			SSE_MAXPS_XMM_to_XMM(EEREC_D, EEREC_S);
+		}
+	}
+}
+
+void recVUMI_MAX_xyzw(VURegs *VU, int xyzw, int info)
+{	
+	if ( _Fd_ == 0 ) return;
+
+	if( _X_Y_Z_W == 8 ) {
+		if( _Fs_ == 0 && _Ft_ == 0 ) {
+			if( xyzw < 3 ) {
+				SSE_XORPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
+				SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+			}
+			else {
+				SSE_MOVSS_M32_to_XMM(EEREC_TEMP, (u32)s_fones);
+				SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+			}
+		}
+		else if( EEREC_D == EEREC_TEMP ) {
+			_unpackVFSS_xyzw(EEREC_TEMP, EEREC_T, xyzw);
+			SSE_MAXSS_XMM_to_XMM(EEREC_D, EEREC_S);
+		}
+		else {
+			if( xyzw == 0 ) {
+				if( EEREC_D == EEREC_S ) SSE_MAXSS_XMM_to_XMM(EEREC_D, EEREC_T);
+				else if( EEREC_D == EEREC_T ) SSE_MAXSS_XMM_to_XMM(EEREC_D, EEREC_S);
+				else {
+					SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_S);
+					SSE_MAXSS_XMM_to_XMM(EEREC_D, EEREC_T);
+				}
+			}
+			else {
+				_unpackVFSS_xyzw(EEREC_TEMP, EEREC_T, xyzw);
+				if( EEREC_D != EEREC_S ) SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_S);
+				SSE_MAXSS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+			}
+		}
+	}
+	else if (_X_Y_Z_W != 0xf) {
+		if( _Fs_ == 0 && _Ft_ == 0 ) {
+			if( xyzw < 3 ) SSE_XORPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
+			else SSE_MOVAPS_M128_to_XMM(EEREC_TEMP, (u32)s_fones);
+		}
+		else {
+			_unpackVF_xyzw(EEREC_TEMP, EEREC_T, xyzw);
+			SSE_MAXPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+		}
+		VU_MERGE_REGS(EEREC_D, EEREC_TEMP);
+	}
+	else {
+		if( _Fs_ == 0 && _Ft_ == 0 ) {
+			if( xyzw < 3 ) SSE_XORPS_XMM_to_XMM(EEREC_D, EEREC_D);
+			else SSE_MOVAPS_M128_to_XMM(EEREC_D, (u32)s_fones);
+		}
+		else {
+			if (EEREC_D == EEREC_S) {
+				_unpackVF_xyzw(EEREC_TEMP, EEREC_T, xyzw);
+				SSE_MAXPS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+			}
+			else {
+				_unpackVF_xyzw(EEREC_D, EEREC_T, xyzw);
+				SSE_MAXPS_XMM_to_XMM(EEREC_D, EEREC_S);
+			}
+		}
+	}
+}
+
+void recVUMI_MAXi(VURegs *VU, int info) { recVUMI_MAX_iq(VU, VU_VI_ADDR(REG_I, 1), info); }
+void recVUMI_MAXx(VURegs *VU, int info) { recVUMI_MAX_xyzw(VU, 0, info); }
+void recVUMI_MAXy(VURegs *VU, int info) { recVUMI_MAX_xyzw(VU, 1, info); }
+void recVUMI_MAXz(VURegs *VU, int info) { recVUMI_MAX_xyzw(VU, 2, info); }
+void recVUMI_MAXw(VURegs *VU, int info) { recVUMI_MAX_xyzw(VU, 3, info); }
+
+void recVUMI_MINI(VURegs *VU, int info)
+{
+	if ( _Fd_ == 0 ) return;
+
+	if( _X_Y_Z_W == 8 ) {
+		if (EEREC_D == EEREC_S) SSE_MINSS_XMM_to_XMM(EEREC_D, EEREC_T);
+		else if (EEREC_D == EEREC_T) SSE_MINSS_XMM_to_XMM(EEREC_D, EEREC_S);
+		else {
+			SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_S);
+			SSE_MINSS_XMM_to_XMM(EEREC_D, EEREC_T);
+		}
+	}
+	else if (_X_Y_Z_W != 0xf) {
+		SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+		SSE_MINPS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+
+		VU_MERGE_REGS(EEREC_D, EEREC_TEMP);
+	}
+	else {
+		if( EEREC_D == EEREC_S ) {
+			// need for GT4 vu0rec
+			ClampUnordered(EEREC_T, EEREC_TEMP, 0);
+			SSE_MINPS_XMM_to_XMM(EEREC_D, EEREC_T);
+		}
+		else if( EEREC_D == EEREC_T ) {
+			// need for GT4 vu0rec
+			ClampUnordered(EEREC_S, EEREC_TEMP, 0);
+			SSE_MINPS_XMM_to_XMM(EEREC_D, EEREC_S);
+		}
+		else {
+			SSE_MOVAPS_XMM_to_XMM(EEREC_D, EEREC_S);
+			SSE_MINPS_XMM_to_XMM(EEREC_D, EEREC_T);
+		}
+	}
+}
+
+void recVUMI_MINI_iq(VURegs *VU, int addr, int info)
+{
+	if ( _Fd_ == 0 ) return;
+
+	if( _XYZW_SS ) {
+		if( EEREC_D == EEREC_TEMP ) {
+			_vuFlipRegSS(VU, EEREC_S);
+			SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_S);
+			SSE_MINSS_M32_to_XMM(EEREC_D, addr);
+			_vuFlipRegSS(VU, EEREC_S);
+		}
+		else if( EEREC_D == EEREC_S ) {
+			_vuFlipRegSS(VU, EEREC_D);
+			SSE_MINSS_M32_to_XMM(EEREC_D, addr);
+			_vuFlipRegSS(VU, EEREC_D);
+		}
+		else {
+			if( _X ) {
+				SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_S);
+				SSE_MINSS_M32_to_XMM(EEREC_D, addr);
+			}
+			else {
+				_vuMoveSS(VU, EEREC_TEMP, EEREC_S);
+				_vuFlipRegSS(VU, EEREC_D);
+				SSE_MINSS_M32_to_XMM(EEREC_TEMP, addr);
+				SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+				_vuFlipRegSS(VU, EEREC_D);
+			}
+		}
+	}
+	else if (_X_Y_Z_W != 0xf) {
+		SSE_MOVSS_M32_to_XMM(EEREC_TEMP, addr); 
+		SSE_SHUFPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP, 0x00);
+		SSE_MINPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+		VU_MERGE_REGS(EEREC_D, EEREC_TEMP);
+	}
+	else {
+		if(EEREC_D == EEREC_S) {
+			SSE_MOVSS_M32_to_XMM(EEREC_TEMP, addr);
+			SSE_SHUFPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP, 0x00);
+			SSE_MINPS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+		}
+		else {
+			SSE_MOVSS_M32_to_XMM(EEREC_D, addr);
+			SSE_SHUFPS_XMM_to_XMM(EEREC_D, EEREC_D, 0x00);
+			SSE_MINPS_XMM_to_XMM(EEREC_D, EEREC_S);
+		}
+	}
+}
+
+void recVUMI_MINI_xyzw(VURegs *VU, int xyzw, int info)
+{
+	if ( _Fd_ == 0 ) return;
+
+	if( _X_Y_Z_W == 8 ) {
+		if( EEREC_D == EEREC_TEMP ) {
+			_unpackVFSS_xyzw(EEREC_TEMP, EEREC_T, xyzw);
+			SSE_MINSS_XMM_to_XMM(EEREC_D, EEREC_S);
+		}
+		else {
+			if( xyzw == 0 ) {
+				if( EEREC_D == EEREC_S ) SSE_MINSS_XMM_to_XMM(EEREC_D, EEREC_T);
+				else if( EEREC_D == EEREC_T ) SSE_MINSS_XMM_to_XMM(EEREC_D, EEREC_S);
+				else {
+					SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_S);
+					SSE_MINSS_XMM_to_XMM(EEREC_D, EEREC_T);
+				}
+			}
+			else {
+				_unpackVFSS_xyzw(EEREC_TEMP, EEREC_T, xyzw);
+				if( EEREC_D != EEREC_S ) SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_S);
+				SSE_MINSS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+			}
+		}
+	}
+	else if (_X_Y_Z_W != 0xf) {
+		_unpackVF_xyzw(EEREC_TEMP, EEREC_T, xyzw);
+		SSE_MINPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+		VU_MERGE_REGS(EEREC_D, EEREC_TEMP);
+	}
+	else {
+		if (EEREC_D == EEREC_S) {
+			_unpackVF_xyzw(EEREC_TEMP, EEREC_T, xyzw);
+			SSE_MINPS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+		}
+		else {
+			_unpackVF_xyzw(EEREC_D, EEREC_T, xyzw);
+			SSE_MINPS_XMM_to_XMM(EEREC_D, EEREC_S);
+		}
+	}
+}
+
+void recVUMI_MINIi(VURegs *VU, int info) { recVUMI_MINI_iq(VU, VU_VI_ADDR(REG_I, 1), info); }
+void recVUMI_MINIx(VURegs *VU, int info) { recVUMI_MINI_xyzw(VU, 0, info); }
+void recVUMI_MINIy(VURegs *VU, int info) { recVUMI_MINI_xyzw(VU, 1, info); }
+void recVUMI_MINIz(VURegs *VU, int info) { recVUMI_MINI_xyzw(VU, 2, info); }
+void recVUMI_MINIw(VURegs *VU, int info) { recVUMI_MINI_xyzw(VU, 3, info); }
+
+void recVUMI_OPMULA( VURegs *VU, int info )
+{
+	SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+	SSE_SHUFPS_XMM_to_XMM(EEREC_T, EEREC_T, 0xD2);			// EEREC_T = WYXZ
+	SSE_SHUFPS_XMM_to_XMM( EEREC_TEMP, EEREC_TEMP, 0xC9 );	// EEREC_TEMP = WXZY
+	SSE_MULPS_XMM_to_XMM( EEREC_TEMP, EEREC_T );
+
+	VU_MERGE_REGS_CUSTOM(EEREC_ACC, EEREC_TEMP, 14);
+
+	// revert EEREC_T
+	if( EEREC_T != EEREC_ACC )
+		SSE_SHUFPS_XMM_to_XMM(EEREC_T, EEREC_T, 0xC9);
+
+	recUpdateFlags(VU, EEREC_ACC, info);
+}
+
+void recVUMI_OPMSUB( VURegs *VU, int info )
+{
+	if( !_Fd_ ) info |= PROCESS_EE_SET_D(EEREC_TEMP);
+
+	SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+	SSE_SHUFPS_XMM_to_XMM( EEREC_T, EEREC_T, 0xD2 );           // EEREC_T = WYXZ
+	SSE_SHUFPS_XMM_to_XMM( EEREC_TEMP, EEREC_TEMP, 0xC9 );     // EEREC_TEMP = WXZY
+	SSE_MULPS_XMM_to_XMM( EEREC_TEMP, EEREC_T);
+
+	// negate and add
+	SSE_XORPS_M128_to_XMM(EEREC_TEMP, (u32)&const_clip[4]);
+	SSE_ADDPS_XMM_to_XMM(EEREC_TEMP, EEREC_ACC);
+	VU_MERGE_REGS_CUSTOM(EEREC_D, EEREC_TEMP, 14);
+	
+	// revert EEREC_T
+	if( EEREC_T != EEREC_D )
+		SSE_SHUFPS_XMM_to_XMM(EEREC_T, EEREC_T, 0xC9);
+
+	recUpdateFlags(VU, EEREC_D, info);
+}
+
+void recVUMI_NOP( VURegs *VU, int info ) 
+{
+}
+
+void recVUMI_FTOI0(VURegs *VU, int info)
+{	
 	if ( _Ft_ == 0 ) return; 
 
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
+	if (_X_Y_Z_W != 0xf) {
+		if(cpucaps.hasStreamingSIMD2Extensions) SSE2_CVTPS2DQ_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+		else SSE2EMU_CVTPS2DQ_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+		VU_MERGE_REGS(EEREC_T, EEREC_TEMP);
+	}
+	else {
+		if(cpucaps.hasStreamingSIMD2Extensions) SSE2_CVTPS2DQ_XMM_to_XMM(EEREC_T, EEREC_S);
+		else SSE2EMU_CVTPS2DQ_XMM_to_XMM(EEREC_T, EEREC_S);
+	}	
+}
+
+void recVUMI_FTOIX(VURegs *VU, int addr, int info)
+{
+	if ( _Ft_ == 0 ) return; 
 
 	if (_X_Y_Z_W != 0xf) {
-		ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ | MODE_WRITE);
-		fsreg = _checkVFtoXMMreg(VU, _Fs_);
-		t0reg = _allocTempXMMreg(-1);
+		SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+		SSE_MULPS_M128_to_XMM(EEREC_TEMP, addr);
+		if(cpucaps.hasStreamingSIMD2Extensions) SSE2_CVTPS2DQ_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
+		else SSE2EMU_CVTPS2DQ_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
 
-		if( fsreg < 0 ) {
-			if(cpucaps.hasStreamingSIMD2Extensions) SSE2_CVTDQ2PS_M128_to_XMM(t0reg, VU_VFx_ADDR( _Fs_ ));
-			else SSE2EMU_CVTDQ2PS_M128_to_XMM(t0reg, VU_VFx_ADDR( _Fs_ ));
-		}
+		VU_MERGE_REGS(EEREC_T, EEREC_TEMP);
+	}
+	else {
+		if (EEREC_T != EEREC_S) SSE_MOVAPS_XMM_to_XMM(EEREC_T, EEREC_S);
+		SSE_MULPS_M128_to_XMM(EEREC_T, addr);
+		if(cpucaps.hasStreamingSIMD2Extensions) SSE2_CVTPS2DQ_XMM_to_XMM(EEREC_T, EEREC_T);
+		else SSE2EMU_CVTPS2DQ_XMM_to_XMM(EEREC_T, EEREC_T);
+	}
+}
+
+void recVUMI_FTOI4( VURegs *VU, int info ) { recVUMI_FTOIX(VU, (int)&recMult_float_to_int4[0], info); }
+void recVUMI_FTOI12( VURegs *VU, int info ) { recVUMI_FTOIX(VU, (int)&recMult_float_to_int12[0], info); }
+void recVUMI_FTOI15( VURegs *VU, int info ) { recVUMI_FTOIX(VU, (int)&recMult_float_to_int15[0], info); }
+
+void recVUMI_ITOF0( VURegs *VU, int info )
+{
+	if ( _Ft_ == 0 ) return;
+
+	if (_X_Y_Z_W != 0xf) {
+		if(cpucaps.hasStreamingSIMD2Extensions) SSE2_CVTDQ2PS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
 		else {
-			if(cpucaps.hasStreamingSIMD2Extensions) SSE2_CVTDQ2PS_XMM_to_XMM(t0reg, fsreg);
-			else {
-				_freeXMMreg(fsreg);
-				SSE2EMU_CVTDQ2PS_M128_to_XMM(t0reg, VU_VFx_ADDR( _Fs_ ));
-			}
+			_deleteVFtoXMMreg(_Fs_, VU==&VU1, 1);
+			SSE2EMU_CVTDQ2PS_M128_to_XMM(EEREC_TEMP, VU_VFx_ADDR( _Fs_ ));
+		}
+		
+		VU_MERGE_REGS(EEREC_T, EEREC_TEMP);
+	}
+	else {
+		if( cpucaps.hasStreamingSIMD2Extensions ) SSE2_CVTDQ2PS_XMM_to_XMM(EEREC_T, EEREC_S);
+		else {
+			_deleteVFtoXMMreg(_Fs_, VU==&VU1, 1);
+			SSE2EMU_CVTDQ2PS_M128_to_XMM(EEREC_T, VU_VFx_ADDR( _Fs_ ));
+		}
+	}
+}
+
+void recVUMI_ITOFX(VURegs *VU, int addr, int info)
+{
+	if ( _Ft_ == 0 ) return; 
+
+	if (_X_Y_Z_W != 0xf) {
+		if(cpucaps.hasStreamingSIMD2Extensions) SSE2_CVTDQ2PS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+		else {
+			_deleteVFtoXMMreg(_Fs_, VU==&VU1, 1);
+			SSE2EMU_CVTDQ2PS_M128_to_XMM(EEREC_TEMP, VU_VFx_ADDR( _Fs_ ));
 		}
 
-		SSE_MULPS_M128_to_XMM(t0reg, addr);
-		VU_MERGE_REGS(ftreg, t0reg);
+		SSE_MULPS_M128_to_XMM(EEREC_TEMP, addr);
+		VU_MERGE_REGS(EEREC_T, EEREC_TEMP);
 	} else {
-		ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_WRITE);
-		fsreg = _checkVFtoXMMreg(VU, _Fs_);
-
-		if( fsreg < 0 ) {
-			if(cpucaps.hasStreamingSIMD2Extensions) SSE2_CVTDQ2PS_M128_to_XMM(ftreg, VU_VFx_ADDR( _Fs_ ));
-			else SSE2EMU_CVTDQ2PS_M128_to_XMM(ftreg, VU_VFx_ADDR( _Fs_ ));
-		}
+		if(cpucaps.hasStreamingSIMD2Extensions) SSE2_CVTDQ2PS_XMM_to_XMM(EEREC_T, EEREC_S);
 		else {
-			if(cpucaps.hasStreamingSIMD2Extensions) SSE2_CVTDQ2PS_XMM_to_XMM(ftreg, fsreg);
-			else {
-				_freeXMMreg(fsreg);
-				SSE2EMU_CVTDQ2PS_M128_to_XMM(ftreg, VU_VFx_ADDR( _Fs_ ));
-			}
+			_deleteVFtoXMMreg(_Fs_, VU==&VU1, 1);
+			SSE2EMU_CVTDQ2PS_M128_to_XMM(EEREC_T, VU_VFx_ADDR( _Fs_ ));
 		}
 
-		SSE_MULPS_M128_to_XMM(ftreg, addr);
+		SSE_MULPS_M128_to_XMM(EEREC_T, addr);
+	}
+}
+
+void recVUMI_ITOF4( VURegs *VU, int info ) { recVUMI_ITOFX(VU, (int)&recMult_int_to_float4[0], info); }
+void recVUMI_ITOF12( VURegs *VU, int info ) { recVUMI_ITOFX(VU, (int)&recMult_int_to_float12[0], info); }
+void recVUMI_ITOF15( VURegs *VU, int info ) { recVUMI_ITOFX(VU, (int)&recMult_int_to_float15[0], info); }
+
+void recVUMI_CLIP(VURegs *VU, int info)
+{
+	int t1reg = EEREC_D;
+	int t2reg = EEREC_ACC;
+	int x86temp0, x86temp1;
+
+	u32 clipaddr = VU_VI_ADDR(REG_CLIP_FLAG, 0);
+	u32 prevclipaddr = VU_VI_ADDR(REG_CLIP_FLAG, 2);
+
+	assert( clipaddr != 0 );
+	assert( t1reg != t2reg && t1reg != EEREC_TEMP && t2reg != EEREC_TEMP );
+
+	x86temp1 = ALLOCTEMPX86(MODE_8BITREG);
+	x86temp0 = ALLOCTEMPX86(0);
+
+	if( _Ft_ == 0 ) {
+		// all 1s
+		SSE_MOVAPS_M128_to_XMM(EEREC_TEMP, (u32)&s_fones[0]);
+		SSE_MOVAPS_M128_to_XMM(t1reg, (u32)&s_fones[4]);
+
+		MOV32MtoR(EAX, prevclipaddr);
+	}
+	else {
+		_unpackVF_xyzw(EEREC_TEMP, EEREC_T, 3);
+		SSE_XORPS_XMM_to_XMM(t1reg, t1reg);
+		SSE_ANDPS_M128_to_XMM(EEREC_TEMP, (int)const_clip);
+
+		MOV32MtoR(EAX, prevclipaddr);
+	
+		SSE_SUBPS_XMM_to_XMM(t1reg, EEREC_TEMP);
 	}
 
-	_clearNeededXMMregs();
-}
+	SSE_CMPLTPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+	SSE_CMPNLEPS_XMM_to_XMM(t1reg, EEREC_S);
 
-void recVUMI_ITOF4( VURegs *VU )
-{
-	recVUMI_ITOFX(VU, (int)&recMult_int_to_float4[0]);
-}
-
-void recVUMI_ITOF12( VURegs *VU )
-{
-   recVUMI_ITOFX(VU, (int)&recMult_int_to_float12[0]);
-}
-
-void recVUMI_ITOF15( VURegs *VU )
-{
-   recVUMI_ITOFX(VU, (int)&recMult_int_to_float15[0]);
-}
-
-static __declspec(align(16)) int const_clip[] = {
-	0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff,
-	0x80000000, 0x80000000, 0x80000000, 0x80000000,
-	0x0000ffff, 0x0000ffff, 0x0000ffff, 0x0000ffff,
-	0xffff0000, 0xffff0000, 0xffff0000, 0xffff0000 };
-
-void recVUMI_CLIP(VURegs *VU) {
-	int t0reg, t1reg;
-	int fsreg;
-	int ftreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	t0reg = _allocTempXMMreg(-1);
-	t1reg = _allocTempXMMreg(-1);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ);
-	
-	MOV32MtoR(EAX, (uptr)&VU->clipflag);
 	SHL32ItoR(EAX, 6);
 
-	_unpackVF_xyzw(t0reg, ftreg, 3);
-	SSE_MOVAPS_XMM_to_XMM(t1reg, t0reg);
-	SSE_ANDPS_M128_to_XMM(t0reg, (int)const_clip);
-	SSE_ORPS_M128_to_XMM(t1reg, (int)(const_clip+4));
-	SSE_CMPLTPS_XMM_to_XMM(t0reg, fsreg);
-	SSE_CMPNLEPS_XMM_to_XMM(t1reg, fsreg);
+	SSE_MOVAPS_XMM_to_XMM(t2reg, EEREC_TEMP);
+	SSE_UNPCKLPS_XMM_to_XMM(EEREC_TEMP, t1reg);
+	SSE_UNPCKHPS_XMM_to_XMM(t2reg, t1reg);
+	SSE_MOVMSKPS_XMM_to_R32(x86temp0, EEREC_TEMP); // -y,+y,-x,+x
+	SSE_MOVMSKPS_XMM_to_R32(x86temp1, t2reg); // -w,+w,-z,+z
 
-	// shuffle so arranged in -w,+w,-z,+z,-y,+y,-x,+x
-	SSE_ANDPS_M128_to_XMM(t0reg, (int)(const_clip+8));
-	SSE_ANDPS_M128_to_XMM(t1reg, (int)(const_clip+12));
-	SSE_ORPS_XMM_to_XMM(t0reg, t1reg);
-
-	// switch happens in ivu1micro.c
-//	if(cpucaps.hasStreamingSIMD2Extensions) {
-		SSE2_PACKSSWB_XMM_to_XMM(t0reg, t0reg);
-
-		// extract bit mask
-		SSE2_PMOVMSKB_XMM_to_R32(EDX, t0reg);
-//	} else {
-//		// doesn't work
-//		SSE_MOVHLPS_XMM_to_XMM(t1reg, t0reg);
-//		PACKSSWBMMXtoMMX(t0reg, t1reg);
-//
-//		// extract bit mask
-//		PMOVMSKBMMXtoR(EDX, t0reg);
-//	}
-
-	AND32ItoR(EDX, 0x3f);
-	OR32RtoR(EAX, EDX);
 	AND32ItoR(EAX, 0xffffff);
-	MOV32RtoM((uptr)&VU->clipflag, EAX);
-	MOV32RtoM((uptr)&VU0.VI[REG_CLIP_FLAG].UL, EAX);
 
-	_freeXMMreg(t0reg);
+	AND8ItoR(x86temp1, 0x3);
+	SHL32ItoR(x86temp1, 4);
+	OR32RtoR(EAX, x86temp0);
+	OR32RtoR(EAX, x86temp1);
+
+	MOV32RtoM(clipaddr, EAX);
+	if( !(info&(PROCESS_VU_SUPER|PROCESS_VU_COP2)) ) MOV32RtoM((u32)&VU->VI[REG_CLIP_FLAG], EAX);
+
 	_freeXMMreg(t1reg);
-	_clearNeededXMMregs();
+	_freeXMMreg(t2reg);
+
+	_freeX86reg(x86temp0);
+	_freeX86reg(x86temp1);
 }
 
 /******************************/
 /*   VU Lower instructions    */
 /******************************/
 
-void recVUMI_DIV(VURegs *VU) {
-	int t0reg;
-	int fsreg;
-	int ftreg;
+void recVUMI_DIV(VURegs *VU, int info)
+{
+	if( _Fs_ == 0 ) {
 
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	t0reg = _allocTempXMMreg(-1);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-	ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ);
-
-	if (_Fsf_ == 0 && _Ftf_ == 0) {
-		SSE_MOVSS_XMM_to_XMM(t0reg, fsreg);
-		SSE_DIVSS_XMM_to_XMM(t0reg, ftreg);
-		if(cpucaps.hasStreamingSIMD2Extensions) SSE2_MOVD_XMM_to_M32((int)&VU->q.F, t0reg);
-		else SSE2EMU_MOVD_XMM_to_M32((int)&VU->q.F, t0reg);
-	} else {
-		_unpackVF_xyzw(t0reg, fsreg, _Fsf_);
-
-		SSE2_PSHUFD_XMM_to_XMM(ftreg, ftreg, (0xe4e4>>(2*_Ftf_))&0xff);
-		SSE_DIVSS_XMM_to_XMM(t0reg, ftreg);
-
-		// mov back
-		SSE2_PSHUFD_XMM_to_XMM(ftreg, ftreg, (0xe4e4>>(8-2*_Ftf_))&0xff);
-
-		if(cpucaps.hasStreamingSIMD2Extensions) SSE2_MOVD_XMM_to_M32((int)&VU->q.F, t0reg);
-		else SSE2EMU_MOVD_XMM_to_M32((int)&VU->q.F, t0reg);
-	}
-
-	_freeXMMreg(t0reg);
-	_clearNeededXMMregs();
-}
-
-void recVUMI_SQRT( VURegs *VU ) {
-	//_freeXMMregs(VU);
-	int ftreg = _checkVFtoXMMreg(VU, _Ft_);
-
-	if( ftreg < 0 ) {
-		FLD32((int)&VU->VF[ _Ft_ ].F[ _Ftf_ ]);
-		FSQRT();
-		FSTP32( (int)&VU->q.F );
-	}
-	else {
-		int t0reg;
-
-		_addNeededVFtoXMMreg(_Ft_);
-		t0reg = _allocTempXMMreg(-1);
-
-		// load 0x7fffffff for abs value
-		switch( _Ftf_ ) {
-			case 0:
-				SSE_MOVSS_XMM_to_XMM(t0reg, ftreg);
-				break;
-			default:
-				SSE2_PSHUFD_XMM_to_XMM(t0reg, ftreg, 0x55 * _Ftf_);
-				break;
+		if( _Ft_ == 0 ) {
+			if( _Fsf_ < 3 ) MOV32ItoM(VU_VI_ADDR(REG_Q, 0), 0);
+			else if( _Ftf_ < 0 ) MOV32ItoM(VU_VI_ADDR(REG_Q, 0), 0x7f7fffff);
+			else MOV32ItoM(VU_VI_ADDR(REG_Q, 0), 0x3f800000);
+			return;
 		}
 
-		SSE2_PSLLD_I8_to_XMM(t0reg, 1);
-		SSE2_PSRLD_I8_to_XMM(t0reg, 1);
+		if( _Fsf_ == 3 ) { // = 1
+			// don't use RCPSS (very bad precision)
+			SSE_MOVSS_M32_to_XMM(EEREC_TEMP, (u32)&VU->VF[0].UL[3]);
 
-		SSE_SQRTSS_XMM_to_XMM(t0reg, t0reg);
-		SSE_MOVSS_XMM_to_M32((int)&VU->q.F, t0reg);
-
-		_freeXMMreg(t0reg);
-		_clearNeededXMMregs();
-	}
-}
-
-static int rsqrttmp;
-
-void recVUMI_RSQRT(VURegs *VU) {
-	//_freeXMMregs(VU);
-	int fsreg, ftreg;
-
-	fsreg = _checkVFtoXMMreg(VU, _Fs_);
-	ftreg = _checkVFtoXMMreg(VU, _Ft_);
-
-	if( ftreg < 0 && fsreg < 0 ) {
-		// not loaded, so just do regular assembly
-		FLD32((int)&VU->VF[ _Ft_ ].F[ _Ftf_ ]);
-		FSQRT( );
-		FSTP32( (int)&rsqrttmp );
-
-		MOV32MtoR( EAX, (int)&rsqrttmp );
-		OR32RtoR( EAX, EAX );
-		j8Ptr[ 0 ] = JE8( 0 );				
-		FLD32( (int)&VU->VF[ _Fs_ ].F[ _Fsf_ ] );
-		FDIV32( (int)&rsqrttmp );
-		FSTP32( (int)&VU->q.F );
-		x86SetJ8( j8Ptr[ 0 ] );
+			if( _Ftf_ == 0 || (xmmregs[EEREC_T].mode & MODE_WRITE) ) {
+				if( _Ftf_ ) SSE_SHUFPS_XMM_to_XMM(EEREC_T, EEREC_T, (0xe4e4>>(2*_Ftf_))&0xff);
+				SSE_DIVSS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+				if( _Ftf_ ) SSE_SHUFPS_XMM_to_XMM(EEREC_T, EEREC_T, (0xe4e4>>(8-2*_Ftf_))&0xff);
+			}
+			else {
+				SSE_DIVSS_M32_to_XMM(EEREC_TEMP, (u32)&VU->VF[_Ft_].UL[_Ftf_]);
+			}
+		}
+		else { // = 0
+			MOV32ItoR(VU_VI_ADDR(REG_Q, 0), 0);
+			return;
+		}
 	}
 	else {
-		int t0reg;
+		if( _Fsf_ == 0 ) SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+		else _unpackVF_xyzw(EEREC_TEMP, EEREC_S, _Fsf_);
 
-		_addNeededVFtoXMMreg(_Ft_);
-		_addNeededVFtoXMMreg(_Fs_);
+		if( _Ftf_ ) SSE_SHUFPS_XMM_to_XMM(EEREC_T, EEREC_T, (0xe4e4>>(2*_Ftf_))&0xff);
+		SSE_DIVSS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
 
-		if( fsreg < 0 ) fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-		if( ftreg < 0 ) ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ);
+		// revert
+		if( _Ftf_ ) SSE_SHUFPS_XMM_to_XMM(EEREC_T, EEREC_T, (0xe4e4>>(8-2*_Ftf_))&0xff);
+	}
 
-		t0reg = _allocTempXMMreg(-1);
+	//if( !CHECK_FORCEABS ) {
+		SSE_MINSS_M32_to_XMM(EEREC_TEMP, (u32)&g_maxvals[0]);
+		SSE_MAXSS_M32_to_XMM(EEREC_TEMP, (u32)&g_minvals[0]);
+	//}
 
-		// load 0x7fffffff for abs value
-		switch( _Ftf_ ) {
-			case 0:
-				SSE_MOVSS_XMM_to_XMM(t0reg, ftreg);
-				break;
-			default:
-				SSE2_PSHUFD_XMM_to_XMM(t0reg, ftreg, 0x55 * _Ftf_);
-				break;
-		}
+	SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(REG_Q, 0), EEREC_TEMP);
+}
 
-		SSE2_PSLLD_I8_to_XMM(t0reg, 1);
-		SSE2_PSRLD_I8_to_XMM(t0reg, 1);
-		SSE_RSQRTSS_XMM_to_XMM(t0reg, t0reg);
-
-		if( _Fsf_ == 0 ) {
-			SSE_MULSS_XMM_to_XMM(t0reg, fsreg);
+void recVUMI_SQRT( VURegs *VU, int info )
+{
+	if( _Ftf_ ) {
+		if( xmmregs[EEREC_T].mode & MODE_WRITE ) {
+			SSE_MOVAPS_M128_to_XMM(EEREC_TEMP, (u32)const_clip);
+			SSE_ANDPS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+			_unpackVF_xyzw(EEREC_TEMP, EEREC_TEMP, _Ftf_);
 		}
 		else {
-			// mov _Fsf_ to lower word
-			SSE2_PSHUFD_XMM_to_XMM(fsreg, fsreg, (0xe4e4>>(2*_Fsf_))&0xff);
-			SSE_MULSS_XMM_to_XMM(t0reg, fsreg);
-
-			// mov back
-			SSE2_PSHUFD_XMM_to_XMM(fsreg, fsreg, (0xe4e4>>(8-2*_Fsf_))&0xff);
+			SSE_MOVSS_M32_to_XMM(EEREC_TEMP, (u32)&VU->VF[_Ft_].UL[_Ftf_]);
+			SSE_ANDPS_M128_to_XMM(EEREC_TEMP, (u32)const_clip);
 		}
-
-		// store
-		SSE_MOVSS_XMM_to_M32((int)&VU->q.F, t0reg);
-
-		_freeXMMreg(t0reg);
-		_clearNeededXMMregs();
 	}
+	else {
+		SSE_MOVSS_M32_to_XMM(EEREC_TEMP, (u32)const_clip);
+		SSE_ANDPS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+	}
+
+	SSE_SQRTSS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
+
+	SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(REG_Q, 0), EEREC_TEMP);
 }
 
-void _addISIMMtoIT(VURegs *VU, s16 imm) {
+void recVUMI_RSQRT(VURegs *VU, int info)
+{
+	if( _Ftf_ ) {
+		SSE_MOVAPS_M128_to_XMM(EEREC_TEMP, (u32)const_clip);
+		SSE_ANDPS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+		_unpackVF_xyzw(EEREC_TEMP, EEREC_TEMP, _Ftf_);
+	}
+	else {
+		SSE_MOVSS_M32_to_XMM(EEREC_TEMP, (u32)const_clip);
+		SSE_ANDPS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+	}
+
+	if( _Fs_ == 0 ) {
+		if( _Fsf_ == 3 ) SSE_RSQRTSS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
+		else SSE_XORPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
+	}
+	else {
+		SSE_RSQRTSS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
+		if( _Fsf_ ) SSE_SHUFPS_XMM_to_XMM(EEREC_S, EEREC_S, (0xe4e4>>(2*_Fsf_))&0xff);
+		SSE_MULSS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+		if( _Fsf_ ) SSE_SHUFPS_XMM_to_XMM(EEREC_S, EEREC_S, (0xe4e4>>(8-2*_Fsf_))&0xff);
+	}
+
+	//if( !CHECK_FORCEABS ) {
+		SSE_MAXSS_M32_to_XMM(EEREC_TEMP, (u32)&g_minvals[0]);
+		SSE_MINSS_M32_to_XMM(EEREC_TEMP, (u32)&g_maxvals[0]);
+	//}
+
+	SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(REG_Q, 0), EEREC_TEMP);
+}
+
+void _addISIMMtoIT(VURegs *VU, s16 imm, int info)
+{
+	int fsreg = -1, ftreg;
 	if (_Ft_ == 0) return;
 
-	if (_Ft_ == _Fs_) {
+	if( _Fs_ == 0 ) {
+		ftreg = ALLOCVI(_Ft_, MODE_WRITE);
+		MOV32ItoR(ftreg, imm&0xffff);
+		return;
+	}
+
+	ADD_VI_NEEDED(_Ft_);
+	fsreg = ALLOCVI(_Fs_, MODE_READ);
+	ftreg = ALLOCVI(_Ft_, MODE_WRITE);
+
+	if (ftreg == fsreg) {
 		if (imm != 0 ) {
-			ADD16ItoM(VU_VI_ADDR(_Ft_ ), imm);
+			ADD16ItoR(ftreg, imm);
 		}
 	} else {
-		if (_Fs_ == 0) {
-			MOV16ItoM(VU_VI_ADDR(_Ft_), imm);
-		} else {
-			MOV16MtoR(EAX, VU_VI_ADDR( _Fs_ ) );
-			if (imm != 0) {
-				ADD16ItoR( EAX, imm );
-			}
-			MOV16RtoM(VU_VI_ADDR( _Ft_ ), EAX );
-		}
+		if( imm ) LEA16RtoR(ftreg, fsreg, imm);
+		else MOV32RtoR(ftreg, fsreg);
 	}
 }
 
-void recVUMI_IADDI(VURegs *VU) {
+void recVUMI_IADDI(VURegs *VU, int info)
+{
 	s16 imm;
 
 	if ( _Ft_ == 0 ) return;
 
 	imm = ( VU->code >> 6 ) & 0x1f;
 	imm = ( imm & 0x10 ? 0xfff0 : 0) | ( imm & 0xf );
-	_addISIMMtoIT(VU, imm);
+	_addISIMMtoIT(VU, imm, info);
 }
 
-void recVUMI_IADDIU(VURegs *VU) {
+void recVUMI_IADDIU(VURegs *VU, int info)
+{
 	int imm;
 
 	if ( _Ft_ == 0 ) return;
 
 	imm = ( ( VU->code >> 10 ) & 0x7800 ) | ( VU->code & 0x7ff );
-	_addISIMMtoIT(VU, imm);
+	_addISIMMtoIT(VU, imm, info);
 }
 
-void recVUMI_IADD( VURegs *VU )
+void recVUMI_IADD( VURegs *VU, int info )
 {
-   if ( _Fd_ == 0 ) return;
+	int fdreg, fsreg = -1, ftreg = -1;
+	if ( _Fd_ == 0 ) return;
 
-   if ( ( _Ft_ == 0 ) && ( _Fs_ == 0 ) )
-   {
-      MOV16ItoM( VU_VI_ADDR( _Fd_ ), 0 );
-   } 
-   else if ( _Fs_ == 0 )
-   {
-      MOV16MtoR( EAX, VU_VI_ADDR( _Ft_ ) );
-      MOV16RtoM( VU_VI_ADDR( _Fd_ ), EAX );
-   }
-   else if ( _Ft_ == 0 )
-   {
-      MOV16MtoR( EAX, VU_VI_ADDR( _Fs_ ) );
-      MOV16RtoM( VU_VI_ADDR( _Fd_ ), EAX );
-   }
-   else
-   {
-      MOV16MtoR( EAX, VU_VI_ADDR( _Fs_ ) );
-      ADD16MtoR( EAX, VU_VI_ADDR( _Ft_ ) );
-      MOV16RtoM( VU_VI_ADDR( _Fd_ ), EAX );
-   }
-}
+	if ( ( _Ft_ == 0 ) && ( _Fs_ == 0 ) ) {
+		fdreg = ALLOCVI(_Fd_, MODE_WRITE);
+		XOR32RtoR(fdreg, fdreg);
+		return;
+	}
 
-void recVUMI_IAND( VURegs *VU )
-{
-   if ( _Fd_ == 0 ) return;
+	ADD_VI_NEEDED(_Fs_);
+	ADD_VI_NEEDED(_Ft_);
+	fdreg = ALLOCVI(_Fd_, MODE_WRITE);
 
-   if ( ( _Fs_ == 0 ) || ( _Ft_ == 0 ) )
-   {
-      XOR16RtoR( EAX, EAX );
-      MOV16RtoM( VU_VI_ADDR( _Fd_ ), EAX );
-   }
-   else
-   {
-      if ( _Fs_ == _Ft_ )
-      {
-         MOV16MtoR( EAX, VU_VI_ADDR( _Fs_ ) );
-         MOV16RtoM( VU_VI_ADDR( _Fd_ ), EAX );
-      }
-      else if ( _Fd_ == _Fs_ )
-      {
-         MOV16MtoR( EAX, VU_VI_ADDR( _Ft_ ) );
-         AND16RtoM( VU_VI_ADDR( _Fd_ ), EAX );
-      }
-      else if ( _Fd_ == _Ft_ )
-      {
-         MOV16MtoR( EAX, VU_VI_ADDR( _Fs_ ) );
-         AND16RtoM( VU_VI_ADDR( _Fd_ ), EAX );
-      }
-      else
-      {
-         MOV16MtoR( EAX, VU_VI_ADDR( _Fs_ ) );
-         AND16MtoR( EAX, VU_VI_ADDR( _Ft_ ) );
-         MOV16RtoM( VU_VI_ADDR( _Fd_ ), EAX );
-      }
-   }
-}
-
-void recVUMI_IOR( VURegs *VU )
-{
-   if ( _Fd_ == 0 ) return;
-
-   if ( _Ft_ == _Fs_ || _Fs_ == 0 )
-   {
-      MOV16MtoR( EAX, VU_VI_ADDR( _Ft_ ) );
-      MOV16RtoM( VU_VI_ADDR( _Fd_ ), EAX );
-   }
-   else
-   {
-      MOV16MtoR( EAX, VU_VI_ADDR( _Fs_ ) );
-      if ( _Ft_ != 0 )
-      {
-         OR16MtoR( EAX, VU_VI_ADDR( _Ft_ ) );
-      }
-      MOV16RtoM( VU_VI_ADDR( _Fd_ ), EAX );
-   }
-}
-
-void recVUMI_ISUB( VURegs *VU ) {
-   if ( _Fd_ == 0 ) return;
-
-   if ( _Fs_ == _Ft_ )
-   {
-	   MOV16ItoM( VU_VI_ADDR( _Fd_ ),0);
-   }
-   else if ( _Fs_ == 0 )
-   {
-      MOV16MtoR( EAX, VU_VI_ADDR( _Ft_ ) );
-      NEG16R( EAX );
-      MOV16RtoM( VU_VI_ADDR( _Fd_ ), EAX );
-   }
-   else if ( _Ft_ == 0 )
-   {
-      MOV16MtoR( EAX, VU_VI_ADDR( _Fs_ ) );
-      MOV16RtoM( VU_VI_ADDR( _Fd_ ), EAX );
-   }
-   else
-   {
-      MOV16MtoR( EAX, VU_VI_ADDR( _Fs_ ) );
-      SUB16MtoR( EAX, VU_VI_ADDR( _Ft_ ) );
-      MOV16RtoM( VU_VI_ADDR( _Fd_ ), EAX );
-   }
-}
-
-void recVUMI_ISUBIU( VURegs *VU ) {
-	int imm;
-
-	if ( _Ft_ == 0 ) return;
-
-	imm = ( ( VU->code >> 10 ) & 0x7800 ) | ( VU->code & 0x7ff );
-	if (_Ft_ == _Fs_) {
-		if (imm != 0 ) {
-			SUB16ItoM(VU_VI_ADDR(_Ft_ ), imm);
+	if ( _Fs_ == 0 )
+	{
+		if( (ftreg = _checkX86reg(X86TYPE_VI|((VU==&VU1)?X86TYPE_VU1:0), _Ft_, MODE_READ)) >= 0 ) {
+			if( fdreg != ftreg ) MOV32RtoR(fdreg, ftreg);
 		}
-	} else {
-		if (_Fs_ == 0) {
-			MOV16ItoM(VU_VI_ADDR(_Ft_), 0 - imm);
-		} else {
-			MOV16MtoR(EAX, VU_VI_ADDR( _Fs_ ) );
-			if (imm != 0) {
-				SUB16ItoR( EAX, imm );
-			}
-			MOV16RtoM(VU_VI_ADDR( _Ft_ ), EAX );
+		else {
+			MOVZX32M16toR(fdreg, VU_VI_ADDR(_Ft_, 1));
+		}
+	}
+	else if ( _Ft_ == 0 )
+	{
+		if( (fsreg = _checkX86reg(X86TYPE_VI|((VU==&VU1)?X86TYPE_VU1:0), _Fs_, MODE_READ)) >= 0 ) {
+			if( fdreg != fsreg ) MOV32RtoR(fdreg, fsreg);
+		}
+		else {
+			MOVZX32M16toR(fdreg, VU_VI_ADDR(_Fs_, 1));
+		}
+	}
+	else {
+		ADD_VI_NEEDED(_Ft_);
+		fsreg = ALLOCVI(_Fs_, MODE_READ);
+		ftreg = ALLOCVI(_Ft_, MODE_READ);
+
+		if( fdreg == fsreg ) ADD32RtoR(fdreg, ftreg);
+		else if( fdreg == ftreg ) ADD32RtoR(fdreg, fsreg);
+		else LEA16RRtoR(fdreg, fsreg, ftreg);
+		MOVZX32R16toR(fdreg, fdreg); // neeed since don't know if fdreg's upper bits are 0
+	}
+}
+
+void recVUMI_IAND( VURegs *VU, int info )
+{
+	int fdreg, fsreg = -1, ftreg = -1;
+	if ( _Fd_ == 0 ) return;
+	
+	if ( ( _Fs_ == 0 ) || ( _Ft_ == 0 ) ) {
+		fdreg = ALLOCVI(_Fd_, MODE_WRITE);
+		XOR32RtoR(fdreg, fdreg);
+		return;
+	}
+
+	ADD_VI_NEEDED(_Fs_);
+	ADD_VI_NEEDED(_Ft_);
+	fdreg = ALLOCVI(_Fd_, MODE_WRITE);
+
+	fsreg = ALLOCVI(_Fs_, MODE_READ);
+	ftreg = ALLOCVI(_Ft_, MODE_READ);
+
+	if( fdreg == fsreg ) AND16RtoR(fdreg, ftreg);
+	else if( fdreg == ftreg ) AND16RtoR(fdreg, fsreg);
+	else {
+		MOV32RtoR(fdreg, ftreg);
+		AND32RtoR(fdreg, fsreg);
+	}
+}
+
+void recVUMI_IOR( VURegs *VU, int info )
+{
+	int fdreg, fsreg = -1, ftreg = -1;
+	if ( _Fd_ == 0 ) return;
+
+	if ( ( _Ft_ == 0 ) && ( _Fs_ == 0 ) ) {
+		fdreg = ALLOCVI(_Fd_, MODE_WRITE);
+		XOR32RtoR(fdreg, fdreg);
+		return;
+	} 
+
+	ADD_VI_NEEDED(_Fs_);
+	ADD_VI_NEEDED(_Ft_);
+	fdreg = ALLOCVI(_Fd_, MODE_WRITE);
+
+	if ( _Fs_ == 0 )
+	{
+		if( (ftreg = _checkX86reg(X86TYPE_VI|((VU==&VU1)?X86TYPE_VU1:0), _Ft_, MODE_READ)) >= 0 ) {
+			if( fdreg != ftreg ) MOV32RtoR(fdreg, ftreg);
+		}
+		else {
+			MOVZX32M16toR(fdreg, VU_VI_ADDR(_Ft_, 1));
+		}
+	}
+	else if ( _Ft_ == 0 )
+	{
+		if( (fsreg = _checkX86reg(X86TYPE_VI|((VU==&VU1)?X86TYPE_VU1:0), _Fs_, MODE_READ)) >= 0 ) {
+			if( fdreg != fsreg ) MOV32RtoR(fdreg, fsreg);
+		}
+		else {
+			MOVZX32M16toR(fdreg, VU_VI_ADDR(_Fs_, 1));
+		}
+	}
+	else
+	{
+		fsreg = ALLOCVI(_Fs_, MODE_READ);
+		ftreg = ALLOCVI(_Ft_, MODE_READ);
+
+		if( fdreg == fsreg ) OR16RtoR(fdreg, ftreg);
+		else if( fdreg == ftreg ) OR16RtoR(fdreg, fsreg);
+		else {
+			MOV32RtoR(fdreg, fsreg);
+			OR32RtoR(fdreg, ftreg);
 		}
 	}
 }
 
-void recVUMI_MOVE( VURegs *VU ) {
-	int t0reg;
-	int fsreg;
-	int ftreg;
+void recVUMI_ISUB( VURegs *VU, int info )
+{
+   int fdreg, fsreg = -1, ftreg = -1;
+	if ( _Fd_ == 0 ) return;
 
+	if ( ( _Ft_ == 0 ) && ( _Fs_ == 0 ) ) {
+		fdreg = ALLOCVI(_Fd_, MODE_WRITE);
+		XOR32RtoR(fdreg, fdreg);
+		return;
+	} 
+	
+	ADD_VI_NEEDED(_Fs_);
+	ADD_VI_NEEDED(_Ft_);
+	fdreg = ALLOCVI(_Fd_, MODE_WRITE);
+
+	if ( _Fs_ == 0 )
+	{
+		if( (ftreg = _checkX86reg(X86TYPE_VI|((VU==&VU1)?X86TYPE_VU1:0), _Ft_, MODE_READ)) >= 0 ) {
+			if( fdreg != ftreg ) MOV32RtoR(fdreg, ftreg);
+		}
+		else {
+			MOVZX32M16toR(fdreg, VU_VI_ADDR(_Ft_, 1));
+		}
+		NEG16R(fdreg);
+	}
+	else if ( _Ft_ == 0 )
+	{
+		if( (fsreg = _checkX86reg(X86TYPE_VI|((VU==&VU1)?X86TYPE_VU1:0), _Fs_, MODE_READ)) >= 0 ) {
+			if( fdreg != fsreg ) MOV32RtoR(fdreg, fsreg);
+		}
+		else {
+			MOVZX32M16toR(fdreg, VU_VI_ADDR(_Fs_, 1));
+		}
+	}
+	else
+	{
+		fsreg = ALLOCVI(_Fs_, MODE_READ);
+		ftreg = ALLOCVI(_Ft_, MODE_READ);
+
+		if( fdreg == fsreg ) SUB16RtoR(fdreg, ftreg);
+		else if( fdreg == ftreg ) {
+			SUB16RtoR(fdreg, fsreg);
+			NEG16R(fdreg);
+		}
+		else {
+			MOV32RtoR(fdreg, fsreg);
+			SUB16RtoR(fdreg, ftreg);
+		}
+	}
+}
+
+void recVUMI_ISUBIU( VURegs *VU, int info )
+{
+	s16 imm;
+
+	if ( _Ft_ == 0 ) return;
+
+	imm = ( ( VU->code >> 10 ) & 0x7800 ) | ( VU->code & 0x7ff );
+	imm = -imm;
+	_addISIMMtoIT(VU, (u32)imm & 0xffff, info);
+}
+
+void recVUMI_MOVE( VURegs *VU, int info )
+{	
 	if (_Ft_ == 0) return;
 
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-
 	if (_X_Y_Z_W != 0xf) {
-		t0reg = _allocTempXMMreg(-1);
-		ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ | MODE_WRITE);
-
-		SSE_MOVAPS_XMM_to_XMM(t0reg, fsreg);
-		VU_MERGE_REGS(ftreg, t0reg);
-	} else {
-		if (_Ft_ != _Fs_) {
-			ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_WRITE);
-			SSE_MOVAPS_XMM_to_XMM(ftreg, fsreg);
-		}
+		SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+		VU_MERGE_REGS(EEREC_T, EEREC_TEMP);
 	}
-
-	_clearNeededXMMregs();
+	else {
+		if( EEREC_T != EEREC_S ) SSE_MOVAPS_XMM_to_XMM(EEREC_T, EEREC_S);
+	}
 }
 
-void recVUMI_MFIR( VURegs *VU ) {
-	int t0reg;
-	int ftreg;
-
+void recVUMI_MFIR( VURegs *VU, int info )
+{
+	static u32 s_temp;
 	if ( _Ft_ == 0 ) return;
 
-	_addNeededVFtoXMMreg(_Ft_);
-	t0reg = _allocTempXMMreg(-1);
+	_deleteX86reg(X86TYPE_VI|((VU==&VU1)?X86TYPE_VU1:0), _Fs_, 1);
 
-	MOVSX32M16toR(EAX, VU_VI_ADDR(_Fs_));
-	if(cpucaps.hasStreamingSIMD2Extensions) SSE2_MOVD_R32_to_XMM(t0reg, EAX);
-	else SSE2EMU_MOVD_R32_to_XMM(t0reg, EAX);
-	SSE_UNPCKLPS_XMM_to_XMM(t0reg, t0reg);
-	SSE_MOVLHPS_XMM_to_XMM(t0reg, t0reg);
-
-    if (_X_Y_Z_W != 0xf) {
-		ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ | MODE_WRITE);
-		VU_MERGE_REGS(ftreg, t0reg);
-    } else {
-		ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_WRITE);
-		SSE_MOVAPS_XMM_to_XMM(ftreg, t0reg);
-		_freeXMMreg(t0reg);
+	if( cpucaps.hasStreamingSIMD2Extensions ) {
+		if( _XYZW_SS ) {
+			SSE2_MOVD_M32_to_XMM(EEREC_TEMP, VU_VI_ADDR(_Fs_, 1)-2);
+			_vuFlipRegSS(VU, EEREC_T);
+			SSE2_PSRAD_I8_to_XMM(EEREC_TEMP, 16);
+			SSE_MOVSS_XMM_to_XMM(EEREC_T, EEREC_TEMP);
+			_vuFlipRegSS(VU, EEREC_T);
+		}
+		else if (_X_Y_Z_W != 0xf) {
+			SSE2_MOVD_M32_to_XMM(EEREC_TEMP, VU_VI_ADDR(_Fs_, 1)-2);
+			SSE2_PSRAD_I8_to_XMM(EEREC_TEMP, 16);
+			SSE_SHUFPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP, 0);
+			VU_MERGE_REGS(EEREC_T, EEREC_TEMP);
+		} else {
+			SSE2_MOVD_M32_to_XMM(EEREC_T, VU_VI_ADDR(_Fs_, 1)-2);
+			SSE2_PSRAD_I8_to_XMM(EEREC_T, 16);
+			SSE_SHUFPS_XMM_to_XMM(EEREC_T, EEREC_T, 0);
+		}
 	}
+	else {
+		MOVSX32M16toR(EAX, VU_VI_ADDR(_Fs_, 1));
+		MOV32RtoM((u32)&s_temp, EAX);
 
-	_clearNeededXMMregs();
+		if( _X_Y_Z_W != 0xf ) {
+			SSE_MOVSS_M32_to_XMM(EEREC_TEMP, (u32)&s_temp);
+			SSE_SHUFPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP, 0);
+			VU_MERGE_REGS(EEREC_T, EEREC_TEMP);
+		}
+		else {
+			SSE_MOVSS_M32_to_XMM(EEREC_T, (u32)&s_temp);
+			SSE_SHUFPS_XMM_to_XMM(EEREC_T, EEREC_T, 0);
+		}
+	}
 }
 
-void recVUMI_MTIR( VURegs *VU )
+void recVUMI_MTIR( VURegs *VU, int info )
 {
 	if ( _Ft_ == 0 ) return;
 
-	_flushVF_XMMReg(VU, _Fs_);
+	_deleteX86reg(X86TYPE_VI|((VU==&VU1)?X86TYPE_VU1:0), _Ft_, 2);
 
-	MOV32MtoR( EAX, (int)&VU->VF[ _Fs_ ].F[ _Fsf_ ] );
-	MOV16RtoM( VU_VI_ADDR( _Ft_ ), EAX );
+	if( _Fsf_ == 0 ) {
+		SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(_Ft_, 0), EEREC_S);
+	}
+	else {
+		_unpackVFSS_xyzw(EEREC_TEMP, EEREC_S, _Fsf_);
+		SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(_Ft_, 0), EEREC_TEMP);
+	}
+
+	AND32ItoM(VU_VI_ADDR(_Ft_, 0), 0xffff);
 } 
 
-void recVUMI_MR32( VURegs *VU ) {
-	int t0reg;
-	int fsreg;
-	int ftreg;
-
+void recVUMI_MR32( VURegs *VU, int info )
+{	
 	if (_Ft_ == 0) return;
 
-	_addNeededVFtoXMMreg(_Fs_);
-	_addNeededVFtoXMMreg(_Ft_);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-
 	if (_X_Y_Z_W != 0xf) {
-		t0reg = _allocTempXMMreg(-1);
-		ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ | MODE_WRITE);
-
-		if(cpucaps.hasStreamingSIMD2Extensions) SSE2_PSHUFD_XMM_to_XMM(t0reg, fsreg, 0x39);
-		else SSE2EMU_PSHUFD_XMM_to_XMM(t0reg, fsreg, 0x39);
-
-		VU_MERGE_REGS(ftreg, t0reg);
-	} else {
-		ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_WRITE);
-
-		if(cpucaps.hasStreamingSIMD2Extensions) SSE2_PSHUFD_XMM_to_XMM(ftreg, fsreg, 0x39);
-		else SSE2EMU_PSHUFD_XMM_to_XMM(ftreg, fsreg, 0x39);
+		SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+		SSE_SHUFPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP, 0x39);
+		VU_MERGE_REGS(EEREC_T, EEREC_TEMP);
 	}
-
-	_clearNeededXMMregs();
+	else {
+		if( EEREC_T != EEREC_S ) SSE_MOVAPS_XMM_to_XMM(EEREC_T, EEREC_S);
+		SSE_SHUFPS_XMM_to_XMM(EEREC_T, EEREC_T, 0x39);
+	}
 }
 
-void _loadEAX(VURegs *VU) {
-	int t0reg;
-	int ftreg;
+// if x86reg < 0, reads directly from offset
+void _loadEAX(VURegs *VU, int x86reg, u32 offset, int info)
+{
+	if( x86reg >= 0 ) {
+		switch(_X_Y_Z_W) {
+			case 3: // ZW
+				SSE_MOVHPS_RmOffset_to_XMM(EEREC_T, x86reg, offset+8);
+				break;
+			case 6: // YZ
+				SSE_SHUFPS_RmOffset_to_XMM(EEREC_T, x86reg, offset, 0x9c);
+				SSE_SHUFPS_XMM_to_XMM(EEREC_T, EEREC_T, 0x78);
+				break;
 
-    if (_X_Y_Z_W != 0xf) {
+			case 8: // X
+				SSE_MOVSS_RmOffset_to_XMM(EEREC_TEMP, x86reg, offset);
+				SSE_MOVSS_XMM_to_XMM(EEREC_T, EEREC_TEMP);
+				break;
+			case 9: // XW
+				SSE_SHUFPS_RmOffset_to_XMM(EEREC_T, x86reg, offset, 0xc9);
+				SSE_SHUFPS_XMM_to_XMM(EEREC_T, EEREC_T, 0xd2);
+				break;
+			case 12: // XY
+				SSE_MOVLPS_RmOffset_to_XMM(EEREC_T, x86reg, offset);
+				break;
+			case 15:
+				if( VU == &VU1 ) SSE_MOVAPSRmtoROffset(EEREC_T, x86reg, offset);
+				else SSE_MOVUPSRmtoROffset(EEREC_T, x86reg, offset);
+				break;
+			default:
+				if( VU == &VU1 ) SSE_MOVAPSRmtoROffset(EEREC_TEMP, x86reg, offset);
+				else SSE_MOVUPSRmtoROffset(EEREC_TEMP, x86reg, offset);
 
-		ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_READ | MODE_WRITE);
-		t0reg = _allocTempXMMreg(-1);
-
-	    SSE_MOVAPSRmtoR(t0reg, EAX);
-		VU_MERGE_REGS(ftreg, t0reg);
-    } else {
-		ftreg = _allocVFtoXMMreg(VU, -1, _Ft_, MODE_WRITE);
-	    SSE_MOVAPSRmtoR(ftreg, EAX);
+				VU_MERGE_REGS(EEREC_T, EEREC_TEMP);
+				break;
+		}
 	}
-
-	_clearNeededXMMregs();
+	else {
+		switch(_X_Y_Z_W) {
+			case 3: // ZW
+				SSE_MOVHPS_M64_to_XMM(EEREC_T, offset+8);
+				break;
+			case 6: // YZ
+				SSE_SHUFPS_M128_to_XMM(EEREC_T, offset, 0x9c);
+				SSE_SHUFPS_XMM_to_XMM(EEREC_T, EEREC_T, 0x78);
+				break;
+			case 8: // X
+				SSE_MOVSS_M32_to_XMM(EEREC_TEMP, offset);
+				SSE_MOVSS_XMM_to_XMM(EEREC_T, EEREC_TEMP);
+				break;
+			case 9: // XW
+				SSE_SHUFPS_M128_to_XMM(EEREC_T, offset, 0xc9);
+				SSE_SHUFPS_XMM_to_XMM(EEREC_T, EEREC_T, 0xd2);
+				break;
+			case 12: // XY
+				SSE_MOVLPS_M64_to_XMM(EEREC_T, offset);
+				break;
+			case 15:
+				if( VU == &VU1 ) SSE_MOVAPS_M128_to_XMM(EEREC_T, offset);
+				else SSE_MOVUPS_M128_to_XMM(EEREC_T, offset);
+				break;
+			default:
+				if( VU == &VU1 ) SSE_MOVAPS_M128_to_XMM(EEREC_TEMP, offset);
+				else SSE_MOVUPS_M128_to_XMM(EEREC_TEMP, offset);
+				VU_MERGE_REGS(EEREC_T, EEREC_TEMP);
+				break;
+		}
+	}
 }
 
-void recVUMI_LQ(VURegs *VU) {
+int recVUTransformAddr(int x86reg, VURegs* VU, int vireg, int imm)
+{
+	u8* pjmp[2];
+	if( x86reg == EAX ) {
+		if (imm) ADD32ItoR(x86reg, imm);
+	}
+	else {
+		if( imm ) LEA32RtoR(EAX, x86reg, imm);
+		else MOV32RtoR(EAX, x86reg);
+	}
+	
+	if( VU == &VU1 ) {
+		SHL32ItoR(EAX, 4);
+		AND32ItoR(EAX, 0x3fff);
+	}
+	else {
+		// if addr >= 4200, reads integers
+		CMP32ItoR(EAX, 0x420);
+		pjmp[0] = JL8(0);
+		AND32ItoR(EAX, 0x1f);
+		SHL32ItoR(EAX, 2);
+		OR32ItoR(EAX, 0x4200);
+		
+		pjmp[1] = JMP8(0);
+		x86SetJ8(pjmp[0]);
+		SHL32ItoR(EAX, 4);
+		AND32ItoR(EAX, 0xfff); // can be removed
+
+		x86SetJ8(pjmp[1]);
+	}
+
+	return EAX;
+}
+
+void recVUMI_LQ(VURegs *VU, int info)
+{
 	s16 imm;
 
 	if ( _Ft_ == 0 ) return;
 
 	imm = (VU->code & 0x400) ? (VU->code & 0x3ff) | 0xfc00 : (VU->code & 0x3ff); 
 	if (_Fs_ == 0) {
-		MOV32ItoR(EAX, (int)VU->Mem + ((imm * 16) & 0x3fff));
+		_loadEAX(VU, -1, (u32)GET_VU_MEM(VU, (u32)imm*16), info);
 	} else {
-		MOVZX32M16toR(EAX, VU_VI_ADDR(_Fs_));
-		if (imm) ADD32ItoR(EAX, imm);
-		SHL32ItoR(EAX, 4);
-		AND32ItoR(EAX, 0x3fff);
-		ADD32ItoR(EAX, (int)VU->Mem);
+		int fsreg = ALLOCVI(_Fs_, MODE_READ);
+		_loadEAX(VU, recVUTransformAddr(fsreg, VU, _Fs_, imm), (u32)VU->Mem, info);
 	}
-
-	_loadEAX(VU);
 }
 
-void recVUMI_LQD( VURegs *VU ) {
+void recVUMI_LQD( VURegs *VU, int info )
+{
+	int fsreg;
+
 	if ( _Fs_ != 0 ) {
-		DEC16M( VU_VI_ADDR( _Fs_ ) );
+		fsreg = ALLOCVI(_Fs_, MODE_READ|MODE_WRITE);
+		SUB16ItoR( fsreg, 1 );
 	}
 
 	if ( _Ft_ == 0 ) return;
 
 	if ( _Fs_ == 0 ) {
-		MOV32ItoR( EAX, (int)VU->Mem );
+		_loadEAX(VU, -1, (u32)VU->Mem, info);
 	} else {
-		MOVZX32M16toR( EAX, VU_VI_ADDR( _Fs_ ) );
-		SHL32ItoR( EAX, 4 );
-		AND32ItoR( EAX, 0x3fff);
-		ADD32ItoR( EAX, (int)VU->Mem );
+		_loadEAX(VU, recVUTransformAddr(fsreg, VU, _Fs_, 0), (u32)VU->Mem, info);
 	}
-
-	_loadEAX(VU);
 }
 
-void recVUMI_LQI(VURegs *VU) {
+void recVUMI_LQI(VURegs *VU, int info)
+{
+	int fsreg;
+
 	if ( _Ft_ == 0 ) {
-		if( _Fs_ != 0 ) ADD32ItoM( VU_VI_ADDR( _Fs_ ), 1 );
+		if( _Fs_ != 0 ) {
+			if( (fsreg = _checkX86reg(X86TYPE_VI|(VU==&VU1?X86TYPE_VU1:0), _Fs_, MODE_WRITE|MODE_READ)) >= 0 ) {
+				ADD16ItoR(fsreg, 1);
+			}
+			else {
+				ADD16ItoM( VU_VI_ADDR( _Fs_, 0 ), 1 );
+			}
+		}
 		return;
 	}
 
     if (_Fs_ == 0) {
-		MOV32ItoR( EAX, (int)VU->Mem );
+		_loadEAX(VU, -1, (u32)VU->Mem, info);
     } else {
-		//MOVZX32M16toR( EAX, VU_VI_ADDR( _Fs_ ) );
-		MOV32MtoR( EAX, VU_VI_ADDR( _Fs_ ) );
-		SHL32ItoR( EAX, 4 );
-		AND32ItoR( EAX, 0x3fff);
-		ADD32ItoR( EAX, (int)VU->Mem );
-		ADD32ItoM( VU_VI_ADDR( _Fs_ ), 1 );
+		fsreg = ALLOCVI(_Fs_, MODE_READ|MODE_WRITE);
+		_loadEAX(VU, recVUTransformAddr(fsreg, VU, _Fs_, 0), (u32)VU->Mem, info);
+		ADD16ItoR( fsreg, 1 );
     }
-
-	_loadEAX(VU);
 }
 
-#include <assert.h>
+void _saveEAX(VURegs *VU, int x86reg, u32 offset, int info)
+{
+	int t1reg;
+	
+	if( _Fs_ == 0 ) {
+		if( _XYZW_SS ) {
+			u32 c = _W ? 0x3f800000 : 0;
+			if( x86reg >= 0 ) MOV32ItoRmOffset(x86reg, c, offset+(_W?12:(_Z?8:(_Y?4:0))));
+			else MOV32ItoM(offset+(_W?12:(_Z?8:(_Y?4:0))), c);
+		}
+		else {
+			int zeroreg = (x86reg == EAX) ? ALLOCTEMPX86(0) : EAX;
 
-void _saveEAX(VURegs *VU, u32 offset) {
+			XOR32RtoR(zeroreg, zeroreg);
+			if( x86reg >= 0 ) {
+				if( _X ) MOV32RtoRmOffset(x86reg, zeroreg, offset);
+				if( _Y ) MOV32RtoRmOffset(x86reg, zeroreg, offset+4);
+				if( _Z ) MOV32RtoRmOffset(x86reg, zeroreg, offset+8);
+				if( _W ) MOV32ItoRmOffset(x86reg, 0x3f800000, offset+12);
+			}
+			else {
+				if( _X ) MOV32RtoM(offset, zeroreg);
+				if( _Y ) MOV32RtoM(offset+4, zeroreg);
+				if( _Z ) MOV32RtoM(offset+8, zeroreg);
+				if( _W ) MOV32ItoM(offset+12, 0x3f800000);
+			}
 
-	int t0reg, t1reg;
-	int fsreg;
-
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-
-    if (_X_Y_Z_W != 0xf) {
-
-		t0reg = _allocTempXMMreg(-1);
-		t1reg = _allocTempXMMreg(-1);
-
-		if( offset == 0 ) SSE_MOVAPSRmtoR(t0reg, EDI);
-		else SSE_MOVAPS_M128_to_XMM(t0reg, offset);
-
-		SSE_MOVAPS_XMM_to_XMM(t1reg, fsreg);
-		VU_MERGE_REGS(t0reg, t1reg);
-
-		if( offset == 0 ) SSE_MOVAPSRtoRm(EDI, t0reg);
-		else SSE_MOVAPS_XMM_to_M128(offset, t0reg);
-
-		// slower by 10x!
-//		if( offset != 0 ) MOV32ItoR(EDI, offset);
-//		SSE_MOVAPS_M128_to_XMM(t0reg, (u32)&SSEmovMask[ _X_Y_Z_W ][0] );
-//		SSE_MASKMOVDQU_XMM_to_XMM(fsreg, t0reg);
-
-		_freeXMMreg(t0reg);
-		_freeXMMreg(t1reg);
-    } else {
-
-		if( offset == 0 ) SSE_MOVAPSRtoRm(EDI, fsreg);
-		else SSE_MOVAPS_XMM_to_M128(offset, fsreg);
+			if( zeroreg != EAX ) _freeX86reg(zeroreg);
+		}
+		return;
 	}
 
-	_clearNeededXMMregs();
+	switch(_X_Y_Z_W) {
+		case 1: // W
+			SSE_SHUFPS_XMM_to_XMM(EEREC_S, EEREC_S, 0x27);
+			if( x86reg >= 0 ) SSE_MOVSS_XMM_to_RmOffset(x86reg, EEREC_S, offset+12);
+			else SSE_MOVSS_XMM_to_M32(offset+12, EEREC_S);
+			SSE_SHUFPS_XMM_to_XMM(EEREC_S, EEREC_S, 0x27);
+			break;
+		case 2: // Z
+			SSE_MOVHLPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+			if( x86reg >= 0 ) SSE_MOVSS_XMM_to_RmOffset(x86reg, EEREC_TEMP, offset+8);
+			else SSE_MOVSS_XMM_to_M32(offset+8, EEREC_TEMP);
+			break;
+		case 3: // ZW
+			if( x86reg >= 0 ) SSE_MOVHPS_XMM_to_RmOffset(x86reg, EEREC_S, offset+8);
+			else SSE_MOVHPS_XMM_to_M64(offset+8, EEREC_S);
+			break;
+		case 4: // Y
+			SSE_SHUFPS_XMM_to_XMM(EEREC_S, EEREC_S, 0xe1);
+			if( x86reg >= 0 ) SSE_MOVSS_XMM_to_RmOffset(x86reg, EEREC_S, offset+4);
+			else SSE_MOVSS_XMM_to_M32(offset+4, EEREC_S);
+			SSE_SHUFPS_XMM_to_XMM(EEREC_S, EEREC_S, 0xe1);
+			break;
+		case 6: // YZ
+			SSE_SHUFPS_XMM_to_XMM(EEREC_S, EEREC_S, 0xc9);
+			if( x86reg >= 0 ) SSE_MOVLPS_XMM_to_RmOffset(x86reg, EEREC_S, offset+4);
+			else SSE_MOVLPS_XMM_to_M64(offset+4, EEREC_S);
+			SSE_SHUFPS_XMM_to_XMM(EEREC_S, EEREC_S, 0xd2);
+			break;
+		case 8: // X
+			if( x86reg >= 0 ) SSE_MOVSS_XMM_to_RmOffset(x86reg, EEREC_S, offset);
+			else SSE_MOVSS_XMM_to_M32(offset, EEREC_S);
+			break;
+		case 9: // XW
+			SSE_MOVHLPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+			if( x86reg >= 0 ) SSE_MOVSS_XMM_to_RmOffset(x86reg, EEREC_S, offset);
+			else SSE_MOVSS_XMM_to_M32(offset, EEREC_S);
+			
+			if( cpucaps.hasStreamingSIMD3Extensions ) SSE3_MOVSLDUP_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
+			else SSE_SHUFPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP, 0x55);
+
+			if( x86reg >= 0 ) SSE_MOVSS_XMM_to_RmOffset(x86reg, EEREC_TEMP, offset+12);
+			else SSE_MOVSS_XMM_to_M32(offset+12, EEREC_TEMP);
+
+			break;
+		case 12: // XY
+			if( x86reg >= 0 ) SSE_MOVLPS_XMM_to_RmOffset(x86reg, EEREC_S, offset+0);
+			else SSE_MOVLPS_XMM_to_M64(offset, EEREC_S);
+			break;
+
+		case 14: // XYZ
+			SSE_MOVHLPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+			if( x86reg >= 0 ) {
+				SSE_MOVLPS_XMM_to_RmOffset(x86reg, EEREC_S, offset+0);
+				SSE_MOVSS_XMM_to_RmOffset(x86reg, EEREC_TEMP, offset+8);
+			}
+			else {
+				SSE_MOVLPS_XMM_to_M64(offset, EEREC_S);
+				SSE_MOVSS_XMM_to_M32(offset+8, EEREC_TEMP);
+			}
+			break;
+		case 15: // XYZW
+			if( VU == &VU1 ) {
+				if( x86reg >= 0 ) SSE_MOVAPSRtoRmOffset(x86reg, EEREC_S, offset+0);
+				else SSE_MOVAPS_XMM_to_M128(offset, EEREC_S);
+			}
+			else {
+				if( x86reg >= 0 ) SSE_MOVUPSRtoRmOffset(x86reg, EEREC_S, offset+0);
+				else {
+					if( offset & 15 ) SSE_MOVUPS_XMM_to_M128(offset, EEREC_S);
+					else SSE_MOVAPS_XMM_to_M128(offset, EEREC_S);
+				}
+			}
+			break;
+		default:
+	
+			// EEREC_D is a temp reg
+			// find the first nonwrite reg
+			t1reg = _vuGetTempXMMreg(info);
+
+			if( t1reg < 0 ) {
+				for(t1reg = 0; t1reg < XMMREGS; ++t1reg) {
+					if( xmmregs[t1reg].inuse && !(xmmregs[t1reg].mode&MODE_WRITE) ) break;
+				}
+
+				if( t1reg == XMMREGS ) t1reg = -1;
+				else {
+					if( t1reg != EEREC_S ) _allocTempXMMreg(XMMT_FPS, t1reg);
+				}
+			}
+
+			if( t1reg >= 0 ) {
+				// found a temp reg
+				if( VU == &VU1 ) {
+					if( x86reg >= 0 ) SSE_MOVAPSRmtoROffset(EEREC_TEMP, x86reg, offset);
+					else SSE_MOVAPS_M128_to_XMM(EEREC_TEMP, offset);
+				}
+				else {
+					if( x86reg >= 0 ) SSE_MOVUPSRmtoROffset(EEREC_TEMP, x86reg, offset);
+					else {
+						if( offset & 15 ) SSE_MOVUPS_M128_to_XMM(EEREC_TEMP, offset);
+						else SSE_MOVAPS_M128_to_XMM(EEREC_TEMP, offset);
+					}
+				}
+				
+				if( t1reg != EEREC_S ) SSE_MOVAPS_XMM_to_XMM(t1reg, EEREC_S);
+
+				VU_MERGE_REGS(EEREC_TEMP, t1reg);
+
+				if( VU == &VU1 ) {
+					if( x86reg >= 0 ) SSE_MOVAPSRtoRmOffset(x86reg, EEREC_TEMP, offset);
+					else SSE_MOVAPS_XMM_to_M128(offset, EEREC_TEMP);
+				}
+				else {
+					if( x86reg >= 0 ) SSE_MOVUPSRtoRmOffset(x86reg, EEREC_TEMP, offset);
+					else SSE_MOVUPS_XMM_to_M128(offset, EEREC_TEMP);
+				}
+
+				if( t1reg != EEREC_S ) _freeXMMreg(t1reg);
+				else {
+					// read back the data
+					SSE_MOVAPS_M128_to_XMM(EEREC_S, (u32)&VU->VF[_Fs_]);
+				}
+			}
+			else {
+				// do it with one reg
+				SSE_MOVAPS_XMM_to_M128((u32)&VU->VF[_Fs_], EEREC_S);
+
+				if( VU == &VU1 ) {
+					if( x86reg >= 0 ) SSE_MOVAPSRmtoROffset(EEREC_TEMP, x86reg, offset);
+					else SSE_MOVAPS_M128_to_XMM(EEREC_TEMP, offset);
+				}
+				else {
+					if( x86reg >= 0 ) SSE_MOVUPSRmtoROffset(EEREC_TEMP, x86reg, offset);
+					else {
+						if( offset & 15 ) SSE_MOVUPS_M128_to_XMM(EEREC_TEMP, offset);
+						else SSE_MOVAPS_M128_to_XMM(EEREC_TEMP, offset);
+					}
+				}
+
+				VU_MERGE_REGS(EEREC_TEMP, EEREC_S);
+
+				if( VU == &VU1 ) {
+					if( x86reg >= 0 ) SSE_MOVAPSRtoRmOffset(x86reg, EEREC_TEMP, offset);
+					else SSE_MOVAPS_XMM_to_M128(offset, EEREC_TEMP);
+				}
+				else {
+					if( x86reg >= 0 ) SSE_MOVUPSRtoRmOffset(x86reg, EEREC_TEMP, offset);
+					else {
+						if( offset & 15 ) SSE_MOVUPS_XMM_to_M128(offset, EEREC_TEMP);
+						else SSE_MOVAPS_XMM_to_M128(offset, EEREC_TEMP);
+					}
+				}
+
+				// read back the data
+				SSE_MOVAPS_M128_to_XMM(EEREC_S, (u32)&VU->VF[_Fs_]);
+			}
+
+			break;
+	}
 }
 
-void recVUMI_SQ(VURegs *VU) {
+void recVUMI_SQ(VURegs *VU, int info)
+{
 	s16 imm;
  
 	imm = ( VU->code & 0x400) ? ( VU->code & 0x3ff) | 0xfc00 : ( VU->code & 0x3ff); 
 	if ( _Ft_ == 0 ) {
-		_saveEAX(VU, (u32)VU->Mem + imm * 16);
-	} else {
-		MOV32MtoR(EDI, VU_VI_ADDR( _Ft_ ));
-		ADD32ItoR( EDI, imm );
-		SHL32ItoR( EDI, 4 );
-		AND32ItoR( EDI, 0x3fff);
-		ADD32ItoR( EDI, (int)VU->Mem );
-		_saveEAX(VU, 0);
+		_saveEAX(VU, -1, (u32)GET_VU_MEM(VU, (int)imm * 16), info);
+	}
+	else {
+		int ftreg = ALLOCVI(_Ft_, MODE_READ);
+		_saveEAX(VU, recVUTransformAddr(ftreg, VU, _Ft_, imm), (u32)VU->Mem, info);
 	}
 }
 
-void recVUMI_SQD(VURegs *VU) {
+void recVUMI_SQD(VURegs *VU, int info)
+{
 	if (_Ft_ == 0) {
-		_saveEAX(VU, (int)VU->Mem);
+		_saveEAX(VU, -1, (u32)VU->Mem, info);
 	} else {
-		SUB32ItoM( VU_VI_ADDR( _Ft_ ), 1 );
-		MOVZX32M16toR( EDI, VU_VI_ADDR( _Ft_ ) );
-		SHL32ItoR( EDI, 4 );
-		AND32ItoR( EDI, 0x3fff);
-		ADD32ItoR( EDI, (int)VU->Mem );
-		_saveEAX(VU, 0);
+		int ftreg = ALLOCVI(_Ft_, MODE_READ|MODE_WRITE);
+		SUB16ItoR( ftreg, 1 );
+		_saveEAX(VU, recVUTransformAddr(ftreg, VU, _Ft_, 0), (u32)VU->Mem, info);
 	}
 }
 
-void recVUMI_SQI(VURegs *VU) {
+void recVUMI_SQI(VURegs *VU, int info)
+{
 	if (_Ft_ == 0) {
-		_saveEAX(VU, (int)VU->Mem);
+		_saveEAX(VU, -1, (u32)VU->Mem, info);
 	} else {
-		MOVZX32M16toR( EDI, VU_VI_ADDR( _Ft_ ) );
-		SHL32ItoR( EDI, 4 );
-		AND32ItoR( EDI, 0x3fff);
-		ADD32ItoR( EDI, (int)VU->Mem );
-		ADD32ItoM( VU_VI_ADDR( _Ft_ ), 1 );
-		_saveEAX(VU, 0);
+		int ftreg = ALLOCVI(_Ft_, MODE_READ|MODE_WRITE);
+		_saveEAX(VU, recVUTransformAddr(ftreg, VU, _Ft_, 0), (u32)VU->Mem, info);
+
+		ADD16ItoR( ftreg, 1 );
 	}
 }
 
-void recVUMI_ILW(VURegs *VU) {
-	s16 imm;
+void recVUMI_ILW(VURegs *VU, int info)
+{
+	int ftreg;
+	s16 imm, off;
  
 	if ( _Ft_ == 0 ) return;
 
-	imm = ( VU->code & 0x400) ? ( VU->code & 0x3ff) | 0xfc00 : ( VU->code & 0x3ff); 
-	if ( _Fs_ == 0 ) {
-		MOV32ItoR( EAX, (int)VU->Mem + imm * 16 );
-	} else {
-		MOVZX32M16toR( EAX, VU_VI_ADDR( _Fs_ ) );
-		ADD32ItoR( EAX, imm );
-		SHL32ItoR( EAX, 4 );
-		AND32ItoR( EAX, 0x3fff);
-		ADD32ItoR( EAX, (int)VU->Mem );
-	}
+	imm = ( VU->code & 0x400) ? ( VU->code & 0x3ff) | 0xfc00 : ( VU->code & 0x3ff);
+	if (_X) off = 0;
+	else if (_Y) off = 4;
+	else if (_Z) off = 8;
+	else if (_W) off = 12;
 
-	if (_X) XOR32RtoR(EDX, EDX);
-	else if (_Y) MOV32ItoR(EDX, 1);
-	else if (_Z) MOV32ItoR(EDX, 2);
-	else if (_W) MOV32ItoR(EDX, 3);
-	MOV32RmStoR( ECX, EAX, EDX, 2 );
-	MOV16RtoM( (int)&VU->VI[ _Ft_ ].US[ 0 ], ECX );
+	ADD_VI_NEEDED(_Fs_);
+	ftreg = ALLOCVI(_Ft_, MODE_WRITE);
+
+	if ( _Fs_ == 0 ) {
+		MOVZX32M16toR( ftreg, (u32)GET_VU_MEM(VU, (int)imm * 16 + off) );
+	}
+	else {
+		int fsreg = ALLOCVI(_Fs_, MODE_READ);
+		MOV32RmtoROffset(ftreg, recVUTransformAddr(fsreg, VU, _Fs_, imm), (u32)VU->Mem + off);
+	}
 }
 
-void recVUMI_ISW( VURegs *VU ) {
+void recVUMI_ISW( VURegs *VU, int info )
+{
 	s16 imm;
-	//int t0reg;
- 
-
+	
 	imm = ( VU->code & 0x400) ? ( VU->code & 0x3ff) | 0xfc00 : ( VU->code & 0x3ff); 
+
 	if (_Fs_ == 0) {
-		MOV32ItoR( EAX, (int)VU->Mem + imm * 16 );
-	} else {
-		MOVZX32M16toR( EAX, VU_VI_ADDR( _Fs_ ) );
-		ADD32ItoR( EAX, imm );
-		SHL32ItoR( EAX, 4 );
-		AND32ItoR( EAX, 0x3fff);
-		ADD32ItoR( EAX, (int)VU->Mem );
+		u32 off = (u32)GET_VU_MEM(VU, (int)imm * 16);
+		int ftreg = ALLOCVI(_Ft_, MODE_READ);
+
+		if (_X) MOV32RtoM(off, ftreg);
+		if (_Y) MOV32RtoM(off+4, ftreg);
+		if (_Z) MOV32RtoM(off+8, ftreg);
+		if (_W) MOV32RtoM(off+12, ftreg);
 	}
+	else {
+		int x86reg, fsreg, ftreg;
 
-//	t0reg = _allocTempXMMreg(-1);
-//	SSE_MOVSS_M32_to_XMM(t0reg, (int)&VU->VI[ _Ft_ ].UL);
-//	if(cpucaps.hasStreamingSIMD2Extensions) SSE2_PSHUFD_XMM_to_XMM(t0reg, t0reg, 0x00);
-//	else SSE2EMU_PSHUFD_XMM_to_XMM(t0reg, t0reg, 0x00);
-//	SSE_MOVAPSRtoRm(EAX,  t0reg);
-//	_freeXMMreg(t0reg);
+		ADD_VI_NEEDED(_Ft_);
+		fsreg = ALLOCVI(_Fs_, MODE_READ);
+		ftreg = ALLOCVI(_Ft_, MODE_READ);
 
-	MOV32MtoR( ECX, (int)&VU->VI[ _Ft_ ].US[ 0 ] );
+		x86reg = recVUTransformAddr(fsreg, VU, _Fs_, imm);
 
-	// if anyone figures out how to do these with offsets
-	if (_X) { MOV32RtoRm(EAX, ECX); }
-	if( _Y || _Z || _W ) { ADD32ItoR( EAX, 4); }
-	if (_Y) { MOV32RtoRm(EAX, ECX); }
-	if( _Z || _W ) { ADD32ItoR( EAX, 4); }
-	if (_Z) { MOV32RtoRm(EAX, ECX); }
-	if (_W) {
-		ADD32ItoR( EAX, 4);
-		MOV32RtoRm(EAX, ECX);
+		if (_X) MOV32RtoRmOffset(x86reg, ftreg, (u32)VU->Mem);
+		if (_Y) MOV32RtoRmOffset(x86reg, ftreg, (u32)VU->Mem+4);
+		if (_Z) MOV32RtoRmOffset(x86reg, ftreg, (u32)VU->Mem+8);
+		if (_W) MOV32RtoRmOffset(x86reg, ftreg, (u32)VU->Mem+12);
 	}
 }
 
-void recVUMI_ILWR( VURegs *VU ) {
+void recVUMI_ILWR( VURegs *VU, int info )
+{
+	int off, ftreg;
+
 	if ( _Ft_ == 0 ) return;
 
-	if ( _Fs_ == 0 ) {
-		MOV32ItoR( EAX, (int)VU->Mem );
-	} else {
-		MOVZX32M16toR( EAX, VU_VI_ADDR( _Fs_ ) );
-		SHL32ItoR( EAX, 4 );
-		AND32ItoR( EAX, 0x3fff);
-		ADD32ItoR( EAX, (int)VU->Mem );
-	}
+	if (_X) off = 0;
+	else if (_Y) off = 4;
+	else if (_Z) off = 8;
+	else if (_W) off = 12;
 
-	if (_X) XOR32RtoR(EDX, EDX);
-	else if (_Y) MOV32ItoR(EDX, 1);
-	else if (_Z) MOV32ItoR(EDX, 2);
-	else if (_W) MOV32ItoR(EDX, 3);
-	MOV32RmStoR( ECX, EAX, EDX, 2 );
-	MOV16RtoM( (int)&VU->VI[ _Ft_ ].US[ 0 ], ECX );
-}
-
-void recVUMI_ISWR( VURegs *VU ) {	
+	ADD_VI_NEEDED(_Fs_);
+	ftreg = ALLOCVI(_Ft_, MODE_WRITE);
 
 	if ( _Fs_ == 0 ) {
-		MOV32ItoR( EAX, (int)VU->Mem );
-	} else {
-		MOVZX32M16toR( EAX, VU_VI_ADDR( _Fs_ ) );
-		SHL32ItoR( EAX, 4 );
-		AND32ItoR( EAX, 0x3fff);
-		ADD32ItoR( EAX, (int)VU->Mem );
+		MOVZX32M16toR( ftreg, (int)VU->Mem + off );
 	}
-
-	MOV32MtoR( ECX, (int)&VU->VI[ _Ft_ ].US[ 0 ] );
-	if (_X) XOR32RtoR(EDX, EDX);
-	else if (_Y) MOV32ItoR(EDX, 1);
-	else if (_Z) MOV32ItoR(EDX, 2);
-	else if (_W) MOV32ItoR(EDX, 3);
-	MOV16RtoRmS( ECX, EAX, EDX, 2 );
+	else {
+		int fsreg = ALLOCVI(_Fs_, MODE_READ);
+		MOV32RmtoROffset(ftreg, recVUTransformAddr(fsreg, VU, _Fs_, 0), (int)VU->Mem + off);
+	}
 }
 
-void recVUMI_RINIT(VURegs *VU) {
-	_flushVF_XMMReg(VU, _Fs_);
-	MOV32MtoR( EAX, VU_VFx_ADDR( _Fs_ ) + 4 * _Fsf_ );
-	AND32ItoR( EAX, 0x7fffff );
-	OR32ItoR( EAX, 0x7f << 23 );
-	MOV32RtoM( VU_REGR_ADDR, EAX );
-}
-
-void recVUMI_RGET(VURegs *VU) {
-   if ( _Ft_ == 0 ) return;
-
-   _flushVF_XMMReg(VU, _Ft_);
-
-   MOV32MtoR( EAX, VU_REGR_ADDR );
-   if ( _X )   MOV32RtoM( VU_VFx_ADDR( _Ft_ ), EAX );
-   if ( _Y )   MOV32RtoM( VU_VFy_ADDR( _Ft_ ), EAX );
-   if ( _Z )   MOV32RtoM( VU_VFz_ADDR( _Ft_ ), EAX );
-   if ( _W )   MOV32RtoM( VU_VFw_ADDR( _Ft_ ), EAX );
-}
-
-void recVUMI_RNEXT( VURegs *VU )
+void recVUMI_ISWR( VURegs *VU, int info )
 {
-   if ( _Ft_ == 0) return;
+	int ftreg;
+	ADD_VI_NEEDED(_Fs_);
+	ftreg = ALLOCVI(_Ft_, MODE_READ);
 
-   _flushVF_XMMReg(VU, _Ft_);
+	if (_Fs_ == 0) {
+		if (_X) MOV32RtoM((int)VU->Mem, ftreg);
+		if (_Y) MOV32RtoM((int)VU->Mem+4, ftreg);
+		if (_Z) MOV32RtoM((int)VU->Mem+8, ftreg);
+		if (_W) MOV32RtoM((int)VU->Mem+12, ftreg);
+	}
+	else {
+		int x86reg;
+		int fsreg = ALLOCVI(_Fs_, MODE_READ);
+		x86reg = recVUTransformAddr(fsreg, VU, _Fs_, 0);
 
-   MOV32MtoR( EAX, VU_REGR_ADDR );
-   MOV32ItoR( ECX, 0x15a4e35 );
-   IMUL32R( ECX );
-   ADD32ItoR( EAX, 1 );
-   SHR32ItoR( EAX, 9 );
-   MOV32RtoM( VU_REGR_ADDR, EAX );
-   OR32ItoR( EAX, 0x7f << 23 );
-   if ( _X )   MOV32RtoM( VU_VFx_ADDR( _Ft_ ), EAX );
-   if ( _Y )   MOV32RtoM( VU_VFy_ADDR( _Ft_ ), EAX );
-   if ( _Z )   MOV32RtoM( VU_VFz_ADDR( _Ft_ ), EAX );
-   if ( _W )   MOV32RtoM( VU_VFw_ADDR( _Ft_ ), EAX );
+		if (_X) MOV32RtoRmOffset(x86reg, ftreg, (u32)VU->Mem);
+		if (_Y) MOV32RtoRmOffset(x86reg, ftreg, (u32)VU->Mem+4);
+		if (_Z) MOV32RtoRmOffset(x86reg, ftreg, (u32)VU->Mem+8);
+		if (_W) MOV32RtoRmOffset(x86reg, ftreg, (u32)VU->Mem+12);
+	}
 }
 
-void recVUMI_RXOR( VURegs *VU )
+void recVUMI_RINIT(VURegs *VU, int info)
 {
-	_flushVF_XMMReg(VU, _Fs_);
+	if( (xmmregs[EEREC_S].mode & MODE_WRITE) && (xmmregs[EEREC_S].mode&MODE_NOFLUSH) ) {
 
-   MOV32MtoR( EAX, VU_VFx_ADDR( _Fs_ ) + 4 * _Fsf_ );
-   XOR32MtoR( EAX, VU_REGR_ADDR );
-   AND32ItoR( EAX, 0x7fffff );
-   OR32ItoR ( EAX, 0x7f << 23 );
-   MOV32RtoM( VU_REGR_ADDR, EAX );
+		_deleteX86reg(X86TYPE_VI|(VU==&VU1?X86TYPE_VU1:0), REG_R, 2);
+
+		_unpackVFSS_xyzw(EEREC_TEMP, EEREC_S, _Fsf_);
+
+		SSE_ANDPS_M128_to_XMM(EEREC_TEMP, (u32)s_mask);
+		SSE_ORPS_M128_to_XMM(EEREC_TEMP, (u32)s_fones);
+		SSE_MOVSS_XMM_to_M32(VU_REGR_ADDR, EEREC_TEMP);
+	}
+	else {
+		int rreg = ALLOCVI(REG_R, MODE_WRITE);
+
+		if( xmmregs[EEREC_S].mode & MODE_WRITE ) {
+			SSE_MOVAPS_XMM_to_M128((u32)&VU->VF[_Fs_], EEREC_S);
+			xmmregs[EEREC_S].mode &= ~MODE_WRITE;
+		}
+
+		MOV32MtoR( rreg, VU_VFx_ADDR( _Fs_ ) + 4 * _Fsf_ );
+
+		AND32ItoR( rreg, 0x7fffff );
+		OR32ItoR( rreg, 0x7f << 23 );
+	}
+}
+
+void recVUMI_RGET(VURegs *VU, int info)
+{
+	if ( _Ft_ == 0 ) return;
+
+	_deleteX86reg(X86TYPE_VI|(VU==&VU1?X86TYPE_VU1:0), REG_R, 1);
+
+	if (_X_Y_Z_W != 0xf) {
+		SSE_MOVSS_M32_to_XMM(EEREC_TEMP, VU_REGR_ADDR);
+		SSE_SHUFPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP, 0);
+		VU_MERGE_REGS(EEREC_T, EEREC_TEMP);
+	}
+	else {
+		SSE_MOVSS_M32_to_XMM(EEREC_T, VU_REGR_ADDR);
+		SSE_SHUFPS_XMM_to_XMM(EEREC_T, EEREC_T, 0);
+	}
+}
+
+void recVUMI_RNEXT( VURegs *VU, int info )
+{
+	int rreg, x86temp0, x86temp1;
+	if ( _Ft_ == 0) return;
+
+	rreg = ALLOCVI(REG_R, MODE_WRITE|MODE_READ);
+
+	x86temp0 = ALLOCTEMPX86(0);
+	x86temp1 = ALLOCTEMPX86(0);
+
+	// code from www.project-fao.org
+	MOV32MtoR(rreg, VU_REGR_ADDR);
+	MOV32RtoR(x86temp0, rreg);
+	SHR32ItoR(x86temp0, 4);
+	AND32ItoR(x86temp0, 1);
+
+	MOV32RtoR(x86temp1, rreg);
+	SHR32ItoR(x86temp1, 22);
+	AND32ItoR(x86temp1, 1);
+
+	SHL32ItoR(rreg, 1);
+	XOR32RtoR(x86temp0, x86temp1);
+	XOR32RtoR(rreg, x86temp0);
+	AND32ItoR(rreg, 0x7fffff);
+	OR32ItoR(rreg, 0x3f800000);
+
+	_freeX86reg(x86temp0);
+	_freeX86reg(x86temp1);
+
+	recVUMI_RGET(VU, info);
+}
+
+void recVUMI_RXOR( VURegs *VU, int info )
+{
+	if( (xmmregs[EEREC_S].mode & MODE_WRITE) && (xmmregs[EEREC_S].mode & MODE_NOFLUSH) ) {
+		_deleteX86reg(X86TYPE_VI|(VU==&VU1?X86TYPE_VU1:0), REG_R, 1);
+		_unpackVFSS_xyzw(EEREC_TEMP, EEREC_S, _Fsf_);
+
+		SSE_XORPS_M128_to_XMM(EEREC_TEMP, VU_REGR_ADDR);
+		SSE_ANDPS_M128_to_XMM(EEREC_TEMP, (u32)s_mask);
+		SSE_ORPS_M128_to_XMM(EEREC_TEMP, (u32)s_fones);
+		SSE_MOVSS_XMM_to_M32(VU_REGR_ADDR, EEREC_TEMP);
+	}
+	else {
+		int rreg = ALLOCVI(REG_R, MODE_WRITE|MODE_READ);
+
+		if( xmmregs[EEREC_S].mode & MODE_WRITE ) {
+			SSE_MOVAPS_XMM_to_M128((u32)&VU->VF[_Fs_], EEREC_S);
+			xmmregs[EEREC_S].mode &= ~MODE_WRITE;
+		}
+
+		XOR32MtoR( rreg, VU_VFx_ADDR( _Fs_ ) + 4 * _Fsf_ );
+		AND32ItoR( rreg, 0x7fffff );
+		OR32ItoR ( rreg, 0x3f800000 );
+	}
 } 
 
-void recVUMI_WAITQ( VURegs *VU )
+void recVUMI_WAITQ( VURegs *VU, int info )
 {
+//	if( info & PROCESS_VU_SUPER ) {
+//		//CALLFunc(waitqfn);
+//		SuperVUFlush(0, 1);
+//	}
 }
 
-void recVUMI_FSAND( VURegs *VU ) {
+void recVUMI_FSAND( VURegs *VU, int info )
+{
+	int ftreg;
 	u16 imm;
 	imm = (((VU->code >> 21 ) & 0x1) << 11) | (VU->code & 0x7ff);
 	if(_Ft_ == 0) return; 
 
-	MOV32MtoR(EAX, (int)&VU0.VI[REG_STATUS_FLAG].US[0]);
-	AND32ItoR( EAX, 0xFFF );
-	AND32ItoR(EAX, imm);
-	MOV32RtoM((int)&VU->VI[_Ft_].US[0], EAX);
+	ftreg = ALLOCVI(_Ft_, MODE_WRITE);
+	MOV32MtoR(ftreg, VU_VI_ADDR(REG_STATUS_FLAG, 1));
+	AND32ItoR( ftreg, 0xFFF&imm );
 }
 
-void recVUMI_FSEQ( VURegs *VU )
+void recVUMI_FSEQ( VURegs *VU, int info )
 {
+	int ftreg;
 	u32 imm;
 	if ( _Ft_ == 0 ) return;
 
 	imm = (((VU->code >> 21 ) & 0x1) << 11) | (VU->code & 0x7ff);
 
-	MOV32MtoR( EAX, (int)&VU0.VI[ REG_STATUS_FLAG ].UL );
-	AND32ItoR( EAX, 0xFFF );
+	ftreg = ALLOCVI(_Ft_, MODE_WRITE|MODE_8BITREG);
 
-	MOV32ItoM((int)&VU->VI[_Ft_].US[0], 0);
-	CMP32ItoR(EAX, imm);
+	MOVZX32M16toR( EAX, VU_VI_ADDR(REG_STATUS_FLAG, 1) );
+	XOR32RtoR(ftreg, ftreg);
+	AND16ItoR( EAX, 0xFFF );
 
-	// if eax!=0xffffff, set to 0
-	j8Ptr[ 0 ] = JNE8( 0 );
-	MOV32ItoM((int)&VU->VI[_Ft_].US[0], 1);
-	x86SetJ8( j8Ptr[ 0 ] );
+	CMP16ItoR(EAX, imm);
+	SETE8R(ftreg);
 }
 
-void recVUMI_FSOR( VURegs *VU )
+void recVUMI_FSOR( VURegs *VU, int info )
 {
+	int ftreg;
 	u32 imm;
 	if(_Ft_ == 0) return; 
 	
 	imm = (((VU->code >> 21 ) & 0x1) << 11) | (VU->code & 0x7ff);
 
-	MOV32MtoR( EAX, (int)&VU0.VI[ REG_STATUS_FLAG ].UL );
-	OR32ItoR( EAX, imm );
-	MOV32MtoR( (int)&VU->VI[_Ft_], EAX);
+	ftreg = ALLOCVI(_Ft_, MODE_WRITE);
+
+	MOVZX32M16toR( ftreg, VU_VI_ADDR(REG_STATUS_FLAG, 1) );
+	OR16ItoR( ftreg, imm );
 }
 
-void recVUMI_FSSET(VURegs *VU) {
+void recVUMI_FSSET(VURegs *VU, int info)
+{
+	u32 writeaddr = VU_VI_ADDR(REG_STATUS_FLAG, 0);
+	u32 prevaddr = VU_VI_ADDR(REG_STATUS_FLAG, 2);
+
 	u16 imm = 0;
 	imm = (((VU->code >> 21 ) & 0x1) << 11) | (VU->code & 0x7FF);
 
-	MOV32MtoR(EAX, (int)&VU0.VI[REG_STATUS_FLAG].US[0]);
-	if (imm == 0) {
-		MOV32RtoM((int)&VU->statusflag, EAX);
-		AND32ItoM((int)&VU->statusflag, 0x3F);
-	} else {		
-		AND32ItoR(EAX, 0x3F);
-		OR32ItoR(EAX, imm & 0xFC0);
-		MOV32RtoM((int)&VU->statusflag, EAX);
+	MOV32MtoR(EAX, prevaddr);
+	AND32ItoR(EAX, 0x3f);
+	if ((imm&0xfc0) != 0) OR32ItoR(EAX, imm & 0xFC0);
+
+	MOV32RtoM(writeaddr ? writeaddr : prevaddr, EAX);
+}
+
+void recVUMI_FMAND( VURegs *VU, int info )
+{
+	int fsreg, ftreg;
+	if ( _Ft_ == 0 ) return;
+
+	ftreg = ALLOCVI(_Ft_, MODE_WRITE);
+
+	if( (fsreg = _checkX86reg(X86TYPE_VI|(VU==&VU1?X86TYPE_VU1:0), _Fs_, MODE_READ)) >= 0 ) {
+		if( ftreg != fsreg ) MOVZX32R16toR(ftreg, fsreg);
+	}
+	else MOVZX32M16toR(ftreg, VU_VI_ADDR(_Fs_, 1));
+
+	AND16MtoR( ftreg, VU_VI_ADDR(REG_MAC_FLAG, 1));
+}
+
+void recVUMI_FMEQ( VURegs *VU, int info )
+{
+	int ftreg, fsreg;
+	if ( _Ft_ == 0 ) return;
+
+	if( _Ft_ == _Fs_ ) {
+		ftreg = ALLOCVI(_Ft_, MODE_WRITE|MODE_READ|MODE_8BITREG);
+		CMP16MtoR(ftreg, VU_VI_ADDR(REG_MAC_FLAG, 1));
+		SETE8R(EAX);
+		MOVZX32R8toR(ftreg, EAX);
+	}
+	else {
+		ADD_VI_NEEDED(_Fs_);
+		ftreg = ALLOCVI(_Ft_, MODE_WRITE|MODE_8BITREG);
+		fsreg = ALLOCVI(_Fs_, MODE_READ);
+
+		XOR32RtoR(ftreg, ftreg);
+		
+		CMP16MtoR(fsreg, VU_VI_ADDR(REG_MAC_FLAG, 1));
+		SETE8R(ftreg);
 	}
 }
 
-void recVUMI_FMAND( VURegs *VU ) {
-	if ( _Ft_ == 0 ) return;
-
-	MOV32MtoR( EAX, (int)&VU->VI[ _Fs_ ].US[ 0 ] );
-	AND32MtoR( EAX, (int)&VU0.VI[ REG_MAC_FLAG ].US[ 0 ] );
-	AND32ItoR( EAX, 0xFFFF );
-	MOV32RtoM( (int)&VU->VI[ _Ft_ ].US[ 0 ], EAX );
-}
-
-void recVUMI_FMEQ( VURegs *VU )
+void recVUMI_FMOR( VURegs *VU, int info )
 {
+	int fsreg, ftreg;
 	if ( _Ft_ == 0 ) return;
 
-	MOV32MtoR( EAX, (int)&VU0.VI[ REG_MAC_FLAG ].UL );
-	AND32ItoR( EAX, 0xFFFF );
+	if( _Fs_ == 0 ) {
+		ftreg = ALLOCVI(_Ft_, MODE_WRITE);
+		MOV16MtoR(ftreg, VU_VI_ADDR(REG_MAC_FLAG, 1));
+	}
+	if( _Ft_ == _Fs_ ) {
+		ftreg = ALLOCVI(_Ft_, MODE_WRITE|MODE_READ);
+		OR16MtoR(ftreg, VU_VI_ADDR(REG_MAC_FLAG, 1));
+	}
+	else {
+		ftreg = ALLOCVI(_Ft_, MODE_WRITE);
 
-	MOV32ItoM((int)&VU->VI[_Ft_].US[0], 0);
-	CMP32MtoR(EAX, (int)&VU->VI[_Fs_].US[0]);
+		MOVZX32M16toR( ftreg, VU_VI_ADDR(REG_MAC_FLAG, 1));
 
-	// if eax!=0xffffff, set to 0
-	j8Ptr[ 0 ] = JNE8( 0 );
-	MOV32ItoM((int)&VU->VI[_Ft_].US[0], 1);
-	x86SetJ8( j8Ptr[ 0 ] );
+		if( (fsreg = _checkX86reg(X86TYPE_VI|(VU==&VU1?X86TYPE_VU1:0), _Fs_, MODE_READ)) >= 0 ) {
+			OR16RtoR( ftreg, fsreg);
+		}
+		else {
+			OR16MtoR( ftreg, VU_VI_ADDR(_Fs_, 1));
+		}
+	}
 }
 
-void recVUMI_FMOR( VURegs *VU )
+void recVUMI_FCAND( VURegs *VU, int info )
 {
-	if ( _Ft_ == 0 ) return;
+	int ftreg = ALLOCVI(1, MODE_WRITE|MODE_8BITREG);
 
-	MOV32MtoR( EAX, (int)&VU0.VI[ REG_MAC_FLAG ].UL );
-	AND32ItoR( EAX, 0xFFFF );
-	OR16MtoR( EAX, (int)&VU->VI[_Fs_].US[0]);
-	MOV32RtoM((int)&VU->VI[_Ft_].US[0], EAX);
-}
-
-void recVUMI_FCAND( VURegs *VU ) {
-	MOV32MtoR( EAX, (int)&VU0.VI[ REG_CLIP_FLAG ].UL );
+	MOV32MtoR( EAX, VU_VI_ADDR(REG_CLIP_FLAG, 1));
+	XOR32RtoR(ftreg, ftreg);
 	AND32ItoR( EAX, VU->code & 0xFFFFFF );
-	NEG32R( EAX );
-	SBB32RtoR( EAX, EAX );
-	NEG32R( EAX );
-	MOV32RtoM( (int)&VU->VI[ 1 ].UL, EAX );
+	SETNZ8R(ftreg);
 }
 
-void recVUMI_FCEQ( VURegs *VU )
+void recVUMI_FCEQ( VURegs *VU, int info )
 {
-	MOV32MtoR( EAX, (int)&VU0.VI[ REG_CLIP_FLAG ].UL );
-	MOV32ItoM((int)&VU->VI[1].US[0], 0);
-	AND32ItoR( EAX, 0xffffff);
+	int ftreg = ALLOCVI(1, MODE_WRITE|MODE_8BITREG);
 
+	MOV32MtoR( EAX, VU_VI_ADDR(REG_CLIP_FLAG, 1));
+	//AND32ItoR( EAX, 0xffffff);
+	XOR32RtoR(ftreg, ftreg);
 	CMP32ItoR( EAX, VU->code&0xffffff );
-
-	// if eax!=0xffffff, set to 0
-	j8Ptr[ 0 ] = JNE8( 0 );
-	MOV32ItoM((int)&VU->VI[1].US[0], 1);
-	x86SetJ8( j8Ptr[ 0 ] );
+	SETE8R(ftreg);
 }
 
-void recVUMI_FCOR( VURegs *VU )
+void recVUMI_FCOR( VURegs *VU, int info )
 {
-	MOV32MtoR( EAX, (int)&VU0.VI[ REG_CLIP_FLAG ].UL );
-	AND32ItoR( EAX, 0xffffff);
-	OR32ItoR( EAX, VU->code & 0xFFFFFF );
+	int ftreg = ALLOCVI(1, MODE_WRITE|MODE_8BITREG);
 
-	MOV32ItoM((int)&VU->VI[1].US[0], 0);
-	CMP32ItoR( EAX, 0xffffff );
+	MOV32MtoR( EAX, VU_VI_ADDR(REG_CLIP_FLAG, 1));
+	//AND32ItoR( EAX, 0xffffff);
+	XOR32RtoR(ftreg, ftreg);
+	OR32ItoR( EAX, (VU->code & 0xFFFFFF)|0xff000000 );
+	ADD32ItoR(EAX, 1);
 
-	// if eax==0xffffff, set to 1
-	j8Ptr[ 0 ] = JNE8( 0 );
-	MOV32ItoM((int)&VU->VI[1].US[0], 1);
-	x86SetJ8( j8Ptr[ 0 ] );
+	// set to 1 if EAX is 0
+	SETZ8R(ftreg);
 }
 
-void recVUMI_FCSET( VURegs *VU )
+void recVUMI_FCSET( VURegs *VU, int info )
 {
-	MOV32ItoM( (int)&VU->clipflag, VU->code&0xffffff );
-	MOV32ItoM( (int)&VU0.VI[ REG_CLIP_FLAG ].UL, VU->code&0xffffff );
+	u32 addr = VU_VI_ADDR(REG_CLIP_FLAG, 0);
+
+	MOV32ItoM(addr ? addr : VU_VI_ADDR(REG_CLIP_FLAG, 2), VU->code&0xffffff );
+
+	if( !(info & (PROCESS_VU_SUPER|PROCESS_VU_COP2)) )
+		MOV32ItoM( VU_VI_ADDR(REG_CLIP_FLAG, 1), VU->code&0xffffff );
 }
 
-void recVUMI_FCGET( VURegs *VU )
+void recVUMI_FCGET( VURegs *VU, int info )
 {
+	int ftreg;
 	if(_Ft_ == 0) return;
 
-	MOV32MtoR(EAX, (int)&VU0.VI[REG_CLIP_FLAG].UL);
-	AND32ItoR(EAX, 0x0fff);
-	MOV32RtoM((int)&VU->VI[_Ft_].US[0], EAX);
+	ftreg = ALLOCVI(_Ft_, MODE_WRITE);
+
+	MOV32MtoR(ftreg, VU_VI_ADDR(REG_CLIP_FLAG, 1));
+	AND32ItoR(ftreg, 0x0fff);
 }
 
-static s32 _recbranchAddr(VURegs * VU) {
+// SuperVU branch fns are in ivuzerorec.cpp
+static s32 _recbranchAddr(VURegs * VU)
+{
 	bpc = pc + (_Imm11_ << 3); 
 	if (bpc < 0) {
 		bpc = pc + (_UImm11_ << 3); 
@@ -3888,13 +3979,18 @@ static s32 _recbranchAddr(VURegs * VU) {
 	return bpc;
 }
 
-void recVUMI_IBEQ(VURegs *VU) {
+void recVUMI_IBEQ(VURegs *VU, int info)
+{
+	int fsreg, ftreg;
+	ADD_VI_NEEDED(_Ft_);
+	fsreg = ALLOCVI(_Fs_, MODE_READ);
+	ftreg = ALLOCVI(_Ft_, MODE_READ);
+
 	bpc = _recbranchAddr(VU); 
 
-	MOV16MtoR( EAX, (int)&VU->VI[ _Ft_ ].US[ 0 ] );
-	CMP16MtoR( EAX, (int)&VU->VI[ _Fs_ ].US[ 0 ] );
-
+	CMP16RtoR( fsreg, ftreg );
 	j8Ptr[ 0 ] = JNE8( 0 );
+
 	MOV16ItoM((uptr)&VU->branch, 2);
 	MOV32ItoM((uptr)&VU->branchpc, bpc);
 
@@ -3904,13 +4000,17 @@ void recVUMI_IBEQ(VURegs *VU) {
 	branch |= 1;
 }
 
-void recVUMI_IBGEZ( VURegs *VU ) {
+void recVUMI_IBGEZ( VURegs *VU, int info )
+{
+	int fsreg = ALLOCVI(_Fs_, MODE_READ);
+	
 	bpc = _recbranchAddr(VU); 
 
-	MOV16ItoM( (int)&VU->VI[ REG_TPC ].UL, (int)pc );
-	CMP16ItoM( (int)&VU->VI[ _Fs_ ].US[ 0 ], 0x0 );
-
+	MOV16ItoM( VU_VI_ADDR(REG_TPC, 0), (int)pc );
+	CMP16ItoR( fsreg, 0x0 );
 	j8Ptr[ 0 ] = JL8( 0 );
+
+	// supervu will take care of the rest
 	MOV16ItoM((uptr)&VU->branch, 2);
 	MOV32ItoM((uptr)&VU->branchpc, bpc);
 
@@ -3920,13 +4020,16 @@ void recVUMI_IBGEZ( VURegs *VU ) {
 	branch |= 1;
 }
 
-void recVUMI_IBGTZ( VURegs *VU ) {
+void recVUMI_IBGTZ( VURegs *VU, int info )
+{
+	int fsreg = ALLOCVI(_Fs_, MODE_READ);
 	bpc = _recbranchAddr(VU); 
 
-	MOV16ItoM( (int)&VU->VI[ REG_TPC ].UL, (int)pc );
-	CMP16ItoM( (int)&VU->VI[ _Fs_ ].US[ 0 ], 0x0 );
-
+	MOV16ItoM( VU_VI_ADDR(REG_TPC, 0), (int)pc );
+	CMP16ItoR( fsreg, 0x0 );
 	j8Ptr[ 0 ] = JLE8( 0 );
+
+	// supervu will take care of the rest
 	MOV16ItoM((uptr)&VU->branch, 2);
 	MOV32ItoM((uptr)&VU->branchpc, bpc);
 
@@ -3936,13 +4039,16 @@ void recVUMI_IBGTZ( VURegs *VU ) {
 	branch |= 1;
 }
 
-void recVUMI_IBLEZ( VURegs *VU ) {
+void recVUMI_IBLEZ( VURegs *VU, int info )
+{
+	int fsreg = ALLOCVI(_Fs_, MODE_READ);
+
 	bpc = _recbranchAddr(VU); 
 
-	MOV16ItoM( (int)&VU->VI[ REG_TPC ].UL, (int)pc );
-	CMP16ItoM( (int)&VU->VI[ _Fs_ ].US[ 0 ], 0x0 );
-
+	MOV16ItoM( VU_VI_ADDR(REG_TPC, 0), (int)pc );
+	CMP16ItoR( fsreg, 0x0 );
 	j8Ptr[ 0 ] = JG8( 0 );
+
 	MOV16ItoM((uptr)&VU->branch, 2);
 	MOV32ItoM((uptr)&VU->branchpc, bpc);
 
@@ -3952,13 +4058,16 @@ void recVUMI_IBLEZ( VURegs *VU ) {
 	branch |= 1;
 }
 
-void recVUMI_IBLTZ( VURegs *VU ) {
+void recVUMI_IBLTZ( VURegs *VU, int info )
+{
+	int fsreg = ALLOCVI(_Fs_, MODE_READ);
+
 	bpc = _recbranchAddr(VU); 
 
-	MOV16ItoM( (int)&VU->VI[ REG_TPC ].UL, (int)pc );
-	CMP16ItoM( (int)&VU->VI[ _Fs_ ].US[ 0 ], 0x0 );
-
+	MOV16ItoM( VU_VI_ADDR(REG_TPC, 0), (int)pc );
+	CMP16ItoR( fsreg, 0x0 );
 	j8Ptr[ 0 ] = JGE8( 0 );
+
 	MOV16ItoM((uptr)&VU->branch, 2);
 	MOV32ItoM((uptr)&VU->branchpc, bpc);
 
@@ -3968,14 +4077,19 @@ void recVUMI_IBLTZ( VURegs *VU ) {
 	branch |= 1;
 }
 
-void recVUMI_IBNE( VURegs *VU ) {
+void recVUMI_IBNE( VURegs *VU, int info )
+{
+	int fsreg, ftreg;
+	ADD_VI_NEEDED(_Ft_);
+	fsreg = ALLOCVI(_Fs_, MODE_READ);
+	ftreg = ALLOCVI(_Ft_, MODE_READ);
+
 	bpc = _recbranchAddr(VU); 
 
-	MOV16ItoM( (int)&VU->VI[ REG_TPC ].UL, (int)pc );
-	MOV16MtoR( EAX, (int)&VU->VI[ _Ft_ ].US[ 0 ] );
-	CMP16MtoR( EAX, (int)&VU->VI[ _Fs_ ].US[ 0 ] );
-
+	MOV16ItoM( VU_VI_ADDR(REG_TPC, 0), (int)pc );
+	CMP16RtoR( fsreg, ftreg );
 	j8Ptr[ 0 ] = JE8( 0 );
+
 	MOV16ItoM((uptr)&VU->branch, 2);
 	MOV32ItoM((uptr)&VU->branchpc, bpc);
 
@@ -3985,169 +4099,396 @@ void recVUMI_IBNE( VURegs *VU ) {
 	branch |= 1;
 }
 
-void recVUMI_B(VURegs *VU) {
+void recVUMI_B(VURegs *VU, int info)
+{
+	// supervu will take care of the rest
 	bpc = _recbranchAddr(VU); 
 
-	MOV32ItoM((int)&VU->VI[ REG_TPC ].UL, bpc);
+	MOV32ItoM(VU_VI_ADDR(REG_TPC, 0), bpc);
 
 	branch |= 3;
 }
 
-void recVUMI_BAL( VURegs *VU ) {
+void recVUMI_BAL( VURegs *VU, int info )
+{
 	bpc = _recbranchAddr(VU); 
 
-	MOV32ItoM((int)&VU->VI[ REG_TPC ].UL, bpc);
+	MOV32ItoM(VU_VI_ADDR(REG_TPC, 0), bpc);
 
 	if ( _Ft_ ) {
-		MOV32ItoR(EAX, pc);
-		ADD32ItoR(EAX, 8);
-		SHR32ItoR(EAX, 3);
-		MOV16RtoM( (int)&VU->VI[ _Ft_ ].US[ 0 ], EAX );
+		int ftreg = ALLOCVI(_Ft_, MODE_WRITE);
+		MOV16ItoR( ftreg, (pc+8)>>3 );
 	}
 
 	branch |= 3;
 }
 
-void recVUMI_JR(VURegs *VU) {
-	MOV32MtoR(EAX, (int)&VU->VI[ _Fs_ ].US[ 0 ] );
-	SHL32ItoR(EAX, 3);
-	MOV32RtoM((int)&VU->VI[ REG_TPC ].UL, EAX);
+void recVUMI_JR(VURegs *VU, int info)
+{
+	// fsreg cannot be ESP
+	int fsreg = ALLOCVI(_Fs_, MODE_READ);
+	LEA32RStoR(EAX, fsreg, 3);
+	MOV32RtoM(VU_VI_ADDR(REG_TPC, 0), EAX);
 
 	branch |= 3;
 }
 
-void recVUMI_JALR(VURegs *VU) {
-	MOV32MtoR(EAX, (int)&VU->VI[ _Fs_ ].US[ 0 ] );
-	SHL32ItoR(EAX, 3);
-	MOV32RtoM((int)&VU->VI[ REG_TPC ].UL, EAX);
+void recVUMI_JALR(VURegs *VU, int info)
+{
+	// fsreg cannot be ESP
+	int fsreg = ALLOCVI(_Fs_, MODE_READ);
+	LEA32RStoR(EAX, fsreg, 3);
+	MOV32RtoM(VU_VI_ADDR(REG_TPC, 0), EAX);
 
 	if ( _Ft_ ) {
-		MOV32ItoR(EAX, pc);
-		ADD32ItoR(EAX, 8);
-		SHR32ItoR(EAX, 3);
-		MOV16RtoM( (int)&VU->VI[ _Ft_ ].US[ 0 ], EAX );
+		int ftreg = ALLOCVI(_Ft_, MODE_WRITE);
+		MOV16ItoR( ftreg, (pc+8)>>3 );
 	}
 
 	branch |= 3;
 }
 
-void recVUMI_MFP(VURegs *VU) {
+void recVUMI_MFP(VURegs *VU, int info)
+{
 	if (_Ft_ == 0) return; 
 
-	MOV32MtoR(EAX, (int)&VU->VI[REG_P].UL );
-
-	if (_X) MOV32RtoM((int)&VU->VF[_Ft_].i.x, EAX);
-	if (_Y) MOV32RtoM((int)&VU->VF[_Ft_].i.y, EAX);
-	if (_Z) MOV32RtoM((int)&VU->VF[_Ft_].i.z, EAX);
-	if (_W) MOV32RtoM((int)&VU->VF[_Ft_].i.w, EAX);
-}
-
-void recVUMI_WAITP(VURegs *VU) {
-}
-
-void recVUMI_ESADD( VURegs *VU )
-{
-}
-
-void recVUMI_ERSADD( VURegs *VU )
-{
-}
-
-static __declspec(align(16)) float tempmem[4];
-
-void recVUMI_ELENG( VURegs *VU )
-{
-	int t0reg, t1reg;
-	int fsreg;
-
-	_addNeededVFtoXMMreg(_Fs_);
-	t0reg = _allocTempXMMreg(-1);
-	t1reg = _allocTempXMMreg(-1);
-	fsreg = _allocVFtoXMMreg(VU, -1, _Fs_, MODE_READ);
-
-	SSE_MOVAPS_XMM_to_XMM(t0reg, fsreg);
-	SSE_MULPS_XMM_to_XMM(t0reg, t0reg);
-
-	if(cpucaps.hasStreamingSIMD2Extensions) {
-		SSE2_PSHUFD_XMM_to_XMM(t1reg, t0reg, 0x55);
-		SSE_ADDSS_XMM_to_XMM(t0reg, t1reg);
-		SSE2_PSHUFD_XMM_to_XMM(t1reg, t0reg, 0xaa);
-		SSE_ADDSS_XMM_to_XMM(t0reg, t1reg);
+	if( _XYZW_SS ) {
+		_vuFlipRegSS(VU, EEREC_T);
+		SSE_MOVSS_M32_to_XMM(EEREC_TEMP, VU_VI_ADDR(REG_P, 1));
+		SSE_MOVSS_XMM_to_XMM(EEREC_T, EEREC_TEMP);
+		_vuFlipRegSS(VU, EEREC_T);
+	}
+	else if (_X_Y_Z_W != 0xf) {
+		SSE_MOVSS_M32_to_XMM(EEREC_TEMP, VU_VI_ADDR(REG_P, 1));
+		SSE_SHUFPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP, 0);
+		VU_MERGE_REGS(EEREC_T, EEREC_TEMP);
 	}
 	else {
-		SSE2EMU_PSHUFD_XMM_to_XMM(t1reg, t0reg, 0x55);
-		SSE_ADDSS_XMM_to_XMM(t0reg, t1reg);
-		SSE2EMU_PSHUFD_XMM_to_XMM(t1reg, t0reg, 0xaa);
-		SSE_ADDSS_XMM_to_XMM(t0reg, t1reg);
+		SSE_MOVSS_M32_to_XMM(EEREC_T, VU_VI_ADDR(REG_P, 1));
+		SSE_SHUFPS_XMM_to_XMM(EEREC_T, EEREC_T, 0);
+	}
+}
+
+static __declspec(align(16)) float s_tempmem[4];
+
+void recVUMI_WAITP(VURegs *VU, int info)
+{
+//	if( info & PROCESS_VU_SUPER )
+//		SuperVUFlush(1, 1);
+}
+
+// in all EFU insts, EEREC_D is a temp reg
+void vuSqSumXYZ(int regd, int regs, int regtemp)
+{
+	SSE_MOVAPS_XMM_to_XMM(regtemp, regs);
+	SSE_MULPS_XMM_to_XMM(regtemp, regtemp);
+
+	if( cpucaps.hasStreamingSIMD3Extensions ) {
+		SSE3_HADDPS_XMM_to_XMM(regd, regtemp);
+		SSE_ADDPS_XMM_to_XMM(regd, regtemp); // regd.z = x+y+z
+		SSE_MOVHLPS_XMM_to_XMM(regd, regd); // move to x
+	}
+	else {
+		SSE_MOVHLPS_XMM_to_XMM(regd, regtemp);
+		SSE_ADDSS_XMM_to_XMM(regd, regtemp);
+		SSE_SHUFPS_XMM_to_XMM(regtemp, regtemp, 0x55);
+		SSE_ADDSS_XMM_to_XMM(regd, regtemp);
+	}
+}
+
+void recVUMI_ESADD( VURegs *VU, int info)
+{
+	assert( VU == &VU1 );
+	vuSqSumXYZ(EEREC_TEMP, EEREC_S, EEREC_D);
+
+	SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(REG_P, 0), EEREC_TEMP);
+}
+
+void recVUMI_ERSADD( VURegs *VU, int info )
+{
+	assert( VU == &VU1 );
+	// almost same as vuSqSumXYZ
+	SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+	SSE_MULPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
+
+	if( cpucaps.hasStreamingSIMD3Extensions ) {
+		SSE3_HADDPS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+		SSE_ADDPS_XMM_to_XMM(EEREC_D, EEREC_TEMP); // EEREC_D.z = x+y+z
+		SSE_MOVSS_M32_to_XMM(EEREC_TEMP, (u32)&VU->VF[0].UL[3]);
+		SSE_MOVHLPS_XMM_to_XMM(EEREC_D, EEREC_D); // move to x
+	}
+	else {
+		SSE_MOVHLPS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+		SSE_ADDSS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+		SSE_SHUFPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP, 0x55);
+		SSE_ADDSS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+		SSE_MOVSS_M32_to_XMM(EEREC_TEMP, (u32)&VU->VF[0].UL[3]);
 	}
 
-	SSE_SQRTSS_XMM_to_XMM(t1reg, t0reg);
-	SSE_MOVSS_XMM_to_M32((int)&VU->p, t1reg);
+	// don't use RCPSS (very bad precision)
+	SSE_DIVSS_XMM_to_XMM(EEREC_TEMP, EEREC_D);
+	CheckForOverflowSS_(EEREC_TEMP, EEREC_D);
+	//SSE_MINSS_M32_to_XMM(EEREC_TEMP, (u32)&g_maxvals[0]);
+	//SSE_MAXSS_M32_to_XMM(EEREC_TEMP, (u32)&g_minvals[0]);
 
-	SSE_MOVSS_M32_to_XMM(t0reg, (int)&VU->p); 
-
-	_freeXMMreg(t0reg);
-	_freeXMMreg(t1reg);
-	_clearNeededXMMregs();
+	SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(REG_P, 0), EEREC_TEMP);
 }
 
-void recVUMI_ERLENG( VURegs *VU )
+void recVUMI_ELENG( VURegs *VU, int info )
 {
+	assert( VU == &VU1 );
+	vuSqSumXYZ(EEREC_D, EEREC_S, EEREC_TEMP);
+	SSE_SQRTSS_XMM_to_XMM(EEREC_TEMP, EEREC_D);
+	
+	SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(REG_P, 0), EEREC_TEMP);
 }
 
-void recVUMI_EATANxy( VURegs *VU )
+void recVUMI_ERLENG( VURegs *VU, int info )
 {
+	assert( VU == &VU1 );
+	vuSqSumXYZ(EEREC_D, EEREC_S, EEREC_TEMP);
+	SSE_RSQRTSS_XMM_to_XMM(EEREC_TEMP, EEREC_D);
+	CheckForOverflowSS_(EEREC_TEMP, EEREC_D);
+	//SSE_MINSS_M32_to_XMM(EEREC_TEMP, (u32)&g_maxvals[0]);
+	//SSE_MAXSS_M32_to_XMM(EEREC_TEMP, (u32)&g_minvals[0]);
+	
+	SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(REG_P, 0), EEREC_TEMP);
 }
 
-void recVUMI_EATANxz( VURegs *VU )
+void recVUMI_EATANxy( VURegs *VU, int info )
 {
+	assert( VU == &VU1 );
+
+	if( (xmmregs[EEREC_S].mode & MODE_WRITE) && (xmmregs[EEREC_S].mode&MODE_NOFLUSH) ) {
+		SSE_MOVLPS_XMM_to_M64((u32)s_tempmem, EEREC_S);
+		FLD32((u32)&s_tempmem[0]);
+		FLD32((u32)&s_tempmem[1]);
+	}
+	else {
+		if( xmmregs[EEREC_S].mode & MODE_WRITE ) {
+			SSE_MOVAPS_XMM_to_M128((u32)&VU->VF[_Fs_], EEREC_S);
+			xmmregs[EEREC_S].mode &= ~MODE_WRITE;
+		}
+
+		FLD32((u32)&VU->VF[_Fs_].UL[0]);
+		FLD32((u32)&VU->VF[_Fs_].UL[1]);
+	}
+
+	FPATAN();
+	FSTP32(VU_VI_ADDR(REG_P, 0));
 }
 
-void recVUMI_ESUM( VURegs *VU )
+void recVUMI_EATANxz( VURegs *VU, int info )
 {
+	assert( VU == &VU1 );
+
+	if( (xmmregs[EEREC_S].mode & MODE_WRITE) && (xmmregs[EEREC_S].mode&MODE_NOFLUSH) ) {
+		SSE_MOVLPS_XMM_to_M64((u32)s_tempmem, EEREC_S);
+		FLD32((u32)&s_tempmem[0]);
+		FLD32((u32)&s_tempmem[2]);
+	}
+	else {
+		if( xmmregs[EEREC_S].mode & MODE_WRITE ) {
+			SSE_MOVAPS_XMM_to_M128((u32)&VU->VF[_Fs_], EEREC_S);
+			xmmregs[EEREC_S].mode &= ~MODE_WRITE;
+		}
+
+		FLD32((u32)&VU->VF[_Fs_].UL[0]);
+		FLD32((u32)&VU->VF[_Fs_].UL[2]);
+	}
+	FPATAN();
+	FSTP32(VU_VI_ADDR(REG_P, 0));
 }
 
-void recVUMI_ERCPR( VURegs *VU )
+void recVUMI_ESUM( VURegs *VU, int info )
 {
+	assert( VU == &VU1 );
+
+	if( cpucaps.hasStreamingSIMD3Extensions ) {
+		SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+		SSE3_HADDPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
+		SSE3_HADDPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
+	}
+	else {
+		SSE_MOVHLPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+		SSE_ADDPS_XMM_to_XMM(EEREC_TEMP, EEREC_S); // y+w, x+z
+		SSE_UNPCKLPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP); // y+w, y+w, x+z, x+z
+		SSE_MOVHLPS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+		SSE_ADDSS_XMM_to_XMM(EEREC_TEMP, EEREC_D);
+	}
+
+	SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(REG_P, 0), EEREC_TEMP);
 }
 
-void recVUMI_ESQRT( VURegs *VU )
+void recVUMI_ERCPR( VURegs *VU, int info )
 {
+	assert( VU == &VU1 );
+
+	SSE_MOVSS_M32_to_XMM(EEREC_TEMP, (u32)&VU->VF[0].UL[3]);
+
+	// don't use RCPSS (very bad precision)
+	if( xmmregs[EEREC_S].mode & MODE_WRITE ) {
+		if( _Fsf_ ) SSE_SHUFPS_XMM_to_XMM(EEREC_S, EEREC_S, (0xe4e4>>(2*_Fsf_))&0xff);
+		SSE_DIVSS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+
+		// revert
+		if( _Fsf_ ) SSE_SHUFPS_XMM_to_XMM(EEREC_S, EEREC_S, (0xe4e4>>(8-2*_Fsf_))&0xff);
+	}
+	else {
+		SSE_DIVSS_M32_to_XMM(EEREC_TEMP, (u32)&VU->VF[_Fs_].UL[_Fsf_]);
+	}
+
+	CheckForOverflowSS_(EEREC_TEMP, EEREC_D);
+	//SSE_MINSS_M32_to_XMM(EEREC_TEMP, (u32)&g_maxvals[0]);
+	//SSE_MAXSS_M32_to_XMM(EEREC_TEMP, (u32)&g_minvals[0]);
+	
+	SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(REG_P, 0), EEREC_TEMP);
 }
 
-void recVUMI_ERSQRT( VURegs *VU )
+void recVUMI_ESQRT( VURegs *VU, int info )
 {
+	assert( VU == &VU1 );
+
+	if( _Fsf_ ) {
+		if( xmmregs[EEREC_S].mode & MODE_WRITE ) {
+			_unpackVF_xyzw(EEREC_TEMP, EEREC_S, _Fsf_);
+			SSE_SQRTSS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
+		}
+		else {
+			SSE_SQRTSS_M32_to_XMM(EEREC_TEMP, (u32)&VU->VF[_Fs_].UL[_Fsf_]);
+		}
+	}
+	else SSE_SQRTSS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+
+	SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(REG_P, 0), EEREC_TEMP);
 }
 
-void recVUMI_ESIN( VURegs *VU )
+void recVUMI_ERSQRT( VURegs *VU, int info )
 {
+	assert( VU == &VU1 );
+
+	if( _Fsf_ ) {
+		if( xmmregs[EEREC_S].mode & MODE_WRITE ) {
+			_unpackVF_xyzw(EEREC_TEMP, EEREC_S, _Fsf_);
+			SSE_RSQRTSS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
+		}
+		else {
+			SSE_RSQRTSS_M32_to_XMM(EEREC_TEMP, (u32)&VU->VF[_Fs_].UL[_Fsf_]);
+		}
+	}
+	else SSE_RSQRTSS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+
+	SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(REG_P, 0), EEREC_TEMP);
 }
 
-void recVUMI_EATAN( VURegs *VU )
+void recVUMI_ESIN( VURegs *VU, int info )
 {
+	assert( VU == &VU1 );
+
+	if( (xmmregs[EEREC_S].mode & MODE_WRITE) && (xmmregs[EEREC_S].mode&MODE_NOFLUSH) ) {
+		switch(_Fsf_) {
+			case 0: SSE_MOVSS_XMM_to_M32((u32)s_tempmem, EEREC_S);
+			case 1: SSE_MOVLPS_XMM_to_M64((u32)s_tempmem, EEREC_S);
+			default: SSE_MOVHPS_XMM_to_M64((u32)&s_tempmem[2], EEREC_S);
+		}
+		FLD32((u32)&s_tempmem[_Fsf_]);
+	}
+	else {
+		if( xmmregs[EEREC_S].mode & MODE_WRITE ) {
+			SSE_MOVAPS_XMM_to_M128((u32)&VU->VF[_Fs_], EEREC_S);
+			xmmregs[EEREC_S].mode &= ~MODE_WRITE;
+		}
+
+		FLD32((u32)&VU->VF[_Fs_].UL[_Fsf_]);
+	}
+
+	FSIN();
+	FSTP32(VU_VI_ADDR(REG_P, 0));
 }
 
-void recVUMI_EEXP( VURegs *VU )
+void recVUMI_EATAN( VURegs *VU, int info )
 {
+	assert( VU == &VU1 );
+
+	if( (xmmregs[EEREC_S].mode & MODE_WRITE) && (xmmregs[EEREC_S].mode&MODE_NOFLUSH) ) {
+		switch(_Fsf_) {
+			case 0: SSE_MOVSS_XMM_to_M32((u32)s_tempmem, EEREC_S);
+			case 1: SSE_MOVLPS_XMM_to_M64((u32)s_tempmem, EEREC_S);
+			default: SSE_MOVHPS_XMM_to_M64((u32)&s_tempmem[2], EEREC_S);
+		}
+		FLD32((u32)&s_tempmem[_Fsf_]);
+	}
+	else {
+		if( xmmregs[EEREC_S].mode & MODE_WRITE ) {
+			SSE_MOVAPS_XMM_to_M128((u32)&VU->VF[_Fs_], EEREC_S);
+			xmmregs[EEREC_S].mode &= ~MODE_WRITE;
+		}
+	}
+
+	FLD1();
+	FLD32((u32)&VU->VF[_Fs_].UL[_Fsf_]);
+	FPATAN();
+	FSTP32(VU_VI_ADDR(REG_P, 0));
 }
 
-void recVUMI_XITOP( VURegs *VU )
+void recVUMI_EEXP( VURegs *VU, int info )
 {
+	assert( VU == &VU1 );
+
+	FLDL2E();
+
+	if( (xmmregs[EEREC_S].mode & MODE_WRITE) && (xmmregs[EEREC_S].mode&MODE_NOFLUSH) ) {
+		switch(_Fsf_) {
+			case 0: SSE_MOVSS_XMM_to_M32((u32)s_tempmem, EEREC_S);
+			case 1: SSE_MOVLPS_XMM_to_M64((u32)s_tempmem, EEREC_S);
+			default: SSE_MOVHPS_XMM_to_M64((u32)&s_tempmem[2], EEREC_S);
+		}
+		FMUL32((u32)&s_tempmem[_Fsf_]);
+	}
+	else {
+		if( xmmregs[EEREC_S].mode & MODE_WRITE ) {
+			SSE_MOVAPS_XMM_to_M128((u32)&VU->VF[_Fs_], EEREC_S);
+			xmmregs[EEREC_S].mode &= ~MODE_WRITE;
+		}
+
+		FMUL32((u32)&VU->VF[_Fs_].UL[_Fsf_]);
+	}
+
+	// basically do 2^(log_2(e) * val)
+	FLD(0);
+	FRNDINT();
+	FXCH(1);
+	FSUB32Rto0(1);
+	F2XM1();
+	FLD1();
+	FADD320toR(1);
+	FSCALE();
+	FSTP(1);
+	
+	FSTP32(VU_VI_ADDR(REG_P, 0));
+}
+
+void recVUMI_XITOP( VURegs *VU, int info )
+{
+	int ftreg;
 	if (_Ft_ == 0) return;
-	MOV32MtoR( EAX, (int)&VU->vifRegs->itop );
-	MOV16RtoM( VU_VI_ADDR( _Ft_ ), EAX );
+	
+	ftreg = ALLOCVI(_Ft_, MODE_WRITE);
+	MOVZX32M16toR( ftreg, (int)&VU->vifRegs->itop );
 }
 
-void recVUMI_XTOP( VURegs *VU ) {
+void recVUMI_XTOP( VURegs *VU, int info )
+{
+	int ftreg;
 	if ( _Ft_ == 0 ) return;
 
-	MOV32MtoR( EAX, (int)&VU->vifRegs->top );
-	MOV16RtoM( VU_VI_ADDR( _Ft_ ), EAX );
+	ftreg = ALLOCVI(_Ft_, MODE_WRITE);
+	MOVZX32M16toR( ftreg, (int)&VU->vifRegs->top );
 }
 
 extern HANDLE g_hGsEvent;
 
-void gstrans(u32 *pMem, u32 addr)
+void VU1XGKICK_MTGSTransfer(u32 *pMem, u32 addr)
 {
 	u32 size;
 	u8* pmem;
@@ -4167,33 +4508,34 @@ void gstrans(u32 *pMem, u32 addr)
 	}
 }
 
-void recVUMI_XGKICK( VURegs *VU ) {
-#ifdef __x86_64__
-	MOV32MtoR(RSI, (uptr)&VU->VI[_Fs_].US[0]);
-	SHL32ItoR(RSI, 4);
-	AND32ItoR(RSI, 0x3fff);
+//extern u32 vudump;
+//void countfn()
+//{
+//	static int scount = 0;
+//	scount++;
+//
+//	if( scount > 766 )
+//		vudump |= 8;
+//}
 
-	MOV64MtoR(RDI, (uptr)VU->Mem );
-	MOV64MtoR(RDX, (uptr)GSgifTransfer1);
-	JMP64R(RDX);
-#else
-	MOVZX32M16toR(EAX, (uptr)&VU->VI[_Fs_].US[0]);
-	SHL32ItoR(EAX, 4);
-	AND32ItoR(EAX, 0x3fff);
+void recVUMI_XGKICK( VURegs *VU, int info )
+{
+	int fsreg = ALLOCVI(_Fs_, MODE_READ);
+	_freeX86reg(fsreg);
+	SHL32ItoR(fsreg, 4);
+	AND32ItoR(fsreg, 0x3fff);
 
-	PUSH32R(EAX);
+	PUSH32R(fsreg);
 	PUSH32I((int)VU->Mem);
-	iFlushCall();
+	iFlushCall(FLUSH_NOCONST);
+
+	//CALLFunc((u32)countfn);
 
 	if( CHECK_MULTIGS ) {
-		CALLFunc((int)gstrans);
+		CALLFunc((int)VU1XGKICK_MTGSTransfer);
 		ADD32ItoR(ESP, 8);
 	}
 	else {
 		CALLFunc((int)GSgifTransfer1);
-		//OR32ItoM((u32)&GSCSRr, 2);
 	}
-
-#endif
 }
-

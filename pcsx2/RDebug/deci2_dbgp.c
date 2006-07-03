@@ -18,7 +18,6 @@
 
 #include "Common.h"
 #include "PsxCommon.h"
-#include "VU0.h"
 #include "VUmicro.h"
 #include "deci2.h"
 

@@ -55,19 +55,25 @@ extern void (*VU1regs_UPPER_FD_01_TABLE[32])(_VURegsNum *VUregsn);
 extern void (*VU1regs_UPPER_FD_10_TABLE[32])(_VURegsNum *VUregsn);
 extern void (*VU1regs_UPPER_FD_11_TABLE[32])(_VURegsNum *VUregsn);
 
-//This is the VU1 registers.VU0 is in VU0.h (same as macromode)
+// VU0
+int  vu0Init();
+void vu0Reset();
+void vu0ResetRegs();
+void vu0Freeze(gzFile f, int Mode);
+void vu0Shutdown();
+void vu0ExecMicro(u32 addr);
+void vu0Exec(VURegs* VU);
+void vu0Finish();
+void recResetVU0( void );
 
-extern VURegs VU1;
-
+// VU1
 int  vu1Init();
 void vu1Reset();
 void vu1ResetRegs();
 void recResetVU1( void );
 void vu1Freeze(gzFile f, int Mode);
 void vu1Shutdown();
-void vu0ExecMicro(u32 addr);
 void vu1ExecMicro(u32 addr);
-void vu0Exec(VURegs* VU);
 void vu1Exec(VURegs* VU);
 
 void VU0_UPPER_FD_00();

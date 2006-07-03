@@ -30,6 +30,12 @@ void FLD32( u32 from )
 	write32( MEMADDR(from, 4) ); 
 }
 
+// fld st(i)
+void FLD(int st) { write16(0xc0d9+(st<<8)); }
+
+void FLD1() { write16(0xe8d9); }
+void FLDL2E() { write16(0xead9); }
+
 /* fst m32 from fpu reg stack */
 void FST32( u32 to ) 
 {
@@ -45,6 +51,9 @@ void FSTP32( u32 to )
 	ModRM( 0, 0x3, DISP32 );
 	write32( MEMADDR(to, 4) ); 
 }
+
+// fstp st(i)
+void FSTP(int st) { write16(0xd8dd+(st<<8)); }
 
 /* fldcw fpu control word from m16 */
 void FLDCW( u32 from )
@@ -66,6 +75,17 @@ void FNSTSWtoAX( void )
 {
 	write16( 0xE0DF );
 }
+
+void FXAM()
+{
+	write16(0xe5d9);
+}
+
+void FDECSTP() { write16(0xf6d9); }
+void FRNDINT() { write16(0xfcd9); }
+void FXCH(int st) { write16(0xc8d9+(st<<8)); }
+void F2XM1() { write16(0xf0d9); }
+void FSCALE() { write16(0xfdd9); }
 
 /* fadd ST(src) to fpu reg stack ST(0) */
 void FADD32Rto0( x86IntRegType src )
@@ -130,6 +150,12 @@ void FDIV320toR( x86IntRegType src )
    write8( 0xF8 + src );
 }
 
+void FDIV320toRP( x86IntRegType src )
+{
+	write8( 0xDE );
+	write8( 0xF8 + src );
+}
+
 /* fadd m32 to fpu reg stack */
 void FADD32( u32 from ) 
 {
@@ -173,6 +199,9 @@ void FSQRT( void )
 {
 	write16( 0xFAD9 );
 }
+
+void FPATAN(void) { write16(0xf3d9); }
+void FSIN(void) { write16(0xfed9); }
 
 /* fchs fpu reg stack */
 void FCHS( void ) 

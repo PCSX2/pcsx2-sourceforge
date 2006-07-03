@@ -31,7 +31,6 @@
 #include "Debug.h"
 #include "R5900.h"
 #include "InterTables.h"
-#include "VU0.h"
 #include "VUops.h"
 #include "VUmicro.h"
 
@@ -92,15 +91,26 @@ void SQC2() {
 
 //****************************************************************************
 void _vu0WaitMicro() {
+	int startcycle;
 	if ((VU0.VI[REG_VPU_STAT].UL & 0x1) == 0) {
 		return;
 	}
+
+	startcycle = VU0.cycle;
+
 	VU0.flags|= VUFLAG_BREAKONMFLAG;
 	VU0.flags&= ~VUFLAG_MFLAGSET;
-	while ((VU0.VI[REG_VPU_STAT].UL & 0x1) &&
-		   (VU0.flags & VUFLAG_MFLAGSET) == 0) {
+
+	FreezeXMMRegs(1);
+	do {
 		Cpu->ExecuteVU0Block();
-	}
+	} while ((VU0.VI[REG_VPU_STAT].UL & 0x1) && (VU0.flags & VUFLAG_MFLAGSET) == 0);
+
+	FreezeXMMRegs(0);
+	FreezeMMXRegs(0);
+
+	//NEW
+	cpuRegs.cycle += (VU0.cycle-startcycle)*2;
 	VU0.flags&= ~VUFLAG_BREAKONMFLAG;
 }
 
@@ -164,8 +174,10 @@ void CTC2() {
 			}
 			break;
 		case REG_CMSAR1: // REG_CMSAR1
-            VU1.VI[REG_TPC].UL = cpuRegs.GPR.r[_Rt_].US[0];
-			vu1ExecMicro(VU1.VI[REG_TPC].UL);	// Execute VU1 Micro SubRoutine
+			if (!(VU0.VI[REG_VPU_STAT].UL & 0x100) ) {
+				VU1.VI[REG_TPC].UL = cpuRegs.GPR.r[_Rt_].US[0];
+				vu1ExecMicro(VU1.VI[REG_TPC].UL);	// Execute VU1 Micro SubRoutine
+			}
 			break;
 		default:
 			VU0.VI[_Fs_].UL = cpuRegs.GPR.r[_Rt_].UL[0];
@@ -348,7 +360,9 @@ void vu0Finish()
 
 		if(VU0.VI[REG_VPU_STAT].UL & 0x1) {
 			VU0.VI[REG_VPU_STAT].UL &= ~1;
+#ifdef PCSX2_DEVBUILD
 			SysPrintf("VU0 stall\n");
+#endif
 		}
 	}
 }
@@ -357,9 +371,13 @@ void VCALLMS() {
 
 	vu0Finish();
 	vu0ExecMicro(((cpuRegs.code >> 6) & 0x7FFF) * 8);
+	FreezeXMMRegs(0);
+	FreezeMMXRegs(0);
 }     
 
 void VCALLMSR() {
 	vu0Finish();
 	vu0ExecMicro(VU0.VI[REG_CMSAR0].US[0] * 8);
+	FreezeXMMRegs(0);
+	FreezeMMXRegs(0);
 }  
