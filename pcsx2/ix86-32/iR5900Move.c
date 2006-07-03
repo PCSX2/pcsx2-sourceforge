@@ -443,8 +443,8 @@ void recMOVZtemp_const()
 	_deleteEEreg(_Rd_, 1);
 	_eeOnWriteReg(_Rd_, 0);
 	if (g_cpuConstRegs[_Rt_].UD[0] == 0) {
-		MOV32ItoM((u32)&g_cpuConstRegs[_Rd_].UL[0], g_cpuConstRegs[_Rs_].UL[0]);
-		MOV32ItoM((u32)&g_cpuConstRegs[_Rd_].UL[1], g_cpuConstRegs[_Rs_].UL[1]);
+		MOV32ItoM((u32)&cpuRegs.GPR.r[_Rd_].UL[0], g_cpuConstRegs[_Rs_].UL[0]);
+		MOV32ItoM((u32)&cpuRegs.GPR.r[_Rd_].UL[1], g_cpuConstRegs[_Rs_].UL[1]);
 	}
 }
 
@@ -580,8 +580,8 @@ void recMOVNtemp_const()
 	_deleteEEreg(_Rd_, 1);
 	_eeOnWriteReg(_Rd_, 0);
 	if (g_cpuConstRegs[_Rt_].UD[0] != 0) {
-		MOV32ItoM((u32)&g_cpuConstRegs[_Rd_].UL[0], g_cpuConstRegs[_Rs_].UL[0]);
-		MOV32ItoM((u32)&g_cpuConstRegs[_Rd_].UL[1], g_cpuConstRegs[_Rs_].UL[1]);
+		MOV32ItoM((u32)&cpuRegs.GPR.r[_Rd_].UL[0], g_cpuConstRegs[_Rs_].UL[0]);
+		MOV32ItoM((u32)&cpuRegs.GPR.r[_Rd_].UL[1], g_cpuConstRegs[_Rs_].UL[1]);
 	}
 }
 
