@@ -568,6 +568,13 @@ void recMOVZ()
 			MOV32ItoM((u32)&cpuRegs.GPR.r[_Rd_].UL[0], g_cpuConstRegs[_Rd_].UL[0]);
 			MOV32ItoM((u32)&cpuRegs.GPR.r[_Rd_].UL[1], g_cpuConstRegs[_Rd_].UL[1]);
 		}
+		else {
+			if (g_cpuConstRegs[_Rt_].UD[0] == 0) {
+				g_cpuConstRegs[_Rd_].UL[0] = g_cpuConstRegs[_Rs_].UL[0];
+				g_cpuConstRegs[_Rd_].UL[1] = g_cpuConstRegs[_Rs_].UL[1];
+			}
+			return;
+		}
 	}
 
 	recMOVZtemp();
@@ -699,6 +706,13 @@ void recMOVN()
 			_deleteEEreg(_Rd_, 0);
 			MOV32ItoM((u32)&cpuRegs.GPR.r[_Rd_].UL[0], g_cpuConstRegs[_Rd_].UL[0]);
 			MOV32ItoM((u32)&cpuRegs.GPR.r[_Rd_].UL[1], g_cpuConstRegs[_Rd_].UL[1]);
+		}
+		else {
+			if (g_cpuConstRegs[_Rt_].UD[0] != 0) {
+				g_cpuConstRegs[_Rd_].UL[0] = g_cpuConstRegs[_Rs_].UL[0];
+				g_cpuConstRegs[_Rd_].UL[1] = g_cpuConstRegs[_Rs_].UL[1];
+			}
+			return;
 		}
 	}
 

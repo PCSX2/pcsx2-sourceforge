@@ -1171,8 +1171,9 @@ void recCVT_S_xmm(int info)
 			SSE2_CVTDQ2PS_XMM_to_XMM(EEREC_D, EEREC_S);
 		}
 		else {
-			_deleteGPRtoXMMreg(_Fs_, 1);
+			_deleteFPtoXMMreg(_Fs_, 1);
 			SSE_CVTSI2SS_M32_to_XMM(EEREC_D, (u32)&fpuRegs.fpr[_Fs_]);
+			xmmregs[EEREC_D].mode |= MODE_WRITE; // in the case that _Fs_ == _Fd_
 		}
 	}
 }

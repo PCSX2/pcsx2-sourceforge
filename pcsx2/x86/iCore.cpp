@@ -1538,8 +1538,6 @@ void _deleteFPtoXMMreg(int reg, int flush)
 				case 1:
 				case 2:
 					if( flush == 1 && (xmmregs[i].mode & MODE_WRITE) ) {
-						assert( reg != 0 );
-
 						SSE_MOVSS_XMM_to_M32((u32)&fpuRegs.fpr[reg].UL, i);
 						// get rid of MODE_WRITE since don't want to flush again
 						xmmregs[i].mode &= ~MODE_WRITE;

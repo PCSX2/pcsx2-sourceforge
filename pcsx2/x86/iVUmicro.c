@@ -2663,12 +2663,14 @@ void recVUMI_ITOF0( VURegs *VU, int info )
 		}
 		
 		VU_MERGE_REGS(EEREC_T, EEREC_TEMP);
+		xmmregs[EEREC_T].mode |= MODE_WRITE;
 	}
 	else {
 		if( cpucaps.hasStreamingSIMD2Extensions ) SSE2_CVTDQ2PS_XMM_to_XMM(EEREC_T, EEREC_S);
 		else {
 			_deleteVFtoXMMreg(_Fs_, VU==&VU1, 1);
 			SSE2EMU_CVTDQ2PS_M128_to_XMM(EEREC_T, VU_VFx_ADDR( _Fs_ ));
+			xmmregs[EEREC_T].mode |= MODE_WRITE;
 		}
 	}
 }
@@ -2686,11 +2688,13 @@ void recVUMI_ITOFX(VURegs *VU, int addr, int info)
 
 		SSE_MULPS_M128_to_XMM(EEREC_TEMP, addr);
 		VU_MERGE_REGS(EEREC_T, EEREC_TEMP);
+		xmmregs[EEREC_T].mode |= MODE_WRITE;
 	} else {
 		if(cpucaps.hasStreamingSIMD2Extensions) SSE2_CVTDQ2PS_XMM_to_XMM(EEREC_T, EEREC_S);
 		else {
 			_deleteVFtoXMMreg(_Fs_, VU==&VU1, 1);
 			SSE2EMU_CVTDQ2PS_M128_to_XMM(EEREC_T, VU_VFx_ADDR( _Fs_ ));
+			xmmregs[EEREC_T].mode |= MODE_WRITE;
 		}
 
 		SSE_MULPS_M128_to_XMM(EEREC_T, addr);

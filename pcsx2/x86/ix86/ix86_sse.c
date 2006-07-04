@@ -1491,10 +1491,13 @@ void SSE2EMU_MOVD_XMM_to_R( x86IntRegType to, x86SSERegType from ) {
 }
 
 
+extern void SetFPUstate();
+extern void _freeMMXreg(int mmxreg);
+
 void SSE2EMU_CVTPS2DQ_XMM_to_XMM( x86SSERegType to, x86SSERegType from ) {
-	MOV32ItoR(EAX, (u32)&f);
-	MOV32ItoR(EBX, (u32)&p2);
-	SSE_MOVUPSRtoRm(EAX, from);
+	SetFPUstate();
+	_freeMMXreg(7);
+	SSE_MOVAPS_XMM_to_M128((u32)f, from);
 	
 	FLD32((u32)&f[0]);
 	FISTP32((u32)&p2[0]);
@@ -1505,13 +1508,12 @@ void SSE2EMU_CVTPS2DQ_XMM_to_XMM( x86SSERegType to, x86SSERegType from ) {
 	FLD32((u32)&f[3]);
 	FISTP32((u32)&p2[3]);
 
-	SSE_MOVUPSRmtoR(to, EBX);
+	SSE_MOVAPS_M128_to_XMM(to, (u32)p2);
 }
 
 void SSE2EMU_CVTDQ2PS_M128_to_XMM( x86SSERegType to, u32 from ) {
-	MOV32ItoR(EAX, (u32)&from);
-	MOV32ItoR(EBX, (u32)&f);
-	
+	SetFPUstate();
+	_freeMMXreg(7);
 	FILD32((u32)from);
 	FSTP32((u32)&f[0]);
 	FILD32((u32)from+4);
@@ -1521,7 +1523,7 @@ void SSE2EMU_CVTDQ2PS_M128_to_XMM( x86SSERegType to, u32 from ) {
 	FILD32((u32)from+12);
 	FSTP32((u32)&f[3]);
 
-	SSE_MOVUPSRmtoR(to, EBX);
+	SSE_MOVAPS_M128_to_XMM(to, (u32)f);
 }
 
 void SSE2EMU_MOVD_XMM_to_M32( u32 to, x86SSERegType from ) {

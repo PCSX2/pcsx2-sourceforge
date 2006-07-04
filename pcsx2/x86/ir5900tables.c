@@ -641,20 +641,23 @@ void rpropBSC(EEINST* prev, EEINST* pinst)
 		case 30: // lq
 			rpropSetWrite(_Rt_, EEINST_LIVE1|EEINST_LIVE2);
 			rpropSetRead(_Rs_, 0);
-			pinst->info |= EEINST_MMX|EEINST_XMM;
+			pinst->info |= EEINST_MMX;
+			pinst->info |= EEINST_XMM;
 			break;
 
 		case 31: // sq
 			rpropSetRead(_Rt_, EEINST_LIVE1|EEINST_LIVE2|EEINST_XMM);
 			rpropSetRead(_Rs_, 0);
-			pinst->info |= EEINST_MMX|EEINST_XMM;
+			pinst->info |= EEINST_MMX;
+			pinst->info |= EEINST_XMM;
 			break;
 
 		// 4 byte stores
 		case 40: case 41: case 42: case 43: case 46:
 			rpropSetRead(_Rt_, 0);
 			rpropSetRead(_Rs_, 0);
-			pinst->info |= EEINST_MMX|EEINST_XMM;
+			pinst->info |= EEINST_MMX;
+			pinst->info |= EEINST_XMM;
 			break;
 
 		case 44: // sdl
@@ -781,7 +784,7 @@ void rpropSPECIAL(EEINST* prev, EEINST* pinst)
 			rpropSetWrite(_Rd_, EEINST_LIVE1);
 			rpropSetRead(_Rs_, (cpucaps.hasStreamingSIMD2Extensions?EEINST_MMX:0));
 			rpropSetRead(_Rt_, (cpucaps.hasStreamingSIMD2Extensions?EEINST_MMX:0));
-			pinst->info |= EEINST_MMX;
+			if( cpucaps.hasStreamingSIMD2Extensions ) pinst->info |= EEINST_MMX;
 			break;
 
 		case 26: // div
@@ -848,7 +851,7 @@ void rpropSPECIAL(EEINST* prev, EEINST* pinst)
 				rpropSetRead(_Rs_, (pinst->regs[_Rd_]&EEINST_LIVE1)|(cpucaps.hasStreamingSIMD2Extensions?EEINST_MMX:0));
 				rpropSetRead(_Rt_, (pinst->regs[_Rd_]&EEINST_LIVE1)|(cpucaps.hasStreamingSIMD2Extensions?EEINST_MMX:0));
 			}
-			pinst->info |= EEINST_MMX;
+			if( cpucaps.hasStreamingSIMD2Extensions ) pinst->info |= EEINST_MMX;
 			break;
 
 		// traps
@@ -891,7 +894,8 @@ void rpropREGIMM(EEINST* prev, EEINST* pinst)
 		case 0: // bltz
 		case 1: // bgez
 			rpropSetRead(_Rs_, EEINST_LIVE1);
-			pinst->info |= EEINST_MMX|EEINST_XMM;
+			pinst->info |= EEINST_MMX;
+			pinst->info |= EEINST_XMM;
 			break;
 
 		case 2: // bltzl
@@ -900,7 +904,8 @@ void rpropREGIMM(EEINST* prev, EEINST* pinst)
 			_recClearInst(prev);
 			prev->info = 0;
 			rpropSetRead(_Rs_, EEINST_LIVE1);
-			pinst->info |= EEINST_MMX|EEINST_XMM;
+			pinst->info |= EEINST_MMX;
+			pinst->info |= EEINST_XMM;
 			break;
 
 		// traps
@@ -1151,7 +1156,7 @@ void rpropMMI(EEINST* prev, EEINST* pinst)
 			rpropSetWrite(_Rd_, EEINST_LIVE1);
 			rpropSetRead(_Rs_, (cpucaps.hasStreamingSIMD2Extensions?EEINST_MMX:0));
 			rpropSetRead(_Rt_, (cpucaps.hasStreamingSIMD2Extensions?EEINST_MMX:0));
-			pinst->info |= EEINST_MMX;
+			if( cpucaps.hasStreamingSIMD2Extensions ) pinst->info |= EEINST_MMX;
 			break;
 
 		case 26: // div1
