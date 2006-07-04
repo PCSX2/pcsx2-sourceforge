@@ -1294,7 +1294,7 @@ void recLQ( void )
 				MOVQRtoM((u32)&cpuRegs.GPR.r[_Rt_].UL[2], t0reg);
 			}
 			else if( mmreg >= 0 && (mmreg & MEM_XMMTAG) ) {
-				SSEX_MOVDQARmtoROffset(mmreg, ECX, PS2MEM_BASE_+s_nAddMemOffset);
+				SSEX_MOVDQARmtoROffset(mmreg&0xf, ECX, PS2MEM_BASE_+s_nAddMemOffset);
 			}
 			else {
 				_recMove128RmOffsettoM((u32)&cpuRegs.GPR.r[_Rt_].UL[0], PS2MEM_BASE_+s_nAddMemOffset);
@@ -1310,10 +1310,7 @@ void recLQ( void )
 				CALLFunc( (int)recMemRead128 );
 
 				if( mmreg >= 0 && (mmreg & MEM_MMXTAG) ) MOVQMtoR(mmreg&0xf, (int)&cpuRegs.GPR.r[ _Rt_ ].UL[ 0 ]);
-				else if( mmreg >= 0 && (mmreg & MEM_XMMTAG) ) SSEX_MOVDQA_M128_to_XMM(mmreg, (int)&cpuRegs.GPR.r[ _Rt_ ].UL[ 0 ] );
-				else {
-					// already there
-				}
+				else if( mmreg >= 0 && (mmreg & MEM_XMMTAG) ) SSEX_MOVDQA_M128_to_XMM(mmreg&0xf, (int)&cpuRegs.GPR.r[ _Rt_ ].UL[ 0 ] );
 				
 				ADD32ItoR(ESP, 4);
 			}
@@ -1422,7 +1419,7 @@ void recLQ_co( void )
 				MOVQRmtoROffset(mmreg2&0xf, ECX, PS2MEM_BASE_+s_nAddMemOffset+_Imm_co_-_Imm_);
 				MOVQRtoM((u32)&cpuRegs.GPR.r[nextrt].UL[2], t0reg);
 			}
-			else if( mmreg2 >= 0 && (mmreg2 & MEM_MMXTAG) ) {
+			else if( mmreg2 >= 0 && (mmreg2 & MEM_XMMTAG) ) {
 				SSEX_MOVDQARmtoROffset(mmreg2&0xf, ECX, PS2MEM_BASE_+s_nAddMemOffset+_Imm_co_-_Imm_);
 			}
 			else {
