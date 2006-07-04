@@ -161,11 +161,11 @@ u32 vudump = 0;
 extern u32 g_sseMXCSR;
 void recExecuteVU1Block(void)
 {
-#ifdef _DEBUG
+/*#ifdef _DEBUG
 	int i;
 	__asm stmxcsr i
 	assert( g_sseMXCSR == (i&~0x3f) );
-#endif
+#endif*/
 
 	if (CHECK_VU1REC)
 	{
