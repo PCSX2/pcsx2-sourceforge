@@ -278,17 +278,19 @@ u8 _eeIsLoadStoreCoIssue(u32 firstcode, u32 secondcode)
 
 		case 32: case 33: case 35: case 36: case 37: case 39:
 		case 55: // LD
-		case 30: // lq
 
 		// stores
-		case 31: // sq
 		case 40: case 41: case 43:
 		case 63: // sd
+			return (secondcode>>26)==(firstcode>>26);
+
+		case 30: // lq
+		case 31: // sq
 		case 49: // lwc1
 		case 57: // swc1
 		case 54: // lqc2
 		case 62: // sqc2
-			return (secondcode>>26)==(firstcode>>26);
+			return (secondcode>>26)==(firstcode>>26)&&cpucaps.hasStreamingSIMDExtensions;
 	}
 	return 0;
 }
@@ -1442,13 +1444,15 @@ u32 g_sseVUMXCSR = 0xff80;
 void SetCPUState()
 {
 	// SSE STATE //
-	// do NOT set Denormals-Are-Zero flag (charlie and chocfac messes up)
-	g_sseMXCSR = 0x9f80; // changing the rounding mode to 0x2000 (near) kills grandia III!
-						// changing the rounding mode to 0x0000 or 0x4000 totally kills gitaroo
-						// so... grandia III wins
+	if( cpucaps.hasStreamingSIMDExtensions ) {
+		// do NOT set Denormals-Are-Zero flag (charlie and chocfac messes up)
+		g_sseMXCSR = 0x9f80; // changing the rounding mode to 0x2000 (near) kills grandia III!
+							// changing the rounding mode to 0x0000 or 0x4000 totally kills gitaroo
+							// so... grandia III wins
 
-	__asm ldmxcsr g_sseMXCSR // set the new sse control
-	g_sseVUMXCSR = g_sseMXCSR|0x6000;
+		__asm ldmxcsr g_sseMXCSR // set the new sse control
+		g_sseVUMXCSR = g_sseMXCSR|0x6000;
+	}
 }
 
 extern BOOL install_my_handler();
@@ -2233,26 +2237,23 @@ void recCOP2( void )
 	CPU_LOG( "Recompiling COP2:%s\n", disR5900Fasm( cpuRegs.code, cpuRegs.pc ) );
 #endif
 
-//   if ( !CHECK_COP2REC ) //disable the use of vus better this way :P
-//   {
-//		assert( !CHECK_EEREC );
-//		MOV32ItoM( (u32)&cpuRegs.code, cpuRegs.code ); 
-//		MOV32ItoM( (u32)&cpuRegs.pc, pc ); 
-//		iFlushCall(FLUSH_EVERYTHING);
-//		g_cpuHasConstReg = 1; // reset all since COP2 can change regs
-//		CALLFunc( (u32)COP2 ); 
-//
-//		CMP32ItoM((int)&cpuRegs.pc, pc);
-//		j8Ptr[0] = JE8(0);
-//		ADD32ItoM((u32)&cpuRegs.cycle, s_nBlockCycles);
-//		JMP32((u32)DispatcherReg - ( (u32)x86Ptr + 5 ));
-//		x86SetJ8(j8Ptr[0]);
-////		branch = 2; 
-//   }
-//   else
-   {
-      recCOP22( );
-   }
+	if ( !cpucaps.hasStreamingSIMDExtensions ) {
+		MOV32ItoM( (u32)&cpuRegs.code, cpuRegs.code ); 
+		MOV32ItoM( (u32)&cpuRegs.pc, pc ); 
+		iFlushCall(FLUSH_EVERYTHING);
+		g_cpuHasConstReg = 1; // reset all since COP2 can change regs
+		CALLFunc( (u32)COP2 ); 
+
+		CMP32ItoM((int)&cpuRegs.pc, pc);
+		j8Ptr[0] = JE8(0);
+		ADD32ItoM((u32)&cpuRegs.cycle, s_nBlockCycles);
+		JMP32((u32)DispatcherReg - ( (u32)x86Ptr + 5 ));
+		x86SetJ8(j8Ptr[0]);
+	}
+	else
+	{
+		recCOP22( );
+	}
 }
 
 #endif
@@ -2564,8 +2565,8 @@ static void printfn()
 	assert( !g_globalXMMSaved );
 
 #ifdef _DEBUG
-	__asm stmxcsr i
-	assert( i = g_sseMXCSR );
+	//__asm stmxcsr i
+	//assert( i = g_sseMXCSR );
 #endif
 
 	if( (dumplog&2) ) {//&& lastrec != g_lastpc ) {

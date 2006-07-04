@@ -59,6 +59,10 @@ int cpuInit()
 	if( CHECK_EEREC ) Config.Options |= PCSX2_COP2REC;
 	else Config.Options &= ~PCSX2_COP2REC;
 
+	if( !cpucaps.hasStreamingSIMDExtensions ) {
+		Config.Options &= ~(PCSX2_VU1REC|PCSX2_VU0REC);
+	}
+
 	cpuRegs.constzero = 0;
 	Cpu = CHECK_EEREC ? &recCpu : &intCpu;
 

@@ -889,6 +889,7 @@ int  _getFreeXMMreg()
 {
 	int i, tempi;
 	u32 bestcount = 0x10000;
+	if( !cpucaps.hasStreamingSIMDExtensions ) return -1;
 
 	for (i=0; i<XMMREGS; i++) {
 		if (xmmregs[(i+s_xmmchecknext)%XMMREGS].inuse == 0) {
@@ -1140,8 +1141,10 @@ int _allocFPtoXMMreg(int xmmreg, int fpreg, int mode) {
 	return xmmreg;
 }
 
-int _allocGPRtoXMMreg(int xmmreg, int gprreg, int mode) {
+int _allocGPRtoXMMreg(int xmmreg, int gprreg, int mode)
+{
 	int i;
+	if( !cpucaps.hasStreamingSIMDExtensions ) return -1;
 
 	for (i=0; i<XMMREGS; i++) {
 		if (xmmregs[i].inuse == 0) continue;
@@ -1240,8 +1243,10 @@ int _allocGPRtoXMMreg(int xmmreg, int gprreg, int mode) {
 	return xmmreg;
 }
 
-int _allocFPACCtoXMMreg(int xmmreg, int mode) {
+int _allocFPACCtoXMMreg(int xmmreg, int mode)
+{
 	int i;
+	if( !cpucaps.hasStreamingSIMDExtensions ) return -1;
 
 	for (i=0; i<XMMREGS; i++) {
 		if (xmmregs[i].inuse == 0) continue;
@@ -1649,6 +1654,9 @@ int _getNumXMMwrite()
 u8 _hasFreeXMMreg()
 {
 	int i;
+
+	if( !cpucaps.hasStreamingSIMDExtensions ) return 0;
+
 	for (i=0; i<XMMREGS; i++) {
 		if (!xmmregs[i].inuse) return 1;
 	}
@@ -1730,6 +1738,7 @@ void _freeXMMregs()
 void FreezeXMMRegs_(int save)
 {
 	assert( g_EEFreezeRegs );
+	if( !cpucaps.hasStreamingSIMDExtensions ) return;
 
 	if( save ) {
 		if( g_globalXMMSaved )
@@ -2168,6 +2177,42 @@ void _recAddWriteBack(int cycle, u32 viwrite, EEINST* parent)
 EEINSTWRITEBACK* _recCheckWriteBack(int cycle)
 {
 	return NULL;
+}
+
+void _recMove128MtoM(u32 to, u32 from)
+{
+	MOV32MtoR(EAX, from);
+	MOV32MtoR(EDX, from+4);
+	MOV32RtoM(to, EAX);
+	MOV32RtoM(to+4, EDX);
+	MOV32MtoR(EAX, from+8);
+	MOV32MtoR(EDX, from+12);
+	MOV32RtoM(to+8, EAX);
+	MOV32RtoM(to+12, EDX);
+}
+
+void _recMove128RmOffsettoM(u32 to, u32 offset)
+{
+	MOV32RmtoROffset(EAX, ECX, offset);
+	MOV32RmtoROffset(EDX, ECX, offset+4);
+	MOV32RtoM(to, EAX);
+	MOV32RtoM(to+4, EDX);
+	MOV32RmtoROffset(EAX, ECX, offset+8);
+	MOV32RmtoROffset(EDX, ECX, offset+12);
+	MOV32RtoM(to+8, EAX);
+	MOV32RtoM(to+12, EDX);
+}
+
+void _recMove128MtoRmOffset(u32 offset, u32 from)
+{
+	MOV32MtoR(EAX, from);
+	MOV32MtoR(EDX, from+4);
+	MOV32RtoRmOffset(ECX, EAX, offset);
+	MOV32RtoRmOffset(ECX, EDX, offset+4);
+	MOV32MtoR(EAX, from+8);
+	MOV32MtoR(EDX, from+12);
+	MOV32RtoRmOffset(ECX, EAX, offset+8);
+	MOV32RtoRmOffset(ECX, EDX, offset+12);
 }
 
 __declspec(align(16)) static u32 s_ones[2] = {0xffffffff, 0xffffffff};

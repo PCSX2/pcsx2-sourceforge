@@ -295,10 +295,10 @@ int _signExtendXMMtoM(u32 to, x86SSERegType from, int candestroy); // returns tr
 // mmreg is xmmreg
 #define MEM_XMMTAG 0x8000
 
-#define IS_CONSTREG(reg) ((reg)&MEM_EECONSTTAG)
-#define IS_PSXCONSTREG(reg) ((reg)&MEM_PSXCONSTTAG)
-#define IS_MMXREG(reg) ((reg)&MEM_MMXTAG)
-#define IS_XMMREG(reg) ((reg)&MEM_XMMTAG)
+#define IS_CONSTREG(reg) (reg>=0&&((reg)&MEM_EECONSTTAG))
+#define IS_PSXCONSTREG(reg) (reg>=0&&((reg)&MEM_PSXCONSTTAG))
+#define IS_MMXREG(reg) (reg>=0&&((reg)&MEM_MMXTAG))
+#define IS_XMMREG(reg) (reg>=0&&((reg)&MEM_XMMTAG))
 
 //////////////////////
 // Instruction Info //
@@ -393,6 +393,10 @@ extern char g_globalMMXLocked, g_globalXMMLocked;
 int _allocCheckGPRtoXMM(EEINST* pinst, int gprreg, int mode);
 int _allocCheckFPUtoXMM(EEINST* pinst, int fpureg, int mode);
 int _allocCheckGPRtoMMX(EEINST* pinst, int reg, int mode);
+
+void _recMove128MtoM(u32 to, u32 from);
+void _recMove128RmOffsettoM(u32 to, u32 offset);
+void _recMove128MtoRmOffset(u32 offset, u32 from);
 
 // op = 0, and
 // op = 1, or

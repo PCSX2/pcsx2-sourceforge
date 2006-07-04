@@ -524,6 +524,8 @@ void rpropMMI1(EEINST* prev, EEINST* pinst);
 void rpropMMI2(EEINST* prev, EEINST* pinst);
 void rpropMMI3(EEINST* prev, EEINST* pinst);
 
+#define EEINST_REALXMM (cpucaps.hasStreamingSIMDExtensions?EEINST_XMM:0)
+
 //SPECIAL, REGIMM, J,    JAL,   BEQ,  BNE,  BLEZ,  BGTZ,
 //ADDI,    ADDIU,  SLTI, SLTIU, ANDI, ORI,  XORI,  LUI,
 //COP0,    COP1,   COP2, NULL,  BEQL, BNEL, BLEZL, BGTZL,
@@ -546,7 +548,7 @@ void rpropBSC(EEINST* prev, EEINST* pinst)
 		case 5: // bne
 			rpropSetRead(_Rs_, EEINST_LIVE1);
 			rpropSetRead(_Rt_, EEINST_LIVE1);
-			pinst->info |= (cpucaps.hasStreamingSIMD2Extensions?(EEINST_XMM|EEINST_MMX):0);
+			pinst->info |= (cpucaps.hasStreamingSIMD2Extensions?(EEINST_REALXMM|EEINST_MMX):0);
 			break;
 
 		case 20: // beql
@@ -556,7 +558,7 @@ void rpropBSC(EEINST* prev, EEINST* pinst)
 			prev->info = 0;
 			rpropSetRead(_Rs_, EEINST_LIVE1);
 			rpropSetRead(_Rt_, EEINST_LIVE1);
-			pinst->info |= (cpucaps.hasStreamingSIMD2Extensions?(EEINST_XMM|EEINST_MMX):0);
+			pinst->info |= (cpucaps.hasStreamingSIMD2Extensions?(EEINST_REALXMM|EEINST_MMX):0);
 			break;
 
 		case 6: // blez
@@ -642,14 +644,14 @@ void rpropBSC(EEINST* prev, EEINST* pinst)
 			rpropSetWrite(_Rt_, EEINST_LIVE1|EEINST_LIVE2);
 			rpropSetRead(_Rs_, 0);
 			pinst->info |= EEINST_MMX;
-			pinst->info |= EEINST_XMM;
+			pinst->info |= EEINST_REALXMM;
 			break;
 
 		case 31: // sq
-			rpropSetRead(_Rt_, EEINST_LIVE1|EEINST_LIVE2|EEINST_XMM);
+			rpropSetRead(_Rt_, EEINST_LIVE1|EEINST_LIVE2|EEINST_REALXMM);
 			rpropSetRead(_Rs_, 0);
 			pinst->info |= EEINST_MMX;
-			pinst->info |= EEINST_XMM;
+			pinst->info |= EEINST_REALXMM;
 			break;
 
 		// 4 byte stores
@@ -657,23 +659,23 @@ void rpropBSC(EEINST* prev, EEINST* pinst)
 			rpropSetRead(_Rt_, 0);
 			rpropSetRead(_Rs_, 0);
 			pinst->info |= EEINST_MMX;
-			pinst->info |= EEINST_XMM;
+			pinst->info |= EEINST_REALXMM;
 			break;
 
 		case 44: // sdl
 		case 45: // sdr
 		case 63: // sd
-			rpropSetRead(_Rt_, EEINST_LIVE1|EEINST_MMX|EEINST_XMM);
+			rpropSetRead(_Rt_, EEINST_LIVE1|EEINST_MMX|EEINST_REALXMM);
 			rpropSetRead(_Rs_, 0);
 			break;
 
 		case 49: // lwc1
-			rpropSetFPUWrite(_Rt_, EEINST_XMM);
+			rpropSetFPUWrite(_Rt_, EEINST_REALXMM);
 			rpropSetRead(_Rs_, 0);
 			break;
 
 		case 57: // swc1
-			rpropSetFPURead(_Rt_, EEINST_XMM);
+			rpropSetFPURead(_Rt_, EEINST_REALXMM);
 			rpropSetRead(_Rs_, 0);
 			break;
 
@@ -744,7 +746,7 @@ void rpropSPECIAL(EEINST* prev, EEINST* pinst)
 
 		case 16: // mfhi
 			rpropSetWrite(_Rd_, EEINST_LIVE1);
-			rpropSetRead(XMMGPR_HI, (pinst->regs[_Rd_]&EEINST_MMX|EEINST_XMM)|EEINST_LIVE1);
+			rpropSetRead(XMMGPR_HI, (pinst->regs[_Rd_]&EEINST_MMX|EEINST_REALXMM)|EEINST_LIVE1);
 			break;
 		case 17: // mthi
 			rpropSetWrite(XMMGPR_HI, EEINST_LIVE1);
@@ -752,7 +754,7 @@ void rpropSPECIAL(EEINST* prev, EEINST* pinst)
 			break;
 		case 18: // mflo
 			rpropSetWrite(_Rd_, EEINST_LIVE1);
-			rpropSetRead(XMMGPR_LO, (pinst->regs[_Rd_]&EEINST_MMX|EEINST_XMM)|EEINST_LIVE1);
+			rpropSetRead(XMMGPR_LO, (pinst->regs[_Rd_]&EEINST_MMX|EEINST_REALXMM)|EEINST_LIVE1);
 			break;
 		case 19: // mtlo
 			rpropSetWrite(XMMGPR_LO, EEINST_LIVE1);
@@ -793,7 +795,7 @@ void rpropSPECIAL(EEINST* prev, EEINST* pinst)
 			rpropSetWrite(XMMGPR_HI, EEINST_LIVE1);
 			rpropSetRead(_Rs_, 0);
 			rpropSetRead(_Rt_, 0);
-			//pinst->info |= EEINST_XMM|EEINST_MMX;
+			//pinst->info |= EEINST_REALXMM|EEINST_MMX;
 			break;
 
 		case 32: // add
@@ -895,7 +897,7 @@ void rpropREGIMM(EEINST* prev, EEINST* pinst)
 		case 1: // bgez
 			rpropSetRead(_Rs_, EEINST_LIVE1);
 			pinst->info |= EEINST_MMX;
-			pinst->info |= EEINST_XMM;
+			pinst->info |= EEINST_REALXMM;
 			break;
 
 		case 2: // bltzl
@@ -905,7 +907,7 @@ void rpropREGIMM(EEINST* prev, EEINST* pinst)
 			prev->info = 0;
 			rpropSetRead(_Rs_, EEINST_LIVE1);
 			pinst->info |= EEINST_MMX;
-			pinst->info |= EEINST_XMM;
+			pinst->info |= EEINST_REALXMM;
 			break;
 
 		// traps
@@ -951,10 +953,10 @@ void rpropCP0(EEINST* prev, EEINST* pinst)
 {
 	switch(_Rs_) {
 		case 0: // mfc0
-			rpropSetWrite(_Rt_, EEINST_LIVE1|EEINST_XMM);
+			rpropSetWrite(_Rt_, EEINST_LIVE1|EEINST_REALXMM);
 			break;
 		case 4:
-			rpropSetRead(_Rt_, EEINST_LIVE1|EEINST_XMM);
+			rpropSetRead(_Rt_, EEINST_LIVE1|EEINST_REALXMM);
 			break;
 		case 8: // cop0bc0
 			_recClearInst(prev);
@@ -983,24 +985,24 @@ void rpropCP1(EEINST* prev, EEINST* pinst)
 {
 	switch(_Rs_) {
 		case 0: // mfc1
-			rpropSetWrite(_Rt_, EEINST_LIVE1|EEINST_XMM);
-			rpropSetFPURead(_Fs_, EEINST_XMM);
+			rpropSetWrite(_Rt_, EEINST_LIVE1|EEINST_REALXMM);
+			rpropSetFPURead(_Fs_, EEINST_REALXMM);
 			break;
 		case 2: // cfc1
-			rpropSetWrite(_Rt_, EEINST_LIVE1|EEINST_XMM|EEINST_MMX);
+			rpropSetWrite(_Rt_, EEINST_LIVE1|EEINST_REALXMM|EEINST_MMX);
 			break;
 		case 4: // mtc1
-			rpropSetFPUWrite(_Fs_, EEINST_XMM);
-			rpropSetRead(_Rt_, EEINST_LIVE1|EEINST_XMM);
+			rpropSetFPUWrite(_Fs_, EEINST_REALXMM);
+			rpropSetRead(_Rt_, EEINST_LIVE1|EEINST_REALXMM);
 			break;
 		case 6: // ctc1
-			rpropSetRead(_Rt_, EEINST_LIVE1|EEINST_XMM|EEINST_MMX);
+			rpropSetRead(_Rt_, EEINST_LIVE1|EEINST_REALXMM|EEINST_MMX);
 			break;
 		case 8: // bc1
 			break;
 		case 16:
 			// floating point ops
-			pinst->info |= EEINST_XMM;
+			pinst->info |= EEINST_REALXMM;
 			switch( _Funct_ ) {
 				case 0: // add.s
 				case 1: // sub.s
@@ -1009,58 +1011,58 @@ void rpropCP1(EEINST* prev, EEINST* pinst)
 				case 22: // rsqrt.s
 				case 40: // max.s
 				case 41: // min.s
-					rpropSetFPUWrite(_Fd_, EEINST_XMM);
-					rpropSetFPURead(_Fs_, EEINST_XMM);
-					rpropSetFPURead(_Ft_, EEINST_XMM);
+					rpropSetFPUWrite(_Fd_, EEINST_REALXMM);
+					rpropSetFPURead(_Fs_, EEINST_REALXMM);
+					rpropSetFPURead(_Ft_, EEINST_REALXMM);
 					break;
 				case 4: // sqrt.s
-					rpropSetFPUWrite(_Fd_, EEINST_XMM);
-					rpropSetFPURead(_Ft_, EEINST_XMM);
+					rpropSetFPUWrite(_Fd_, EEINST_REALXMM);
+					rpropSetFPURead(_Ft_, EEINST_REALXMM);
 					break;
 				case 5: // abs.s
 				case 6: // mov.s
 				case 7: // neg.s
 				case 36: // cvt.w
-					rpropSetFPUWrite(_Fd_, EEINST_XMM);
-					rpropSetFPURead(_Fs_, EEINST_XMM);
+					rpropSetFPUWrite(_Fd_, EEINST_REALXMM);
+					rpropSetFPURead(_Fs_, EEINST_REALXMM);
 					break;
 				case 24: // adda.s
 				case 25: // suba.s
 				case 26: // mula.s
-					rpropSetFPUWrite(XMMFPU_ACC, EEINST_XMM);
-					rpropSetFPURead(_Fs_, EEINST_XMM);
-					rpropSetFPURead(_Ft_, EEINST_XMM);
+					rpropSetFPUWrite(XMMFPU_ACC, EEINST_REALXMM);
+					rpropSetFPURead(_Fs_, EEINST_REALXMM);
+					rpropSetFPURead(_Ft_, EEINST_REALXMM);
 					break;
 				case 28: // madd.s
 				case 29: // msub.s
-					rpropSetFPUWrite(_Fd_, EEINST_XMM);
-					rpropSetFPURead(XMMFPU_ACC, EEINST_XMM);
-					rpropSetFPURead(_Fs_, EEINST_XMM);
-					rpropSetFPURead(_Ft_, EEINST_XMM);
+					rpropSetFPUWrite(_Fd_, EEINST_REALXMM);
+					rpropSetFPURead(XMMFPU_ACC, EEINST_REALXMM);
+					rpropSetFPURead(_Fs_, EEINST_REALXMM);
+					rpropSetFPURead(_Ft_, EEINST_REALXMM);
 					break;
 
 				case 30: // madda.s
 				case 31: // msuba.s
-					rpropSetFPUWrite(XMMFPU_ACC, EEINST_XMM);
-					rpropSetFPURead(XMMFPU_ACC, EEINST_XMM);
-					rpropSetFPURead(_Fs_, EEINST_XMM);
-					rpropSetFPURead(_Ft_, EEINST_XMM);
+					rpropSetFPUWrite(XMMFPU_ACC, EEINST_REALXMM);
+					rpropSetFPURead(XMMFPU_ACC, EEINST_REALXMM);
+					rpropSetFPURead(_Fs_, EEINST_REALXMM);
+					rpropSetFPURead(_Ft_, EEINST_REALXMM);
 					break;
 
 				case 48: // c.f
 				case 50: // c.eq
 				case 52: // c.lt
 				case 54: // c.le
-					rpropSetFPURead(_Fs_, EEINST_XMM);
-					rpropSetFPURead(_Ft_, EEINST_XMM);
+					rpropSetFPURead(_Fs_, EEINST_REALXMM);
+					rpropSetFPURead(_Ft_, EEINST_REALXMM);
 					break;
 				default: assert(0);
 			}
 			break;
 		case 20:
 			assert( _Funct_ == 32 ); // CVT.S.W
-			rpropSetFPUWrite(_Fd_, EEINST_XMM);
-			rpropSetFPURead(_Fs_, EEINST_XMM);
+			rpropSetFPUWrite(_Fd_, EEINST_REALXMM);
+			rpropSetFPURead(_Fs_, EEINST_REALXMM);
 			break;
 		default:
 			assert(0);
@@ -1124,7 +1126,7 @@ void rpropMMI(EEINST* prev, EEINST* pinst)
 
 		case 16: // mfhi1
 			rpropSetWrite(_Rd_, EEINST_LIVE1);
-			temp = ((pinst->regs[_Rd_]&(EEINST_MMX|EEINST_XMM))?EEINST_MMX:EEINST_XMM);
+			temp = ((pinst->regs[_Rd_]&(EEINST_MMX|EEINST_REALXMM))?EEINST_MMX:EEINST_REALXMM);
 			rpropSetRead(XMMGPR_HI, temp|EEINST_LIVE2);
 			break;
 		case 17: // mthi1
@@ -1133,7 +1135,7 @@ void rpropMMI(EEINST* prev, EEINST* pinst)
 			break;
 		case 18: // mflo1
 			rpropSetWrite(_Rd_, EEINST_LIVE1);
-			temp = ((pinst->regs[_Rd_]&(EEINST_MMX|EEINST_XMM))?EEINST_MMX:EEINST_XMM);
+			temp = ((pinst->regs[_Rd_]&(EEINST_MMX|EEINST_REALXMM))?EEINST_MMX:EEINST_REALXMM);
 			rpropSetRead(XMMGPR_LO, temp|EEINST_LIVE2);
 			break;
 		case 19: // mtlo1
@@ -1165,7 +1167,7 @@ void rpropMMI(EEINST* prev, EEINST* pinst)
 			rpropSetWrite0(XMMGPR_HI, EEINST_LIVE2, 0);
 			rpropSetRead(_Rs_, 0);
 			rpropSetRead(_Rt_, 0);
-			//pinst->info |= EEINST_XMM|EEINST_MMX;
+			//pinst->info |= EEINST_REALXMM|EEINST_MMX;
 			break;
 
 		case 32: // madd1
@@ -1182,18 +1184,18 @@ void rpropMMI(EEINST* prev, EEINST* pinst)
 
 		case 48: // pmfhl
 			rpropSetWrite(_Rd_, EEINST_LIVE2|EEINST_LIVE1);
-			rpropSetRead(XMMGPR_LO, EEINST_LIVE2|EEINST_LIVE1|EEINST_XMM);
-			rpropSetRead(XMMGPR_HI, EEINST_LIVE2|EEINST_LIVE1|EEINST_XMM);
+			rpropSetRead(XMMGPR_LO, EEINST_LIVE2|EEINST_LIVE1|EEINST_REALXMM);
+			rpropSetRead(XMMGPR_HI, EEINST_LIVE2|EEINST_LIVE1|EEINST_REALXMM);
 			break;
 
 		case 49: // pmthl
 			rpropSetWrite(XMMGPR_LO, EEINST_LIVE2|EEINST_LIVE1);
 			rpropSetWrite(XMMGPR_HI, EEINST_LIVE2|EEINST_LIVE1);
-			rpropSetRead(_Rs_, EEINST_LIVE2|EEINST_LIVE1|EEINST_XMM);
+			rpropSetRead(_Rs_, EEINST_LIVE2|EEINST_LIVE1|EEINST_REALXMM);
 			break;
 
 		default:
-			rpropSetFast(_Rd_, _Rs_, _Rt_, EEINST_LIVE1|EEINST_LIVE2|EEINST_XMM);
+			rpropSetFast(_Rd_, _Rs_, _Rt_, EEINST_LIVE1|EEINST_LIVE2|EEINST_REALXMM);
 			break;
 	}
 }
@@ -1218,8 +1220,8 @@ void rpropMMI0(EEINST* prev, EEINST* pinst)
 		case 22: // pextlh
 		case 26: // pextlb
 			rpropSetWrite(_Rd_, EEINST_LIVE2|EEINST_LIVE1);
-			rpropSetRead(_Rs_, EEINST_LIVE1|EEINST_XMM);
-			rpropSetRead(_Rt_, EEINST_LIVE1|EEINST_XMM);
+			rpropSetRead(_Rs_, EEINST_LIVE1|EEINST_REALXMM);
+			rpropSetRead(_Rt_, EEINST_LIVE1|EEINST_REALXMM);
 			break;
 
 		case 30: // pext5
@@ -1228,7 +1230,7 @@ void rpropMMI0(EEINST* prev, EEINST* pinst)
 			break;
 
 		default:
-			rpropSetFast(_Rd_, _Rs_, _Rt_, EEINST_LIVE1|EEINST_LIVE2|EEINST_XMM);
+			rpropSetFast(_Rd_, _Rs_, _Rt_, EEINST_LIVE1|EEINST_LIVE2|EEINST_REALXMM);
 			break;
 	}
 }
@@ -1239,7 +1241,7 @@ void rpropMMI1(EEINST* prev, EEINST* pinst)
 		case 1: // pabsw
 		case 5: // pabsh
 			rpropSetWrite(_Rd_, EEINST_LIVE2|EEINST_LIVE1);
-			rpropSetRead(_Rt_, EEINST_LIVE2|EEINST_LIVE1|EEINST_XMM);
+			rpropSetRead(_Rt_, EEINST_LIVE2|EEINST_LIVE1|EEINST_REALXMM);
 			break;
 
 		case 17: // psubuw
@@ -1250,12 +1252,12 @@ void rpropMMI1(EEINST* prev, EEINST* pinst)
 		case 22: // pextuh
 		case 26: // pextub
 			rpropSetWrite(_Rd_, EEINST_LIVE2|EEINST_LIVE1);
-			rpropSetRead(_Rs_, EEINST_LIVE2|EEINST_XMM);
-			rpropSetRead(_Rt_, EEINST_LIVE2|EEINST_XMM);
+			rpropSetRead(_Rs_, EEINST_LIVE2|EEINST_REALXMM);
+			rpropSetRead(_Rt_, EEINST_LIVE2|EEINST_REALXMM);
 			break;
 
 		default:
-			rpropSetFast(_Rd_, _Rs_, _Rt_, EEINST_LIVE1|EEINST_LIVE2|EEINST_XMM);
+			rpropSetFast(_Rd_, _Rs_, _Rt_, EEINST_LIVE1|EEINST_LIVE2|EEINST_REALXMM);
 			break;
 	}
 }
@@ -1273,16 +1275,16 @@ void rpropMMI2(EEINST* prev, EEINST* pinst)
 			break;
 		case 8: // pmfhi
 			rpropSetWrite(_Rd_, EEINST_LIVE2|EEINST_LIVE1);
-			rpropSetRead(XMMGPR_HI, EEINST_LIVE2|EEINST_LIVE1|EEINST_XMM);
+			rpropSetRead(XMMGPR_HI, EEINST_LIVE2|EEINST_LIVE1|EEINST_REALXMM);
 			break;
 		case 9: // pmflo
 			rpropSetWrite(_Rd_, EEINST_LIVE2|EEINST_LIVE1);
-			rpropSetRead(XMMGPR_HI, EEINST_LIVE2|EEINST_LIVE1|EEINST_XMM);
+			rpropSetRead(XMMGPR_HI, EEINST_LIVE2|EEINST_LIVE1|EEINST_REALXMM);
 			break;
 		case 10: // pinth
 			rpropSetWrite(_Rd_, EEINST_LIVE2|EEINST_LIVE1);
-			rpropSetRead(_Rs_, EEINST_LIVE2|EEINST_XMM);
-			rpropSetRead(_Rt_, EEINST_LIVE1|EEINST_XMM);
+			rpropSetRead(_Rs_, EEINST_LIVE2|EEINST_REALXMM);
+			rpropSetRead(_Rt_, EEINST_LIVE1|EEINST_REALXMM);
 			break;
 		case 12: // pmultw, 
 			rpropSetLOHI(_Rd_, _Rs_, _Rt_, EEINST_LIVE2|EEINST_LIVE1, MODE_WRITE, MODE_WRITE);
@@ -1292,14 +1294,14 @@ void rpropMMI2(EEINST* prev, EEINST* pinst)
 			break;
 		case 14: // pcpyld
 			rpropSetWrite(_Rd_, EEINST_LIVE2|EEINST_LIVE1);
-			rpropSetRead(_Rs_, EEINST_LIVE1|EEINST_XMM);
-			rpropSetRead(_Rt_, EEINST_LIVE1|EEINST_XMM);
+			rpropSetRead(_Rs_, EEINST_LIVE1|EEINST_REALXMM);
+			rpropSetRead(_Rt_, EEINST_LIVE1|EEINST_REALXMM);
 			break;
 		case 16: // pmaddh
 		case 17: // phmadh
 		case 20: // pmsubh
 		case 21: // phmsbh
-			rpropSetLOHI(_Rd_, _Rs_, _Rt_, EEINST_LIVE2|EEINST_LIVE1|EEINST_XMM, MODE_READ|MODE_WRITE, MODE_READ|MODE_WRITE);
+			rpropSetLOHI(_Rd_, _Rs_, _Rt_, EEINST_LIVE2|EEINST_LIVE1|EEINST_REALXMM, MODE_READ|MODE_WRITE, MODE_READ|MODE_WRITE);
 			break;
 
 		case 26: // pexeh
@@ -1307,18 +1309,18 @@ void rpropMMI2(EEINST* prev, EEINST* pinst)
 		case 30: // pexew
 		case 31: // prot3w
 			rpropSetWrite(_Rd_, EEINST_LIVE2|EEINST_LIVE1);
-			rpropSetRead(_Rt_, EEINST_LIVE2|EEINST_LIVE1|EEINST_XMM);
+			rpropSetRead(_Rt_, EEINST_LIVE2|EEINST_LIVE1|EEINST_REALXMM);
 			break;
 
 		case 28: // pmulth
-			rpropSetLOHI(_Rd_, _Rs_, _Rt_, EEINST_LIVE2|EEINST_LIVE1|EEINST_XMM, MODE_WRITE, MODE_WRITE);
+			rpropSetLOHI(_Rd_, _Rs_, _Rt_, EEINST_LIVE2|EEINST_LIVE1|EEINST_REALXMM, MODE_WRITE, MODE_WRITE);
 			break;
 		case 29: // pdivbw
 			rpropSetLOHI(_Rd_, _Rs_, _Rt_, EEINST_LIVE2|EEINST_LIVE1, MODE_WRITE, MODE_WRITE);
 			break;
 
 		default:
-			rpropSetFast(_Rd_, _Rs_, _Rt_, EEINST_LIVE1|EEINST_LIVE2|EEINST_XMM);
+			rpropSetFast(_Rd_, _Rs_, _Rt_, EEINST_LIVE1|EEINST_LIVE2|EEINST_REALXMM);
 			break;
 	}
 }
@@ -1327,7 +1329,7 @@ void rpropMMI3(EEINST* prev, EEINST* pinst)
 {
 	switch((cpuRegs.code>>6)&0x1f) {
 		case 0: // pmadduw
-			rpropSetLOHI(_Rd_, _Rs_, _Rt_, EEINST_LIVE2|EEINST_LIVE1|EEINST_XMM, MODE_READ|MODE_WRITE, MODE_READ|MODE_WRITE);
+			rpropSetLOHI(_Rd_, _Rs_, _Rt_, EEINST_LIVE2|EEINST_LIVE1|EEINST_REALXMM, MODE_READ|MODE_WRITE, MODE_READ|MODE_WRITE);
 			break;
 		case 3: // psravw
 			rpropSetFast(_Rd_, _Rs_, _Rt_, EEINST_LIVE2);
@@ -1335,33 +1337,33 @@ void rpropMMI3(EEINST* prev, EEINST* pinst)
 
 		case 8: // pmthi
 			rpropSetWrite(XMMGPR_HI, EEINST_LIVE2|EEINST_LIVE1);
-			rpropSetRead(_Rs_, EEINST_LIVE2|EEINST_LIVE1|EEINST_XMM);
+			rpropSetRead(_Rs_, EEINST_LIVE2|EEINST_LIVE1|EEINST_REALXMM);
 			break;
 		case 9: // pmtlo
 			rpropSetWrite(XMMGPR_LO, EEINST_LIVE2|EEINST_LIVE1);
-			rpropSetRead(_Rs_, EEINST_LIVE2|EEINST_LIVE1|EEINST_XMM);
+			rpropSetRead(_Rs_, EEINST_LIVE2|EEINST_LIVE1|EEINST_REALXMM);
 			break;
 		case 12: // pmultuw, 
-			rpropSetLOHI(_Rd_, _Rs_, _Rt_, EEINST_LIVE2|EEINST_LIVE1|EEINST_XMM, MODE_WRITE, MODE_WRITE);
+			rpropSetLOHI(_Rd_, _Rs_, _Rt_, EEINST_LIVE2|EEINST_LIVE1|EEINST_REALXMM, MODE_WRITE, MODE_WRITE);
 			break;
 		case 13: // pdivuw
 			rpropSetLOHI(0, _Rs_, _Rt_, EEINST_LIVE2|EEINST_LIVE1, MODE_WRITE, MODE_WRITE);
 			break;
 		case 14: // pcpyud
 			rpropSetWrite(_Rd_, EEINST_LIVE2|EEINST_LIVE1);
-			rpropSetRead(_Rs_, EEINST_LIVE2|EEINST_XMM);
-			rpropSetRead(_Rt_, EEINST_LIVE2|EEINST_XMM);
+			rpropSetRead(_Rs_, EEINST_LIVE2|EEINST_REALXMM);
+			rpropSetRead(_Rt_, EEINST_LIVE2|EEINST_REALXMM);
 			break;
 
 		case 26: // pexch
 		case 27: // pcpyh
 		case 30: // pexcw
 			rpropSetWrite(_Rd_, EEINST_LIVE2|EEINST_LIVE1);
-			rpropSetRead(_Rt_, EEINST_LIVE2|EEINST_LIVE1|EEINST_XMM);
+			rpropSetRead(_Rt_, EEINST_LIVE2|EEINST_LIVE1|EEINST_REALXMM);
 			break;
 		
 		default:
-			rpropSetFast(_Rd_, _Rs_, _Rt_, EEINST_LIVE1|EEINST_LIVE2|EEINST_XMM);
+			rpropSetFast(_Rd_, _Rs_, _Rt_, EEINST_LIVE1|EEINST_LIVE2|EEINST_REALXMM);
 			break;
 	}
 }

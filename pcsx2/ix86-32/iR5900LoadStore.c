@@ -232,10 +232,10 @@ int recSetMemLocation(int regs, int imm, int mmreg, int msize, int j32)
 	s_nAddMemOffset = 0;
 
 	//int num;
-	if( mmreg & MEM_XMMTAG ) {
+	if( mmreg >= 0 && (mmreg & MEM_XMMTAG) ) {
 		SSE2_MOVD_XMM_to_R(ECX, mmreg&0xf);
 	}
-	else if( mmreg & MEM_MMXTAG ) {
+	else if( mmreg >= 0 && (mmreg & MEM_MMXTAG) ) {
 		MOVD32MMXtoR(ECX, mmreg&0xf);
 		SetMMXstate();
 	}
@@ -1217,7 +1217,7 @@ void recLQ( void )
 #ifdef REC_SLOWREAD
 	_flushConstReg(_Rs_);
 #else
-	if( GPR_IS_CONST1( _Rs_ ) ) {
+	if( cpucaps.hasStreamingSIMDExtensions && GPR_IS_CONST1( _Rs_ ) ) {
 		assert( (g_cpuConstRegs[_Rs_].UL[0]+_Imm_) % 16 == 0 );
 
 		if( _Rt_ ) {
@@ -1235,7 +1235,9 @@ void recLQ( void )
 				mmreg |= t0reg<<4;
 			}
 		}
-		else mmreg = _allocTempXMMreg(XMMT_INT, -1);
+		else {
+			mmreg = _allocTempXMMreg(XMMT_INT, -1);
+		}
 
 		recMemConstRead128(g_cpuConstRegs[_Rs_].UL[0]+_Imm_, mmreg);
 
@@ -1252,9 +1254,14 @@ void recLQ( void )
 #endif
 	{
 		int dohw;
-		int mmregs = _eePrepareReg(_Rs_);
+		int mmregs;
 		int t0reg = -1;
 		
+		if( !cpucaps.hasStreamingSIMDExtensions && GPR_IS_CONST1( _Rs_ ) )
+			_flushConstReg(_Rs_);
+
+		mmregs = _eePrepareReg(_Rs_);
+
 		if( _Rt_ ) {
 			_eeOnWriteReg(_Rt_, 0);
 
@@ -1268,20 +1275,29 @@ void recLQ( void )
 			}
 			else _deleteMMXreg(MMX_GPR+_Rt_, 2);
 			
-			if( mmreg < 0 )
+			if( mmreg < 0 ) {
 				mmreg = _allocGPRtoXMMreg(-1, _Rt_, MODE_WRITE);
+				if( mmreg >= 0 ) mmreg |= MEM_XMMTAG;
+			}
+		}
+
+		if( mmreg < 0 ) {
+			_deleteEEreg(_Rt_, 1);
 		}
 
 		dohw = recSetMemLocation(_Rs_, _Imm_, mmregs, 2, 0);
 
 		if( _Rt_ ) {
-			if( mmreg & MEM_MMXTAG ) {
+			if( mmreg >= 0 && (mmreg & MEM_MMXTAG) ) {
 				MOVQRmtoROffset(t0reg, ECX, PS2MEM_BASE_+s_nAddMemOffset+8);
 				MOVQRmtoROffset(mmreg&0xf, ECX, PS2MEM_BASE_+s_nAddMemOffset);
 				MOVQRtoM((u32)&cpuRegs.GPR.r[_Rt_].UL[2], t0reg);
 			}
-			else {
+			else if( mmreg >= 0 && (mmreg & MEM_XMMTAG) ) {
 				SSEX_MOVDQARmtoROffset(mmreg, ECX, PS2MEM_BASE_+s_nAddMemOffset);
+			}
+			else {
+				_recMove128RmOffsettoM((u32)&cpuRegs.GPR.r[_Rt_].UL[0], PS2MEM_BASE_+s_nAddMemOffset);
 			}
 
 			if( dohw ) {
@@ -1293,8 +1309,11 @@ void recLQ( void )
 				PUSH32I( (int)&cpuRegs.GPR.r[ _Rt_ ].UL[ 0 ] );
 				CALLFunc( (int)recMemRead128 );
 
-				if( mmreg & MEM_MMXTAG ) MOVQMtoR(mmreg&0xf, (int)&cpuRegs.GPR.r[ _Rt_ ].UL[ 0 ]);
-				else SSEX_MOVDQA_M128_to_XMM(mmreg, (int)&cpuRegs.GPR.r[ _Rt_ ].UL[ 0 ] );
+				if( mmreg >= 0 && (mmreg & MEM_MMXTAG) ) MOVQMtoR(mmreg&0xf, (int)&cpuRegs.GPR.r[ _Rt_ ].UL[ 0 ]);
+				else if( mmreg >= 0 && (mmreg & MEM_XMMTAG) ) SSEX_MOVDQA_M128_to_XMM(mmreg, (int)&cpuRegs.GPR.r[ _Rt_ ].UL[ 0 ] );
+				else {
+					// already there
+				}
 				
 				ADD32ItoR(ESP, 4);
 			}
@@ -1359,6 +1378,7 @@ void recLQ_co( void )
 
 			if( mmreg1 < 0 ) {
 				mmreg1 = _allocGPRtoXMMreg(-1, _Rt_, MODE_WRITE);
+				if( mmreg1 >= 0 ) mmreg1 |= MEM_XMMTAG;
 			}
 		}
 
@@ -1376,30 +1396,37 @@ void recLQ_co( void )
 
 			if( mmreg2 < 0 ) {
 				mmreg2 = _allocGPRtoXMMreg(-1, nextrt, MODE_WRITE);
+				if( mmreg2 >= 0 ) mmreg2 |= MEM_XMMTAG;
 			}
 		}
 
 		dohw = recSetMemLocation(_Rs_, _Imm_, mmregs, 2, 0);
 
 		if( _Rt_ ) {
-			if( mmreg1 & MEM_MMXTAG ) {
+			if( mmreg1 >= 0 && (mmreg1 & MEM_MMXTAG) ) {
 				MOVQRmtoROffset(t0reg, ECX, PS2MEM_BASE_+s_nAddMemOffset+8);
 				MOVQRmtoROffset(mmreg1&0xf, ECX, PS2MEM_BASE_+s_nAddMemOffset);
 				MOVQRtoM((u32)&cpuRegs.GPR.r[_Rt_].UL[2], t0reg);
 			}
+			else if( mmreg1 >= 0 && (mmreg1 & MEM_XMMTAG) ) {
+				SSEX_MOVDQARmtoROffset(mmreg1&0xf, ECX, PS2MEM_BASE_+s_nAddMemOffset);
+			}
 			else {
-				SSEX_MOVDQARmtoROffset(mmreg1, ECX, PS2MEM_BASE_+s_nAddMemOffset);
+				_recMove128RmOffsettoM((u32)&cpuRegs.GPR.r[_Rt_].UL[0], PS2MEM_BASE_+s_nAddMemOffset);
 			}
 		}
 			
 		if( nextrt ) {
-			if( mmreg2 & MEM_MMXTAG ) {
+			if( mmreg2 >= 0 && (mmreg2 & MEM_MMXTAG) ) {
 				MOVQRmtoROffset(t0reg, ECX, PS2MEM_BASE_+s_nAddMemOffset+_Imm_co_-_Imm_+8);
 				MOVQRmtoROffset(mmreg2&0xf, ECX, PS2MEM_BASE_+s_nAddMemOffset+_Imm_co_-_Imm_);
 				MOVQRtoM((u32)&cpuRegs.GPR.r[nextrt].UL[2], t0reg);
 			}
+			else if( mmreg2 >= 0 && (mmreg2 & MEM_MMXTAG) ) {
+				SSEX_MOVDQARmtoROffset(mmreg2&0xf, ECX, PS2MEM_BASE_+s_nAddMemOffset+_Imm_co_-_Imm_);
+			}
 			else {
-				SSEX_MOVDQARmtoROffset(mmreg2, ECX, PS2MEM_BASE_+s_nAddMemOffset+_Imm_co_-_Imm_);
+				_recMove128RmOffsettoM((u32)&cpuRegs.GPR.r[nextrt].UL[0], PS2MEM_BASE_+s_nAddMemOffset);
 			}
 		}
 
@@ -1421,12 +1448,12 @@ void recLQ_co( void )
 			CALLFunc( (int)recMemRead128 );
 
 			if( _Rt_) {
-				if( mmreg1 & MEM_MMXTAG ) MOVQMtoR(mmreg1&0xf, (int)&cpuRegs.GPR.r[ _Rt_ ].UL[ 0 ]);
-				else SSEX_MOVDQA_M128_to_XMM(mmreg1, (int)&cpuRegs.GPR.r[ _Rt_ ].UL[ 0 ] );
+				if( mmreg1 >= 0 && (mmreg1 & MEM_MMXTAG) ) MOVQMtoR(mmreg1&0xf, (int)&cpuRegs.GPR.r[ _Rt_ ].UL[ 0 ]);
+				else if( mmreg1 >= 0 && (mmreg1 & MEM_XMMTAG) ) SSEX_MOVDQA_M128_to_XMM(mmreg1&0xf, (int)&cpuRegs.GPR.r[ _Rt_ ].UL[ 0 ] );
 			}
 			if( nextrt ) {
-				if( mmreg2 & MEM_MMXTAG ) MOVQMtoR(mmreg2&0xf, (int)&cpuRegs.GPR.r[ nextrt ].UL[ 0 ]);
-				else SSEX_MOVDQA_M128_to_XMM(mmreg2, (int)&cpuRegs.GPR.r[ nextrt ].UL[ 0 ] );
+				if( mmreg2 >= 0 && (mmreg2 & MEM_MMXTAG) ) MOVQMtoR(mmreg2&0xf, (int)&cpuRegs.GPR.r[ nextrt ].UL[ 0 ]);
+				else if( mmreg2 >= 0 && (mmreg2 & MEM_XMMTAG) ) SSEX_MOVDQA_M128_to_XMM(mmreg2&0xf, (int)&cpuRegs.GPR.r[ nextrt ].UL[ 0 ] );
 			}
 			ADD32ItoR(ESP, 4);
 			
@@ -2053,7 +2080,7 @@ void recStore(int bit, u32 imm, int align)
 #ifdef REC_SLOWWRITE
 	_flushConstReg(_Rs_);
 #else
-	if( GPR_IS_CONST1( _Rs_ ) ) {
+	if( cpucaps.hasStreamingSIMDExtensions && GPR_IS_CONST1( _Rs_ ) ) {
 		u32 addr = g_cpuConstRegs[_Rs_].UL[0]+imm;
 		int doclear = 0;
 		StopPerfCounter();
@@ -2141,7 +2168,13 @@ void recStore(int bit, u32 imm, int align)
 #endif
 	{
 		int dohw;
-		int mmregs = _eePrepareReg(_Rs_);
+		int mmregs;
+		
+		if( !cpucaps.hasStreamingSIMDExtensions && GPR_IS_CONST1( _Rs_ ) ) {
+			_flushConstReg(_Rs_);
+		}
+
+		mmregs = _eePrepareReg(_Rs_);
 		dohw = recSetMemLocation(_Rs_, imm, mmregs, align ? bit/64 : 0, 0);
 
 		recStore_raw(g_pCurInstInfo, bit, EAX, _Rt_, s_nAddMemOffset);
@@ -2866,7 +2899,7 @@ void recLWC1( void )
 			iMemRead32Check();
 			CALLFunc( (int)recMemRead32 );
 
-			if( regt ) SSE2_MOVD_R_to_XMM(regt, EAX);
+			if( regt >= 0 ) SSE2_MOVD_R_to_XMM(regt, EAX);
 			else MOV32RtoM( (int)&fpuRegs.fpr[ _Rt_ ].UL, EAX );
 
 			if( s_bCachingMem & 2 ) x86SetJ32(j32Ptr[4]);
@@ -3376,7 +3409,7 @@ void recLQC2( void )
 #ifdef REC_SLOWREAD
 	_flushConstReg(_Rs_);
 #else
-	if( GPR_IS_CONST1( _Rs_ ) ) {
+	if( cpucaps.hasStreamingSIMDExtensions && GPR_IS_CONST1( _Rs_ ) ) {
 		assert( (g_cpuConstRegs[_Rs_].UL[0]+_Imm_) % 16 == 0 );
 
 		if( _Ft_ ) mmreg = _allocVFtoXMMreg(&VU0, -1, _Ft_, MODE_WRITE);
@@ -3388,8 +3421,13 @@ void recLQC2( void )
 	else
 #endif
 	{
-		int dohw;
-		int mmregs = _eePrepareReg(_Rs_);
+		int dohw, mmregs;
+
+		if( !cpucaps.hasStreamingSIMDExtensions && GPR_IS_CONST1( _Rs_ ) ) {
+			_flushConstReg(_Rs_);
+		}
+
+		mmregs = _eePrepareReg(_Rs_);
 
 		if( _Ft_ ) mmreg = _allocVFtoXMMreg(&VU0, -1, _Ft_, MODE_WRITE);
 
@@ -3398,7 +3436,12 @@ void recLQC2( void )
 		if( _Ft_ ) {
 			s8* rawreadptr = x86Ptr;
 
-			SSEX_MOVDQARmtoROffset(mmreg, ECX, PS2MEM_BASE_+s_nAddMemOffset);
+			if( mmreg >= 0 ) {
+				SSEX_MOVDQARmtoROffset(mmreg, ECX, PS2MEM_BASE_+s_nAddMemOffset);
+			}
+			else {
+				_recMove128RmOffsettoM((u32)&VU0.VF[_Ft_].UL[0], PS2MEM_BASE_+s_nAddMemOffset);
+			}
 
 			if( dohw ) {
 				j8Ptr[1] = JMP8(0);
@@ -3410,7 +3453,7 @@ void recLQC2( void )
 
 				PUSH32I( (int)&VU0.VF[_Ft_].UD[0] );
 				CALLFunc( (int)recMemRead128 );
-				SSEX_MOVDQA_M128_to_XMM(mmreg, (int)&VU0.VF[_Ft_].UD[0] );
+				if( mmreg >= 0 ) SSEX_MOVDQA_M128_to_XMM(mmreg, (int)&VU0.VF[_Ft_].UD[0] );
 				ADD32ItoR(ESP, 4);
 				
 				x86SetJ8(j8Ptr[1]);
@@ -3511,7 +3554,7 @@ void recSQC2( void )
 #ifdef REC_SLOWWRITE
 	_flushConstReg(_Rs_);
 #else
-	if( GPR_IS_CONST1( _Rs_ ) ) {
+	if( cpucaps.hasStreamingSIMDExtensions && GPR_IS_CONST1( _Rs_ ) ) {
 		assert( (g_cpuConstRegs[_Rs_].UL[0]+_Imm_)%16 == 0 );
 
 		mmreg = _allocVFtoXMMreg(&VU0, -1, _Ft_, MODE_READ)|MEM_XMMTAG;
@@ -3521,8 +3564,13 @@ void recSQC2( void )
 #endif
 	{
 		s8* rawreadptr;
-		int dohw;
-		int mmregs = _eePrepareReg(_Rs_);
+		int dohw, mmregs;
+		
+		if( cpucaps.hasStreamingSIMDExtensions && GPR_IS_CONST1( _Rs_ ) ) {
+			_flushConstReg(_Rs_);
+		}
+
+		mmregs = _eePrepareReg(_Rs_);
 		dohw = recSetMemLocation(_Rs_, _Imm_, mmregs, 2, 0);
 
 		rawreadptr = x86Ptr;

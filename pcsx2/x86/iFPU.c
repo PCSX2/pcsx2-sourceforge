@@ -1190,63 +1190,48 @@ FPURECOMPILE_CONSTCODE(CVT_S, XMMINFO_WRITED|XMMINFO_READS);
 ////////////////////////////////////////////////////
 void recCVT_W() 
 {
-	int t0reg;
-	int regs = _checkXMMreg(XMMTYPE_FPREG, _Fs_, MODE_READ);
+	if( cpucaps.hasStreamingSIMDExtensions ) {
+		int t0reg;
+		int regs = _checkXMMreg(XMMTYPE_FPREG, _Fs_, MODE_READ);
 
-	if( regs >= 0 ) {
-		t0reg = _allocTempXMMreg(XMMT_FPS, -1);
-		_freeXMMreg(t0reg);
-		SSE_XORPS_XMM_to_XMM(t0reg, t0reg);
-		SSE_CVTTSS2SI_XMM_to_R32(EAX, regs);
-	}
-	else SSE_CVTTSS2SI_M32_to_R32(EAX, (u32)&fpuRegs.fpr[ _Fs_ ]);
+		if( regs >= 0 ) {
+			t0reg = _allocTempXMMreg(XMMT_FPS, -1);
+			_freeXMMreg(t0reg);
+			SSE_XORPS_XMM_to_XMM(t0reg, t0reg);
+			SSE_CVTTSS2SI_XMM_to_R32(EAX, regs);
+		}
+		else SSE_CVTTSS2SI_M32_to_R32(EAX, (u32)&fpuRegs.fpr[ _Fs_ ]);
 
-	_deleteFPtoXMMreg(_Fd_, 2);
+		_deleteFPtoXMMreg(_Fd_, 2);
 
-	CMP32ItoR(EAX, 0x80000000);
-	j8Ptr[0] = JNE8(0);
+		CMP32ItoR(EAX, 0x80000000);
+		j8Ptr[0] = JNE8(0);
 
-	// need to detect if reg is positive
-	if( regs >= 0 ) {
-		SSE_UCOMISS_XMM_to_XMM(regs, t0reg);
-		j8Ptr[2] = JB8(0);
+		// need to detect if reg is positive
+		if( regs >= 0 ) {
+			SSE_UCOMISS_XMM_to_XMM(regs, t0reg);
+			j8Ptr[2] = JB8(0);
+		}
+		else {
+			TEST32ItoM((u32)&fpuRegs.fpr[_Fs_], 0x80000000);
+			j8Ptr[2] = JNZ8(0);
+		}
+
+		MOV32ItoM((u32)&fpuRegs.fpr[_Fd_], 0x7fffffff);
+		j8Ptr[1] = JMP8(0);
+
+		x86SetJ8( j8Ptr[0] );
+		x86SetJ8( j8Ptr[2] );
+		MOV32RtoM((u32)&fpuRegs.fpr[_Fd_], EAX);
+
+		x86SetJ8( j8Ptr[1] );
 	}
 	else {
-		TEST32ItoM((u32)&fpuRegs.fpr[_Fs_], 0x80000000);
-		j8Ptr[2] = JNZ8(0);
+		MOV32ItoM((u32)&cpuRegs.code, cpuRegs.code);
+		iFlushCall(FLUSH_EVERYTHING);
+		_flushConstRegs();
+		CALLFunc((u32)CVT_W);
 	}
-
-	MOV32ItoM((u32)&fpuRegs.fpr[_Fd_], 0x7fffffff);
-	j8Ptr[1] = JMP8(0);
-
-	x86SetJ8( j8Ptr[0] );
-	x86SetJ8( j8Ptr[2] );
-	MOV32RtoM((u32)&fpuRegs.fpr[_Fd_], EAX);
-
-	x86SetJ8( j8Ptr[1] );
-
-//	MOV32MtoR(EAX, (u32)&fpuRegs.fpr[ _Fs_ ].f);
-//	MOV32RtoR(ECX, EAX);
-//	AND32ItoR(ECX, 0x7F800000);
-//	CMP32ItoR(ECX, 0x4e800000);
-//	j8Ptr[0] = JA8(0);
-//
-//	// convert
-//	SSE_CVTTSS2SI_M32_to_R32(EAX, (u32)&fpuRegs.fpr[ _Fs_ ].f);
-//	MOV32RtoM((u32)&fpuRegs.fpr[ _Fd_ ].UL, EAX );
-//
-//	j8Ptr[1] = JMP8(0);
-//
-//	x86SetJ8( j8Ptr[0] );
-//
-//	// check negative, eax = (eax&0x80000000)?0x80000000:0x7fffffff
-//	AND32ItoR(EAX, 0x80000000);
-//	SBB32RtoR(EAX, EAX);
-//	NEG32R(EAX);
-//	ADD32ItoR(EAX, 0x7fffffff);
-//	MOV32RtoM((u32)&fpuRegs.fpr[ _Fd_ ].UL, EAX);
-//
-//	x86SetJ8( j8Ptr[1] );
 }
 
 void recMAX_S_xmm(int info)

@@ -707,6 +707,7 @@ u8 s_maskwrite[256];
 void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 {
 	u32 prev = 0;
+	if( !cpucaps.hasStreamingSIMD2Extensions ) return;
 	FreezeXMMRegs(1);
 
 	for(i = 0; i < 4; ++i, mask >>= 8, oldmask >>= 8, vif1masks += 16) {

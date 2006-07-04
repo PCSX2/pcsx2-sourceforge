@@ -1,5 +1,6 @@
-
+#include <assert.h>
 #include "ix86.h"
+
 __declspec(align(16)) unsigned int p[4],p2[4];
 __declspec(align(16)) float f[4];
 
@@ -11,18 +12,24 @@ XMMSSEType g_xmmtypes[XMMREGS] = {0};
 /********************/
 
 #define SSEMtoR( code, overb ) \
+	assert( cpucaps.hasStreamingSIMDExtensions ); \
+	assert( to < XMMREGS ) ; \
 	if (to > 7) Rex(1, to >> 3, 0, 0); \
 	write16( code ); \
 	ModRM( 0, to, DISP32 ); \
 	write32( MEMADDR(from, 4 + overb) ); \
 
 #define SSERtoM( code, overb ) \
+	assert( cpucaps.hasStreamingSIMDExtensions ); \
+	assert( from < XMMREGS) ; \
 	if (from > 7) Rex(1, from >> 3, 0, 0); \
 	write16( code ); \
 	ModRM( 0, from, DISP32 ); \
 	write32( MEMADDR(to, 4 + overb) ); \
 
 #define SSE_SS_MtoR( code, overb ) \
+	assert( cpucaps.hasStreamingSIMDExtensions ); \
+	assert( to < XMMREGS ) ; \
 	write8( 0xf3 ); \
 	if (to > 7) Rex(1, to >> 3, 0, 0); \
 	write16( code ); \
@@ -30,6 +37,8 @@ XMMSSEType g_xmmtypes[XMMREGS] = {0};
 	write32( MEMADDR(from, 4 + overb) ); \
 
 #define SSE_SS_RtoM( code, overb ) \
+	assert( cpucaps.hasStreamingSIMDExtensions ); \
+	assert( from < XMMREGS) ; \
 	write8( 0xf3 ); \
 	if (from > 7) Rex(1, from >> 3, 0, 0); \
 	write16( code ); \
@@ -37,6 +46,8 @@ XMMSSEType g_xmmtypes[XMMREGS] = {0};
 	write32( MEMADDR(to, 4 + overb) ); \
 
 #define SSERtoR( code ) \
+	assert( cpucaps.hasStreamingSIMDExtensions ); \
+	assert( to < XMMREGS && from < XMMREGS) ; \
 	if (to > 7 || from > 7) Rex(1, to >> 3, 0, from >> 3); \
 	write16( code ); \
 	ModRM( 3, to, from );
@@ -54,12 +65,16 @@ XMMSSEType g_xmmtypes[XMMREGS] = {0};
 	SSERtoR( code );
 
 #define _SSERtoR66( code ) \
+	assert( cpucaps.hasStreamingSIMDExtensions ); \
+	assert( to < XMMREGS && from < XMMREGS) ; \
 	write8( 0x66 ); \
 	if (to > 7 || from > 7) Rex(1, from >> 3, 0, to >> 3); \
 	write16( code ); \
 	ModRM( 3, from, to );
 
 #define SSE_SS_RtoR( code ) \
+	assert( cpucaps.hasStreamingSIMDExtensions ); \
+	assert( to < XMMREGS && from < XMMREGS) ; \
 	write8( 0xf3 ); \
 	if (to > 7 || from > 7) Rex(1, to >> 3, 0, from >> 3); \
 	write16( code ); \
@@ -88,6 +103,7 @@ XMMSSEType g_xmmtypes[XMMREGS] = {0};
 /* movups [r32][r32*scale] to xmm1 */
 void SSE_MOVUPSRmStoR( x86SSERegType to, x86IntRegType from, x86IntRegType from2, int scale )
 {
+	assert( cpucaps.hasStreamingSIMDExtensions );
 	if (to > 7) Rex(1, to >> 3, 0, 0);
 	write16( 0x100f );
 	ModRM( 0, to, 0x4 );
@@ -97,6 +113,7 @@ void SSE_MOVUPSRmStoR( x86SSERegType to, x86IntRegType from, x86IntRegType from2
 /* movups xmm1 to [r32][r32*scale] */
 void SSE_MOVUPSRtoRmS( x86SSERegType to, x86IntRegType from, x86IntRegType from2, int scale )
 {
+	assert( cpucaps.hasStreamingSIMDExtensions );
 	if (to > 7) Rex(1, to >> 3, 0, 0);
 	write16( 0x110f );
 	ModRM( 0, to, 0x4 );
@@ -106,6 +123,7 @@ void SSE_MOVUPSRtoRmS( x86SSERegType to, x86IntRegType from, x86IntRegType from2
 /* movups [r32] to r32 */
 void SSE_MOVUPSRmtoR( x86IntRegType to, x86IntRegType from ) 
 {
+	assert( cpucaps.hasStreamingSIMDExtensions );
 	if (to > 7) Rex(1, to >> 3, 0, 0);
 	write16( 0x100f );
 	ModRM( 0, to, from );
@@ -114,6 +132,7 @@ void SSE_MOVUPSRmtoR( x86IntRegType to, x86IntRegType from )
 /* movups r32 to [r32] */
 void SSE_MOVUPSRtoRm( x86IntRegType to, x86IntRegType from ) 
 {
+	assert( cpucaps.hasStreamingSIMDExtensions );
 	write16( 0x110f );
 	ModRM( 0, from, to );
 }
@@ -121,6 +140,7 @@ void SSE_MOVUPSRtoRm( x86IntRegType to, x86IntRegType from )
 /* movlps [r32] to r32 */
 void SSE_MOVLPSRmtoR( x86MMXRegType to, x86IntRegType from ) 
 {
+	assert( cpucaps.hasStreamingSIMDExtensions );
 	if (to > 7) Rex(1, to >> 3, 0, 0);
 	write16( 0x120f );
 	ModRM( 0, to, from );
@@ -128,7 +148,7 @@ void SSE_MOVLPSRmtoR( x86MMXRegType to, x86IntRegType from )
 
 void SSE_MOVLPSRmtoROffset( x86MMXRegType to, x86IntRegType from, u32 offset )
 {
-	
+	assert( cpucaps.hasStreamingSIMDExtensions );
 	if (to > 7) Rex(1, to >> 3, 0, 0);
 	write16( 0x120f );
 	ModRM( 2, to, from );
@@ -138,6 +158,7 @@ void SSE_MOVLPSRmtoROffset( x86MMXRegType to, x86IntRegType from, u32 offset )
 /* movaps r32 to [r32] */
 void SSE_MOVLPSRtoRm( x86IntRegType to, x86IntRegType from ) 
 {
+	assert( cpucaps.hasStreamingSIMDExtensions );
 	if (from > 7) Rex(1, from >> 3, 0, 0);
 	write16( 0x130f );
 	ModRM( 0, from, to );
@@ -145,6 +166,7 @@ void SSE_MOVLPSRtoRm( x86IntRegType to, x86IntRegType from )
 
 void SSE_MOVLPSRtoRmOffset( x86MMXRegType to, x86IntRegType from, u32 offset )
 {
+	assert( cpucaps.hasStreamingSIMDExtensions );
 	if (from > 7) Rex(1, from >> 3, 0, 0);
 	write16( 0x130f );
 	ModRM( 2, from, to );
@@ -154,6 +176,7 @@ void SSE_MOVLPSRtoRmOffset( x86MMXRegType to, x86IntRegType from, u32 offset )
 /* movaps [r32][r32*scale] to xmm1 */
 void SSE_MOVAPSRmStoR( x86SSERegType to, x86IntRegType from, x86IntRegType from2, int scale )
 {
+	assert( cpucaps.hasStreamingSIMDExtensions );
 	write16( 0x100f );
 	ModRM( 0, to, 0x4 );
 	SibSB( scale, from2, from );
@@ -162,6 +185,7 @@ void SSE_MOVAPSRmStoR( x86SSERegType to, x86IntRegType from, x86IntRegType from2
 /* movaps xmm1 to [r32][r32*scale] */
 void SSE_MOVAPSRtoRmS( x86SSERegType to, x86IntRegType from, x86IntRegType from2, int scale )
 {
+	assert( cpucaps.hasStreamingSIMDExtensions );
 	write16( 0x110f );
 	ModRM( 0, to, 0x4 );
 	SibSB( scale, from2, from );
@@ -170,6 +194,7 @@ void SSE_MOVAPSRtoRmS( x86SSERegType to, x86IntRegType from, x86IntRegType from2
 // movaps [r32+offset] to r32
 void SSE_MOVAPSRmtoROffset( x86SSERegType to, x86IntRegType from, u32 offset )
 {
+	assert( cpucaps.hasStreamingSIMDExtensions );
 	if (to > 7) Rex(1, to >> 3, 0, 0);
 	write16( 0x280f );
 
@@ -189,6 +214,7 @@ void SSE_MOVAPSRmtoROffset( x86SSERegType to, x86IntRegType from, u32 offset )
 // movaps r32 to [r32+offset]
 void SSE_MOVAPSRtoRmOffset( x86IntRegType to, x86SSERegType from, u32 offset ) 
 {
+	assert( cpucaps.hasStreamingSIMDExtensions );
 	if (from > 7) Rex(1, from >> 3, 0, 0);
 	write16( 0x290f );
 
@@ -208,6 +234,7 @@ void SSE_MOVAPSRtoRmOffset( x86IntRegType to, x86SSERegType from, u32 offset )
 // movdqa [r32+offset] to r32
 void SSE2_MOVDQARmtoROffset( x86SSERegType to, x86IntRegType from, u32 offset )
 {
+	assert( cpucaps.hasStreamingSIMDExtensions );
 	if (to > 7) Rex(1, to >> 3, 0, 0);
 	write8(0x66);
 	write16( 0x6f0f );
@@ -228,6 +255,7 @@ void SSE2_MOVDQARmtoROffset( x86SSERegType to, x86IntRegType from, u32 offset )
 // movdqa r32 to [r32+offset]
 void SSE2_MOVDQARtoRmOffset( x86IntRegType to, x86SSERegType from, u32 offset ) 
 {
+	assert( cpucaps.hasStreamingSIMDExtensions );
 	if (from > 7) Rex(1, from >> 3, 0, 0);
 	write8(0x66);
 	write16( 0x7f0f );
@@ -267,6 +295,7 @@ void SSE_MOVUPSRmtoROffset( x86SSERegType to, x86IntRegType from, u32 offset )
 // movups r32 to [r32+offset]
 void SSE_MOVUPSRtoRmOffset( x86SSERegType to, x86IntRegType from, u32 offset )
 {
+	assert( cpucaps.hasStreamingSIMDExtensions );
 	if (from > 7) Rex(1, from >> 3, 0, 0);
 	write16( 0x110f );
 
@@ -398,6 +427,7 @@ void SSE_MOVLPS_XMM_to_M64( u32 to, x86SSERegType from )          { SSERtoM( 0x1
 
 void SSE_MOVLPS_RmOffset_to_XMM( x86SSERegType to, x86IntRegType from, u32 offset )
 {
+	assert( cpucaps.hasStreamingSIMDExtensions );
 	write16( 0x120f );
 	if( offset == 0 ) {
 		ModRM( 0, to, from  );
@@ -438,6 +468,7 @@ void SSE_MOVHPS_XMM_to_M64( u32 to, x86SSERegType from )          { SSERtoM( 0x1
 
 void SSE_MOVHPS_RmOffset_to_XMM( x86SSERegType to, x86IntRegType from, u32 offset )
 {
+	assert( cpucaps.hasStreamingSIMDExtensions );
 	write16( 0x160f );
 	if( offset == 0 ) {
 		ModRM( 0, to, from  );
@@ -454,6 +485,7 @@ void SSE_MOVHPS_RmOffset_to_XMM( x86SSERegType to, x86IntRegType from, u32 offse
 
 void SSE_MOVHPS_XMM_to_RmOffset( x86IntRegType to, x86SSERegType from, u32 offset )
 {
+	assert( cpucaps.hasStreamingSIMDExtensions );
 	write16(0x170f);
 
 	if( offset == 0 ) {
@@ -1218,7 +1250,13 @@ void SSE2_MOVMSKPD_XMM_to_R32(x86IntRegType to, x86SSERegType from) { SSERtoR66(
 void SSE3_HADDPS_XMM_to_XMM(x86SSERegType to, x86SSERegType from) { write8(0xf2); SSERtoR( 0x7c0f ); }
 void SSE3_HADDPS_M128_to_XMM(x86SSERegType to, u32 from){ write8(0xf2); SSEMtoR( 0x7c0f, 0 ); }
 
-void SSE3_MOVSLDUP_XMM_to_XMM(x86SSERegType to, x86SSERegType from) { write8(0xf3); SSERtoR(0x120f); }
+void SSE3_MOVSLDUP_XMM_to_XMM(x86SSERegType to, x86SSERegType from) {
+	write8(0xf3);
+	if (to > 7 || from > 7) Rex(1, to >> 3, 0, from >> 3);
+	write16( 0x120f);
+	ModRM( 3, to, from );
+}
+
 void SSE3_MOVSLDUP_M128_to_XMM(x86SSERegType to, u32 from) { write8(0xf3); SSEMtoR(0x120f, 0); }
 void SSE3_MOVSHDUP_XMM_to_XMM(x86SSERegType to, x86SSERegType from) { write8(0xf3); SSERtoR(0x160f); }
 void SSE3_MOVSHDUP_M128_to_XMM(x86SSERegType to, u32 from) { write8(0xf3); SSEMtoR(0x160f, 0); }

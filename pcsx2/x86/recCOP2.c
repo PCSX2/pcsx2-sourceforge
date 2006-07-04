@@ -302,7 +302,12 @@ static void recQMFC2(void)
 	}
 	else {
 		t0reg = _allocGPRtoXMMreg(-1, _Rt_, MODE_WRITE);
-		SSE_MOVAPS_M128_to_XMM( t0reg, (u32)&VU0.VF[_Fs_].UD[0]);
+		if( t0reg >= 0 ) {
+			SSE_MOVAPS_M128_to_XMM( t0reg, (u32)&VU0.VF[_Fs_].UD[0]);
+		}
+		else {
+			_recMove128MtoM((u32)&cpuRegs.GPR.r[_Rt_].UL[0], (u32)&VU0.VF[_Fs_].UL[0]);
+		}
 	}
 
 	_clearNeededXMMregs();
@@ -354,19 +359,25 @@ static void recQMTC2()
 	else {
 		fsreg = _allocVFtoXMMreg(&VU0, -1, _Fs_, MODE_WRITE);
 
-		if( (mmreg = _checkMMXreg(MMX_GPR+_Rt_, MODE_READ)) >= 0) {
-			SetMMXstate();
-			SSE2_MOVQ2DQ_MM_to_XMM(fsreg, mmreg);
-			SSE_MOVHPS_M64_to_XMM(fsreg, (u32)&cpuRegs.GPR.r[_Rt_].UL[2]);
+		if( fsreg >= 0 ) {
+			if( (mmreg = _checkMMXreg(MMX_GPR+_Rt_, MODE_READ)) >= 0) {
+				SetMMXstate();
+				SSE2_MOVQ2DQ_MM_to_XMM(fsreg, mmreg);
+				SSE_MOVHPS_M64_to_XMM(fsreg, (u32)&cpuRegs.GPR.r[_Rt_].UL[2]);
+			}
+			else {
+				
+				if( GPR_IS_CONST1( _Rt_ ) ) {
+					assert( _checkXMMreg(XMMTYPE_GPRREG, _Rt_, MODE_READ) == -1 );
+					_flushConstReg(_Rt_);	
+				}
+
+				SSE_MOVAPS_M128_to_XMM(fsreg, (int)&cpuRegs.GPR.r[ _Rt_ ].UL[ 0 ]);
+			}
 		}
 		else {
-			
-			if( GPR_IS_CONST1( _Rt_ ) ) {
-				assert( _checkXMMreg(XMMTYPE_GPRREG, _Rt_, MODE_READ) == -1 );
-				_flushConstReg(_Rt_);	
-			}
-
-			SSE_MOVAPS_M128_to_XMM(fsreg, (int)&cpuRegs.GPR.r[ _Rt_ ].UL[ 0 ]);
+			_deleteEEreg(_Rt_, 0);
+			_recMove128MtoM((u32)&VU0.VF[_Fs_].UL[0], (u32)&cpuRegs.GPR.r[_Rt_].UL[0]);
 		}
 	}
 
