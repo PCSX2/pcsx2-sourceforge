@@ -53,7 +53,7 @@
 				FavorSizeOrSpeed="1"
 				OmitFramePointers="true"
 				EnableFiberSafeOptimizations="true"
-				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../ix86-32&quot;;../libs"
+				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../ix86-32&quot;;../libs;../../pcl"
 				PreprocessorDefinitions="NDEBUG,WIN32,_WINDOWS,__MSCW32__,__WIN32__,__i386__,ENABLE_NLS,PACKAGE=\&quot;pcsx2\&quot;;WIN32_VIRTUAL_MEM;PCSX2_DEVBUILD;_CRT_SECURE_NO_DEPRECATE"
 				StringPooling="true"
 				MinimalRebuild="false"
@@ -152,7 +152,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../ix86-32&quot;;../libs"
+				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../ix86-32&quot;;../libs;../../pcl"
 				PreprocessorDefinitions="_DEBUG,WIN32,_WINDOWS,__MSCW32__,__WIN32__,__i386__,ENABLE_NLS,PACKAGE=\&quot;pcsx2\&quot;;WIN32_VIRTUAL_MEM;PCSX2_DEVBUILD;_CRT_SECURE_NO_DEPRECATE"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
@@ -248,7 +248,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../ix86-32&quot;;../libs"
+				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../ix86-32&quot;;../libs;../../pcl"
 				PreprocessorDefinitions="_DEBUG,WIN32,_WINDOWS,__MSCW32__,__WIN32__,__i386__,ENABLE_NLS,PACKAGE=\&quot;pcsx2\&quot;;PCSX2_DEVBUILD;_CRT_SECURE_NO_DEPRECATE"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
@@ -350,7 +350,7 @@
 				FavorSizeOrSpeed="1"
 				OmitFramePointers="true"
 				EnableFiberSafeOptimizations="true"
-				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../ix86-32&quot;;../libs"
+				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../ix86-32&quot;;../libs;../../pcl"
 				PreprocessorDefinitions="NDEBUG,WIN32,_WINDOWS,__MSCW32__,__WIN32__,__i386__,ENABLE_NLS,PACKAGE=\&quot;pcsx2\&quot;;PCSX2_DEVBUILD;_CRT_SECURE_NO_DEPRECATE"
 				StringPooling="true"
 				ExceptionHandling="1"
@@ -1149,6 +1149,12 @@
 			Name="x86"
 			>
 			<File
+				RelativePath="..\..\x86\iCore.cpp">
+			</File>
+			<File
+				RelativePath="..\..\x86\iCore.h">
+			</File>
+			<File
 				RelativePath="..\..\x86\iCP0.c"
 				>
 			</File>
@@ -1173,8 +1179,14 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\x86\iR3000A.c"
+				RelativePath="..\..\x86\iR3000A.cpp"
 				>
+			</File>
+			<File
+				RelativePath="..\..\x86\iR3000A.h">
+			</File>
+			<File
+				RelativePath="..\..\x86\iR3000Atables.cpp">
 			</File>
 			<File
 				RelativePath="..\..\x86\iR5900.c"
@@ -1183,6 +1195,9 @@
 			<File
 				RelativePath="..\..\x86\iR5900.h"
 				>
+			</File>
+			<File
+				RelativePath="..\..\x86\ir5900tables.c">
 			</File>
 			<File
 				RelativePath="..\..\x86\iVU0micro.c"
@@ -1211,6 +1226,12 @@
 			<File
 				RelativePath="..\..\x86\iVUops.h"
 				>
+			</File>
+			<File
+				RelativePath="..\..\x86\iVUzerorec.cpp">
+			</File>
+			<File
+				RelativePath="..\..\x86\iVUzerorec.h">
 			</File>
 			<File
 				RelativePath="..\..\x86\recCOP2.c"
@@ -1406,6 +1427,22 @@
 			</File>
 			<File
 				RelativePath="..\..\zlib\zutil.h"
+				>
+			</File>
+		</Filter>
+		<Filter
+			Name="pcl"
+			>
+			<File
+				RelativePath="..\..\pcl\pcl.c"
+				>
+			</File>
+			<File
+				RelativePath="..\..\pcl\pcl.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\pcl\pcl_config.h"
 				>
 			</File>
 		</Filter>
