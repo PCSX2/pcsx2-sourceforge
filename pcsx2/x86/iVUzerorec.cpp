@@ -1652,7 +1652,7 @@ void VuBaseBlock::AssignVFRegs()
 
 				if( itinst->vfacc[i] >= 0 && (itnext == insts.end() || ((regs->VIread&(1<<REG_ACC_FLAG)) && (!(itnext->usedvars[0]&(1<<REG_ACC_FLAG)) || !(itnext->livevars[0]&(1<<REG_ACC_FLAG))))) ) {
 					assert( reusereg == 0 );
-					if(itnext == insts.end() || itnext->livevars[0]&(1<<REG_ACC_FLAG)) _freeXMMreg(itinst->vfacc[i]);
+					if(itnext == insts.end() || (itnext->livevars[0]&(1<<REG_ACC_FLAG))) _freeXMMreg(itinst->vfacc[i]);
 					xmmregs[itinst->vfacc[i]].inuse = 1;
 					xmmregs[itinst->vfacc[i]].reg = reg;
 					xmmregs[itinst->vfacc[i]].type = type;
@@ -1660,7 +1660,7 @@ void VuBaseBlock::AssignVFRegs()
 					itinst->vfwrite[i] = itinst->vfacc[i];
 				}
 				else if( itinst->vfread0[i] >= 0 && (itnext == insts.end() || (regs->VFread0 > 0 && (!(itnext->usedvars[1]&(1<<regs->VFread0)) || !(itnext->livevars[1]&(1<<regs->VFread0))))) ) {
-					if(itnext == insts.end() || itnext->livevars[1]&regs->VFread0) _freeXMMreg(itinst->vfread0[i]);
+					if(itnext == insts.end() || (itnext->livevars[1]&regs->VFread0)) _freeXMMreg(itinst->vfread0[i]);
 					xmmregs[itinst->vfread0[i]].inuse = 1;
 					xmmregs[itinst->vfread0[i]].reg = reg;
 					xmmregs[itinst->vfread0[i]].type = type;
@@ -1669,7 +1669,7 @@ void VuBaseBlock::AssignVFRegs()
 					else itinst->vfwrite[i] = itinst->vfread0[i];
 				}
 				else if( itinst->vfread1[i] >= 0 && (itnext == insts.end() || (regs->VFread1 > 0 && (!(itnext->usedvars[1]&(1<<regs->VFread1)) || !(itnext->livevars[1]&(1<<regs->VFread1))))) ) {
-					if(itnext == insts.end() || itnext->livevars[1]&regs->VFread1) _freeXMMreg(itinst->vfread1[i]);
+					if(itnext == insts.end() || (itnext->livevars[1]&regs->VFread1)) _freeXMMreg(itinst->vfread1[i]);
 					xmmregs[itinst->vfread1[i]].inuse = 1;
 					xmmregs[itinst->vfread1[i]].reg = reg;
 					xmmregs[itinst->vfread1[i]].type = type;
