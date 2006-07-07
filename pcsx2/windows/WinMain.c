@@ -542,7 +542,7 @@ void CALLBACK KeyEvent(keyEvent* ev) {
 #ifdef PCSX2_DEVBUILD
 		case VK_F10:
 			sprintf(Text, "sstates/gs%8.8X.%3.3d", ElfCRC, StatesC);
-			SaveGSState(Text);
+			//SaveGSState(Text);
 			break;
 
 		case VK_F11:
@@ -572,11 +572,11 @@ void CALLBACK KeyEvent(keyEvent* ev) {
 
 		case VK_ESCAPE:
 #ifdef PCSX2_DEVBUILD
-			if( g_SaveGSStream >= 3 ) {
-				// gs state
-				g_SaveGSStream = 4;
-				break;
-			}
+//			if( g_SaveGSStream >= 3 ) {
+//				// gs state
+//				g_SaveGSStream = 4;
+//				break;
+//			}
 #endif
 
 			ClosePlugins();
