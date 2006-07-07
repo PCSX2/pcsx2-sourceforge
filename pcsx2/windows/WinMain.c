@@ -98,28 +98,11 @@ void RunExecute(int run) {
 	if (needReset == 1) {
 		SysReset();
 	}
-#if 0 //weird problem with that comment it for now 
-	if (GSsetWindowInfo != NULL) {
-		winInfo info;
 
-		info.hWnd = gApp.hWnd;
-		info.hMenu = gApp.hMenu;
-		info.hStatusWnd = hStatusWnd;
+	AccBreak = 1;
+	DestroyWindow(gApp.hWnd);
+	gApp.hWnd = NULL;
 
-		if (GSsetWindowInfo(&info) != FALSE) {
-			SetMenu(gApp.hWnd, NULL);
-			ShowWindow(hStatusWnd, SW_HIDE);
-			ShowWindow(gApp.hWnd, SW_NORMAL);
-		} else {
-			DestroyWindow(gApp.hWnd);
-			gApp.hWnd = NULL;
-		}
-	} else {
-#endif
-		AccBreak = 1;
-		DestroyWindow(gApp.hWnd);
-		gApp.hWnd = NULL;
-	//}
 	if (OpenPlugins() == -1) {
 		CreateMainWindow(SW_SHOWNORMAL);
 		return;
@@ -242,6 +225,8 @@ void OnStates_Save2() { States_Save(1); }
 void OnStates_Save3() { States_Save(2); } 
 void OnStates_Save4() { States_Save(3); } 
 void OnStates_Save5() { States_Save(4); } 
+
+char* g_pRunGSState = NULL;
 
 void OnStates_SaveOther() {
 	OPENFILENAME ofn;
@@ -372,6 +357,10 @@ static int ParseCommandLine(char* pcmd)
 			token = strtok(NULL, pdelim);
 			g_TestRun.pspudll = token;
 		}
+		/*else if( stricmp(token, "-loadgs") == 0 ) {
+			token = strtok(NULL, pdelim);
+			g_pRunGSState = token;
+		}*/
 		else {
 			printf("invalid args\n");
 			return -1;
@@ -485,6 +474,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 
 	CreateMainWindow(nCmdShow);
 
+	/*if( g_pRunGSState ) {
+		LoadGSState(g_pRunGSState);
+		SysClose();
+		return 0;
+	}*/
+
 	RunGui();
 
 #ifdef WIN32_VIRTUAL_MEM
@@ -545,6 +540,11 @@ void CALLBACK KeyEvent(keyEvent* ev) {
 			break;
 
 #ifdef PCSX2_DEVBUILD
+		case VK_F10:
+			sprintf(Text, "sstates/gs%8.8X.%3.3d", ElfCRC, StatesC);
+			SaveGSState(Text);
+			break;
+
 		case VK_F11:
 		{
 			int num;
@@ -571,6 +571,14 @@ void CALLBACK KeyEvent(keyEvent* ev) {
 #endif
 
 		case VK_ESCAPE:
+#ifdef PCSX2_DEVBUILD
+			if( g_SaveGSStream >= 3 ) {
+				// gs state
+				g_SaveGSStream = 4;
+				break;
+			}
+#endif
+
 			ClosePlugins();
 			CreateMainWindow(SW_SHOWNORMAL);
 			RunGui();
