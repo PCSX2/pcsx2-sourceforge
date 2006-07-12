@@ -1648,11 +1648,22 @@ DWORD WINAPI VuGSThreadProc(LPVOID lpParam)
 								psHu32(DMAC_STAT)|= 1<<15;
 								break;
 							}
-							GSreadFIFO2(pMem, tag>>16);
-
-							// set incase read
-							psHu64(0x5000) = pMem[2*(tag>>16)-2];
-							psHu64(0x5008) = pMem[2*(tag>>16)-1];
+							
+							if( GSreadFIFO2 == NULL ) {
+								int size;
+								for (size=(tag>>16); size>0; size--) {
+									GSreadFIFO((u64*)&PS2MEM_HW[0x5000]);
+									pMem[0] = psHu64(0x5000);
+									pMem[1] = psHu64(0x5008); pMem+= 2;
+								}
+							}
+							else {
+								GSreadFIFO2(pMem, tag>>16); 
+								
+								// set incase read
+								psHu64(0x5000) = pMem[2*(tag>>16)-2];
+								psHu64(0x5008) = pMem[2*(tag>>16)-1];
+							}
 
 							assert( vif1ch->madr == *(u32*)(g_pGSRingPos+4) );
 							assert( vif1ch->qwc == (tag>>16) );
