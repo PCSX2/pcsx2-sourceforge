@@ -137,35 +137,45 @@ static void iDumpBlock()
 	fclose( f );
 }
 
-#define VF_VAL(x) ((x==0x80000000)?0:x)
+#define VF_VAL(x) ((x==0x80000000)?0:(x))
 
+u32 g_VUProgramId = 0;
 void iDumpVU1Registers()
 {
 	int i;
+//	static int icount = 0;
+//	__Log("%x\n", icount);
 	for(i = 1; i < 32; ++i) {
+//		__Log("v%d: w%f(%x) z%f(%x) y%f(%x) x%f(%x), vi: ", i, VU1.VF[i].F[3], VU1.VF[i].UL[3], VU1.VF[i].F[2], VU1.VF[i].UL[2],
+//			VU1.VF[i].F[1], VU1.VF[i].UL[1], VU1.VF[i].F[0], VU1.VF[i].UL[0]);
 		//__Log("v%d: %f %f %f %f, vi: ", i, VU1.VF[i].F[3], VU1.VF[i].F[2], VU1.VF[i].F[1], VU1.VF[i].F[0]);
-		__Log("v%d: %x %x %x %x, vi: ", i, VF_VAL(VU1.VF[i].UL[3]), VF_VAL(VU1.VF[i].UL[2]),
-			VF_VAL(VU1.VF[i].UL[1]), VF_VAL(VU1.VF[i].UL[0]));
+		__Log("v%d: %x %x %x %x, vi: ", i, VF_VAL(VU1.VF[i].UL[3]), VF_VAL(VU1.VF[i].UL[2]), VF_VAL(VU1.VF[i].UL[1]), VF_VAL(VU1.VF[i].UL[0]));
 		if( i == REG_Q || i == REG_P ) __Log("%f\n", VU1.VI[i].F);
 		//else __Log("%x\n", VU1.VI[i].UL);
-		else __Log("%x\n", (i==REG_STATUS_FLAG||i==REG_MAC_FLAG)?0:VU1.VI[i].UL);
+		else __Log("%x\n", (i==REG_STATUS_FLAG||i==REG_MAC_FLAG||i==REG_CLIP_FLAG)?0:VU1.VI[i].UL);
 	}
 	__Log("vfACC: %f %f %f %f\n", VU1.ACC.F[3], VU1.ACC.F[2], VU1.ACC.F[1], VU1.ACC.F[0]);
 }
 
 #ifdef PCSX2_DEVBUILD
-static u32 vuprogcount = 0, vutotal = 0;
+u32 vuprogcount = 0;
 u32 vudump = 0;
 #endif
 
-extern u32 g_sseMXCSR;
+void DummyExecuteVU1Block(void)
+{
+	VU0.VI[ REG_VPU_STAT ].UL &= ~0x100;
+}
+
 void recExecuteVU1Block(void)
 {
-/*#ifdef _DEBUG
-	int i;
-	__asm stmxcsr i
-	assert( g_sseMXCSR == (i&~0x3f) );
-#endif*/
+#ifdef _DEBUG
+	vuprogcount++;
+
+	if( vudump & 8 ) {
+		__Log("start vu1: %x %x\n", VU1.VI[ REG_TPC ].UL, vuprogcount);
+	}
+#endif
 
 	if (CHECK_VU1REC)
 	{
@@ -180,15 +190,33 @@ void recExecuteVU1Block(void)
 
 		assert( (VU1.VI[ REG_TPC ].UL&7) == 0 );
 
+		//__Log("prog: %x %x %x\n", vuprogcount, *(int*)0x1883a740, *(int*)0x18fe5fe0);
+		//for(i = 1; i < 32; ++i) __Log("vf%d: %x %x %x %x, vi: %x\n", i, VU0.VF[i].UL[3], VU0.VF[i].UL[2], VU0.VF[i].UL[1], VU0.VF[i].UL[0], VU0.VI[i].UL);
+
+		//if( VU1.VI[ REG_TPC ].UL == 0x670 ) {
+//		__Log("VU: %x %x\n", VU1.VI[ REG_TPC ].UL, vuprogcount);
+//		iDumpVU1Registers();
+//		vudump |= 8;
+
+		// while loop needed since not always will return finished
+		do {
+			SuperVUExecuteProgram(VU1.VI[ REG_TPC ].UL, 1);
+		}
+		while( VU0.VI[ REG_VPU_STAT ].UL&0x100 );
+
+//		__Log("eVU: %x\n", VU1.VI[ REG_TPC ].UL);
+//		iDumpVU1Registers();
+	}
+	else {
 #ifdef _DEBUG
-		vuprogcount++;
+		if( (vudump&8) ) {
+			__Log("tVU: %x\n", VU1.VI[ REG_TPC ].UL);
+			iDumpVU1Registers();
+		}
 #endif
 
-		SuperVUExecuteProgram(VU1.VI[ REG_TPC ].UL, 1);
-		assert( !(VU0.VI[ REG_VPU_STAT ].UL&0x100) );
-	}
-	else { 
-		intExecuteVU1Block();
+		while(VU0.VI[ REG_VPU_STAT ].UL&0x100)
+			intExecuteVU1Block();
 	}
 }
 

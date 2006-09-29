@@ -66,6 +66,7 @@ typedef struct _BASEBLOCKEX
 #define X86TYPE_PSX 9
 #define X86TYPE_PCWRITEBACK 10
 #define X86TYPE_VUJUMP 12		// jump from random mem (g_recWriteback)
+#define X86TYPE_VITEMP 13
 
 #define X86TYPE_VU1 0x80
 

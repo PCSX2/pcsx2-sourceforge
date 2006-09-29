@@ -65,13 +65,21 @@ BOOL CALLBACK CpuDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			SetDlgItemText(hW, IDC_FEATURESINPUT, features);
 
 			CheckDlgButton(hW, IDC_CPU_EEREC, !!CHECK_EEREC);
+
+//#ifdef PCSX2_DEVBUILD
 			CheckDlgButton(hW, IDC_CPU_VU0REC, !!CHECK_VU0REC);
 			CheckDlgButton(hW, IDC_CPU_VU1REC, !!CHECK_VU1REC);
+//#else
+			// don't show
+			/*ShowWindow(GetDlgItem(hW, IDC_CPU_VUGROUP), SW_HIDE);
+			ShowWindow(GetDlgItem(hW, IDC_CPU_VU0REC), SW_HIDE);
+			ShowWindow(GetDlgItem(hW, IDC_CPU_VU1REC), SW_HIDE);*/
+//#endif
 
 			CheckDlgButton(hW, IDC_CPU_GSMULTI, !!CHECK_MULTIGS);
 			CheckDlgButton(hW, IDC_CPU_MULTI, !!CHECK_DUALCORE);
-			CheckDlgButton(hW, IDC_CPU_FRAMELIMIT, !!CHECK_FRAMELIMIT);
-			CheckDlgButton(hW, IDC_CPU_FORCEABS, !!CHECK_FORCEABS);
+
+			CheckRadioButton(hW,IDC_CPU_FL_NORMAL, IDC_CPU_FL_NORMAL+3, IDC_CPU_FL_NORMAL+(CHECK_FRAMELIMIT>>10));
 			
 			return TRUE;
 
@@ -89,13 +97,22 @@ BOOL CALLBACK CpuDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					newopts = 0;
 
 					if( SendDlgItemMessage(hW,IDC_CPU_EEREC,BM_GETCHECK,0,0) ) newopts |= PCSX2_EEREC;
+
+#ifdef PCSX2_DEVBUILD
 					if( SendDlgItemMessage(hW,IDC_CPU_VU0REC,BM_GETCHECK,0,0) ) newopts |= PCSX2_VU0REC;
 					if( SendDlgItemMessage(hW,IDC_CPU_VU1REC,BM_GETCHECK,0,0) ) newopts |= PCSX2_VU1REC;
+#else
+					newopts |= PCSX2_VU0REC|PCSX2_VU1REC;
+#endif
 
 					if( SendDlgItemMessage(hW,IDC_CPU_GSMULTI,BM_GETCHECK,0,0) ) newopts |= PCSX2_GSMULTITHREAD;
 					if( SendDlgItemMessage(hW,IDC_CPU_MULTI,BM_GETCHECK,0,0) ) newopts |= PCSX2_DUALCORE;
 					if( SendDlgItemMessage(hW,IDC_CPU_FRAMELIMIT,BM_GETCHECK,0,0) ) newopts |= PCSX2_FRAMELIMIT;
-					if( SendDlgItemMessage(hW,IDC_CPU_FORCEABS,BM_GETCHECK,0,0) ) newopts |= PCSX2_FORCEABS;
+
+					if( SendDlgItemMessage(hW,IDC_CPU_FL_NORMAL,BM_GETCHECK,0,0) ) newopts |= PCSX2_FRAMELIMIT_NORMAL;
+					else if( SendDlgItemMessage(hW,IDC_CPU_FL_LIMIT,BM_GETCHECK,0,0) ) newopts |= PCSX2_FRAMELIMIT_LIMIT;
+					else if( SendDlgItemMessage(hW,IDC_CPU_FL_SKIP,BM_GETCHECK,0,0) ) newopts |= PCSX2_FRAMELIMIT_SKIP;
+					else if( SendDlgItemMessage(hW,IDC_CPU_FL_SKIPVU,BM_GETCHECK,0,0) ) newopts |= PCSX2_FRAMELIMIT_VUSKIP;
 
 					if( (Config.Options&PCSX2_GSMULTITHREAD) ^ (newopts&PCSX2_GSMULTITHREAD) ) {
 						Config.Options = newopts;

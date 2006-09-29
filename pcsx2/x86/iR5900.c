@@ -1292,6 +1292,9 @@ int eeRecompileCodeXMM(int xmminfo)
 #define _Fs_ _Rd_
 #define _Fd_ _Sa_
 
+#define PROCESS_EE_SETMODES_XMM(mmreg) ((xmmregs[mmreg].mode&MODE_WRITE)?PROCESS_EE_MODEWRITES:0)
+#define PROCESS_EE_SETMODET_XMM(mmreg) ((xmmregs[mmreg].mode&MODE_WRITE)?PROCESS_EE_MODEWRITET:0)
+
 // rd = rs op rt
 void eeFPURecompileCode(R5900FNPTR_INFO xmmcode, R5900FNPTR_INFO fpucode, int xmminfo)
 {
@@ -1316,8 +1319,8 @@ void eeFPURecompileCode(R5900FNPTR_INFO xmmcode, R5900FNPTR_INFO fpucode, int xm
 			else mmregs = _allocFPtoXMMreg(-1, _Fs_, MODE_READ);
 		}
 
-		if( mmregs >= 0 ) info |= PROCESS_EE_SETMODES(mmregs);
-		if( mmregt >= 0 ) info |= PROCESS_EE_SETMODET(mmregt);
+		if( mmregs >= 0 ) info |= PROCESS_EE_SETMODES_XMM(mmregs);
+		if( mmregt >= 0 ) info |= PROCESS_EE_SETMODET_XMM(mmregt);
 
 		if( xmminfo & XMMINFO_READD ) {
 			assert( xmminfo & XMMINFO_WRITED );
@@ -1339,7 +1342,10 @@ void eeFPURecompileCode(R5900FNPTR_INFO xmmcode, R5900FNPTR_INFO fpucode, int xm
 
 			if( mmregacc < 0 ) {
 				if( (xmminfo&XMMINFO_READT) && mmregt >= 0 && (FPUINST_LASTUSE(_Ft_) || !FPUINST_ISLIVE(_Ft_)) ) {
-					if( FPUINST_ISLIVE(_Ft_) ) _freeXMMreg(mmregt);
+					if( FPUINST_ISLIVE(_Ft_) ) {
+						_freeXMMreg(mmregt);
+						info &= ~PROCESS_EE_MODEWRITET;
+					}
 					_deleteMMXreg(MMX_FPU+XMMFPU_ACC, 2);
 					xmmregs[mmregt].inuse = 1;
 					xmmregs[mmregt].reg = 0;
@@ -1348,7 +1354,10 @@ void eeFPURecompileCode(R5900FNPTR_INFO xmmcode, R5900FNPTR_INFO fpucode, int xm
 					mmregacc = mmregt;
 				}
 				else if( (xmminfo&XMMINFO_READS) && mmregs >= 0 && (FPUINST_LASTUSE(_Fs_) || !FPUINST_ISLIVE(_Fs_)) ) {
-					if( FPUINST_ISLIVE(_Fs_) ) _freeXMMreg(mmregs);
+					if( FPUINST_ISLIVE(_Fs_) ) {
+						_freeXMMreg(mmregs);
+						info &= ~PROCESS_EE_MODEWRITES;
+					}
 					_deleteMMXreg(MMX_FPU+XMMFPU_ACC, 2);
 					xmmregs[mmregs].inuse = 1;
 					xmmregs[mmregs].reg = 0;
@@ -1369,7 +1378,10 @@ void eeFPURecompileCode(R5900FNPTR_INFO xmmcode, R5900FNPTR_INFO fpucode, int xm
 
 			if( mmregd < 0 ) {
 				if( (xmminfo&XMMINFO_READT) && mmregt >= 0 && (FPUINST_LASTUSE(_Ft_) || !FPUINST_ISLIVE(_Ft_)) ) {
-					if( FPUINST_ISLIVE(_Ft_) ) _freeXMMreg(mmregt);
+					if( FPUINST_ISLIVE(_Ft_) ) {
+						_freeXMMreg(mmregt);
+						info &= ~PROCESS_EE_MODEWRITET;
+					}
 					_deleteMMXreg(MMX_FPU+_Fd_, 2);
 					xmmregs[mmregt].inuse = 1;
 					xmmregs[mmregt].reg = _Fd_;
@@ -1377,7 +1389,10 @@ void eeFPURecompileCode(R5900FNPTR_INFO xmmcode, R5900FNPTR_INFO fpucode, int xm
 					mmregd = mmregt;
 				}
 				else if( (xmminfo&XMMINFO_READS) && mmregs >= 0 && (FPUINST_LASTUSE(_Fs_) || !FPUINST_ISLIVE(_Fs_)) ) {
-					if( FPUINST_ISLIVE(_Fs_) ) _freeXMMreg(mmregs);
+					if( FPUINST_ISLIVE(_Fs_) ) {
+						_freeXMMreg(mmregs);
+						info &= ~PROCESS_EE_MODEWRITES;
+					}
 					_deleteMMXreg(MMX_FPU+_Fd_, 2);
 					xmmregs[mmregs].inuse = 1;
 					xmmregs[mmregs].reg = _Fd_;
@@ -1385,7 +1400,8 @@ void eeFPURecompileCode(R5900FNPTR_INFO xmmcode, R5900FNPTR_INFO fpucode, int xm
 					mmregd = mmregs;
 				}
 				else if( (xmminfo&XMMINFO_READACC) && mmregacc >= 0 && (FPUINST_LASTUSE(XMMFPU_ACC) || !FPUINST_ISLIVE(XMMFPU_ACC)) ) {
-					if( FPUINST_ISLIVE(XMMFPU_ACC) ) _freeXMMreg(mmregacc);
+					if( FPUINST_ISLIVE(XMMFPU_ACC) )
+						_freeXMMreg(mmregacc);
 					_deleteMMXreg(MMX_FPU+_Fd_, 2);
 					xmmregs[mmregacc].inuse = 1;
 					xmmregs[mmregacc].reg = _Fd_;
@@ -1444,6 +1460,8 @@ u32 g_sseVUMXCSR = 0xff80;
 void SetCPUState()
 {
 	// SSE STATE //
+	// WARNING: do not touch unless you know what you are doing
+
 	if( cpucaps.hasStreamingSIMDExtensions ) {
 		// do NOT set Denormals-Are-Zero flag (charlie and chocfac messes up)
 		g_sseMXCSR = 0x9f80; // changing the rounding mode to 0x2000 (near) kills grandia III!
@@ -1530,7 +1548,7 @@ int recInit( void )
 	SysPrintf( "\tCPU vender name =  %s\n", cpuinfo.x86ID );
 	SysPrintf( "\tFamilyID	=  %x\n", cpuinfo.x86StepID );
 	SysPrintf( "\tx86Family =  %s\n", cpuinfo.x86Fam );
-	SysPrintf( "\tCPU speed =  %d MHZ\n", cpuinfo.cpuspeed);
+	SysPrintf( "\tCPU speed =  %d.%03d Ghz\n", cpuinfo.cpuspeed / 1000, cpuinfo.cpuspeed%1000);
 	SysPrintf( "\tx86PType  =  %s\n", cpuinfo.x86Type );
 	SysPrintf( "\tx86Flags  =  %8.8x\n", cpuinfo.x86Flags );
 	SysPrintf( "\tx86EFlags =  %8.8x\n", cpuinfo.x86EFlags );
@@ -1674,6 +1692,7 @@ void recStep( void ) {
 void recExecute( void ) {
 	//SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
 	//SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);//ABOVE_NORMAL_PRIORITY_CLASS);
+	//SetThreadAffinityMask(GetCurrentThread(), 0);
 	if( Config.Options & PCSX2_EEREC ) Config.Options |= PCSX2_COP2REC;
 
 	for (;;)
@@ -2484,6 +2503,9 @@ void recompileNextInstruction(int delayslot)
 	_clearNeededX86regs();
 	_clearNeededMMXregs();
 	_clearNeededXMMregs();
+
+//	_freeXMMregs();
+//	_freeMMXregs();
 }
 
 __declspec(naked) void iDummyBlock()
@@ -2509,6 +2531,7 @@ RepDummy:
 ////////////////////////////////////////////////////
 #include "r3000a.h"
 #include "PsxCounters.h"
+#include "psxmem.h"
 extern tIPU_BP g_BP;
 
 extern u32 psxdump;
@@ -2520,9 +2543,10 @@ void iDumpRegisters(u32 startpc, u32 temp)
 	int i;
 	char* pstr = temp ? "t" : "";
 	const u32 dmacs[] = {0x8000, 0x9000, 0xa000, 0xb000, 0xb400, 0xc000, 0xc400, 0xc800, 0xd000, 0xd400 };
+	extern char *disRNameGPR[];
 	
-	__Log("%sreg: %x %x\n", pstr, startpc, cpuRegs.interrupt);
-	for(i = 1; i < 32; ++i) __Log("%s%d: %x_%x_%x_%x\n", pstr, i, cpuRegs.GPR.r[i].UL[3], cpuRegs.GPR.r[i].UL[2], cpuRegs.GPR.r[i].UL[1], cpuRegs.GPR.r[i].UL[0]);
+	__Log("%sreg: %x %x %x %x %x\n", pstr, startpc, cpuRegs.interrupt, *(int*)(psxM+0x6e832), *(int*)(PS2MEM_BASE+0x18ef00), *(int*)(PS2MEM_BASE+0x131ed82));
+	for(i = 1; i < 32; ++i) __Log("%s: %x_%x_%x_%x\n", disRNameGPR[i], cpuRegs.GPR.r[i].UL[3], cpuRegs.GPR.r[i].UL[2], cpuRegs.GPR.r[i].UL[1], cpuRegs.GPR.r[i].UL[0]);
 	//for(i = 0; i < 32; ++i) __Log("%sf%d: %f %x\n", pstr, i, fpuRegs.fpr[i].f, fpuRegs.fprc[i]);
 	//for(i = 1; i < 32; ++i) __Log("%svf%d: %f %f %f %f, vi: %x\n", pstr, i, VU0.VF[i].F[3], VU0.VF[i].F[2], VU0.VF[i].F[1], VU0.VF[i].F[0], VU0.VI[i].UL);
 	for(i = 0; i < 32; ++i) __Log("%sf%d: %x %x\n", pstr, i, fpuRegs.fpr[i].UL, fpuRegs.fprc[i]);
@@ -2541,6 +2565,7 @@ void iDumpRegisters(u32 startpc, u32 temp)
 			counters[i].count, counters[i].mode, counters[i].target, counters[i].hold, counters[i].rate,
 			counters[i].interrupt, counters[i].Cycle, counters[i].sCycle, counters[i].CycleT, counters[i].sCycleT);
 	}
+	__Log("VIF0_STAT = %x, VIF1_STAT = %x\n", psHu32(0x3800), psHu32(0x3C00));
 	__Log("ipu %x %x %x %x; bp: %x %x %x %x\n", psHu32(0x2000), psHu32(0x2010), psHu32(0x2020), psHu32(0x2030), g_BP.BP, g_BP.bufferhasnew, g_BP.FP, g_BP.IFC);
 	__Log("gif: %x %x %x\n", psHu32(0x3000), psHu32(0x3010), psHu32(0x3020));
 	for(i = 0; i < ARRAYSIZE(dmacs); ++i) {
@@ -2600,6 +2625,10 @@ static void recRecompile( u32 startpc )
 	u32 usecop2;
 
 #ifdef _DEBUG
+//	if( cpuRegs.cycle == 0x2f67aa5 ) {
+//		dumplog |= 2;
+//	}
+
 	//dumplog |= 4;
 	if( dumplog & 4 )
 		iDumpRegisters(startpc, 0);	
@@ -2996,7 +3025,7 @@ StartRecomp:
 		}
 	}
 
-	if( (dumplog & 1) )
+	if( (dumplog & 1)  )
 		iDumpBlock(startpc, recPtr);
 #endif
 

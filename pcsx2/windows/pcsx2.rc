@@ -1086,26 +1086,6 @@ BEGIN
     LTEXT           "Enter BreakPoint Count:",IDC_STATIC,5,13,77,8
 END
 
-IDD_CPUCONF DIALOGEX 0, 0, 181, 185
-STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "CPUconfig"
-FONT 8, "MS Sans Serif", 0, 0, 0x1
-BEGIN
-    DEFPUSHBUTTON   "OK",IDOK,58,164,50,14
-    PUSHBUTTON      "Cancel",IDCANCEL,112,164,50,14
-    GROUPBOX        "Misc Options",IDC_MISCOPTIONS,5,5,155,65
-    CONTROL         "Enable Console Output",IDC_PSXOUT,"Button",
-                    BS_AUTOCHECKBOX | WS_TABSTOP,10,20,89,10
-    CONTROL         "Enable Patches",IDC_PATCH,"Button",BS_AUTOCHECKBOX | 
-                    WS_TABSTOP,10,35,88,12
-    GROUPBOX        "CPU Options",IDC_RECOPTIONS,5,70,157,65
-    COMBOBOX        IDC_THPRIORITY,90,50,63,55,CBS_DROPDOWNLIST | WS_VSCROLL | 
-                    WS_TABSTOP
-    LTEXT           "Process Priority",IDC_STATIC,20,50,55,12,SS_CENTERIMAGE
-    COMBOBOX        IDC_CPUOPTION,32,89,106,55,CBS_DROPDOWNLIST | WS_VSCROLL | 
-                    WS_TABSTOP
-END
-
 IDD_ADVANCED DIALOGEX 0, 0, 177, 69
 STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "Advanced"
@@ -1151,17 +1131,6 @@ BEGIN
         RIGHTMARGIN, 175
         TOPMARGIN, 7
         BOTTOMMARGIN, 54
-    END
-
-    IDD_CPUCONF, DIALOG
-    BEGIN
-        LEFTMARGIN, 5
-        RIGHTMARGIN, 174
-        VERTGUIDE, 162
-        TOPMARGIN, 7
-        BOTTOMMARGIN, 178
-        HORZGUIDE, 34
-        HORZGUIDE, 46
     END
 
     IDD_ADVANCED, DIALOG
@@ -1284,6 +1253,8 @@ BEGIN
                     WS_TABSTOP,75,140,53,10
     CONTROL         "Counters log",IDC_IOPCNTLOG,"Button",BS_AUTOCHECKBOX | 
                     WS_TABSTOP,165,118,55,10
+    CONTROL         "EE Counters log",IDC_EECNTLOG,"Button",BS_AUTOCHECKBOX | 
+                    WS_TABSTOP,165,139,73,11
 END
 
 IDD_IOP_DEBUG DIALOGEX 0, 0, 358, 107
@@ -1297,44 +1268,50 @@ BEGIN
     SCROLLBAR       IDC_DEBUG_SCROLL_IOP,340,7,11,93,SBS_VERT
 END
 
-IDD_CPUDLG DIALOGEX 0, 0, 253, 289
+IDD_CPUDLG DIALOGEX 0, 0, 222, 356
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | 
     WS_SYSMENU
-CAPTION "Dialog"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    DEFPUSHBUTTON   "OK",IDOK,7,268,50,14
-    PUSHBUTTON      "Cancel",IDCANCEL,82,268,50,14,NOT WS_TABSTOP
-    LTEXT           "CPU vendor ",IDC_VENDORNAME,12,24,54,12
-    GROUPBOX        "",IDC_STATIC,7,12,239,90
-    LTEXT           "Family",IDC_FAMILYNAME,12,42,54,12
-    LTEXT           "Cpu Speed",IDC_CPUSPEEDNAME,12,60,54,12
-    LTEXT           "Features",IDC_FEATURESNAME,12,78,54,12
-    LTEXT           "",IDC_VENDORINPUT,72,24,162,12
-    LTEXT           "",IDC_FAMILYINPUT,72,42,162,12
-    LTEXT           "",IDC_FEATURESINPUT,71,82,162,12
-    LTEXT           "",IDC_CPUSPEEDINPUT,72,60,162,12
-    CONTROL         "Dual Core Mode (DC) - only valid with MTGS",
-                    IDC_CPU_MULTI,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,
-                    232,214,13
-    CONTROL         "Multi threaded GS mode (MTGS)\n    (faster on dual core/HT procs, requires pcsx2 restart)",
-                    IDC_CPU_GSMULTI,"Button",BS_AUTOCHECKBOX | BS_MULTILINE | 
-                    WS_TABSTOP,7,210,208,18
-    CONTROL         "Frame Limit (FL) - limits speed to normal speeds",
-                    IDC_CPU_FRAMELIMIT,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,
-                    7,248,188,13
-    CONTROL         "VU1rec - enable recompiler for VU1 unit",IDC_CPU_VU1REC,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,154,142,18
-    CONTROL         "VU0rec - enable recompiler for VU0 unit",IDC_CPU_VU0REC,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,170,193,18
     CONTROL         "EERec -  EE/IOP recompiler (need MMX/SSE)",
                     IDC_CPU_EEREC,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,
                     110,161,18
-    CONTROL         "Safe Floating Point (higher compat, removes spiky polys)",
-                    IDC_CPU_FORCEABS,"Button",BS_AUTOCHECKBOX | WS_DISABLED | 
-                    WS_TABSTOP,7,125,239,18
+    CONTROL         "VU0rec - enable recompiler for VU0 unit",IDC_CPU_VU0REC,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,141,154,18
+    CONTROL         "VU1rec - enable recompiler for VU1 unit",IDC_CPU_VU1REC,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,15,155,142,18
+    CONTROL         "Multi threaded GS mode (MTGS)\n    (faster on dual core/HT procs, requires pcsx2 restart)",
+                    IDC_CPU_GSMULTI,"Button",BS_AUTOCHECKBOX | BS_MULTILINE | 
+                    WS_TABSTOP,7,185,208,18
+    CONTROL         "Dual Core Mode (DC) - Much faster but only valid with MTGS",
+                    IDC_CPU_MULTI,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,
+                    207,208,13
+    CONTROL         "Normal - All frames are rendered as fast as possible.",
+                    IDC_CPU_FL_NORMAL,"Button",BS_AUTORADIOBUTTON | WS_GROUP,
+                    15,241,193,10
+    CONTROL         "Limit - Force frames to normal speeds if too fast.",
+                    IDC_CPU_FL_LIMIT,"Button",BS_AUTORADIOBUTTON,15,254,180,
+                    10
+    CONTROL         "Frame Skip - In order to achieve normal speeds,\n      some frames are skipped (fast).\n      Fps displayed counts skipped frames too.",
+                    IDC_CPU_FL_SKIP,"Button",BS_AUTORADIOBUTTON | 
+                    BS_MULTILINE,15,268,187,28
+    CONTROL         "VU Skip - Same as 'Frame Skip', but tries to skip more.\n       Artifcats might be present, but will be faster.",
+                    IDC_CPU_FL_SKIPVU,"Button",BS_AUTORADIOBUTTON | 
+                    BS_MULTILINE,15,300,187,16
+    DEFPUSHBUTTON   "OK",IDOK,7,335,61,14
+    PUSHBUTTON      "Cancel",IDCANCEL,79,335,50,14,NOT WS_TABSTOP
+    LTEXT           "CPU vendor ",IDC_VENDORNAME,12,24,42,12
+    GROUPBOX        "",IDC_STATIC,7,12,207,90
+    LTEXT           "Family",IDC_FAMILYNAME,12,42,36,12
+    LTEXT           "Cpu Speed",IDC_CPUSPEEDNAME,12,60,38,12
+    LTEXT           "",IDC_VENDORINPUT,54,24,154,12
+    LTEXT           "",IDC_FAMILYINPUT,54,42,154,12
+    LTEXT           "",IDC_FEATURESINPUT,54,82,154,12
+    LTEXT           "",IDC_CPUSPEEDINPUT,54,60,157,12
     GROUPBOX        "VU Recompilers - All options are set by default",
-                    IDC_STATIC,7,144,189,46
+                    IDC_CPU_VUGROUP,7,131,207,46
+    GROUPBOX        "Frame Limiting",IDC_STATIC,7,228,207,94
+    LTEXT           "Features",IDC_FEATURESNAME,12,78,34,12
 END
 
 
@@ -1365,11 +1342,9 @@ BEGIN
     IDD_CPUDLG, DIALOG
     BEGIN
         LEFTMARGIN, 7
-        RIGHTMARGIN, 246
-        VERTGUIDE, 39
-        VERTGUIDE, 59
+        RIGHTMARGIN, 215
         TOPMARGIN, 7
-        BOTTOMMARGIN, 282
+        BOTTOMMARGIN, 349
     END
 END
 #endif    // APSTUDIO_INVOKED

@@ -82,6 +82,7 @@ u32 varLog;
 #define CDR_LOG  if (varLog & 0x08000000) {logProtocol=8; logSource='I';} if (varLog & 0x08000000) __Log("%8.8lx %8.8lx: ", psxRegs.pc, psxRegs.cycle); if (varLog & 0x08000000) __Log
 #define GPU_LOG  if (varLog & 0x10000000) {logProtocol=4; logSource='I';} if (varLog & 0x10000000) __Log
 #define PSXCNT_LOG  if (varLog & 0x20000000) {logProtocol=0; logSource='I';} if (varLog & 0x20000000) __Log("%8.8lx %8.8lx: ", psxRegs.pc, psxRegs.cycle); if (varLog & 0x20000000) __Log
+#define EECNT_LOG  if (varLog & 0x40000000) {logProtocol=0; logSource='I';} if (varLog & 0x40000000) __Log("%8.8lx %8.8lx: ", cpuRegs.pc, cpuRegs.cycle); if (varLog & 0x40000000) __Log
 
 #if defined (CPU_LOG)   || defined(MEM_LOG)   || defined(HW_LOG)     || defined(DMA_LOG)  || \
 	defined(BIOS_LOG)   || defined(ELF_LOG)   || defined(FPU_LOG)    || defined(MMI_LOG)  || \
@@ -89,7 +90,7 @@ u32 varLog;
 	defined(GIF_LOG)    || defined(SIF_LOG)   || defined(IPU_LOG)    || defined(VUM_log)  || \
 	defined(PSXCPU_LOG) || defined(PSXMEM_LOG)|| defined(IOPBIOS_LOG)|| defined(IOPHW_LOG)|| \
 	defined(PAD_LOG)    || defined(GTE_LOG)   || defined(CDR_LOG)    || defined(GPU_LOG)  || \
-	defined(MEMCARDS_LOG)|| defined(PSXCNT_LOG)
+	defined(MEMCARDS_LOG)|| defined(PSXCNT_LOG) || defined(EECNT_LOG)
 #define EMU_LOG __Log
 #endif
 
@@ -127,6 +128,7 @@ u32 varLog;
 #define CDR_LOG  0&&
 #define GPU_LOG  0&&
 #define PSXCNT_LOG 0&&
+#define EECNT_LOG 0&&
 
 #define EMU_LOG 0&&
 

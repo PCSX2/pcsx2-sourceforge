@@ -1738,10 +1738,12 @@ void _freeXMMregs()
 void FreezeXMMRegs_(int save)
 {
 	assert( g_EEFreezeRegs );
-	if( !cpucaps.hasStreamingSIMDExtensions ) return;
 
 	if( save ) {
 		if( g_globalXMMSaved )
+			return;
+		// only necessary for nonsse CPUs (very rare)
+		if( !cpucaps.hasStreamingSIMDExtensions )
 			return;
 		g_globalXMMSaved = 1;
 

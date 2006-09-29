@@ -32,7 +32,7 @@ extern void (* mpeg2_idct_copy) (s16 * block, u8* dest, int stride);
 extern void (* mpeg2_idct_add) (int last, s16 * block,
 				/*u8*/s16* dest, int stride);
 
-extern int IPU0dma(const void* pMem, int size);
+extern int FIFOfrom_write(u32* value, int size);
 
 /* JayteeMaster: remove static attribute */
 /*static */int non_linear_quantizer_scale [] = {
@@ -931,6 +931,7 @@ void mpeg2sliceIDEC(void* pdone)
 			const MBAtab * mba;
 			
 			NEEDBITS (decoder->bitstream_buf, decoder->bitstream_bits, decoder->bitstream_ptr);
+			
 			decoder->macroblock_modes = get_macroblock_modes (decoder);
 			
 			/* maybe integrate MACROBLOCK_QUANT test into get_macroblock_modes ? */
@@ -948,47 +949,53 @@ void mpeg2sliceIDEC(void* pdone)
 			if (decoder->macroblock_modes & MACROBLOCK_INTRA) {
 				decoder->coded_block_pattern = 0x3F;//all 6 blocks
 
+				memset(decoder->mb8,0,sizeof(struct macroblock_8));
+				memset(decoder->rgb32,0,sizeof(struct rgb32));
+
 				slice_intra_DCT (decoder, 0, (u8*)decoder->mb8->Y, DCT_stride);
 				slice_intra_DCT (decoder, 0, (u8*)decoder->mb8->Y + 8, DCT_stride);
 				slice_intra_DCT (decoder, 0, (u8*)decoder->mb8->Y + DCT_offset, DCT_stride);
 				slice_intra_DCT (decoder, 0, (u8*)decoder->mb8->Y + DCT_offset + 8, DCT_stride);
 				slice_intra_DCT (decoder, 1, (u8*)decoder->mb8->Cb, decoder->stride>>1);
 				slice_intra_DCT (decoder, 2, (u8*)decoder->mb8->Cr, decoder->stride>>1);
-			}
-
-			// Send The MacroBlock via DmaIpuFrom
-			if (decoder->ofm==0){
-				ipu_csc(decoder->mb8, decoder->rgb32, decoder->sgn);
-
-				g_nIPU0Data = 64;
-				g_pIPU0Pointer = (u8*)decoder->rgb32;
-				while(g_nIPU0Data > 0) {
-					read = IPU0dma(g_pIPU0Pointer,g_nIPU0Data);
-					if( read == 0 )
-						co_resume();
-					else {
-						g_pIPU0Pointer += read*16;
-						g_nIPU0Data -= read;
-					}
-				}
-			}
-			else{
-				ipu_dither(decoder->mb8, decoder->rgb16, decoder->dte);
-
-				g_nIPU0Data = 32;
-				g_pIPU0Pointer = (u8*)decoder->rgb16;
-				while(g_nIPU0Data > 0) {
-					read = IPU0dma(g_pIPU0Pointer,g_nIPU0Data);
-					if( read == 0 )
-						co_resume();
-					else {
-						g_pIPU0Pointer += read*16;
-						g_nIPU0Data -= read;
-					}
-				}
- 			}
-			decoder->mbc++;
 			
+				// Send The MacroBlock via DmaIpuFrom
+				if (decoder->ofm==0){
+					ipu_csc(decoder->mb8, decoder->rgb32, decoder->sgn);
+
+					g_nIPU0Data = 64;
+					g_pIPU0Pointer = (u8*)decoder->rgb32;
+					while(g_nIPU0Data > 0) {
+						read = FIFOfrom_write((u32*)g_pIPU0Pointer,g_nIPU0Data);
+						if( read == 0 )
+							co_resume();
+						else {
+							g_pIPU0Pointer += read*16;
+							g_nIPU0Data -= read;
+						}
+					}
+				}
+				else{
+					//ipu_dither(decoder->mb8, decoder->rgb16, decoder->dte);
+					ipu_csc(decoder->mb8, decoder->rgb32, decoder->dte);
+					ipu_dither2(decoder->rgb32, decoder->rgb16, decoder->dte);
+
+					g_nIPU0Data = 32;
+					g_pIPU0Pointer = (u8*)decoder->rgb16;
+					while(g_nIPU0Data > 0) {
+						read = FIFOfrom_write((u32*)g_pIPU0Pointer,g_nIPU0Data);
+						if( read == 0 ){
+							co_resume();
+						}
+						else {
+							g_pIPU0Pointer += read*16;
+							g_nIPU0Data -= read;
+						}
+					}
+ 				}
+			decoder->mbc++;
+			}
+
 			NEEDBITS (decoder->bitstream_buf, decoder->bitstream_bits, decoder->bitstream_ptr);
 
 			mba_inc = 0;
@@ -1012,7 +1019,7 @@ void mpeg2sliceIDEC(void* pdone)
 							int i;
 							ipuRegs->ctrl.SCD = 1;
 							ipuRegs->ctrl.ECD=0;
-							coded_block_pattern=decoder->coded_block_pattern;
+                            coded_block_pattern=decoder->coded_block_pattern;
 
 							for (i=0; i<2; i++) {
 								u8 byte;
@@ -1022,12 +1029,20 @@ void mpeg2sliceIDEC(void* pdone)
 								g_BP.BP+= 8;
 							}
 							g_BP.BP-=32;//bitstream_init takes 32 bits
+							if((int)g_BP.BP < 0) {
+								g_BP.BP = 128 + (int)g_BP.BP;
 
-							while(!FillInternalBuffer(&g_BP.BP,1))
-								co_resume();
+								// After BP is positioned correctly, we need to reload the old buffer
+								// so that reading may continue properly
+								ReorderBitstream();
+							}
+
 							while(!getBits32((u8*)&ipuRegs->top, 0))
+							{
 								co_resume();
+							}
 							ipuRegs->top = BigEndian(ipuRegs->top);
+									
 							*(int*)pdone = 1;
 							co_exit();
 						}
@@ -1040,7 +1055,7 @@ void mpeg2sliceIDEC(void* pdone)
 				decoder->dc_dct_pred[0] = decoder->dc_dct_pred[1] =
 				decoder->dc_dct_pred[2] = 128 << decoder->intra_dc_precision;
 				do {
-					decoder->mbc++;
+                    decoder->mbc++;
 				} while (--mba_inc);
 			}
 		}
@@ -1051,12 +1066,20 @@ void mpeg2sliceIDEC(void* pdone)
 	coded_block_pattern=decoder->coded_block_pattern;
 
 	g_BP.BP-=32;//bitstream_init takes 32 bits
+	if((int)g_BP.BP < 0) {
+		g_BP.BP = 128 + (int)g_BP.BP;
 
-	while(!FillInternalBuffer(&g_BP.BP,1))
-		co_resume();
+		// After BP is positioned correctly, we need to reload the old buffer
+		// so that reading may continue properly
+		ReorderBitstream();
+	}
+
 	while(!getBits32((u8*)&ipuRegs->top, 0))
+	{
 		co_resume();
+	}
 	ipuRegs->top = BigEndian(ipuRegs->top);
+
 	*(int*)pdone = 1;
 	co_exit();
 }
@@ -1072,6 +1095,9 @@ void mpeg2_slice(void* pdone)
 
 	*(int*)pdone = 0;
 	ipuRegs->ctrl.ECD = 0;
+
+	memset(decoder->mb8,0,sizeof(struct macroblock_8));
+	memset(decoder->mb16,0,sizeof(struct macroblock_16));
 
 	bitstream_init (decoder);
 	
@@ -1131,10 +1157,11 @@ void mpeg2_slice(void* pdone)
 		ReorderBitstream();
 	}
 
+	decoder->mbc = 1;
 	g_nIPU0Data = 48;
 	g_pIPU0Pointer = (u8*)decoder->mb16;
 	while(g_nIPU0Data > 0) {
-		size = IPU0dma(g_pIPU0Pointer,g_nIPU0Data);
+		size = FIFOfrom_write((u32*)g_pIPU0Pointer,g_nIPU0Data);
 		if( size == 0 )
 			co_resume();
 		else {
@@ -1150,7 +1177,9 @@ void mpeg2_slice(void* pdone)
 	if (bit8==0) ipuRegs->ctrl.SCD = 1;
 	
 	while(!getBits32((u8*)&ipuRegs->top, 0))
+	{
 		co_resume();
+	}
 	ipuRegs->top = BigEndian(ipuRegs->top);
 
 	*(int*)pdone = 1;

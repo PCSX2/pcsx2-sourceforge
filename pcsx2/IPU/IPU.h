@@ -158,7 +158,7 @@ typedef struct {
 #define SCE_IPU_PACK	0x8
 #define SCE_IPU_SETTH	0x9
 
-typedef struct _IPUregisters {
+typedef struct {
   tIPU_CMD  cmd;
   u32 dummy0[2];
   tIPU_CTRL ctrl;
@@ -168,14 +168,9 @@ typedef struct _IPUregisters {
   u32		top;
   u32		topbusy;
   u32 dummy3[2];
-} IPUregisters;
+} IPUregisters, *PIPUregisters;
 
-#ifdef WIN32_VIRTUAL_MEM
 #define ipuRegs ((IPUregisters*)(PS2MEM_HW+0x2000))
-#else
-extern IPUregisters g_ipuRegsReal;
-#define ipuRegs (&g_ipuRegsReal)
-#endif
 
 void dmaIPU0();
 void dmaIPU1();

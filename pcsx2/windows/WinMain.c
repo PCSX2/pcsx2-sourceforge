@@ -49,6 +49,8 @@
 
 static int efile;
 char filename[256];
+extern char strgametitle[256];
+extern int g_SaveGSStream;
 
 static int AccBreak = 0;
 int needReset = 1;
@@ -357,10 +359,10 @@ static int ParseCommandLine(char* pcmd)
 			token = strtok(NULL, pdelim);
 			g_TestRun.pspudll = token;
 		}
-		/*else if( stricmp(token, "-loadgs") == 0 ) {
+		else if( stricmp(token, "-loadgs") == 0 ) {
 			token = strtok(NULL, pdelim);
 			g_pRunGSState = token;
-		}*/
+		}
 		else {
 			printf("invalid args\n");
 			return -1;
@@ -472,13 +474,26 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	}
 #endif
 
-	CreateMainWindow(nCmdShow);
-
-	/*if( g_pRunGSState ) {
+#ifdef PCSX2_DEVBUILD
+	if( g_pRunGSState ) {
 		LoadGSState(g_pRunGSState);
 		SysClose();
 		return 0;
-	}*/
+	}
+#endif
+
+	CreateMainWindow(nCmdShow);
+
+	// output the help commands
+	SysPrintf("\tF1 - save state\n");
+	SysPrintf("\t(Shift +) F2 - cycle states\n");
+	SysPrintf("\tF3 - load state\n");
+
+#ifdef PCSX2_DEVBUILD
+	SysPrintf("\tF10 - dump performance counters\n");
+	SysPrintf("\tF11 - save GS state\n");
+	SysPrintf("\tF12 - dump hardware registers\n");
+#endif
 
 	RunGui();
 
@@ -505,6 +520,8 @@ void RunGui() {
 #define NUM_STATES 10
 int StatesC = 0;
 extern void iDumpRegisters(u32 startpc, u32 temp);
+extern void recExecuteVU1Block(void);
+extern void DummyExecuteVU1Block(void);
 
 void CALLBACK KeyEvent(keyEvent* ev) {
 	char Text[256];
@@ -534,6 +551,31 @@ void CALLBACK KeyEvent(keyEvent* ev) {
 			sprintf (Text, "sstates/%8.8X.%3.3d", ElfCRC, StatesC);
 			ret = LoadState(Text);
 			break;	
+
+		case VK_F4:
+			// cycle
+			Config.Options = (Config.Options&~PCSX2_FRAMELIMIT_MASK)|(((Config.Options&PCSX2_FRAMELIMIT_MASK)+PCSX2_FRAMELIMIT_LIMIT)&PCSX2_FRAMELIMIT_MASK);
+			switch(CHECK_FRAMELIMIT) {
+				case PCSX2_FRAMELIMIT_NORMAL:
+					if( GSsetFrameSkip != NULL ) GSsetFrameSkip(0);
+					Cpu->ExecuteVU1Block = recExecuteVU1Block;
+					SysPrintf("Frame Limit Mode Changed to: Normal\n");
+					break;
+				case PCSX2_FRAMELIMIT_LIMIT:
+					if( GSsetFrameSkip != NULL ) GSsetFrameSkip(0);
+					Cpu->ExecuteVU1Block = recExecuteVU1Block;
+					SysPrintf("Frame Limit Mode Changed to: Limit\n");
+					break;
+				case PCSX2_FRAMELIMIT_SKIP:
+					Cpu->ExecuteVU1Block = recExecuteVU1Block;
+					SysPrintf("Frame Limit Mode Changed to: Frame Skip\n");
+					break;
+				case PCSX2_FRAMELIMIT_VUSKIP:
+					SysPrintf("Frame Limit Mode Changed to: VU Skip\n");
+					break;
+			}
+			SaveConfig();
+			break;
 		// note: VK_F5-VK_F7 are reserved for GS
 		case VK_F8:
 			GSmakeSnapshot("snap\\");
@@ -541,11 +583,6 @@ void CALLBACK KeyEvent(keyEvent* ev) {
 
 #ifdef PCSX2_DEVBUILD
 		case VK_F10:
-			sprintf(Text, "sstates/gs%8.8X.%3.3d", ElfCRC, StatesC);
-			//SaveGSState(Text);
-			break;
-
-		case VK_F11:
 		{
 			int num;
 			FILE* f;
@@ -564,6 +601,21 @@ void CALLBACK KeyEvent(keyEvent* ev) {
 			SysPrintf("perflog.txt written\n");
 			break;
 		}
+		
+		case VK_F11:
+			if( CHECK_MULTIGS ) {
+				SysPrintf("Cannot make gsstates in MTGS mode\n");
+			}
+			else {
+				if( strgametitle[0] != 0 )
+					sprintf(Text, "sstates/gs_%s.%3.3d", strgametitle, StatesC);
+				else
+					sprintf(Text, "sstates/gs%8.8X.%3.3d", ElfCRC, StatesC);
+
+				SaveGSState(Text);
+			}
+			break;
+
 		case VK_F12:
 			iDumpRegisters(cpuRegs.pc, 0);
 			SysPrintf("hardware registers dumped EE:%x, IOP:%x\n", cpuRegs.pc, psxRegs.pc);
@@ -572,11 +624,11 @@ void CALLBACK KeyEvent(keyEvent* ev) {
 
 		case VK_ESCAPE:
 #ifdef PCSX2_DEVBUILD
-//			if( g_SaveGSStream >= 3 ) {
-//				// gs state
-//				g_SaveGSStream = 4;
-//				break;
-//			}
+			if( g_SaveGSStream >= 3 ) {
+				// gs state
+				g_SaveGSStream = 4;
+				break;
+			}
 #endif
 
 			ClosePlugins();

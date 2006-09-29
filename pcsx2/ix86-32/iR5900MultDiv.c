@@ -825,6 +825,8 @@ void recMADD1()
 	EEINST_SETSIGNEXT(_Rs_);
 	EEINST_SETSIGNEXT(_Rt_);
 	if( _Rd_ ) EEINST_SETSIGNEXT(_Rd_);
+	_deleteEEreg(XMMGPR_LO, 0);
+	_deleteEEreg(XMMGPR_HI, 0);
 	REC_FUNC_INLINE( MADD1, _Rd_ );
 }
 
@@ -834,6 +836,8 @@ void recMADDU1()
 	EEINST_SETSIGNEXT(_Rs_);
 	EEINST_SETSIGNEXT(_Rt_);
 	if( _Rd_ ) EEINST_SETSIGNEXT(_Rd_);
+	_deleteEEreg(XMMGPR_LO, 0);
+	_deleteEEreg(XMMGPR_HI, 0);
 	REC_FUNC_INLINE( MADDU1, _Rd_ );
 }
 

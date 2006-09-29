@@ -132,8 +132,8 @@ void recMFC0( void )
 		}
 		else {
 			MOV32MtoR(EAX, (u32)&cpuRegs.CP0.r[ _Rd_ ]);
+			if(_Rd_ == 12) AND32ItoR(EAX, 0xf0c79c1f);
 			MOV32RtoM((u32)&cpuRegs.GPR.r[_Rt_].UL[0],EAX);
-
 			if(EEINST_ISLIVE1(_Rt_)) {
 				CDQ();
 				MOV32RtoM((u32)&cpuRegs.GPR.r[_Rt_].UL[1], EDX);

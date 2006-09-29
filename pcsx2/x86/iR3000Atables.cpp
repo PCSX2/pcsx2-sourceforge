@@ -715,7 +715,8 @@ void recLoad32(u32 bit, u32 sign)
 			x86SetJ8(j8Ptr[1]);
 		}
 
-		MOV32RtoM( (int)&psxRegs.GPR.r[ _Rt_ ], EAX );
+		if( _Rt_ )
+			MOV32RtoM( (int)&psxRegs.GPR.r[ _Rt_ ], EAX );
 	}
 }
 

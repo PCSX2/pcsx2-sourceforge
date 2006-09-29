@@ -2147,7 +2147,7 @@ void recStore(int bit, u32 imm, int align)
 				break;
 			}
 			case 128:
-				assert( (addr)%16 == 0 );
+				//assert( (addr)%16 == 0 );
 
 				if( recMemConstWrite128((addr)&~15, _eePrepConstWrite128(_Rt_)) ) {
 					CMP32ItoM((u32)&maxrecmem, addr);
@@ -2245,7 +2245,7 @@ void recStore_co(int bit, int align)
 					doclear |= recMemConstWrite16(addr, EAX);
 				}
 
-				if( GPR_IS_CONST1(_Rt_) ) doclear |= recMemConstWrite16(coaddr, MEM_EECONSTTAG|(nextrt<<16));
+				if( GPR_IS_CONST1(nextrt) ) doclear |= recMemConstWrite16(coaddr, MEM_EECONSTTAG|(nextrt<<16));
 				else {
 					_eeMoveGPRtoR(EAX, nextrt);
 					doclear |= recMemConstWrite16(coaddr, EAX);

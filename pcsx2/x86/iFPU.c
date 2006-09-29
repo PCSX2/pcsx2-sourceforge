@@ -1163,7 +1163,7 @@ FPURECOMPILE_CONSTCODE(MSUBA_S, XMMINFO_WRITEACC|XMMINFO_READACC|XMMINFO_READS|X
 
 void recCVT_S_xmm(int info)
 {
-	if( !(info&PROCESS_EE_S) || (EEREC_D != EEREC_S && !(xmmregs[EEREC_S].mode&MODE_WRITE)) ) {
+	if( !(info&PROCESS_EE_S) || (EEREC_D != EEREC_S && !(info&PROCESS_EE_MODEWRITES)) ) {
 		SSE_CVTSI2SS_M32_to_XMM(EEREC_D, (u32)&fpuRegs.fpr[_Fs_]);
 	}
 	else {
@@ -1171,7 +1171,14 @@ void recCVT_S_xmm(int info)
 			SSE2_CVTDQ2PS_XMM_to_XMM(EEREC_D, EEREC_S);
 		}
 		else {
-			_deleteFPtoXMMreg(_Fs_, 1);
+			if( info&PROCESS_EE_MODEWRITES ) {
+				if( xmmregs[EEREC_S].reg == _Fs_ )
+					_deleteFPtoXMMreg(_Fs_, 1);
+				else {
+					// force sync
+					SSE_MOVSS_XMM_to_M32((u32)&fpuRegs.fpr[_Fs_], EEREC_S);
+				}
+			}
 			SSE_CVTSI2SS_M32_to_XMM(EEREC_D, (u32)&fpuRegs.fpr[_Fs_]);
 			xmmregs[EEREC_D].mode |= MODE_WRITE; // in the case that _Fs_ == _Fd_
 		}

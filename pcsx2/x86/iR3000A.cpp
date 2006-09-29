@@ -989,6 +989,10 @@ void psxRecompileNextInstruction(int delayslot)
 	if( delayslot )
 		pblock->uType = BLOCKTYPE_DELAYSLOT;
 
+#ifdef _DEBUG
+	MOV32ItoR(EAX, psxpc);
+#endif
+
 	s_pCode = (int *)PSXM( psxpc );
 	assert(s_pCode);
 
@@ -1003,6 +1007,7 @@ void psxRecompileNextInstruction(int delayslot)
 //	CALLFunc((u32)checkcodefn);
 //	x86SetJ8( j8Ptr[ 0 ] );
 //#endif
+
 
 	g_pCurInstInfo++;
 
@@ -1045,15 +1050,15 @@ void iDumpPsxRegisters(u32 startpc, u32 temp)
 	int i;
 	char* pstr = temp ? "t" : "";
 
-	__Log("%spsxreg: %x %x\n", pstr, startpc, psxRegs.interrupt);
+	__Log("%spsxreg: %x\n", pstr, startpc);
 	for(i = 0; i < 34; i+=2) __Log("%spsx%d: %x %x\n", pstr, i, psxRegs.GPR.r[i], psxRegs.GPR.r[i+1]);
 	__Log("%scycle: %x %x %x %x; counters %x %x\n", pstr, psxRegs.cycle, g_psxNextBranchCycle, EEsCycle, IOPoCycle,
 		(u32)psxNextsCounter, (u32)psxNextCounter);
 
 	for(i = 0; i < 6; ++i) __Log("%scounter%d: %x %x %x\n", pstr, i, psxCounters[i].count, psxCounters[i].rate, psxCounters[i].sCycleT);
-	for(i = 0; i < 32; ++i) {
-		__Log("int%d: %x %x\n", i, psxRegs.sCycle[i], psxRegs.eCycle[i]);
-	}
+//	for(i = 0; i < 32; ++i) {
+//		__Log("int%d: %x %x\n", i, psxRegs.sCycle[i], psxRegs.eCycle[i]);
+//	}
 }
 
 void iDumpPsxRegisters(u32 startpc);
