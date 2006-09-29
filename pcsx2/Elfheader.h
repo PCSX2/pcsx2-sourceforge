@@ -25,6 +25,6 @@ unsigned int args_ptr;
 //-------------------
 int loadElfFile(char *filename);
 
-u32 ElfCRC;
+extern u32 ElfCRC;
 
 #endif

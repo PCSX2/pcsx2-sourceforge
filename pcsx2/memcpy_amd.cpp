@@ -310,16 +310,16 @@ $memcpy_final:
 // returns 0 is equal, nonzero value if not equal
 // ~10 times faster than standard memcmp
 // (zerofrog)
-int memcmp_mmx(const void* src1, const void* src2, int cmpsize)
+u8 memcmp_mmx(const void* src1, const void* src2, int cmpsize)
 {
 	FreezeMMXRegs(1);
 	assert( (cmpsize&7) == 0 );
 
 	__asm {
+		push esi
 		mov ecx, cmpsize
-		mov edi, src1
+		mov edx, src1
 		mov esi, src2
-		mov ebx, ecx
 
 		cmp ecx, 32
 		jl Done4
@@ -327,8 +327,8 @@ int memcmp_mmx(const void* src1, const void* src2, int cmpsize)
 		// custom test first 8 to make sure things are ok
 		movq mm0, [esi]
 		movq mm1, [esi+8]
-		pcmpeqd mm0, [edi]
-		pcmpeqd mm1, [edi+8]
+		pcmpeqd mm0, [edx]
+		pcmpeqd mm1, [edx+8]
 		pand mm0, mm1
 		movq mm2, [esi+16]
 		pmovmskb eax, mm0
@@ -341,20 +341,21 @@ int memcmp_mmx(const void* src1, const void* src2, int cmpsize)
 		jmp End
 
 NextComp:
-		pcmpeqd mm2, [edi+16]
-		pcmpeqd mm3, [edi+24]
+		pcmpeqd mm2, [edx+16]
+		pcmpeqd mm3, [edx+24]
 		pand mm2, mm3
 		pmovmskb eax, mm2
 
+		sub ecx, 32
+		add esi, 32
+		add edx, 32
+
 		// check if eq
 		cmp eax, 0xff
-		je Continue
+		je ContinueTest
 		mov eax, 1
 		jmp End
 
-		sub ecx, 32
-		add esi, 32
-		add edi, 32
 		cmp ecx, 64
 		jl Done8
 
@@ -367,18 +368,18 @@ Cmp8:
 		movq mm5, [esi+40]
 		movq mm6, [esi+48]
 		movq mm7, [esi+56]
-		pcmpeqd mm0, [edi]
-		pcmpeqd mm1, [edi+8]
-		pcmpeqd mm2, [edi+16]
-		pcmpeqd mm3, [edi+24]
+		pcmpeqd mm0, [edx]
+		pcmpeqd mm1, [edx+8]
+		pcmpeqd mm2, [edx+16]
+		pcmpeqd mm3, [edx+24]
 		pand mm0, mm1
-		pcmpeqd mm4, [edi+32]
+		pcmpeqd mm4, [edx+32]
 		pand mm0, mm2
-		pcmpeqd mm5, [edi+40]
+		pcmpeqd mm5, [edx+40]
 		pand mm0, mm3
-		pcmpeqd mm6, [edi+48]
+		pcmpeqd mm6, [edx+48]
 		pand mm0, mm4
-		pcmpeqd mm7, [edi+56]
+		pcmpeqd mm7, [edx+56]
 		pand mm0, mm5
 		pand mm0, mm6
 		pand mm0, mm7
@@ -393,7 +394,8 @@ Cmp8:
 Continue:
 		sub ecx, 64
 		add esi, 64
-		add edi, 64
+		add edx, 64
+ContinueTest:
 		cmp ecx, 64
 		jge Cmp8
 
@@ -404,17 +406,23 @@ Done8:
 		movq mm1, [esi+8]
 		movq mm2, [esi+16]
 		movq mm3, [esi+24]
-		pcmpeqd mm0, [edi]
-		pcmpeqd mm1, [edi+8]
-		pcmpeqd mm2, [edi+16]
-		pcmpeqd mm3, [edi+24]
+		pcmpeqd mm0, [edx]
+		pcmpeqd mm1, [edx+8]
+		pcmpeqd mm2, [edx+16]
+		pcmpeqd mm3, [edx+24]
 		pand mm0, mm1
 		pand mm0, mm2
 		pand mm0, mm3
 		pmovmskb eax, mm0
 		sub ecx, 32
 		add esi, 32
-		add edi, 32
+		add edx, 32
+
+		// check if eq
+		cmp eax, 0xff
+		je Done4
+		mov eax, 1
+		jmp End
 
 Done4:
 		cmp ecx, 24
@@ -422,17 +430,16 @@ Done4:
 		movq mm0, [esi]
 		movq mm1, [esi+8]
 		movq mm2, [esi+16]
-		pcmpeqd mm0, [edi]
-		pcmpeqd mm1, [edi+8]
-		pcmpeqd mm2, [edi+16]
+		pcmpeqd mm0, [edx]
+		pcmpeqd mm1, [edx+8]
+		pcmpeqd mm2, [edx+16]
 		pand mm0, mm1
 		pand mm0, mm2
 		pmovmskb eax, mm0
 
 		// check if eq
-		xor edx, edx
 		cmp eax, 0xff
-		cmove eax, edx
+		setne al
 		jmp End
 
 Done2:
@@ -441,15 +448,14 @@ Done2:
 
 		movq mm0, [esi]
 		movq mm1, [esi+8]
-		pcmpeqd mm0, [edi]
-		pcmpeqd mm1, [edi+8]
+		pcmpeqd mm0, [edx]
+		pcmpeqd mm1, [edx+8]
 		pand mm0, mm1
 		pmovmskb eax, mm0
 
 		// check if eq
-		xor edx, edx
 		cmp eax, 0xff
-		cmove eax, edx
+		setne al
 		jmp End
 
 Done1:
@@ -457,22 +463,22 @@ Done1:
 		jne Done
 
 		mov eax, [esi]
-		mov ebx, [esi+4]
-		cmp eax, [edi]
+		mov esi, [esi+4]
+		cmp eax, [edx]
 		je Next
 		mov eax, 1
 		jmp End
 
 Next:
-		cmp ebx, [edi+4]
-		je Done
-		mov eax, 1
+		cmp esi, [edx+4]
+		setne al
 		jmp End
 
 Done:
 		xor eax, eax
 
 End:
+		pop esi
 		emms
 	}
 }
@@ -486,38 +492,38 @@ void memxor_mmx(void* dst, const void* src1, int cmpsize)
 
 	__asm {
 		mov ecx, cmpsize
-		mov esi, src1
+		mov eax, src1
 		mov ebx, ecx
 		mov edx, dst
 
 		cmp ecx, 64
 		jl Setup4
 
-		movq mm0, [esi]
-		movq mm1, [esi+8]
-		movq mm2, [esi+16]
-		movq mm3, [esi+24]
-		movq mm4, [esi+32]
-		movq mm5, [esi+40]
-		movq mm6, [esi+48]
-		movq mm7, [esi+56]
+		movq mm0, [eax]
+		movq mm1, [eax+8]
+		movq mm2, [eax+16]
+		movq mm3, [eax+24]
+		movq mm4, [eax+32]
+		movq mm5, [eax+40]
+		movq mm6, [eax+48]
+		movq mm7, [eax+56]
 		sub ecx, 64
-		add esi, 64
+		add eax, 64
 		cmp ecx, 64
 		jl End8
 
 Cmp8:
-		pxor mm0, [esi]
-		pxor mm1, [esi+8]
-		pxor mm2, [esi+16]
-		pxor mm3, [esi+24]
-		pxor mm4, [esi+32]
-		pxor mm5, [esi+40]
-		pxor mm6, [esi+48]
-		pxor mm7, [esi+56]
+		pxor mm0, [eax]
+		pxor mm1, [eax+8]
+		pxor mm2, [eax+16]
+		pxor mm3, [eax+24]
+		pxor mm4, [eax+32]
+		pxor mm5, [eax+40]
+		pxor mm6, [eax+48]
+		pxor mm7, [eax+56]
 
 		sub ecx, 64
-		add esi, 64
+		add eax, 64
 		cmp ecx, 64
 		jge Cmp8
 
@@ -529,24 +535,24 @@ End8:
 
 		cmp ecx, 32
 		jl End4
-		pxor mm0, [esi]
-		pxor mm1, [esi+8]
-		pxor mm2, [esi+16]
-		pxor mm3, [esi+24]
+		pxor mm0, [eax]
+		pxor mm1, [eax+8]
+		pxor mm2, [eax+16]
+		pxor mm3, [eax+24]
 		sub ecx, 32
-		add esi, 32
+		add eax, 32
 		jmp End4
 
 Setup4:
 		cmp ecx, 32
 		jl Setup2
 
-		movq mm0, [esi]
-		movq mm1, [esi+8]
-		movq mm2, [esi+16]
-		movq mm3, [esi+24]
+		movq mm0, [eax]
+		movq mm1, [eax+8]
+		movq mm2, [eax+16]
+		movq mm3, [eax+24]
 		sub ecx, 32
-		add esi, 32
+		add eax, 32
 
 End4:
 		pxor mm0, mm2
@@ -554,33 +560,33 @@ End4:
 
 		cmp ecx, 16
 		jl End2
-		pxor mm0, [esi]
-		pxor mm1, [esi+8]
+		pxor mm0, [eax]
+		pxor mm1, [eax+8]
 		sub ecx, 16
-		add esi, 16
+		add eax, 16
 		jmp End2
 
 Setup2:
 		cmp ecx, 16
 		jl Setup1
 
-		movq mm0, [esi]
-		movq mm1, [esi+8]
+		movq mm0, [eax]
+		movq mm1, [eax+8]
 		sub ecx, 16
-		add esi, 16
+		add eax, 16
 
 End2:
 		pxor mm0, mm1
 
 		cmp ecx, 8
 		jl End1
-		pxor mm0, [esi]
+		pxor mm0, [eax]
 End1:
 		movq [edx], mm0
 		jmp End
 
 Setup1:
-		movq mm0, [esi]
+		movq mm0, [eax]
 		movq [edx], mm0
 End:
 		emms

@@ -118,6 +118,8 @@ void sio2_setCtrl(u32 value){
 
 		//trigger interupt for SIO2
 		psxHu32(0x1070)|=0x20000;
+		//SBUS
+		hwIntcIrq(INTC_SBUS);
 		sio2.recvIndex=0;
 		sio2.ctrl &= ~1;
 	} else { // send packet

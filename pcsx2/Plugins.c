@@ -23,6 +23,7 @@
 
 #include "Common.h"
 #include "PsxCommon.h"
+#include "gs.h"
 
 #ifdef __MSCW32__
 #pragma warning(disable:4244)
@@ -109,6 +110,9 @@ int LoadGSplugin(char *filename) {
 	LoadGSsym1(writeCSR,       "GSwriteCSR");
 	LoadGSsymN(makeSnapshot2,"GSmakeSnapshot2");
 	LoadGSsymN(getDriverInfo,"GSgetDriverInfo");
+
+	LoadGSsymN(setFrameSkip, "GSsetFrameSkip");
+
 #ifdef __WIN32__
 	LoadGSsymN(setWindowInfo,"GSsetWindowInfo");
 #endif
@@ -236,8 +240,8 @@ int LoadSPU2plugin(char *filename) {
     LoadSPU2sym1(readDMA7Mem,  "SPU2readDMA7Mem");     
     LoadSPU2sym1(writeDMA7Mem, "SPU2writeDMA7Mem");  
 	LoadSPU2sym1(interruptDMA7,"SPU2interruptDMA7");
-	LoadSPU2sym1(DMA4irqCallback,  "SPU2DMA4irqCallback");
-	LoadSPU2sym1(DMA7irqCallback,  "SPU2DMA7irqCallback");
+	LoadSPU2sym1(ReadMemAddr,  "SPU2ReadMemAddr");
+	LoadSPU2sym1(WriteMemAddr,  "SPU2WriteMemAddr");
 	LoadSPU2sym1(irqCallback,  "SPU2irqCallback");
 
 	LoadSPU2sym0(freeze,       "SPU2freeze");
@@ -422,7 +426,16 @@ static int loadp=0;
 int InitPlugins() {
 	int ret;
 
-	if( GSsetBaseMem ) GSsetBaseMem(PS2MEM_GS);
+	if( GSsetBaseMem ) {
+
+		if( CHECK_MULTIGS ) {
+			extern u8 g_MTGSMem[];
+			GSsetBaseMem(g_MTGSMem);
+		}
+		else {
+			GSsetBaseMem(PS2MEM_GS);
+		}
+	}
 
 	ret = GSinit();
 	if (ret != 0) { SysMessage (_("GSinit error: %d"), ret); return -1; }
@@ -525,11 +538,8 @@ int OpenPlugins() {
 	if (ret != 0) { SysMessage (_("Error Opening PAD2 Plugin")); return -1; }
 
 	//the sound
-	SysPrintf("SPU2open\n");
 
-	SPU2DMA4irqCallback(spu2DMA4Irq);
-	SPU2DMA7irqCallback(spu2DMA7Irq);
-	SPU2irqCallback(spu2Irq);
+	SPU2irqCallback(spu2Irq,spu2DMA4Irq,spu2DMA7Irq);
 	ret = SPU2open((void*)&pDsp);
 	if (ret != 0) { SysMessage (_("Error Opening SPU2 Plugin")); return -1; }
 
@@ -549,21 +559,14 @@ int OpenPlugins() {
 	ret = FWopen((void *)&pDsp);
 	if (ret != 0) { SysMessage (_("Error Opening FW Plugin")); return -1; }
 
-#ifndef NOSTATS
-	statsOpen(); // for lack of a better place ;)
-#endif
-
 	pluginsopened = 1;
 	return 0;
 }
 
 extern void gsWaitGS();
 
-void ClosePlugins() {
-#ifndef NOSTATS
-	statsClose(); // for lack of a better place ;)
-#endif
-
+void ClosePlugins()
+{
 	gsWaitGS();
 
 	CDVDclose();

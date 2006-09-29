@@ -21,6 +21,7 @@
 
 #include "Common.h"
 #include "PsxCommon.h"
+#include "Stats.h"
 
 void statsOpen() {
 	stats.vsyncCount = 0;

@@ -28,6 +28,7 @@
 #include "VUmicro.h"
 #include "VUflags.h"
 #include "VUops.h"
+#include "gs.h"
 
 //Lower/Upper instructions can use that..
 #define _Ft_ ((VU->code >> 16) & 0x1F)  // The rt part of the instruction register 
@@ -2080,11 +2081,24 @@ void _vuXITOP(VURegs * VU) {
 	VU->VI[_Ft_].US[0] = VU->vifRegs->itop;
 }
 
+//extern u32 vudump;
+//static void countfn()
+//{
+//	static int scount = 0;
+//	scount++;
+//
+//	if( scount > 56 ) {
+//		__Log("xgkick %d\n", scount);
+//		vudump |= 8;
+//	}
+//}
+
 void _vuXGKICK(VURegs * VU)
 {
 	// flush all pipelines first (in the right order)
 	_vuFlushAll(VU);
-	GSgifTransfer1((u32*)VU->Mem, (VU->VI[_Fs_].US[0]*16) & 0x3fff);
+	//countfn();
+	GSGIFTRANSFER1((u32*)VU->Mem, (VU->VI[_Fs_].US[0]*16) & 0x3fff);
 }
 
 void _vuXTOP(VURegs * VU) {

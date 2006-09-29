@@ -29,15 +29,29 @@
 #define PCSX2_VU1REC 0x40
 #define PCSX2_COP2REC 0x80
 #define PCSX2_FORCEABS 0x100
+#define PCSX2_FRAMELIMIT_MASK 0xc00
+#define PCSX2_FRAMELIMIT_NORMAL 0x000
+#define PCSX2_FRAMELIMIT_LIMIT 0x400
+#define PCSX2_FRAMELIMIT_SKIP 0x800
+#define PCSX2_FRAMELIMIT_VUSKIP 0xc00
 
 #define CHECK_MULTIGS (Config.Options&PCSX2_GSMULTITHREAD)
 #define CHECK_DUALCORE (Config.Options&PCSX2_DUALCORE)
-#define CHECK_FRAMELIMIT (Config.Options&PCSX2_FRAMELIMIT)
 #define CHECK_EEREC (Config.Options&PCSX2_EEREC)
-#define CHECK_VU0REC (Config.Options&PCSX2_VU0REC)
-#define CHECK_VU1REC (Config.Options&PCSX2_VU1REC)
 #define CHECK_COP2REC (Config.Options&PCSX2_COP2REC) // goes with ee option
 #define CHECK_FORCEABS 1// always on, (Config.Options&PCSX2_FORCEABS)
+
+#define CHECK_FRAMELIMIT (Config.Options&PCSX2_FRAMELIMIT_MASK)
+
+#ifdef PCSX2_DEVBUILD
+#define CHECK_VU0REC (Config.Options&PCSX2_VU0REC)
+#define CHECK_VU1REC (Config.Options&PCSX2_VU1REC)
+#else
+// force to VU recs all the time
+#define CHECK_VU0REC 1
+#define CHECK_VU1REC 1
+
+#endif
 
 typedef struct {
 	char Bios[256];
@@ -68,6 +82,12 @@ extern PcsxConfig Config;
 extern u32 BiosVersion;
 extern char CdromId[12];
 
+#define gzfreeze(ptr, size) \
+	if (Mode == 1) gzwrite(f, ptr, size); \
+	else if (Mode == 0) gzread(f, ptr, size);
+
+#define gzfreezel(ptr) gzfreeze(ptr, sizeof(ptr))
+
 int LoadCdrom();
 int CheckCdrom();
 int GetPS2ElfName(char*);
@@ -77,6 +97,9 @@ extern char *LabelGreets;
 int SaveState(char *file);
 int LoadState(char *file);
 int CheckState(char *file);
+
+int SaveGSState(char *file);
+int LoadGSState(char *file);
 
 char *ParseLang(char *id);
 
@@ -107,13 +130,14 @@ u32 GetBiosVersion();
 int IsBIOS(char *filename, char *description);
 
 void * memcpy_amd(void *dest, const void *src, size_t n);
-int memcmp_mmx(const void* src1, const void* src2, int cmpsize);
+u8 memcmp_mmx(const void* src1, const void* src2, int cmpsize);
 void memxor_mmx(void* dst, const void* src1, int cmpsize);
 
 #ifdef	__WIN32__
 #pragma pack()
 #endif
 
+void __Log(char *fmt, ...);
 void injectIRX(char *filename);
 
 // cross-platform atomic operations

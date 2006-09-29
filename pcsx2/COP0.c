@@ -78,7 +78,8 @@ void MFC0() {
 		cpuRegs.CP0.n.Count += cpuRegs.cycle-s_iLastCOP0Cycle;
 		s_iLastCOP0Cycle = cpuRegs.cycle;
 	}
-	cpuRegs.GPR.r[_Rt_].UD[0] = (s64)cpuRegs.CP0.r[_Rd_];
+	if(_Rd_ == 12) cpuRegs.GPR.r[_Rt_].UD[0] = (s64)(cpuRegs.CP0.r[_Rd_] & 0xf0c79c1f);
+	else cpuRegs.GPR.r[_Rt_].UD[0] = (s64)cpuRegs.CP0.r[_Rd_];
 }
 
 void MTC0() {
