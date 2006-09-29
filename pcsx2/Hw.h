@@ -19,15 +19,14 @@
 #ifndef __HW_H__
 #define __HW_H__
 
-//#include "Common.h"
 #include "PS2Etypes.h"
 #include <assert.h>
 
 #ifndef WIN32_VIRTUAL_MEM
-u8  *psH; // hw mem
-u16 *psHW;
-u32 *psHL;
-u64 *psHD;
+extern u8  *psH; // hw mem
+extern u16 *psHW;
+extern u32 *psHL;
+extern u64 *psHD;
 #endif
 
 #define psHs8(mem)	(*(s8 *)&PS2MEM_HW[(mem) & 0xffff])
@@ -80,8 +79,6 @@ typedef struct {
 	u32 null5[11];
 	u32 sadr;
 } DMACh;
-
-int sifenabled[2];
 
 // HW defines
 
@@ -229,6 +226,12 @@ int sifenabled[2];
 #define INTC_TIM2  		11
 #define INTC_TIM3  		12
 
+#define DMAC_STAT_SIS (1<<13) // stall condition
+#define DMAC_STAT_MEIS (1<<14) // mfifo empty
+#define DMAC_STAT_BEIS (1<<15) // bus error
+#define DMAC_STAT_SIM (1<<29) // stall mask
+#define DMAC_STAT_MEIM (1<<30) // mfifo mask
+
 #define DMAC_VIF0		0
 #define DMAC_VIF1		1
 #define DMAC_GIF		2
@@ -310,6 +313,11 @@ __forceinline u8* dmaGetAddr(u32 mem)
 {
 	u8* p, *pbase;
 	mem &= ~0xf;
+
+#ifdef _DEBUG
+	if( (mem & 0xffff0000) == 0x10000000 )
+		SysPrintf("dma to/from %x!\n", mem);
+#endif
 	if( mem == 0x50000000 ) // reserved scratch pad mem
 		return NULL;
 

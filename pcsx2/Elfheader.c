@@ -24,6 +24,8 @@
 #include "Common.h"
 #include "CDVDisodrv.h"
 
+u32 ElfCRC;
+
 typedef struct {
     u8	e_ident[16];    //0x7f,"ELF"  (ELF file identifier)
     u16	e_type;         //ELF type: 0=NONE, 1=REL, 2=EXEC, 3=SHARED, 4=CORE

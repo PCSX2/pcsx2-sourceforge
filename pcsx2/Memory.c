@@ -59,6 +59,7 @@ BIOS
 #include "R3000A.h"
 #include "psxhw.h"
 #include "VUmicro.h"
+#include "gs.h"
 
 #include <assert.h>
 
@@ -68,45 +69,6 @@ extern void * memcpy_amd(void *dest, const void *src, size_t n);
 
 //#define FULLTLB
 int MemMode = 0;		// 0 is Kernel Mode, 1 is Supervisor Mode, 2 is User Mode
-
-#if ENABLE_GS_CACHING
-
-// addr can belong to locked GS memory
-#define CHECK_GSMEM(addr) { \
-	if( (addr) < 0x10000000 ) { \
-		u32* page = GS_PAGEADDRS+((addr)>>GS_SHIFT)*(GSPAGES_MEMADDRS+1); \
-		if( *(u8*)page) GSFreePage(page); \
-	} \
-} \
-
-#define CHECK_GSMEM_ASM() \
-{ \
-		__asm cmp edx, 0x10000000 /* make sure not scratch mem*/ \
-		__asm jae RegularRead \
-		__asm mov edx, ecx \
-		__asm shr edx, GS_SHIFT \
-		__asm imul edx, (GSPAGES_MEMADDRS+1)*4 \
-		__asm cmp byte ptr [edx+GS_PAGEADDRS_], 0 \
-		__asm je RegularRead \
-		__asm add edx, GS_PAGEADDRS_ \
-		__asm sub esp, 12 \
-		__asm mov dword ptr [esp+0], edx \
-		__asm mov dword ptr [esp+4], eax \
-		__asm mov dword ptr [esp+8], ecx \
-		__asm call GSFreePage \
-		__asm mov eax, dword ptr [esp+4] \
-		__asm mov ecx, dword ptr [esp+8] \
-		__asm add esp, 12 \
-	} \
-RegularRead: \
-
-//#define CHECK_GSMEM_ASM_REC() // rec everything above
-
-#else
-#define CHECK_GSMEM(mem)
-#define CHECK_GSMEM_ASM()
-#define CHECK_GSMEM_ASM_REC(mem)
-#endif
 
 u16 ba0R16(u32 mem) {
 #ifdef MEM_LOG
@@ -1254,7 +1216,6 @@ void recMemWrite8()
 #endif
 		default:
 			// vus, bad addrs, etc
-			CHECK_GSMEM(mem);
 			*(u8*)(PS2MEM_BASE+mem) = value;
 			return;
 	}
@@ -1299,7 +1260,6 @@ int recMemConstWrite8(u32 mem, int mmreg)
 			return 0;
 
 		default:
-			CHECK_GSMEM_ASM_REC(mem);
 			_eeWriteConstMem8(PS2MEM_BASE_+mem, mmreg);
 			return 1;
 	}
@@ -1328,7 +1288,6 @@ void recMemWrite16()   {
 #endif
 		default:
 			// vus, bad addrs, etc
-			CHECK_GSMEM(mem);
 			*(u16*)(PS2MEM_BASE+mem) = value;
 			return;
 	}
@@ -1379,7 +1338,6 @@ int recMemConstWrite16(u32 mem, int mmreg)
 			return 0;
 
 		default:
-			CHECK_GSMEM_ASM_REC(mem);
 			_eeWriteConstMem16(PS2MEM_BASE_+mem, mmreg);
 			return 1;
 	}
@@ -1406,8 +1364,6 @@ void recMemWrite32()
 		cmp dx, 0x1100
 		je vuwrite
 	}
-
-	CHECK_GSMEM_ASM();
 
 	__asm {
 		// default write
@@ -1511,7 +1467,6 @@ int recMemConstWrite32(u32 mem, int mmreg)
 			return 0;
 
 		default:
-			CHECK_GSMEM_ASM_REC(mem);
 			_eeWriteConstMem32(PS2MEM_BASE_+mem, mmreg);
 			return 1;
 	}
@@ -1611,7 +1566,6 @@ int recMemConstWrite64(u32 mem, int mmreg)
 			return 0;
 
 		default:
-			CHECK_GSMEM_ASM_REC(mem);
 			_eeWriteConstMem64(PS2MEM_BASE_+mem, mmreg);
 			return 1;
 	}
@@ -1748,7 +1702,6 @@ int recMemConstWrite128(u32 mem, int mmreg)
 			return 0;
 
 		default:
-			CHECK_GSMEM_ASM_REC(mem);
 			_eeWriteConstMem128(PS2MEM_BASE_+mem, mmreg);
 			return 1;
 	}
@@ -2059,8 +2012,6 @@ void memWrite8 (u32 mem, u8  value)   {
 			return;
 
 		default:
-			CHECK_GSMEM(mem);
-
 			*(u8*)(PS2MEM_BASE+mem) = value;
 			
 			if (CHECK_EEREC) {
@@ -2090,8 +2041,6 @@ void memWrite16(u32 mem, u16 value)   {
 			return;
 
 		default:
-			CHECK_GSMEM(mem);
-
 			*(u16*)(PS2MEM_BASE+mem) = value;
 			if (CHECK_EEREC) {
 				REC_CLEARM(mem&~3);
@@ -2120,7 +2069,6 @@ void memWrite32(u32 mem, u32 value)
 			return;
 
 		default:
-			CHECK_GSMEM(mem);
 			*(u32*)(PS2MEM_BASE+mem) = value;
 
 			if (CHECK_EEREC) {
@@ -2143,7 +2091,6 @@ void memWrite64(u32 mem, u64 value)   {
 		case 0x12000000: gsWrite64(mem, value); return;
 
 		default:
-			CHECK_GSMEM(mem);
 			*(u64*)(PS2MEM_BASE+mem) = value;
 
 			if (CHECK_EEREC) {
@@ -2170,9 +2117,6 @@ void memWrite128(u32 mem, u64 *value) {
 			return;
 
 		default:
-		
-			CHECK_GSMEM(mem);
-
 			*(u64*)(PS2MEM_BASE+mem) = value[0];
 			*(u64*)(PS2MEM_BASE+mem+8) = value[1];
 

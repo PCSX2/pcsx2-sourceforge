@@ -314,7 +314,7 @@ void SIF0Dma()
 #ifdef SIF_LOG
 					SIF_LOG(" EE SIF dest chain tag madr:%08X qwc:%04X id:%X irq:%d(%08X_%08X)\n", sif0dma->madr, sif0dma->qwc, (tag[0]>>28)&3, (tag[0]>>31)&1, tag[1], tag[0]);
 #endif
-					if ((psHu32(DMAC_CTRL) & 0x30) != 0)psHu32(DMAC_STADR) = sif0dma->madr;
+					if ((psHu32(DMAC_CTRL) & 0x30) != 0 && ((tag[0]>>28)&3) == 0)psHu32(DMAC_STADR) = sif0dma->madr + (sif0dma->qwc * 16);
 					notDone = 1;
 					sif0.chain = 1;
 					if(tag[0] & 0x40000000)

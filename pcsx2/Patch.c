@@ -159,13 +159,14 @@ void patchFunc_comment( char * text1, char * text2 )
    SysPrintf( "comment: %s \n", text2 );
 }
 
+char strgametitle[256] = {0};
+
 void patchFunc_gametitle( char * text1, char * text2 )
 {
-	char str2[256];
-    SysPrintf( "gametitle: %s \n", text2 );
+	SysPrintf( "gametitle: %s \n", text2 );
 #ifdef __WIN32__
-	sprintf(str2,"Running Game       %s",text2);
-	if (gApp.hConsole) SetConsoleTitle(str2);
+	sprintf(strgametitle,"%s",text2);
+	if (gApp.hConsole) SetConsoleTitle(strgametitle);
 #endif
 }
 

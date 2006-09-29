@@ -33,18 +33,19 @@
 
 #include "Common.h"
 #include "Hw.h"
+#include "gs.h"
 
 #include <assert.h>
 
 //////////////////////////////////////////////////////////////////////////
 /////////////////////////// Quick & dirty FIFO :D ////////////////////////
 //////////////////////////////////////////////////////////////////////////
-extern int fifo_wwrite(u32* pMem, int size);
-extern void fifo_wread1(void *value);
+extern int FIFOto_write(u32* pMem, int size);
+extern void FIFOfrom_readsingle(void *value);
 
 extern int g_nIPU0Data;
 extern u8* g_pIPU0Pointer;
-
+extern int FOreadpos;
 // NOTE: cannot use XMM/MMX regs
 void ReadFIFO(u32 mem, u64 *out) {
 	if ((mem >= 0x10004000) && (mem < 0x10005000)) {
@@ -57,7 +58,7 @@ void ReadFIFO(u32 mem, u64 *out) {
 	} else
 	if ((mem >= 0x10005000) && (mem < 0x10006000)) {
 
-#ifdef PCSX_DEVBUILD
+#ifdef PCSX2_DEVBUILD
 		VIF_LOG("ReadFIFO VIF1 0x%08X\n", mem);
 
 		if( vif1Regs->stat & (VIF1_STAT_INT|VIF1_STAT_VSS|VIF1_STAT_VIS|VIF1_STAT_VFS) ) {
@@ -79,12 +80,13 @@ void ReadFIFO(u32 mem, u64 *out) {
 		if( g_nIPU0Data > 0 ) {
 			out[0] = *(u64*)(g_pIPU0Pointer);
 			out[1] = *(u64*)(g_pIPU0Pointer+8);
+			FOreadpos = (FOreadpos + 4) & 31;
 			g_nIPU0Data--;
 			g_pIPU0Pointer += 16;
 		}
 		return;
 	}else if ( (mem&0xfffff010) == 0x10007010) {
-		fifo_wread1((void*)out);
+		FIFOfrom_readsingle((void*)out);
 		return;
 	}
 	SysPrintf("ReadFIFO Unknown %x\n", mem);
@@ -106,6 +108,7 @@ void WriteFIFO(u32 mem, u64 *value) {
 #endif
 		psHu64(mem  ) = value[0];
 		psHu64(mem+8) = value[1];
+		vif0ch->qwc += 1;
 		ret = VIF0transfer((u32*)value, 4, 0);
 		assert(ret == 0 ); // vif stall code not implemented
 		FreezeXMMRegs(0);
@@ -124,6 +127,7 @@ void WriteFIFO(u32 mem, u64 *value) {
 			SysPrintf("writing to vif1 fifo when stalled\n");
 		}
 #endif
+		vif1ch->qwc += 1;
 		ret = VIF1transfer((u32*)value, 4, 0);
 		assert(ret == 0 ); // vif stall code not implemented
 		FreezeXMMRegs(0);
@@ -150,15 +154,7 @@ void WriteFIFO(u32 mem, u64 *value) {
 		}
 		else {
 			FreezeXMMRegs(1);
-#ifdef GSCAPTURE
-			extern u32 g_loggs, g_gstransnum, g_gsfinalnum;
-
-			if( !g_loggs || (g_loggs && g_gstransnum++ < g_gsfinalnum)) {
-				GSgifTransfer3((u32*)value, 1-GSgifTransferDummy(2, (u32*)value, 1));
-			}
-#else
-			GSgifTransfer3((u32*)value, 1);
-#endif
+			GSGIFTRANSFER3((u32*)value, 1);
 			FreezeXMMRegs(0);
 		}
 
@@ -168,7 +164,7 @@ void WriteFIFO(u32 mem, u64 *value) {
 		IPU_LOG("WriteFIFO IPU_in[%d] <- %8.8X_%8.8X_%8.8X_%8.8X\n", (mem - 0x10007010)/8, ((u32*)value)[3], ((u32*)value)[2], ((u32*)value)[1], ((u32*)value)[0]);
 #endif
 		//commiting every 16 bytes
-		while( fifo_wwrite((void*)value, 1) == 0 ) {
+		while( FIFOto_write((void*)value, 1) == 0 ) {
 			SysPrintf("IPU sleeping\n");
 			Sleep(1);
 		}

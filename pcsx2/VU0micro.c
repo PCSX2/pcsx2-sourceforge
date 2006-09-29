@@ -196,7 +196,7 @@ void _vu0ExecLower(VURegs* VU, u32 *ptr) {
 }
 
 extern void _vuFlushAll(VURegs* VU);
-
+int vu0branch = 0;
 void _vu0Exec(VURegs* VU) {
 	_VURegsNum lregs;
 	_VURegsNum uregs;
@@ -255,6 +255,8 @@ void _vu0Exec(VURegs* VU) {
 		VU->code = ptr[0];
 		VU0regs_LOWER_OPCODE[VU->code >> 25](&lregs);
 		_vuTestLowerStalls(VU, &lregs);
+
+		vu0branch = lregs.pipe == VUPIPE_BRANCH;
 
 		vfreg = 0; vireg = 0;
 		if (uregs.VFwrite) {

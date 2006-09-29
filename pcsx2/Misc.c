@@ -31,7 +31,9 @@
 #include "RDebug/deci2.h"
 #endif
 
-DWORD dwSaveVersion = 0x7a30000c;
+#include "gs.h"
+
+DWORD dwSaveVersion = 0x7a30000d;
 extern u32 s_iLastCOP0Cycle;
 extern int g_psxWriteOk;
 
@@ -145,7 +147,7 @@ u32 GetBiosVersion() {
 
 	while(strlen(rd->fileName) > 0){
 		if (strcmp(rd->fileName, "ROMVER") == 0){	// found romver
-			ROMVER = &psRu8(fileOffset);
+			ROMVER = &psRs8(fileOffset);
 
 			strncpy(vermaj, ROMVER+ 0, 2); vermaj[2] = 0;
 			strncpy(vermin, ROMVER+ 2, 2); vermin[2] = 0;
@@ -274,7 +276,7 @@ int CheckCdrom() {
 	u8 *buf;
 
 	READTRACK(16);
-	strncpy(CdromId, buf+52, 10);
+	strncpy(CdromId, (char*)buf+52, 10);
 
 	return 0;
 }
@@ -467,7 +469,7 @@ const char Pcsx2Header[32] = STATE_VERSION " PCSX2 v" PCSX2_VERSION;
 		gzclose(f); \
 		return -1; \
 	} \
-	fP.data = malloc(fP.size); \
+	fP.data = (s8*)malloc(fP.size); \
 	if (fP.data == NULL) return -1; \
  \
 	if (type##freeze(FREEZE_SAVE, &fP) == -1) { \
@@ -489,9 +491,10 @@ const char Pcsx2Header[32] = STATE_VERSION " PCSX2 v" PCSX2_VERSION;
 		gzread(f, fP.data, fP.size); \
 	} \
 	if (type##freeze(FREEZE_LOAD, &fP) == -1) { \
-		if (fP.size) free(fP.data); \
+		/* skip */ \
+		/*if (fP.size) free(fP.data); \
 		gzclose(f); \
-		return -1; \
+		return -1;*/ \
 	} \
 	if (fP.size) free(fP.data);
 
@@ -691,6 +694,73 @@ int LoadState(char *file) {
 	return 0;
 }
 
+#ifdef PCSX2_DEVBUILD
+
+int SaveGSState(char *file)
+{
+	if( g_SaveGSStream ) return -1;
+
+	SysPrintf("SaveGSState: %s\n", file);
+	g_fGSSave = gzopen(file, "wb");
+	if (g_fGSSave == NULL) return -1;
+	
+	g_SaveGSStream = 1;
+	g_nLeftGSFrames = 2;
+
+	gzwrite(g_fGSSave, &g_nLeftGSFrames, sizeof(g_nLeftGSFrames));
+
+	return 0;
+}
+
+extern long pDsp;
+int LoadGSState(char *file)
+{
+	int ret;
+	char strfile[255];
+	gzFile f;
+	freezeData fP;
+
+	f = gzopen(file, "rb");
+	if (f == NULL) {
+		
+		_snprintf(strfile, 255, "sstates\\%s", file);
+		// try prefixing with sstates
+		f = gzopen(strfile, "rb");
+		if( f == NULL ) {
+			MessageBox(NULL, "Failed to find gs state\n", "Error", MB_OK);
+			return -1;
+		}
+
+		file = strfile;
+	}
+
+	SysPrintf("LoadGSState: %s\n", file);
+	
+	GSirqCallback(gsIrq);
+	ret = GSopen(&pDsp, "PCSX2", 0);
+	if (ret != 0) {
+		SysMessage (_("Error Opening GS Plugin"));
+		return -1;
+	}
+
+	ret = PAD1open((void *)&pDsp);
+
+	gzread(f, &g_nLeftGSFrames, sizeof(g_nLeftGSFrames));
+
+	gsFreeze(f, 0);
+	_PS2Eload(GS);
+
+	RunGSState(f);
+	gzclose(f);
+
+	GSclose();
+	PAD1close();
+
+	return 0;
+}
+
+#endif
+
 int CheckState(char *file) {
 	gzFile f;
 	char header[32];
@@ -761,7 +831,7 @@ void injectIRX(char *filename){
 	for (i=0; name[i] && name[i]!='.' && i<10; i++) name[i]=toupper(name[i]);name[i]=0;
 
 	//phase 1: find ROMDIR in bios
-	for (p=PS2MEM_ROM; p<PS2MEM_ROM+0x80000; p++)
+	for (p=(char*)PS2MEM_ROM; p<(char*)PS2MEM_ROM+0x80000; p++)
 		if (strncmp(p, "RESET", 5)==0)
 			break;
 	rd=(struct romdir*)p;
@@ -775,18 +845,18 @@ void injectIRX(char *filename){
 	
 	for (i=0; rd[i].fileName[0]; i++)if (rd[i].fileName[0]=='-')break;				iBLANK=i;
 	rd[iBLANK].fileSize-=DIRENTRY_SIZE+DIRENTRY_SIZE;
-	p=PS2MEM_ROM;for (i=0; i<iBLANK; i++)p+=(rd[i].fileSize+0xF)&(~0xF);p+=DIRENTRY_SIZE;
+	p=(char*)PS2MEM_ROM;for (i=0; i<iBLANK; i++)p+=(rd[i].fileSize+0xF)&(~0xF);p+=DIRENTRY_SIZE;
 
-	q=PS2MEM_ROM;for (i=0; i<=iIOPBTCONF; i++)	q+=(rd[i].fileSize+0xF)&(~0xF);
+	q=(char*)PS2MEM_ROM;for (i=0; i<=iIOPBTCONF; i++)	q+=(rd[i].fileSize+0xF)&(~0xF);
 	while (p-16>q){*((u64*)p)=*((u64*)p-4);*((u64*)p+1)=*((u64*)p-3);p-=DIRENTRY_SIZE;}
 	*((u64*)p)=*((u64*)p+1)=0;p-=DIRENTRY_SIZE;rd[iIOPBTCONF].fileSize+=DIRENTRY_SIZE;
 	
-	q=PS2MEM_ROM;for (i=0; i<=iROMDIR; i++)	q+=(rd[i].fileSize+0xF)&(~0xF);
+	q=(char*)PS2MEM_ROM;for (i=0; i<=iROMDIR; i++)	q+=(rd[i].fileSize+0xF)&(~0xF);
 	while (p   >q){*((u64*)p)=*((u64*)p-2);*((u64*)p+1)=*((u64*)p-1);p-=DIRENTRY_SIZE;}
 	*((u64*)p)=*((u64*)p+1)=0;p-=DIRENTRY_SIZE;rd[iROMDIR].fileSize+=DIRENTRY_SIZE;
 	
 	//phase 3: add the name to the end of IOPBTCONF
-	p=PS2MEM_ROM;for (i=0; i<iIOPBTCONF; i++)	p+=(rd[i].fileSize+0xF)&(~0xF);while(*p) p++;//go to end of file
+	p=(char*)PS2MEM_ROM;for (i=0; i<iIOPBTCONF; i++)	p+=(rd[i].fileSize+0xF)&(~0xF);while(*p) p++;//go to end of file
 	strcpy(p, name);p[strlen(name)]=0xA;
 
 	//phase 4: find file
@@ -799,7 +869,7 @@ void injectIRX(char *filename){
 	}
 
 	//phase 5: add the file to the end of the bios
-	p=PS2MEM_ROM;for (i=0; rd[i].fileName[0]; i++)p+=(rd[i].fileSize+0xF)&(~0xF);
+	p=(char*)PS2MEM_ROM;for (i=0; rd[i].fileName[0]; i++)p+=(rd[i].fileSize+0xF)&(~0xF);
 
 	fp=fopen(path, "rb");
 	fseek(fp, 0, SEEK_END);

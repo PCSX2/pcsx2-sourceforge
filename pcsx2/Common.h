@@ -126,6 +126,7 @@ typedef struct _TESTRUNARGS
 {
 	u8 enabled;
 	u8 jpgcapture;
+
 	int frame; // if < 0, frame is unlimited (run until crash).
 	int numimages;
 	int curimage;
@@ -168,10 +169,18 @@ extern TESTRUNARGS g_TestRun;
 #define VBLANK_PAL			((Config.PsxType & 2) ? 50.00 : 49.76)
 #define HBLANK_NTSC			(15734.26573)
 #define HBLANK_PAL			(15625)
+#define PS2HBLANKEND_PAL	(386*8)
+#define PS2HBLANKEND_NTSC	(371*8)
+#define PS2VBLANKPAL	((Config.PsxType & 2) ? 312.5 : 314)
+#define PS2VBLANKNTSC	((Config.PsxType & 2) ? 262.5 : 263)
+#define PS2VBLANKEND_PAL	((int)(PS2HBLANK_PAL*6))
+#define PS2VBLANKEND_NTSC	((int)(PS2HBLANK_NTSC*6))
 
 #define PS2HBLANK_NTSC	((int)(PS2CLK / HBLANK_NTSC))
 #define PS2HBLANK_PAL	((int)(PS2CLK / HBLANK_PAL))
 #define PS2HBLANK		((int)((Config.PsxType & 1) ? PS2HBLANK_PAL : PS2HBLANK_NTSC))
+#define PS2HBLANKEND    ((int)((Config.PsxType & 1) ? PS2HBLANKEND_PAL : PS2HBLANKEND_NTSC))
+#define PS2VBLANKEND    ((int)((Config.PsxType & 1) ? PS2VBLANKEND_PAL : PS2VBLANKEND_NTSC))
 #define PSXVBLANK_NTSC	((int)(PSXCLK / VBLANK_NTSC))
 #define PSXVBLANK_PAL	((int)(PSXCLK / VBLANK_PAL))
 #define PSXVBLANK		((int)((Config.PsxType & 1) ? PSXVBLANK_PAL : PSXVBLANK_NTSC))
@@ -199,7 +208,7 @@ extern TESTRUNARGS g_TestRun;
 #include "Memory.h"
 #include "Elfheader.h"
 #include "Hw.h"
-#include "GS.h"
+//#include "GS.h"
 #include "Vif.h"
 #include "SPR.h"
 #include "Sif.h"
@@ -209,25 +218,18 @@ extern TESTRUNARGS g_TestRun;
 #include "IPU.h"
 #include "Misc.h"
 #include "Patch.h"
-#include "Stats.h"
 #include "COP0.h"
 #include "VifDma.h"
 #if (defined(__i386__) || defined(__x86_64__))
 #include "ix86/ix86.h"
 #endif
 
-#define gzfreeze(ptr, size) \
-	if (Mode == 1) gzwrite(f, ptr, size); \
-	else if (Mode == 0) gzread(f, ptr, size);
-
-#define gzfreezel(ptr) gzfreeze(ptr, sizeof(ptr))
-
 int cdCaseopen;
 
 extern void __Log(char *fmt, ...);
 extern u16 logProtocol;
 extern u8  logSource;
-#define PCSX2_VERSION "0.9.1"
+#define PCSX2_VERSION "0.9.2"
 
 #ifdef __MSCW32__
 // C++ code for sqrtf

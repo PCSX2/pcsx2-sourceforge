@@ -349,7 +349,7 @@ u32 psxMemRead32(u32 mem)
 			return DEV9read32(mem & 0x1FFFFFFF);
 
 		default:
-			assert(g_psxWriteOk);
+			//assert(g_psxWriteOk);
 			if( mem == 0xfffe0130 )
 				return writectrl;
 			else if( mem == 0xffffffff )
@@ -932,7 +932,7 @@ sifwrite:
 		cmp dl, 0x20
 		je Sif20
 		
-		mov word ptr [edx+PS2MEM_BASE_+0x1000f200], ax
+		mov dword ptr [edx+PS2MEM_BASE_+0x1000f200], eax
 		ret
 
 Sif40:

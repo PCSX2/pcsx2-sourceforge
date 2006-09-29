@@ -81,13 +81,15 @@ int  _SPR0chain() {
 	if ((psHu32(DMAC_CTRL) & 0xC) == 0xC || // GIF MFIFO
 		(psHu32(DMAC_CTRL) & 0xC) == 0x8) { // VIF1 MFIFO
 		hwMFIFOWrite(spr0->madr, (u8*)&PS2MEM_SCRATCH[spr0->sadr & 0x3fff], qwc);
-		spr0->madr = psHu32(DMAC_RBOR) + ((spr0->madr + qwc) & (psHu32(DMAC_RBSR))); //Wrap MADR
+		spr0->madr += (spr0->qwc * 16);
+		spr0->madr = psHu32(DMAC_RBOR) + (spr0->madr & psHu32(DMAC_RBSR));
 	} else {
+		memcpy_amd((u8*)pMem, &PS2MEM_SCRATCH[spr0->sadr & 0x3fff], qwc);
+
 		Cpu->Clear(spr0->madr, qwc>>2);
 		// clear VU mem also!
 		TestClearVUs(spr0->madr, qwc>>2);
 		
-		memcpy_amd((u8*)pMem, &PS2MEM_SCRATCH[spr0->sadr & 0x3fff], qwc);
 		spr0->madr += qwc;
 	}
 	spr0->sadr += qwc;
@@ -148,11 +150,11 @@ void _dmaSPR0() {
 	}
 
 	// Transfer Dn_QWC from SPR to Dn_MADR
-	SPR0chain();
+	
 	
 
-	if ((spr0->chcr & 0xc) == 0) { // Normal Mode
-		
+	if ((spr0->chcr & 0xc) == 0 || spr0->qwc > 0) { // Normal Mode
+		SPR0chain();
 			INT(8, cycles);
 		
 		return;
@@ -183,7 +185,7 @@ void _dmaSPR0() {
 		
 		switch (id) {
 			case 0: // CNTS - Transfer QWC following the tag (Stall Control)
-			if ((psHu32(DMAC_CTRL) & 0x30) == 0x20	) psHu32(DMAC_STADR) = spr0->madr;					//Copy MADR to DMAC_STADR stall addr register
+			if ((psHu32(DMAC_CTRL) & 0x30) == 0x20	) psHu32(DMAC_STADR) = spr0->madr + (spr0->qwc * 16);					//Copy MADR to DMAC_STADR stall addr register
 				break;
 
 			case 1: // CNT - Transfer QWC following the tag.
@@ -223,6 +225,8 @@ int SPRFROMinterrupt()
 	return 1;
 }
 
+extern void mfifoGIFtransfer(int);
+#define gif ((DMACh*)&PS2MEM_HW[0xA000])
 void dmaSPR0() { // fromSPR
 	int qwc = spr0->qwc;
 #ifdef SPR_LOG
@@ -232,14 +236,16 @@ void dmaSPR0() { // fromSPR
 
 	_dmaSPR0();
 	if ((psHu32(DMAC_CTRL) & 0xC) == 0xC) { // GIF MFIFO
-		spr0->madr = psHu32(DMAC_RBOR) + (spr0->madr & (psHu32(DMAC_RBSR)));
+		spr0->madr = psHu32(DMAC_RBOR) + (spr0->madr & psHu32(DMAC_RBSR));
+		//SysPrintf("mfifoGIFtransfer %x madr %x, tadr %x\n", gif->chcr, gif->madr, gif->tadr);
 		mfifoGIFtransfer(qwc);
 	} else
 	if ((psHu32(DMAC_CTRL) & 0xC) == 0x8) { // VIF1 MFIFO
-		spr0->madr = psHu32(DMAC_RBOR) + (spr0->madr & (psHu32(DMAC_RBSR)));
+		spr0->madr = psHu32(DMAC_RBOR) + (spr0->madr & psHu32(DMAC_RBSR));
+		SysPrintf("mfifoVIF1transfer %x madr %x, tadr %x\n", vif1ch->chcr, vif1ch->madr, vif1ch->tadr);
 		mfifoVIF1transfer(qwc);
 	}
-
+	
 	FreezeMMXRegs(0);
 	FreezeXMMRegs(0);
 }
@@ -320,11 +326,10 @@ void dmaSPR1() { // toSPR
 		return;
 	}
 
-	// Transfer Dn_QWC from Dn_MADR to SPR1
-	SPR1chain();
-
-	if ((spr1->chcr & 0xc) == 0) { // Normal Mode
-		
+	
+	if ((spr1->chcr & 0xc) == 0 || spr1->qwc > 0) { // Normal Mode
+		// Transfer Dn_QWC from Dn_MADR to SPR1
+		SPR1chain();
 		INT(9, cycles);
 		FreezeMMXRegs(0);
 		return;
@@ -335,7 +340,10 @@ void dmaSPR1() { // toSPR
 	while (done == 0) {  // Loop while Dn_CHCR.STR is 1
 		ptag = (u32*)dmaGetAddr(spr1->tadr);		//Set memory pointer to TADR
 		if (ptag == NULL) {							//Is ptag empty?
+			SysPrintf("SPR1 Tag BUSERR\n");
+			spr1->chcr = ( spr1->chcr & 0xFFFF ) | ( (*ptag) & 0xFFFF0000 );	//Transfer upper part of tag to CHCR bits 31-15
 			psHu32(DMAC_STAT)|= 1<<15;				//If yes, set BEIS (BUSERR) in DMAC_STAT register
+			done = 1;
 			break;
 		}
 

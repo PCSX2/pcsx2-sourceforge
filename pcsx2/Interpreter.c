@@ -90,27 +90,10 @@ static u32 branchPC;
 #else
 #define debugI()
 #endif
-#define addcycles() 
-	/*EEsCycle += cpuRegs.cycle - EEoCycle; \
-	EEoCycle = cpuRegs.cycle;*/
-
-extern void ExecuteIOP();
-u32 IOPtimer = 0;
 
 void execI() {
 	u32 pc = cpuRegs.pc;
 
-
-	////////////////////////////////////////////////////////
-	/*if(IOPtimer >= 8) {
-		ExecuteIOP();
-		IOPtimer = 0;
-	}
-	
-	IOPtimer++;
-	*/
-	///////////////////////////////////////////////////////
-	
 	cpuRegs.cycle++;
 	//cpuRegs.CP0.n.Count++; /*count every cycles.*/
 
@@ -128,7 +111,6 @@ __inline void doBranch(u32 tar) {
 	cpuRegs.branch = 0;
 	cpuRegs.pc = branchPC;
 
-	addcycles();
 	cpuBranchTest();
 }
 
@@ -334,7 +316,7 @@ void DSRLV(){ if (!_Rd_) return; cpuRegs.GPR.r[_Rd_].UD[0] = (u64)(cpuRegs.GPR.r
 *********************************************************/
 #define RepBranchi32(op) \
 	if (cpuRegs.GPR.r[_Rs_].SD[0] op cpuRegs.GPR.r[_Rt_].SD[0]) doBranch(_BranchTarget_); \
-	else {addcycles(); cpuBranchTest();}
+	else cpuBranchTest();
 
 
 void BEQ() {	RepBranchi32(==) }  // Branch if Rs == Rt
@@ -347,13 +329,13 @@ void BNE() {	RepBranchi32(!=) }  // Branch if Rs != Rt
 #define RepZBranchi32(op) \
 	if(cpuRegs.GPR.r[_Rs_].SD[0] op 0) { \
 		doBranch(_BranchTarget_); \
-	} else addcycles(); cpuBranchTest();
+	} else cpuBranchTest();
 
 #define RepZBranchLinki32(op) \
 	_SetLink(31); \
 	if(cpuRegs.GPR.r[_Rs_].SD[0] op 0) { \
 		doBranch(_BranchTarget_); \
-	} else addcycles(); cpuBranchTest();
+	} else cpuBranchTest();
 
 void BGEZ()   { RepZBranchi32(>=) }      // Branch if Rs >= 0
 void BGEZAL() { RepZBranchLinki32(>=) }  // Branch if Rs >= 0 and link
@@ -370,18 +352,18 @@ void BLTZAL() { RepZBranchLinki32(<) }   // Branch if Rs <  0 and link
 #define RepZBranchi32Likely(op) \
 	if(cpuRegs.GPR.r[_Rs_].SD[0] op 0) { \
 		doBranch(_BranchTarget_); \
-	} else { cpuRegs.pc +=4; addcycles(); cpuBranchTest(); }
+	} else { cpuRegs.pc +=4; cpuBranchTest(); }
 
 #define RepZBranchLinki32Likely(op) \
 	_SetLink(31); \
 	if(cpuRegs.GPR.r[_Rs_].SD[0] op 0) { \
 		doBranch(_BranchTarget_); \
-	} else { cpuRegs.pc +=4; addcycles(); cpuBranchTest(); }
+	} else { cpuRegs.pc +=4; cpuBranchTest(); }
 
 #define RepBranchi32Likely(op) \
 	if(cpuRegs.GPR.r[_Rs_].SD[0] op cpuRegs.GPR.r[_Rt_].SD[0]) { \
 		doBranch(_BranchTarget_); \
-	} else { cpuRegs.pc +=4; addcycles(); cpuBranchTest(); }
+	} else { cpuRegs.pc +=4; cpuBranchTest(); }
 
 
 void BEQL()    {  RepBranchi32Likely(==)      }  // Branch if Rs == Rt
@@ -971,6 +953,7 @@ static void intExecuteBlock() {
 extern void iDumpVU0Registers();
 extern void iDumpVU1Registers();
 extern u32 vudump;
+extern vu0branch, vu1branch;
 
 void intExecuteVU0Block() {
 int i;
@@ -985,11 +968,11 @@ int i;
 			break;
 
 #ifdef _DEBUG
-		prevbranch = VU0.branch;
+		prevbranch = vu0branch;
 #endif
 		vu0Exec(&VU0);
 #ifdef _DEBUG
-		if( (vudump&8) && prevbranch == 1 ) {
+		if( (vudump&0x80) && prevbranch == 1 ) {
 			__Log("tVU: %x\n", VU0.VI[ REG_TPC ].UL);
 			iDumpVU0Registers();
 		}
@@ -1014,7 +997,7 @@ void intExecuteVU1Block() {
 			break;
 
 #ifdef _DEBUG
-		prevbranch = VU1.branch;
+		prevbranch = vu1branch;
 #endif
 		vu1Exec(&VU1);
 #ifdef _DEBUG

@@ -129,9 +129,9 @@ void vu1ExecMicro(u32 addr)
 	_vuExecMicroDebug(VU1);
 
 	FreezeXMMRegs(1);
-	do {
+	//do {
 		Cpu->ExecuteVU1Block();
-	} while(VU0.VI[REG_VPU_STAT].UL & 0x100);
+	//} while(VU0.VI[REG_VPU_STAT].UL & 0x100);
 	// rec can call vu1ExecMicro
 	FreezeXMMRegs(0);
 	FreezeMMXRegs(0);
@@ -150,6 +150,8 @@ void _vu1ExecLower(VURegs* VU, u32 *ptr) {
 }
 
 extern void _vuFlushAll(VURegs* VU);
+
+int vu1branch = 0;
 
 void _vu1Exec(VURegs* VU) {
 	_VURegsNum lregs;
@@ -209,6 +211,8 @@ void _vu1Exec(VURegs* VU) {
 		VU->code = ptr[0];
 		VU1regs_LOWER_OPCODE[VU->code >> 25](&lregs);
 		_vuTestLowerStalls(VU, &lregs);
+
+		vu1branch = lregs.pipe == VUPIPE_BRANCH;
 
 		vfreg = 0; vireg = 0;
 		if (uregs.VFwrite) {

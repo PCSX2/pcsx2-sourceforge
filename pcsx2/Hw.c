@@ -25,9 +25,16 @@
 #include "VUmicro.h"
 #include "PsxMem.h"
 #include "IPU.h"
+#include "gs.h"
 
 #include <assert.h>
 
+#ifndef WIN32_VIRTUAL_MEM
+u8  *psH; // hw mem
+u16 *psHW;
+u32 *psHL;
+u64 *psHD;
+#endif
 
 int hwInit() {
 
@@ -57,16 +64,12 @@ void hwShutdown() {
 	ipuShutdown();
 }
 
-void hwReset() {
-
-#ifdef WIN32_VIRTUAL_MEM
-
+void hwReset()
+{
 	memset(PS2MEM_HW+0x2000, 0, 0x0000e000);
+
 	psHu32(0xf520) = 0x1201;
 	psHu32(0xf260) = 0x1D000060;
-#else
-	memset(psH, 0, 0x00010000);
-#endif
 	// i guess this is kinda a version, it's used by some bioses
 	psHu32(0xf590) = 0x1201;
 	
@@ -213,6 +216,13 @@ int hwConstRead16(u32 x86reg, u32 mem, u32 sign)
 #ifdef PCSX2_DEVBUILD
 	if( mem >= 0x10002000 && mem < 0x10008000 )
 		SysPrintf("hwRead16 to %x\n", mem);
+#endif
+#ifdef PCSX2_DEVBUILD
+	if( mem >= 0x10000000 && mem < 0x10002000 ){
+#ifdef EECNT_LOG
+	EECNT_LOG("cnt read to %x\n", mem);
+#endif
+	}
 #endif
 
 	switch (mem) {
@@ -532,13 +542,22 @@ int hwConstRead32(u32 x86reg, u32 mem)
 			iFlushCall(0);
 			PUSH32I(0);
 			CALLFunc((u32)rcntRcount);
+#ifdef EECNT_LOG
+			EECNT_LOG("Counter 0 count read = %x\n", rcntRcount(0));
+#endif
 			ADD32ItoR(ESP, 4);
 			return 1;
 		case 0x10000010:
 			_eeReadConstMem32(x86reg, (u32)&counters[0].mode);
+#ifdef EECNT_LOG
+			EECNT_LOG("Counter 0 mode read = %x\n", counters[0].mode);
+#endif
 			return 0;
 		case 0x10000020:
 			_eeReadConstMem32(x86reg, (u32)&counters[0].target);
+#ifdef EECNT_LOG
+			EECNT_LOG("Counter 0 target read = %x\n", counters[0].target);
+#endif
 			return 0;
 		case 0x10000030:
 			_eeReadConstMem32(x86reg, (u32)&counters[0].hold);
@@ -548,13 +567,22 @@ int hwConstRead32(u32 x86reg, u32 mem)
 			iFlushCall(0);
 			PUSH32I(1);
 			CALLFunc((u32)rcntRcount);
+#ifdef EECNT_LOG
+			EECNT_LOG("Counter 1 count read = %x\n", rcntRcount(1));
+#endif
 			ADD32ItoR(ESP, 4);
 			return 1;
 		case 0x10000810:
 			_eeReadConstMem32(x86reg, (u32)&counters[1].mode);
+#ifdef EECNT_LOG
+			EECNT_LOG("Counter 1 mode read = %x\n", counters[1].mode);
+#endif
 			return 0;
 		case 0x10000820:
 			_eeReadConstMem32(x86reg, (u32)&counters[1].target);
+#ifdef EECNT_LOG
+			EECNT_LOG("Counter 1 target read = %x\n", counters[1].target);
+#endif
 			return 0;
 		case 0x10000830:
 			_eeReadConstMem32(x86reg, (u32)&counters[1].hold);
@@ -564,13 +592,22 @@ int hwConstRead32(u32 x86reg, u32 mem)
 			iFlushCall(0);
 			PUSH32I(2);
 			CALLFunc((u32)rcntRcount);
+#ifdef EECNT_LOG
+			EECNT_LOG("Counter 2 count read = %x\n", rcntRcount(2));
+#endif
 			ADD32ItoR(ESP, 4);
 			return 1;
 		case 0x10001010:
 			_eeReadConstMem32(x86reg, (u32)&counters[2].mode);
+#ifdef EECNT_LOG
+			EECNT_LOG("Counter 2 mode read = %x\n", counters[2].mode);
+#endif
 			return 0;
 		case 0x10001020:
 			_eeReadConstMem32(x86reg, (u32)&counters[2].target);
+#ifdef EECNT_LOG
+			EECNT_LOG("Counter 2 target read = %x\n", counters[2].target);
+#endif
 			return 0;
 		case 0x10001030:
 			_eeReadConstMem32(x86reg, (u32)&counters[2].hold);
@@ -580,13 +617,22 @@ int hwConstRead32(u32 x86reg, u32 mem)
 			iFlushCall(0);
 			PUSH32I(3);
 			CALLFunc((u32)rcntRcount);
+#ifdef EECNT_LOG
+			EECNT_LOG("Counter 3 count read = %x\n", rcntRcount(3));
+#endif
 			ADD32ItoR(ESP, 4);
 			return 1;
 		case 0x10001810:
 			_eeReadConstMem32(x86reg, (u32)&counters[3].mode);
+#ifdef EECNT_LOG
+			EECNT_LOG("Counter 3 mode read = %x\n", counters[3].mode);
+#endif
 			return 0;
 		case 0x10001820:
 			_eeReadConstMem32(x86reg, (u32)&counters[3].target);
+#ifdef EECNT_LOG
+			EECNT_LOG("Counter 3 target read = %x\n", counters[3].target);
+#endif
 			return 0;
 		case 0x10001830:
 			_eeReadConstMem32(x86reg, (u32)&counters[3].hold);
@@ -787,21 +833,25 @@ void hwWrite8(u32 mem, u8 value) {
 
 	switch (mem) {
 		case 0x10000000: rcntWcount(0, value); break;
-		case 0x10000010: rcntWmode(0, value); break;
+		case 0x10000010: rcntWmode(0, (counters[0].mode & 0xff00) | value); break;
+		case 0x10000011: rcntWmode(0, (counters[0].mode & 0xff) | value << 8); break;
 		case 0x10000020: rcntWtarget(0, value); break;
 		case 0x10000030: rcntWhold(0, value); break;
 
 		case 0x10000800: rcntWcount(1, value); break;
-		case 0x10000810: rcntWmode(1, value); break;
+		case 0x10000810: rcntWmode(1, (counters[1].mode & 0xff00) | value); break;
+		case 0x10000811: rcntWmode(1, (counters[1].mode & 0xff) | value << 8); break;
 		case 0x10000820: rcntWtarget(1, value); break;
 		case 0x10000830: rcntWhold(1, value); break;
 
 		case 0x10001000: rcntWcount(2, value); break;
-		case 0x10001010: rcntWmode(2, value); break;
+		case 0x10001010: rcntWmode(2, (counters[2].mode & 0xff00) | value); break;
+		case 0x10001011: rcntWmode(2, (counters[2].mode & 0xff) | value << 8); break;
 		case 0x10001020: rcntWtarget(2, value); break;
 
 		case 0x10001800: rcntWcount(3, value); break;
-		case 0x10001810: rcntWmode(3, value); break;
+		case 0x10001810: rcntWmode(3, (counters[3].mode & 0xff00) | value); break;
+		case 0x10001811: rcntWmode(3, (counters[3].mode & 0xff) | value << 8); break;
 		case 0x10001820: rcntWtarget(3, value); break;
 
 		case 0x1000f180:
@@ -1354,6 +1404,7 @@ void hwWrite16(u32 mem, u16 value)
 void hwConstWrite16(u32 mem, int mmreg)
 {
 	switch(mem&~3) {
+		CONSTWRITE_TIMERS(16)
 		case 0x10008000: // dma0 - vif0
 			recDmaExec16(VIF0, 0);
 			break;
@@ -1465,7 +1516,7 @@ void hwConstWrite16(u32 mem, int mmreg)
 
 #define DmaExec(name, num) { \
 	/* why not allowing tags on sif0/sif2? */ \
-	if(mem!= 0x1000c000/* && mem != 0x1000c400*/ && mem != 0x1000c800) \
+	if(mem!= 0x1000c000 && mem != 0x1000c400 && mem != 0x1000c800) \
 		psHu32(mem) = (psHu32(mem) & 0xFFFF0000) | (u16)value; \
 	else	\
 	psHu32(mem) = (u32)value;	\
@@ -2451,41 +2502,6 @@ void hwDmacIrq(int n) {
 		cpuTestDMACInts();	
 }
 
-/* Read 'size' bytes from memory address 'addr' to 'data'. */
-//int hwMFIFORead(u32 addr, u8 *data, int size) {
-//	u32 maddr = psHu32(DMAC_RBOR);
-//	int msize = psHu32(DMAC_RBSR)+16;
-//	u8 *src;
-//
-//	addr = psHu32(DMAC_RBOR) + (addr & psHu32(DMAC_RBSR));
-//	/* Check if the transfer should wrap around the ring buffer */
-//	if ((addr+size) > (maddr+msize)) {
-//		int s1 = (maddr+msize) - addr;
-//		int s2 = size - s1;
-//
-//		/* it does, so first copy 's1' bytes from 'addr' to 'data' */
-//		src = PSM(addr);
-//		if (src == NULL) return -1;
-//		memcpy_amd(data, src, s1);
-//
-//		/* and second copy 's2' bytes from 'maddr' to '&data[s1]' */
-//		src = PSM(maddr);
-//		if (src == NULL) return -1;
-//		memcpy(&data[s1], src, s2);
-//	} else {
-//		//u32 * tempptr, * tempptr2;
-//		/* it doesn't, so just copy 'size' bytes from 'addr' to 'data' */
-//		src = PSM(addr);
-//		if (src == NULL) return -1;
-//		//tempptr = (u32*)src;
-//		//tempptr2 = (u32*)data;
-//
-//		memcpy(data, src, size);
-//	}
-//
-//	return 0;
-//}
-
 /* Write 'size' bytes to memory address 'addr' from 'data'. */
 int hwMFIFOWrite(u32 addr, u8 *data, int size) {
 	u32 maddr = psHu32(DMAC_RBOR);
@@ -2528,7 +2544,7 @@ int hwDmacSrcChainWithStack(DMACh *dma, int id) {
 
 	switch (id) {
 		case 0: // Refe - Transfer Packet According to ADDR field
-			//dma->tadr += 16;
+			dma->tadr += 16;
 			return 1;										//End Transfer
 
 		case 1: // CNT - Transfer QWC following the tag.
@@ -2551,26 +2567,33 @@ int hwDmacSrcChainWithStack(DMACh *dma, int id) {
 			temp = dma->madr;								//Temporarily Store ADDR
 			finalAddress = dma->tadr + 16 + (dma->qwc << 4); //Store Address of Succeeding tag
 	
-			if (dma->asr0 == 0) 								//Check if ASR0 is empty
+			if ((dma->chcr & 0x30) == 0x0) {								//Check if ASR0 is empty
 				dma->asr0 = finalAddress;					//If yes store Succeeding tag
-			else	
+				dma->chcr = (dma->chcr & 0xffffffcf) | 0x10; //1 Address in call stack
+			}else if((dma->chcr & 0x30) == 0x10){
+				dma->chcr = (dma->chcr & 0xffffffcf) | 0x20; //2 Addresses in call stack
 				dma->asr1 = finalAddress;					//If no store Succeeding tag in ASR1
-
+			}else {
+				SysPrintf("Call Stack Overflow (report if it fixes/breaks anything)\n");
+				return 1;										//Return done
+			}
 			dma->madr = dma->tadr + 16;						//Set MADR to data following the tag
 			dma->tadr = temp;								//Set TADR to temporarily stored ADDR
 			return 0;
 
 		case 6: // Ret - Transfer QWC following the tag, load next tag
 			dma->madr = dma->tadr + 16;						//Set MADR to data following the tag
-			if (dma->asr1 != 0) {							//If ASR1 is NOT equal to 0 (Contains address)
+			if ((dma->chcr & 0x30) == 0x20) {							//If ASR1 is NOT equal to 0 (Contains address)
+				dma->chcr = (dma->chcr & 0xffffffcf) | 0x10; //1 Address left in call stack
 				dma->tadr = dma->asr1;						//Read ASR1 as next tag
 				dma->asr1 = 0;								//Clear ASR1
 			} else {										//If ASR1 is empty (No address held)
-				if(dma->asr0 != 0) {						   //Check if ASR0 is NOT equal to 0 (Contains address)
+				if((dma->chcr & 0x30) == 0x10) {						   //Check if ASR0 is NOT equal to 0 (Contains address)
+					dma->chcr = (dma->chcr & 0xffffffcf);  //No addresses left in call stack
 					dma->tadr = dma->asr0;					//Read ASR0 as next tag
 					dma->asr0 = 0;							//Clear ASR0
 				} else {									//Else if ASR1 and ASR0 are empty
-					dma->tadr = 0;						   //Clear tag address
+					//dma->tadr += 16;						   //Clear tag address - Kills Klonoa 2
 					return 1;								//End Transfer
 				}
 			}
@@ -2591,7 +2614,7 @@ int hwDmacSrcChain(DMACh *dma, int id) {
 
 	switch (id) {
 		case 0: // Refe - Transfer Packet According to ADDR field
-			//dma->tadr += 16;
+			dma->tadr += 16;
 			return 1;										//End Transfer
 
 		case 1: // CNT - Transfer QWC following the tag.

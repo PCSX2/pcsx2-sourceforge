@@ -19,8 +19,6 @@
 #ifndef __GS_H__
 #define __GS_H__
 
-#include "Common.h"
-
 typedef struct
 {
 	u32 SIGID;
@@ -39,21 +37,8 @@ extern u8 g_RealGSMem[0x2000];
 #endif
 
 #define GS_RINGBUFFERBASE	(u8*)(0x10200000)
-#define GS_RINGBUFFERSIZE	0x00200000 // 2Mb
+#define GS_RINGBUFFERSIZE	0x00300000 // 2Mb
 #define GS_RINGBUFFEREND	(u8*)(GS_RINGBUFFERBASE+GS_RINGBUFFERSIZE)
-
-#define GS_RINGTEMPBASE	(u8*)(0x10400000)
-#define GS_RINGTEMPSIZE	0x00100000 // 1Mb
-#define GS_RINGTEMPEND	(u8*)(GS_RINGTEMPBASE+GS_RINGTEMPSIZE)
-
-#define GS_SHIFT 12
-#define ENABLE_GS_CACHING 0 // set to 0 to disable
-
-// mem addrs to support
-#define GSPAGES_MEMADDRS	4
-#define GSPAGES_STRIDE		((1+GSPAGES_MEMADDRS)*4)
-#define GS_PAGEADDRS_		0x10500000
-#define GS_PAGEADDRS		(u32*)(GS_PAGEADDRS_)
 
 #define GS_RINGTYPE_RESTART 0
 #define GS_RINGTYPE_P1		1
@@ -61,19 +46,63 @@ extern u8 g_RealGSMem[0x2000];
 #define GS_RINGTYPE_P3		3
 #define GS_RINGTYPE_VSYNC	4
 #define GS_RINGTYPE_VIFFIFO	5 // GSreadFIFO2
-#define GS_RINGTYPE_MEMREF	0x10 // if bit set, memory is preserved (only valid for p2/p3)
-#define GS_RINGTYPE_MEMNOFREE 0x20 // if bit set, don't free or mem
+#define GS_RINGTYPE_FRAMESKIP	6
+#define GS_RINGTYPE_MEMWRITE8	7
+#define GS_RINGTYPE_MEMWRITE16	8
+#define GS_RINGTYPE_MEMWRITE32	9
+#define GS_RINGTYPE_MEMWRITE64	10
 
 // if returns NULL, don't copy (memory is preserved)
 u8* GSRingBufCopy(void* mem, u32 size, u32 type);
-void GSRingBufVSync(int field);
-void GSFreePage(u32* pGSPage);
+void GSRingBufSimplePacket(int type, int data0, int data1, int data2);
 
 extern u8* g_pGSWritePos;
+#ifdef PCSX2_DEVBUILD
+
+// use for debugging MTGS
+extern FILE* g_fMTGSWrite, *g_fMTGSRead;
+extern u32 g_MTGSDebug, g_MTGSId;
+
+#define MTGS_RECWRITE(start, size) { \
+	if( g_MTGSDebug & 1 ) { \
+		u32* pstart = (u32*)(start); \
+		u32 cursize = (u32)(size); \
+		fprintf(g_fMTGSWrite, "*%x-%x (%d)\n", (u32)(start), (u32)(size), ++g_MTGSId); \
+		/*while(cursize > 0) { \
+			fprintf(g_fMTGSWrite, "%x %x %x %x\n", pstart[0], pstart[1], pstart[2], pstart[3]); \
+			pstart += 4; \
+			cursize -= 16; \
+		}*/ \
+		if( g_MTGSDebug & 2 ) fflush(g_fMTGSWrite); \
+	} \
+} \
+
+#define MTGS_RECREAD(start, size) { \
+	if( g_MTGSDebug & 1 ) { \
+		u32* pstart = (u32*)(start); \
+		u32 cursize = (u32)(size); \
+		fprintf(g_fMTGSRead, "*%x-%x (%d)\n", (u32)(start), (u32)(size), ++g_MTGSId); \
+		/*while(cursize > 0) { \
+			fprintf(g_fMTGSRead, "%x %x %x %x\n", pstart[0], pstart[1], pstart[2], pstart[3]); \
+			pstart += 4; \
+			cursize -= 16; \
+		}*/ \
+		if( g_MTGSDebug & 4 ) fflush(g_fMTGSRead); \
+	} \
+} \
+
+#else
+
+#define MTGS_RECWRITE 0&&
+#define MTGS_RECREAD 0&&
+
+#endif
 
 // mem and size are the ones from GSRingBufCopy
 #define GSRINGBUF_DONECOPY(mem, size) { \
 	u8* temp = (u8*)(mem) + (size); \
+	assert( temp <= GS_RINGBUFFEREND); \
+	MTGS_RECWRITE(mem, size); \
 	if( temp == GS_RINGBUFFEREND ) temp = GS_RINGBUFFERBASE; \
 	InterlockedExchangePointer(&g_pGSWritePos, temp); \
 }
@@ -122,5 +151,68 @@ void mfifoGIFtransfer(int qwc);
 int  gsFreeze(gzFile f, int Mode);
 int _GIFchain();
 int  gifMFIFOInterrupt();
+
+// GS Playback
+#define GSRUN_TRANS1 1
+#define GSRUN_TRANS2 2
+#define GSRUN_TRANS3 3
+#define GSRUN_VSYNC 4
+
+#ifdef PCSX2_DEVBUILD
+
+extern int g_SaveGSStream;
+extern int g_nLeftGSFrames;
+extern gzFile g_fGSSave;
+
+#define GSGIFTRANSFER1(pMem, addr) { \
+	if( g_SaveGSStream == 2) { \
+		int type = GSRUN_TRANS1; \
+		int size = (0x4000-(addr))/16; \
+		gzwrite(g_fGSSave, &type, sizeof(type)); \
+		gzwrite(g_fGSSave, &size, 4); \
+		gzwrite(g_fGSSave, ((u8*)pMem)+(addr), size*16); \
+	} \
+	GSgifTransfer1(pMem, addr); \
+}
+
+#define GSGIFTRANSFER2(pMem, size) { \
+	if( g_SaveGSStream == 2) { \
+		int type = GSRUN_TRANS2; \
+		int _size = size; \
+		gzwrite(g_fGSSave, &type, sizeof(type)); \
+		gzwrite(g_fGSSave, &_size, 4); \
+		gzwrite(g_fGSSave, pMem, _size*16); \
+	} \
+	GSgifTransfer2(pMem, size); \
+}
+
+#define GSGIFTRANSFER3(pMem, size) { \
+	if( g_SaveGSStream == 2 ) { \
+		int type = GSRUN_TRANS3; \
+		int _size = size; \
+		gzwrite(g_fGSSave, &type, sizeof(type)); \
+		gzwrite(g_fGSSave, &_size, 4); \
+		gzwrite(g_fGSSave, pMem, _size*16); \
+	} \
+	GSgifTransfer3(pMem, size); \
+}
+
+#define GSVSYNC() { \
+	if( g_SaveGSStream == 2 ) { \
+		int type = GSRUN_VSYNC; \
+		gzwrite(g_fGSSave, &type, sizeof(type)); \
+	} \
+} \
+
+#else
+
+#define GSGIFTRANSFER1(pMem, size) GSgifTransfer1(pMem, size)
+#define GSGIFTRANSFER2(pMem, size) GSgifTransfer2(pMem, size)
+#define GSGIFTRANSFER3(pMem, size) GSgifTransfer3(pMem, size)
+#define GSVSYNC()
+
+#endif
+
+void RunGSState(gzFile f);
 
 #endif

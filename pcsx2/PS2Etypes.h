@@ -44,4 +44,9 @@ typedef u32 uptr;
 
 #endif
 
+typedef struct {
+	int size;
+	s8 *data;
+} freezeData;
+
 #endif /* __PS2ETYPES_H__ */

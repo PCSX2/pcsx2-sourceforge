@@ -31,6 +31,7 @@ void psxDma4(u32 madr, u32 bcr, u32 chcr) { // SPU
 	if(chcr & 0x40000000) SysPrintf("SPU 2 DMA 4 Unusual bit set on 'to' direction chcr = %x madr = %x bcr = %x\n", chcr, madr, bcr);
 	if((chcr & 0x1) == 0) SysPrintf("SPU 2 DMA 4 loading from spu2 memory chcr = %x madr = %x bcr = %x\n", chcr, madr, bcr);
 
+	
 	switch (chcr) {
 		case 0x01000201: //cpu to spu transfer
 #ifdef PSXDMA_LOG
@@ -38,8 +39,7 @@ void psxDma4(u32 madr, u32 bcr, u32 chcr) { // SPU
 #endif
 			//SysPrintf("DMA4 write blocks %x, size per block %x\n", (bcr >> 16), (bcr & 0xFFFF));
 			size = (bcr >> 16) * (bcr & 0xFFFF);			// Number of blocks to transfer
-			SPU2writeDMA4Mem((u16 *)PSXM(madr), size);
-			HW_DMA4_MADR += size;
+			SPU2writeDMA4Mem((u16 *)PSXM(madr), size*2);
 			break;
 		case 0x01000200: //spu to cpu transfer
 #ifdef PSXDMA_LOG
@@ -47,22 +47,22 @@ void psxDma4(u32 madr, u32 bcr, u32 chcr) { // SPU
 #endif
 			//SysPrintf("DMA4 read blocks %x, size per block %x\n", (bcr >> 16), (bcr & 0xFFFF));
 			size = (bcr >> 16) * (bcr & 0xFFFF);			// Number of blocks to transfer
-			SPU2readDMA4Mem((u16 *)PSXM(madr), size);
+			SPU2readDMA4Mem((u16 *)PSXM(madr), size*2);
 			psxCpu->Clear(HW_DMA4_MADR, size);
-			HW_DMA4_MADR += size;
 			break;
 
 		default:
 			SysPrintf("*** DMA 4 - SPU unknown *** %lx addr = %lx size = %lx\n", chcr, madr, bcr);
 			break;
 	}
+	
 	//spudmaenable[0] = size;
 }
 
 int  psxDma4Interrupt() {
 		HW_DMA4_CHCR &= ~0x01000000;
 		psxDmaInterrupt(4);
-		psxHu32(0x1070)|= 1<<9;
+		//psxHu32(0x1070)|= 1<<9;
 		return 1;
 }
 
@@ -101,6 +101,7 @@ void psxDma7(u32 madr, u32 bcr, u32 chcr) {
 	if(chcr & 0x40000000) SysPrintf("SPU 2 DMA 7 Unusual bit set on 'to' direction chcr = %x madr = %x bcr = %x\n", chcr, madr, bcr);
 	if((chcr & 0x1) == 0) SysPrintf("SPU 2 DMA 7 loading from spu2 memory chcr = %x madr = %x bcr = %x\n", chcr, madr, bcr);
 
+	
 	switch (chcr) {
 		case 0x01000201: //cpu to spu2 transfer
 #ifdef PSXDMA_LOG
@@ -109,8 +110,7 @@ void psxDma7(u32 madr, u32 bcr, u32 chcr) {
 			//SysPrintf("DMA7 write blocks %x, size per block %x\n", (bcr >> 16), (bcr & 0xFFFF));
 			size = (bcr >> 16) * (bcr & 0xFFFF);			// Number of blocks to transfer
 
-			SPU2writeDMA7Mem((u16 *)PSXM(madr), size);
-			HW_DMA7_MADR += size;
+			SPU2writeDMA7Mem((u16 *)PSXM(madr), size*2);
 			break;
 		case 0x01000200: //spu2 to cpu transfer
 #ifdef PSXDMA_LOG
@@ -119,14 +119,14 @@ void psxDma7(u32 madr, u32 bcr, u32 chcr) {
 			//SysPrintf("DMA4 read blocks %x, size per block %x\n", (bcr >> 16), (bcr & 0xFFFF));
 			size = (bcr >> 16) * (bcr & 0xFFFF);			// Number of blocks to transfer
 
-			SPU2readDMA7Mem((u16 *)PSXM(madr), size);
+			SPU2readDMA7Mem((u16 *)PSXM(madr), size*2);
 			psxCpu->Clear(HW_DMA7_MADR, size);
-			HW_DMA7_MADR += size;
 			break;
 		default:
 			SysPrintf("*** DMA 7 - SPU unknown *** %lx addr = %lx size = %lx\n", chcr, madr, bcr);
 			break;
 	}
+	
 }
 
 int  psxDma7Interrupt() {
@@ -204,6 +204,8 @@ int  dev9Interrupt() {
 	if (dev9Handler() != 1) return 1;
 irq:
 	psxHu32(0x1070)|= 1<<13;
+	//SBUS
+	hwIntcIrq(INTC_SBUS);	
 	return 1;
 }
 
@@ -216,6 +218,8 @@ int  usbInterrupt() {
 	if (usbHandler() != 1) return 1;
 irq:
 	psxHu32(0x1070)|= 1<<22;
+	//SBUS
+	hwIntcIrq(INTC_SBUS);
 	return 1;
 }
 
@@ -225,30 +229,26 @@ void usbIrq(int cycles) {
 
 void fwIrq() {
 	psxHu32(0x1070)|= 1<<24;
+	//SBUS
+	hwIntcIrq(INTC_SBUS);
 }
 
 void spu2DMA4Irq() {
-	//SysPrintf("IRQ DMA 4\n");
 	SPU2interruptDMA4();
-	//if(SPU2read(0x1f90019a) & 0xff) PSX_INT(4, (spudmaenable[0] * PSXSOUNDCLK) / BIAS);
-	HW_DMA4_BCR = 0;
+	//HW_DMA4_BCR = 0;
 	HW_DMA4_CHCR &= ~0x01000000;
 	psxDmaInterrupt(4);
-	//psxHu32(0x1070)|= 1<<9;
-	
 }
 
 void spu2DMA7Irq() {
-	//SysPrintf("IRQ DMA 7\n");
 	SPU2interruptDMA7();
-	//if(SPU2read(0x1f90059a) & 0xff)  PSX_INT(7, (spudmaenable[1] * PSXSOUNDCLK) / BIAS);
-
-	HW_DMA7_BCR = 0;
+	//HW_DMA7_BCR = 0;
 	HW_DMA7_CHCR &= ~0x01000000;
 	psxDmaInterrupt2(0);
-	//psxHu32(0x1070)|= 1<<9;
 }
 
 void spu2Irq() {
 	psxHu32(0x1070)|= 1<<9;
+	//SBUS
+	hwIntcIrq(INTC_SBUS);
 }

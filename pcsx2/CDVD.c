@@ -779,6 +779,8 @@ int  cdvdReadInterrupt() {
 
 	if (--cdvd.nSectors <= 0) {
 		psxHu32(0x1070)|= 0x4;
+		//SBUS
+		hwIntcIrq(INTC_SBUS);
 		HW_DMA3_CHCR &= ~0x01000000;
 		psxDmaInterrupt(3);
 		return 1;
@@ -1085,6 +1087,8 @@ void cdvdWrite04(u8 rt) { // NCOMMAND
 		case 0x00: // CdNop
 		case 0x01: // CdNop_
 			psxHu32(0x1070)|= 0x4;
+			//SBUS
+			hwIntcIrq(INTC_SBUS);
 			break;
 		
 		// from an emulation point of view there is not much need to do anything for these
@@ -1092,11 +1096,15 @@ void cdvdWrite04(u8 rt) { // NCOMMAND
 		case 0x03: // CdStop
 		case 0x04: // CdPause
 			psxHu32(0x1070)|= 0x4;
+			//SBUS
+			hwIntcIrq(INTC_SBUS);
 			break;
 		// should we change the sector location here?
 		case 0x05: // CdSeek
 			cdvd.Sector   = *(int*)(cdvd.Param+0);
 			psxHu32(0x1070)|= 0x4;
+			//SBUS
+			hwIntcIrq(INTC_SBUS);
 			break;
 		
 		case 0x06: // CdRead
@@ -1180,6 +1188,10 @@ void cdvdWrite04(u8 rt) { // NCOMMAND
 			//}
 			cdvdGetToc(PSXM(HW_DMA3_MADR));
 			psxHu32(0x1070)|= 0x4;
+			//SBUS
+			hwIntcIrq(INTC_SBUS);
+			HW_DMA3_CHCR &= ~0x01000000;
+			psxDmaInterrupt(3);
 			break;
 		
 		case 0x0C: // CdReadKey
@@ -1191,11 +1203,15 @@ void cdvdWrite04(u8 rt) { // NCOMMAND
 			cdvdReadKey(arg0, arg1, arg2, cdvd.Key);
 			cdvd.KeyXor = 0x00;
 			psxHu32(0x1070)|= 0x4;
+			//SBUS
+			hwIntcIrq(INTC_SBUS);
 			break;
 			}
 		default:
 			SysPrintf("NCMD Unknown %x\n", rt);
 			psxHu32(0x1070)|= 0x4;
+			//SBUS
+			hwIntcIrq(INTC_SBUS);
 			break;
 	}
 	cdvd.ParamP = 0; cdvd.ParamC = 0;
@@ -1788,6 +1804,7 @@ void cdvdWrite18(u8 rt) { // SDATAOUT
 #ifdef CDR_LOG
 	CDR_LOG("cdvdWrite18(SDataOut) %x\n", rt);
 #endif
+	SysPrintf("*PCSX2* SDATAOUT\n");
 }
 
 void cdvdWrite3A(u8 rt) { // DEC-SET

@@ -60,7 +60,7 @@
 // PS2EgetLibVersion2 (high 16 bits)
 #define PS2E_GS_VERSION   0x0006
 #define PS2E_PAD_VERSION  0x0002	// -=[ OBSOLETE ]=-
-#define PS2E_SPU2_VERSION 0x0004
+#define PS2E_SPU2_VERSION 0x0005
 #define PS2E_CDVD_VERSION 0x0005
 #define PS2E_DEV9_VERSION 0x0003
 #define PS2E_USB_VERSION  0x0003
@@ -169,11 +169,6 @@ typedef int  (*USBhandler)(void);
 #define FREEZE_SIZE			2
 
 typedef struct {
-	int size;
-	s8 *data;
-} freezeData;
-
-typedef struct {
 	char name[8];
 	void *common;
 } GSdriverInfo;
@@ -216,6 +211,10 @@ void CALLBACK GSmakeSnapshot2(char *pathname, int* snapdone, int savejpg);
 void CALLBACK GSirqCallback(void (*callback)());
 void CALLBACK GSprintf(int timeout, char *fmt, ...);
 void CALLBACK GSsetBaseMem(void*);
+
+// controls frame skipping in the GS, if this routine isn't present, frame skipping won't be done
+void CALLBACK GSsetFrameSkip(int frameskip);
+
 void CALLBACK GSreset();
 void CALLBACK GSwriteCSR(u32 value);
 void CALLBACK GSgetDriverInfo(GSdriverInfo *info);
@@ -304,10 +303,9 @@ void CALLBACK SPU2interruptDMA4();
 void CALLBACK SPU2readDMA7Mem(u16* pMem, int size);
 void CALLBACK SPU2writeDMA7Mem(u16 *pMem, int size);
 void CALLBACK SPU2interruptDMA7();
-void CALLBACK SPU2DMA4irqCallback(void (*callback)());
-void CALLBACK SPU2DMA7irqCallback(void (*callback)());
-void CALLBACK SPU2irqCallback(void (*callback)());
-
+u32 CALLBACK SPU2ReadMemAddr(int core);
+void CALLBACK SPU2WriteMemAddr(int core,u32 value);
+void CALLBACK SPU2irqCallback(void (*SPU2callback)(),void (*DMA4callback)(),void (*DMA7callback)());
 // extended funcs
 
 void CALLBACK SPU2async(u32 cycles);
@@ -474,6 +472,7 @@ typedef void (CALLBACK* _GSchangeSaveState)(int, const char* filename);
 typedef void (CALLBACK* _GSirqCallback)(void (*callback)());
 typedef void (CALLBACK* _GSprintf)(int timeout, char *fmt, ...);
 typedef void (CALLBACK* _GSsetBaseMem)(void*);
+typedef void (CALLBACK* _GSsetFrameSkip)(int frameskip);
 typedef void (CALLBACK* _GSreset)();
 typedef void (CALLBACK* _GSwriteCSR)(u32 value);
 typedef void (CALLBACK* _GSgetDriverInfo)(GSdriverInfo *info);
@@ -530,10 +529,9 @@ typedef void (CALLBACK* _SPU2interruptDMA4)();
 typedef void (CALLBACK* _SPU2readDMA7Mem)(u16 *pMem, int size);
 typedef void (CALLBACK* _SPU2writeDMA7Mem)(u16 *pMem, int size);
 typedef void (CALLBACK* _SPU2interruptDMA7)();
-typedef void (CALLBACK* _SPU2DMA4irqCallback)(void (*callback)());
-typedef void (CALLBACK* _SPU2DMA7irqCallback)(void (*callback)());
-typedef void (CALLBACK* _SPU2irqCallback)(void (*callback)());
-
+typedef void (CALLBACK* _SPU2irqCallback)(void (*SPU2callback)(),void (*DMA4callback)(),void (*DMA7callback)());
+typedef u32 (CALLBACK* _SPU2ReadMemAddr)(int core);
+typedef void (CALLBACK* _SPU2WriteMemAddr)(int core,u32 value);
 typedef void (CALLBACK* _SPU2async)(u32 cycles);
 typedef s32  (CALLBACK* _SPU2freeze)(int mode, freezeData *data);
 typedef void (CALLBACK* _SPU2configure)();
@@ -646,6 +644,7 @@ _GSmakeSnapshot2   GSmakeSnapshot2;
 _GSirqCallback 	   GSirqCallback;
 _GSprintf      	   GSprintf;
 _GSsetBaseMem 	   GSsetBaseMem;
+_GSsetFrameSkip	   GSsetFrameSkip;
 _GSreset		   GSreset;
 _GSwriteCSR		   GSwriteCSR;
 _GSgetDriverInfo   GSgetDriverInfo;
@@ -713,8 +712,8 @@ _SPU2interruptDMA4 SPU2interruptDMA4;
 _SPU2readDMA7Mem   SPU2readDMA7Mem;
 _SPU2writeDMA7Mem  SPU2writeDMA7Mem;
 _SPU2interruptDMA7 SPU2interruptDMA7;
-_SPU2DMA4irqCallback   SPU2DMA4irqCallback;
-_SPU2DMA7irqCallback   SPU2DMA7irqCallback;
+_SPU2ReadMemAddr   SPU2ReadMemAddr;
+_SPU2WriteMemAddr   SPU2WriteMemAddr;
 _SPU2irqCallback   SPU2irqCallback;
 
 _SPU2async         SPU2async;

@@ -25,6 +25,7 @@
 #include "Debug.h"
 #include "R3000A.h"
 #include "VUmicro.h"
+#include "gs.h"
 
 static int inter;
 
@@ -38,10 +39,6 @@ R5900cpu *Cpu;
 int EEsCycle;
 u32 EEoCycle, IOPoCycle;
 
-void ExecuteIOP()
-{
-	psxCpu->ExecuteBlock();
-}
 
 int cpuInit()
 {
@@ -55,13 +52,6 @@ int cpuInit()
 
 	InitFPUOps();
 	cpudetectInit();
-
-	if( CHECK_EEREC ) Config.Options |= PCSX2_COP2REC;
-	else Config.Options &= ~PCSX2_COP2REC;
-
-	if( !cpucaps.hasStreamingSIMDExtensions ) {
-		Config.Options &= ~(PCSX2_VU1REC|PCSX2_VU0REC);
-	}
 
 	cpuRegs.constzero = 0;
 	Cpu = CHECK_EEREC ? &recCpu : &intCpu;
@@ -115,7 +105,8 @@ int cpuInit()
 	return ret;
 }
 
-void cpuReset() {
+void cpuReset()
+{
 	Cpu->Reset();
 
 	memReset();
@@ -125,7 +116,7 @@ void cpuReset() {
 	memset(&tlb, 0, sizeof(tlb));
 
 	cpuRegs.pc = 0xbfc00000; ///set pc reg to stack 
-
+	cpuRegs.CP0.n.Config = 0x440;
 	cpuRegs.CP0.n.Status.val = 0x70400004; //0x10900000 <-- wrong; // COP0 enabled | BEV = 1 | TS = 1
 	cpuRegs.CP0.n.PRid   = 0x00002e20; // PRevID = Revision ID, same as R5900
 	fpuRegs.fprc[0]   = 0x00002e00; // fpu Revision..
@@ -383,7 +374,7 @@ void cpuBranchTest()
 	assert( !g_globalXMMSaved && !g_globalMMXSaved );
 	g_EEFreezeRegs = 0;
 
-//	if( !loaded && cpuRegs.cycle > 0x06000000 ) {
+//	if( !loaded && cpuRegs.cycle > 0x08000000 ) {
 //		char strstate[255];
 //		sprintf(strstate, "sstates/%8.8x.000", ElfCRC);
 //		LoadState(strstate);
@@ -414,10 +405,6 @@ void cpuBranchTest()
 	if (VU0.VI[REG_VPU_STAT].UL & 0x1) {
 		Cpu->ExecuteVU0Block();
 	}
-	// don't need in svurec
-//	if (VU0.VI[REG_VPU_STAT].UL & 0x100) {
-//		Cpu->ExecuteVU1Block();
-//	}
 
 	if( (int)cpuRegs.cycle-(int)g_nextBranchCycle > 0 )
 		g_nextBranchCycle = cpuRegs.cycle+1;
@@ -473,7 +460,34 @@ void cpuTestTIMRInts() {
 }
 
 extern BOOL bExecBIOS;
-void cpuExecuteBios() {
+void cpuExecuteBios()
+{
+	// filter CPU options
+	if( CHECK_EEREC ) Config.Options |= PCSX2_COP2REC;
+	else Config.Options &= ~PCSX2_COP2REC;
+
+	if( !cpucaps.hasStreamingSIMDExtensions ) {
+		Config.Options &= ~(PCSX2_VU1REC|PCSX2_VU0REC);
+	}
+
+	// remove frame skipping if GS doesn't support it
+	switch(CHECK_FRAMELIMIT) {
+		case PCSX2_FRAMELIMIT_SKIP:
+		case PCSX2_FRAMELIMIT_VUSKIP:
+			if( GSsetFrameSkip == NULL )
+				Config.Options &= ~PCSX2_FRAMELIMIT_MASK;
+			break;
+	}
+
+	SysPrintf("Using Frame Skipping: ");
+	switch(CHECK_FRAMELIMIT) {
+		case PCSX2_FRAMELIMIT_NORMAL: SysPrintf("Normal\n"); break;
+		case PCSX2_FRAMELIMIT_LIMIT: SysPrintf("Limit\n"); break;
+		case PCSX2_FRAMELIMIT_SKIP: SysPrintf("Skip\n"); break;
+		case PCSX2_FRAMELIMIT_VUSKIP: SysPrintf("VU Skip\n"); break;
+	}
+
+
 	SysPrintf("* PCSX2 *: ExecuteBios\n");
 
 	bExecBIOS = TRUE;

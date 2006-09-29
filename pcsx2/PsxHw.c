@@ -56,6 +56,30 @@ u8 psxHwRead8(u32 add) {
 		case 0x1f80146e: // DEV9_R_REV
 			return DEV9read8(add);
 
+#ifdef PCSX2_DEVBUILD
+		case 0x1f801100:
+		case 0x1f801104:
+		case 0x1f801108:
+		case 0x1f801110:
+		case 0x1f801114:
+		case 0x1f801118:
+		case 0x1f801120:
+		case 0x1f801124:
+		case 0x1f801128:
+		case 0x1f801480:
+		case 0x1f801484:
+		case 0x1f801488:
+		case 0x1f801490:
+		case 0x1f801494:
+		case 0x1f801498:
+		case 0x1f8014a0:
+		case 0x1f8014a4:
+		case 0x1f8014a8:
+			SysPrintf("8bit counter read %x\n", add);
+			hard = psxHu8(add);
+			return hard;
+#endif
+
 		case 0x1f801800: hard = cdrRead0(); break;
 		case 0x1f801801: hard = cdrRead1(); break;
 		case 0x1f801802: hard = cdrRead2(); break;
@@ -109,6 +133,30 @@ int psxHwConstRead8(u32 x86reg, u32 add, u32 sign) {
 			CONSTREAD8_CALL(sioRead8);
 			return 1;
       //  case 0x1f801050: hard = serial_read8(); break;//for use of serial port ignore for now
+
+#ifdef PCSX2_DEVBUILD
+		case 0x1f801100:
+		case 0x1f801104:
+		case 0x1f801108:
+		case 0x1f801110:
+		case 0x1f801114:
+		case 0x1f801118:
+		case 0x1f801120:
+		case 0x1f801124:
+		case 0x1f801128:
+		case 0x1f801480:
+		case 0x1f801484:
+		case 0x1f801488:
+		case 0x1f801490:
+		case 0x1f801494:
+		case 0x1f801498:
+		case 0x1f8014a0:
+		case 0x1f8014a4:
+		case 0x1f8014a8:
+			SysPrintf("8bit counter read %x\n", add);
+			_eeReadConstMem8(x86reg, (u32)&psxH[(add) & 0xffff], sign);
+			return 0;
+#endif
 
 		case 0x1f80146e: // DEV9_R_REV
 			PUSH32I(add);
@@ -199,8 +247,6 @@ u16 psxHwRead16(u32 add) {
 			return hard;
 		case 0x1f801104:
 			hard = psxCounters[0].mode;
-			psxCounters[0].mode&= ~0x1800;
-			psxCounters[0].mode|= 0x400;
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T0 mode read16: %x\n", hard);
 #endif
@@ -219,8 +265,6 @@ u16 psxHwRead16(u32 add) {
 			return hard;
 		case 0x1f801114:
 			hard = psxCounters[1].mode;
-			psxCounters[1].mode&= ~0x1800;
-			psxCounters[1].mode|= 0x400;
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T1 mode read16: %x\n", hard);
 #endif
@@ -239,8 +283,6 @@ u16 psxHwRead16(u32 add) {
 			return hard;
 		case 0x1f801124:
 			hard = psxCounters[2].mode;
-			psxCounters[2].mode&= ~0x1800;
-			psxCounters[2].mode|= 0x400;
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T2 mode read16: %x\n", hard);
 #endif
@@ -263,8 +305,6 @@ u16 psxHwRead16(u32 add) {
 			return hard;
 		case 0x1f801484:
 			hard = psxCounters[3].mode;
-			psxCounters[3].mode&= ~0x1800;			
-			psxCounters[3].mode|= 0x400;
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T3 mode read16: %lx\n", hard);
 #endif
@@ -283,8 +323,6 @@ u16 psxHwRead16(u32 add) {
 			return hard;
 		case 0x1f801494:
 			hard = psxCounters[4].mode;
-			psxCounters[4].mode&= ~0x1800;
-			psxCounters[4].mode|= 0x400;
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T4 mode read16: %lx\n", hard);
 #endif
@@ -303,8 +341,6 @@ u16 psxHwRead16(u32 add) {
 			return hard;
 		case 0x1f8014a4:
 			hard = psxCounters[5].mode;
-			psxCounters[5].mode&= ~0x1800;
-			psxCounters[5].mode|= 0x400;
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T5 mode read16: %lx\n", hard);
 #endif
@@ -369,8 +405,8 @@ void psxConstReadCounterMode16(int x86reg, int index, int sign)
 		MOV32RtoR(x86reg, ECX);
 	}
 	
-	AND16ItoR(ECX, ~0x1800);
-	OR16ItoR(ECX, 0x400);
+	//AND16ItoR(ECX, ~0x1800);
+	//OR16ItoR(ECX, 0x400);
 	MOV16RtoM(psxCounters[index].mode, ECX);
 }
 
@@ -765,8 +801,6 @@ u32 psxHwRead32(u32 add) {
 			return hard;
 		case 0x1f801104:
 			hard = (u16)psxCounters[0].mode;
-			psxCounters[0].mode&= ~0x1800;
-			psxCounters[0].mode|= 0x400;
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T0 mode read32: %lx\n", hard);
 #endif
@@ -785,8 +819,6 @@ u32 psxHwRead32(u32 add) {
 			return hard;
 		case 0x1f801114:
 			hard = (u16)psxCounters[1].mode;
-			psxCounters[1].mode&= ~0x1800;
-			psxCounters[1].mode|= 0x400;
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T1 mode read32: %lx\n", hard);
 #endif
@@ -805,8 +837,6 @@ u32 psxHwRead32(u32 add) {
 			return hard;
 		case 0x1f801124:
 			hard = (u16)psxCounters[2].mode;
-			psxCounters[2].mode&= ~0x1800;
-			psxCounters[2].mode|= 0x400;
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T2 mode read32: %lx\n", hard);
 #endif
@@ -826,8 +856,6 @@ u32 psxHwRead32(u32 add) {
 			return hard;
 		case 0x1f801484:
 			hard = (u16)psxCounters[3].mode;
-			psxCounters[3].mode&= ~0x1800;
-			psxCounters[3].mode|= 0x400;
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T3 mode read32: %lx\n", hard);
 #endif
@@ -846,8 +874,6 @@ u32 psxHwRead32(u32 add) {
 			return hard;
 		case 0x1f801494:
 			hard = (u16)psxCounters[4].mode;
-			psxCounters[4].mode&= ~0x1800;
-			psxCounters[4].mode|= 0x400;
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T4 mode read32: %lx\n", hard);
 #endif
@@ -866,8 +892,6 @@ u32 psxHwRead32(u32 add) {
 			return hard;
 		case 0x1f8014a4:
 			hard = (u16)psxCounters[5].mode;
-			psxCounters[5].mode&= ~0x1800;
-			psxCounters[5].mode|= 0x400;
 #ifdef PSXHW_LOG
 			PSXHW_LOG("T5 mode read32: %lx\n", hard);
 #endif
@@ -887,7 +911,12 @@ u32 psxHwRead32(u32 add) {
 			return hard;
 
 
+		case 0x1F8010C0:
+			HW_DMA4_MADR = SPU2ReadMemAddr(0);
+			return HW_DMA4_MADR;
+
 		case 0x1f801500:
+			HW_DMA7_MADR = SPU2ReadMemAddr(1);
 #ifdef PSXHW_LOG
 			PSXHW_LOG("DMA7 MADR 32bit read %lx\n", HW_DMA7_MADR);
 #endif
@@ -1031,8 +1060,8 @@ void psxConstReadCounterMode32(int x86reg, int index)
 		MOV32RtoR(x86reg, ECX);
 	}
 
-	AND16ItoR(ECX, ~0x1800);
-	OR16ItoR(ECX, 0x400);
+	//AND16ItoR(ECX, ~0x1800);
+	//OR16ItoR(ECX, 0x400);
 	MOV16RtoM(psxCounters[index].mode, ECX);
 }
 
@@ -1253,6 +1282,16 @@ int psxHwConstRead32(u32 x86reg, u32 add) {
 			CALLFunc((u32)sio2_getIntr);
 			return 1;
 
+		case 0x1F801C00:
+			iFlushCall(0);
+			CALLFunc((u32)SPU2ReadMemAddr(0));
+			return 1;
+
+		case 0x1F801500:
+			iFlushCall(0);
+			CALLFunc((u32)SPU2ReadMemAddr(1));
+			return 1;
+
 		default:
 			_eeReadConstMem32(x86reg, (u32)&psxH[(add) & 0xffff]);
 			return 0;
@@ -1280,6 +1319,27 @@ void psxHwWrite8(u32 add, u8 value) {
 		case 0x1f801040: sioWrite8(value); break;
 	//	case 0x1f801050: serial_write8(value); break;//serial port
 
+		case 0x1f801100:
+		case 0x1f801104:
+		case 0x1f801108:
+		case 0x1f801110:
+		case 0x1f801114:
+		case 0x1f801118:
+		case 0x1f801120:
+		case 0x1f801124:
+		case 0x1f801128:
+		case 0x1f801480:
+		case 0x1f801484:
+		case 0x1f801488:
+		case 0x1f801490:
+		case 0x1f801494:
+		case 0x1f801498:
+		case 0x1f8014a0:
+		case 0x1f8014a4:
+		case 0x1f8014a8:
+			SysPrintf("8bit counter write %x\n", add);
+			psxHu8(add) = value;
+			return;
 		case 0x1f801450:
 #ifdef PSXHW_LOG
 			if (value) { PSXHW_LOG("%08X ICFG 8bit write %lx\n", psxRegs.pc, value); }
@@ -1351,7 +1411,27 @@ void psxHwConstWrite8(u32 add, int mmreg)
 		case 0x1f801040:
 			CONSTWRITE_CALL(sioWrite8); break;
 		//case 0x1f801050: serial_write8(value); break;//serial port
-
+		case 0x1f801100:
+		case 0x1f801104:
+		case 0x1f801108:
+		case 0x1f801110:
+		case 0x1f801114:
+		case 0x1f801118:
+		case 0x1f801120:
+		case 0x1f801124:
+		case 0x1f801128:
+		case 0x1f801480:
+		case 0x1f801484:
+		case 0x1f801488:
+		case 0x1f801490:
+		case 0x1f801494:
+		case 0x1f801498:
+		case 0x1f8014a0:
+		case 0x1f8014a4:
+		case 0x1f8014a8:
+			SysPrintf("8bit counter write %x\n", add);
+			_eeWriteConstMem8((u32)&psxH[(add) & 0xffff], mmreg);
+			return;
 		case 0x1f801800: CONSTWRITE_CALL(cdrWrite0); break;
 		case 0x1f801801: CONSTWRITE_CALL(cdrWrite1); break;
 		case 0x1f801802: CONSTWRITE_CALL(cdrWrite2); break;
