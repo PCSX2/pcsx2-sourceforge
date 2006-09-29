@@ -8,7 +8,6 @@
 #define IDD_BPEXEC                      103
 #define ABOUT_DIALOG                    104
 #define IDD_BPCNT                       105
-#define IDD_CPUCONF                     106
 #define IDD_DEBUG                       108
 #define IDI_ICON                        108
 #define IDD_MEMORY                      110
@@ -528,10 +527,13 @@
 #define IDC_CPU_VU1REC                  1263
 #define IDC_CHECK4                      1264
 #define IDC_CPU_VU0REC                  1264
-#define IDC_CPU_NEWCOP2                 1265
-#define IDC_CPU_FORCEABS                1266
-#define IDC_CPU_VU1REC2                 1268
-#define IDC_CPU_SVUREC                  1268
+#define IDC_CPU_FL_NORMAL               1265
+#define IDC_IDC_CPU_FL_LIMIT            1266
+#define IDC_CPU_FL_LIMIT                1266
+#define IDC_CPU_FL_SKIP                 1267
+#define IDC_CPU_FL_SKIPVU               1268
+#define IDC_CPU_VUGROUP                 1269
+#define IDC_MONTHCALENDAR1              1270
 #define IDC_LOG                         1500
 #define IDC_CPULOG                      1500
 #define IDC_MEMLOG                      1501
@@ -560,8 +562,9 @@
 #define IDC_IOPCDRLOG                   1527
 #define IDC_IOPGPULOG                   1527
 #define IDC_IOPCNTLOG                   1529
-#define IDC_SYMLOG                      1530
-#define IDC_STDOUTPUTLOG                1531
+#define IDC_EECNTLOG                    1530
+#define IDC_SYMLOG                      1531
+#define IDC_STDOUTPUTLOG                1532
 #define ID_FILEOPEN                     40001
 #define ID_DEBUG_MEMORY_DUMP            40002
 #define ID_FILE_EXIT                    40003
@@ -634,7 +637,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        133
 #define _APS_NEXT_COMMAND_VALUE         40018
-#define _APS_NEXT_CONTROL_VALUE         1263
+#define _APS_NEXT_CONTROL_VALUE         1271
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

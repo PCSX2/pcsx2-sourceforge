@@ -832,6 +832,8 @@ void CMP16MtoR( x86IntRegType to, u32 from );
 
 // cmp imm8 to r8
 void CMP8ItoR( x86IntRegType to, u8 from );
+// cmp m8 to r8
+void CMP8MtoR( x86IntRegType to, u32 from );
 
 // test imm32 to r32 
 void TEST32ItoR( x86IntRegType to, u32 from );

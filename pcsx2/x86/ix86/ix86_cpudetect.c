@@ -326,6 +326,9 @@ void cpudetectInit( void )
                case 11:    // Xeon/Celeron with Tualatin core, on-die cache
                   strcpy( cpuinfo.x86Fam, "Intel Pentium III" );
                   break;
+			   case 15:    // Core 2 Duo Allendale/Conroe
+				  strcpy( cpuinfo.x86Fam, "Intel Core 2 Duo" );
+				  break;
 
                default:
                   strcpy( cpuinfo.x86Fam, "Intel Pentium Pro (Unknown)" );
@@ -373,6 +376,17 @@ void cpudetectInit( void )
 			    case 12: 
 				 strcpy(cpuinfo.x86Fam,"AMD Opteron(tm) Processor");
 				 break;
+			    case 5:
+				  strcpy( cpuinfo.x86Fam, "AMD Athlon X2 Processor" );
+				  AMDspeed = 22 + (x86_64_12BITBRANDID & 0x1f);
+				 //AMDspeedString = strtol(AMDspeed, (char**)NULL,10);
+				 sprintf(AMDspeedString," %d",AMDspeed);
+				 strcat(AMDspeedString,"00+");
+				 strcat(cpuinfo.x86Fam,AMDspeedString);
+                  break;
+			   case 44:
+				   strcpy( cpuinfo.x86Fam, "AMD Opteron(tm) Dual Core Processor" );
+                  break;
 			    default:
 				   strcpy(cpuinfo.x86Fam,"Unknown AMD 64 proccesor");
 				   
@@ -385,7 +399,7 @@ void cpudetectInit( void )
 		  }
 		  else
 		  {		 
-			  strcpy( cpuinfo.x86Fam, "AMD K7+" );
+			  strcpy( cpuinfo.x86Fam, "AMD K7+ Processor" );
 		  }
       }
       else
@@ -397,18 +411,19 @@ void cpudetectInit( void )
                {
                case 14: 
                case 15:       // Write-back enhanced
-                  strcpy( cpuinfo.x86Fam, "AMD 5x86" );
+                  strcpy( cpuinfo.x86Fam, "AMD 5x86 Processor" );
                   break;
 
                case 3:        // DX2
                case 7:        // Write-back enhanced DX2
                case 8:        // DX4
                case 9:        // Write-back enhanced DX4
-                  strcpy( cpuinfo.x86Fam, "AMD 486" );
+                  strcpy( cpuinfo.x86Fam, "AMD 486 Processor" );
                   break;
+			   			   
 
                default:
-                  strcpy( cpuinfo.x86Fam, "AMD Unknown" );
+                  strcpy( cpuinfo.x86Fam, "AMD Unknown Processor" );
 
                }
                break;
@@ -420,7 +435,7 @@ void cpudetectInit( void )
                case 1:     // 5k86 (PR 120 and 133 MHz)
                case 2:     // 5k86 (PR 166 MHz)
                case 3:     // K5 5k86 (PR 200 MHz)
-                  strcpy( cpuinfo.x86Fam, "AMD K5" );
+                  strcpy( cpuinfo.x86Fam, "AMD K5 Processor" );
                   break;
 
                case 6:     
@@ -428,15 +443,15 @@ void cpudetectInit( void )
                case 8:     // K6-2
                case 9:     // K6-III
                case 14:    // K6-2+ / K6-III+
-                  strcpy( cpuinfo.x86Fam, "AMD K6" );
+                  strcpy( cpuinfo.x86Fam, "AMD K6 Series Processor" );
                   break;
 
                default:
-                  strcpy( cpuinfo.x86Fam, "AMD Unknown" );
+                  strcpy( cpuinfo.x86Fam, "AMD Unknown Processor" );
                }
                break;
             case 6:     
-               strcpy( cpuinfo.x86Fam, "AMD K7" );
+               strcpy( cpuinfo.x86Fam, "AMD Athlon XP Processor" );
                break;
             default:
                strcpy( cpuinfo.x86Fam, "Unknown AMD CPU" ); 

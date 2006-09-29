@@ -31,6 +31,14 @@ extern void (*recVU0_UPPER_FD_01_TABLE[32])();
 extern void (*recVU0_UPPER_FD_10_TABLE[32])();
 extern void (*recVU0_UPPER_FD_11_TABLE[32])();
 
+extern void (*recVU1_LOWER_OPCODE[128])();
+extern void (*recVU1_UPPER_OPCODE[64])();
+
+extern void (*recVU1_UPPER_FD_00_TABLE[32])();
+extern void (*recVU1_UPPER_FD_01_TABLE[32])();
+extern void (*recVU1_UPPER_FD_10_TABLE[32])();
+extern void (*recVU1_UPPER_FD_11_TABLE[32])();
+
 void recVU0_UPPER_FD_00();
 void recVU0_UPPER_FD_01();
 void recVU0_UPPER_FD_10();

@@ -50,24 +50,28 @@ IPUregisters g_ipuRegsReal;
 #define IPU_DMA_DOTIE1 16
 #define IPU_DMA_FIREINT0 32
 #define IPU_DMA_FIREINT1 64
+#define IPU_DMA_VIFSTALL 128
 
 static int g_nDMATransfer = 0;
 int g_nIPU0Data = 0; // data left to transfer
 u8* g_pIPU0Pointer = NULL;
 int g_nCmdPos[2] = {0}, g_nCmdIndex = 0;
-static int ipuCurCmd = 0xffffffff;
+int ipuCurCmd = 0xffffffff;
 
 // returns number of qw read
-int fifo_wread(void *value, int size);
-int fifo_wread1(void *value);
-int fifo_wwrite(u32* pMem, int size);
-void fifo_wclear();
+int FIFOfrom_write(u32 * value, int size);
+void FIFOfrom_read(void *value,int size);
+int FIFOto_read(void *value);
+int FIFOto_write(u32* pMem, int size);
+void FIFOto_clear();
 
-static int readwpos = 0, writewpos = 0;
+int FOreadpos = 0, FOwritepos = 0;
+static int FIreadpos = 0, FIwritepos = 0;
 __declspec(align(16)) u32 fifo_input[32];
+__declspec(align(16)) u32 fifo_output[32];
 
 void ReorderBitstream();
-u8 FillInternalBuffer(u32 * pointer, u32 advance);
+u16 FillInternalBuffer(u32 * pointer, u32 advance);
 
 // the BP doesn't advance and returns -1 if there is no data to be read
 tIPU_BP g_BP;
@@ -77,7 +81,7 @@ static u32 s_tempstack[0x1000]; // 16k
 
 void IPUCMD_WRITE(u32 val);
 void IPUWorker();
-int IPU0dma(const void* pMem, int size);
+int IPU0dma();
 int IPU1dma();
 
 #define BigEndian _byteswap_ulong
@@ -158,9 +162,12 @@ int  ipuFreeze(gzFile f, int Mode) {
 
 	gzfreeze(ipuRegs, sizeof(IPUregisters));
 	gzfreeze(&g_nDMATransfer, sizeof(g_nDMATransfer));
-	gzfreeze(&readwpos, sizeof(readwpos));
-	gzfreeze(&writewpos, sizeof(writewpos));
-	gzfreeze(fifo_input, sizeof(fifo_input));
+	gzfreeze(&FIreadpos, sizeof(FIreadpos));
+	gzfreeze(&FIwritepos, sizeof(FIwritepos));
+	gzfreeze(fifo_input, sizeof(fifo_input));	
+	gzfreeze(&FOreadpos, sizeof(FOreadpos));
+	gzfreeze(&FOwritepos, sizeof(FOwritepos));
+	gzfreeze(fifo_output, sizeof(fifo_output));
 	gzfreeze(&g_BP, sizeof(g_BP));
 	gzfreeze(niq, sizeof(niq));
 	gzfreeze(iq, sizeof(niq));
@@ -225,7 +232,7 @@ u32 ipuRead32(u32 mem)
 
 		case 0x10002010: // IPU_CTRL
 			ipuRegs->ctrl.IFC = g_BP.IFC;
-			ipuRegs->ctrl.OFC = min(g_nIPU0Data, 8); // check if transfering to ipu0
+			//ipuRegs->ctrl.OFC = min(g_nIPU0Data, 8); // check if transfering to ipu0
 			ipuRegs->ctrl.CBP = coded_block_pattern;
 
 #ifdef IPU_LOG
@@ -283,18 +290,23 @@ int ipuConstRead32(u32 x86reg, u32 mem)
 		case 0x10002010: // IPU_CTRL
 	
 			MOV32MtoR(workingreg, (u32)&ipuRegs->ctrl._u32);
-			AND32ItoR(workingreg, ~0x3fff);
-			MOV32MtoR(tempreg, (u32)&g_nIPU0Data);
-			MOV8MtoR(workingreg, (u32)&g_BP.IFC);
+			AND32ItoR(workingreg, ~0x3f0f); // save OFC
+			OR8MtoR(workingreg, (u32)&g_BP.IFC);
+			OR8MtoR(workingreg+4, (u32)&coded_block_pattern); // or ah, mem
 
-			CMP32ItoR(tempreg, 8);
-			j8Ptr[5] = JLE8(0);
-			MOV32ItoR(tempreg, 8);
-			x86SetJ8( j8Ptr[5] );
-			SHL32ItoR(tempreg, 4);
-
-			OR8MtoR(EAX+4, (u32)&coded_block_pattern); // or ah, mem
-			OR8RtoR(workingreg, tempreg);
+//			MOV32MtoR(workingreg, (u32)&ipuRegs->ctrl._u32);
+//			AND32ItoR(workingreg, ~0x3fff);
+//			MOV32MtoR(tempreg, (u32)&g_nIPU0Data);
+//			MOV8MtoR(workingreg, (u32)&g_BP.IFC);
+//
+//			CMP32ItoR(tempreg, 8);
+//			j8Ptr[5] = JLE8(0);
+//			MOV32ItoR(tempreg, 8);
+//			x86SetJ8( j8Ptr[5] );
+//			SHL32ItoR(tempreg, 4);
+//
+//			OR8MtoR(workingreg+4, (u32)&coded_block_pattern); // or ah, mem
+//			OR8RtoR(workingreg, tempreg);
 
 #ifdef _DEBUG
 			MOV32RtoM((u32)&ipuRegs->ctrl._u32, workingreg);
@@ -363,6 +375,7 @@ u64 ipuRead64(u32 mem)
 #ifdef IPU_LOG
 			IPU_LOG("Ipu read64: IPU_TOP=%x,  bp = %d\n",ipuRegs->top,g_BP.BP);
 #endif
+
 			//return *(u64*)&ipuRegs->top;
 			break;
 
@@ -402,7 +415,10 @@ void ipuSoftReset()
 		memset(mb16.Cr,0,sizeof(mb16.Cr));
 		mpeg2_inited=1;
 	}
-	fifo_wclear();
+	FIFOto_clear();
+	memset(fifo_output,0,sizeof(u32)*32);
+	FOwritepos = 0;
+	FOreadpos = 0;
 	coded_block_pattern = 0;
 
 	ipuRegs->ctrl._u32 = 0;
@@ -542,10 +558,12 @@ void ipuConstWrite64(u32 mem, int mmreg)
 // IPU Commands (exec on worker thread only)
 
 static void ipuBCLR(u32 val) {
-    fifo_wclear();
+    FIFOto_clear();
 	g_BP.BP = val & 0x7F;
 	g_BP.FP = 0;
 	g_BP.IFC = 0;
+	ipuRegs->ctrl.BUSY = 0;
+	ipuRegs->cmd.BUSY = 0;
 #ifdef IPU_LOG
 	IPU_LOG("Clear IPU input FIFO. Set Bit offset=0x%X\n", g_BP.BP);
 #endif
@@ -593,13 +611,19 @@ static BOOL ipuIDEC(u32 val)
 	return s_RoutineDone;
 }
 
+#ifdef _DEBUG
+static int s_bdec=0;
+#else
+#define s_bdec 0
+#endif
+
 static BOOL ipuBDEC(u32 val)
 {
 	tIPU_CMD_BDEC bdec={0, 0, 0, 0, 0, 0, 0, 0};
 	*(u32*)&bdec=val;
 
 #ifdef IPU_LOG
-							IPU_LOG("IPU BDEC(macroblock decode) command.\n");
+							IPU_LOG("IPU BDEC(macroblock decode) command %x, num: 0x%x\n",cpuRegs.pc, s_bdec);
 	if (bdec.FB){			IPU_LOG(" Skip 0x%X bits.", bdec.FB);}
 	if (bdec.MBI){			IPU_LOG(" Intra MB.");}
 	else{					IPU_LOG(" Non-intra MB.");}
@@ -609,6 +633,11 @@ static BOOL ipuBDEC(u32 val)
 	else{					IPU_LOG(" Use frame DCT.");}
 							IPU_LOG(" Quantiser step=0x%X\n",bdec.QSC);
 #endif
+
+#ifdef _DEBUG
+	s_bdec++;
+#endif
+
 	g_BP.BP+= bdec.FB;//skip FB bits
 	g_decoder.coding_type		= I_TYPE;
 	g_decoder.mpeg1			=ipuRegs->ctrl.MP1;
@@ -674,16 +703,9 @@ static BOOL ipuVDEC(u32 val) {
 			ipuRegs->cmd.DATA = (ipuRegs->cmd.DATA & 0xFFFF) | ((g_decoder.bitstream_bits+16) << 16);
 			ipuRegs->ctrl.ECD = (ipuRegs->cmd.DATA==0);
 
-		case 1:	
-			if( !FillInternalBuffer(&g_BP.BP,1) ) {
-				g_nCmdPos[0] = 1;
-				return FALSE;
-			}
-			
-		case 2:
-	
+		case 1:
 			if( !getBits32((u8*)&ipuRegs->top, 0) ) {
-				g_nCmdPos[0] = 2;
+				g_nCmdPos[0] = 1;
 				return FALSE;
 			}
 	
@@ -705,7 +727,7 @@ static BOOL ipuVDEC(u32 val) {
 static BOOL ipuFDEC(u32 val)
 {
 	if( !getBits32((u8*)&ipuRegs->cmd.DATA, 0) )
-		return FALSE;
+        return FALSE;
 
 	ipuRegs->cmd.DATA = BigEndian(ipuRegs->cmd.DATA);
 	ipuRegs->top = ipuRegs->cmd.DATA;
@@ -799,21 +821,27 @@ static BOOL ipuCSC(u32 val)
 
 			ipu_csc(&mb8, &rgb32, 0);
 			if (csc.OFM){
-				ipu_dither(&mb8, &rgb16, csc.DTE);
+				ipu_dither2(&rgb32, &rgb16, csc.DTE);
 			}
 		}
 	
 		if (csc.OFM){
-			g_nCmdPos[1] += IPU0dma(((u32*)&rgb16)+4*g_nCmdPos[1], 32-g_nCmdPos[1]);
+			while(g_nCmdPos[1] < 32)
+			{
+				g_nCmdPos[1] += FIFOfrom_write(((u32*)&rgb16)+4*g_nCmdPos[1], 32-g_nCmdPos[1]);
 
-			if( g_nCmdPos[1] < 32 )
-				return FALSE;
+				if( g_nCmdPos[1] <= 0 )
+					return FALSE;
+			}
 		}
 		else {
-			g_nCmdPos[1] += IPU0dma(((u32*)&rgb32)+4*g_nCmdPos[1], 64-g_nCmdPos[1]);
+			while(g_nCmdPos[1] < 64)
+			{
+				g_nCmdPos[1] += FIFOfrom_write(((u32*)&rgb32)+4*g_nCmdPos[1], 64-g_nCmdPos[1]);
 
-			if( g_nCmdPos[1] < 64 )
-				return FALSE;
+				if( g_nCmdPos[1] <= 0 )
+					return FALSE;
+			}
 		}
 
 		g_nCmdPos[0] = 0;
@@ -843,20 +871,21 @@ static BOOL ipuPACK(u32 val) {
 			if( g_nCmdPos[0] < 64 )
 				return FALSE;
 
-			ipu_dither(&mb8, &rgb16, csc.DTE);
+			ipu_csc(&mb8, &rgb32, 0);
+			ipu_dither2(&rgb32, &rgb16, csc.DTE);
 			if (csc.OFM){
 				ipu_vq(&rgb16, indx4);
 			}
 		}
 	
 		if (csc.OFM) {
-			g_nCmdPos[1] += IPU0dma(((u32*)&rgb16)+4*g_nCmdPos[1], 32-g_nCmdPos[1]);
+			g_nCmdPos[1] += FIFOfrom_write(((u32*)&rgb16)+4*g_nCmdPos[1], 32-g_nCmdPos[1]);
 
 			if( g_nCmdPos[1] < 32 )
 				return FALSE;
 		}
 		else {
-			g_nCmdPos[1] += IPU0dma(((u32*)indx4)+4*g_nCmdPos[1], 8-g_nCmdPos[1]);
+			g_nCmdPos[1] += FIFOfrom_write(((u32*)indx4)+4*g_nCmdPos[1], 8-g_nCmdPos[1]);
 
 			if( g_nCmdPos[1] < 8 )
 				return FALSE;
@@ -881,13 +910,8 @@ static void ipuSETTH(u32 val) {
 // IPU Worker Thread //
 ///////////////////////
 #define IPU_INTERRUPT(dma) { \
-	if( (cpuRegs.interrupt & (1<<dma)) ) { \
-		g_nDMATransfer |= dma == DMAC_TO_IPU ? IPU_DMA_FIREINT1 : IPU_DMA_FIREINT0; \
-	} \
-	else { \
-		hwIntcIrq(INTC_IPU); \
-	} \
-} \
+	hwIntcIrq(INTC_IPU);	\
+}
 
 void IPUCMD_WRITE(u32 val) {
 
@@ -926,8 +950,8 @@ void IPUCMD_WRITE(u32 val) {
 		case SCE_IPU_FDEC:
 
 #ifdef IPU_LOG
-			IPU_LOG("IPU FDEC command. Skip 0x%X bits, FIFO 0x%X bytes, BP 0x%X, FP %d, CHCR 0x%x\n",
-				val & 0x3f,g_BP.IFC,(int)g_BP.BP,g_BP.FP,((DMACh*)&PS2MEM_HW[0xb400])->chcr);
+			IPU_LOG("IPU FDEC command. Skip 0x%X bits, FIFO 0x%X bytes, BP 0x%X, FP %d, CHCR 0x%x, %x\n",
+				val & 0x3f,g_BP.IFC,(int)g_BP.BP,g_BP.FP,((DMACh*)&PS2MEM_HW[0xb400])->chcr,cpuRegs.pc);
 #endif
 
 			g_BP.BP+= val & 0x3F;
@@ -977,7 +1001,8 @@ void IPUCMD_WRITE(u32 val) {
 			FreezeMMXRegs(1);
 			
 			if( ipuCSC(ipuRegs->cmd.DATA) ) {
-				IPU_INTERRUPT(DMAC_TO_IPU);
+				if(ipu0dma->qwc > 0 && (ipu0dma->chcr & 0x100)) INT(DMAC_FROM_IPU,0);
+				IPU_INTERRUPT(DMAC_FROM_IPU);
 				FreezeMMXRegs(0);
 				return;
 			}
@@ -1003,34 +1028,39 @@ void IPUCMD_WRITE(u32 val) {
 			FreezeMMXRegs(1);
 			if( ipuIDEC(val) ) {
 				// idec done, ipu0 done too
-				IPU_INTERRUPT(DMAC_FROM_IPU);
+				if(ipu0dma->qwc > 0 && (ipu0dma->chcr & 0x100)) INT(DMAC_FROM_IPU,0);
 				FreezeMMXRegs(0);
 				return;
 			}
 
 			ipuRegs->topbusy = 0x80000000;
+			// have to resort to the thread
+			ipuCurCmd = val>>28;
+			ipuRegs->ctrl.BUSY = 1;
 			FreezeMMXRegs(0);
 
-			break;
+			return;
 
 		case SCE_IPU_BDEC:
 			FreezeMMXRegs(1);
-			if( ipuBDEC(val) ) {
-				// bdec done, wait for ipu0
-				IPU_INTERRUPT(DMAC_FROM_IPU);
+			if( ipuBDEC(val)) {
+				if(ipu0dma->qwc > 0 && (ipu0dma->chcr & 0x100)) INT(DMAC_FROM_IPU,0);
 				FreezeMMXRegs(0);
 				return;
 			}
 
 			ipuRegs->topbusy = 0x80000000;
+			ipuCurCmd = val>>28;
+			ipuRegs->ctrl.BUSY = 1;
 			FreezeMMXRegs(0);
 			
-			break;
+			return;
 	}
 
 	// have to resort to the thread
 	ipuCurCmd = val>>28;
 	ipuRegs->ctrl.BUSY = 1;
+	hwIntcIrq(INTC_IPU);
 }
 
 void IPUWorker()
@@ -1040,7 +1070,10 @@ void IPUWorker()
 	switch (ipuCurCmd) {
 		case SCE_IPU_VDEC: 
 			if( !ipuVDEC(ipuRegs->cmd.DATA) )
+			{
+				hwIntcIrq(INTC_IPU);
 				return;
+			}
 
 			ipuRegs->cmd.BUSY = 0;
 			ipuRegs->topbusy = 0;
@@ -1049,7 +1082,10 @@ void IPUWorker()
 
 		case SCE_IPU_FDEC:
 			if( !ipuFDEC(ipuRegs->cmd.DATA) )
+			{
+				hwIntcIrq(INTC_IPU);
 				return;
+			}
 
 			ipuRegs->cmd.BUSY = 0;
 			ipuRegs->topbusy = 0;
@@ -1058,31 +1094,61 @@ void IPUWorker()
 
 		case SCE_IPU_SETIQ:
 			if( !ipuSETIQ(ipuRegs->cmd.DATA) )
+			{
+				hwIntcIrq(INTC_IPU);
 				return;
+			}
 
 			break;
 		case SCE_IPU_SETVQ:
 			if( !ipuSETVQ(ipuRegs->cmd.DATA) )
+			{
+				hwIntcIrq(INTC_IPU);
 				return;
+			}
 
 			break;
 		case SCE_IPU_CSC:
 			if( !ipuCSC(ipuRegs->cmd.DATA) )
+			{
+				hwIntcIrq(INTC_IPU);
 				return;
+			}
 
+			if(ipu0dma->qwc > 0 && (ipu0dma->chcr & 0x100)) INT(DMAC_FROM_IPU,0);
 			break;		
 		case SCE_IPU_PACK:
 			if( !ipuPACK(ipuRegs->cmd.DATA) )
+			{
+				hwIntcIrq(INTC_IPU);
 				return;
+			}
 
 			break;
 
-		case SCE_IPU_BDEC:
 		case SCE_IPU_IDEC:
-
 			FreezeMMXRegs(1);
 			co_call(s_routine);
 			if( !s_RoutineDone ) {
+				FreezeMMXRegs(0);
+				return;
+			}
+
+			ipuRegs->ctrl.OFC = 0;
+			ipuRegs->ctrl.BUSY = 0;
+			ipuRegs->topbusy = 0;
+			ipuRegs->cmd.BUSY = 0;
+			ipuCurCmd = 0xffffffff;
+			// CHECK!: IPU0dma remains when IDEC is done, so we need to clear it
+			if(ipu0dma->qwc > 0 && (ipu0dma->chcr & 0x100)) INT(DMAC_FROM_IPU,0);
+            FreezeMMXRegs(0);
+			return;
+		case SCE_IPU_BDEC:
+			FreezeMMXRegs(1);
+			co_call(s_routine);
+			if(!s_RoutineDone)
+			{
+				//hwIntcIrq(INTC_IPU);
 				FreezeMMXRegs(0);
 				return;
 			}
@@ -1091,7 +1157,8 @@ void IPUWorker()
 			ipuRegs->topbusy = 0;
 			ipuRegs->cmd.BUSY = 0;
 			ipuCurCmd = 0xffffffff;
-			IPU_INTERRUPT(DMAC_FROM_IPU);
+			if(ipu0dma->qwc > 0 && (ipu0dma->chcr & 0x100)) INT(DMAC_FROM_IPU,0);
+			
 			FreezeMMXRegs(0);
 			return;
 
@@ -1149,24 +1216,27 @@ void ReorderBitstream()
 // If FP is 1, there's 1 qword in buffer. Second qword is only loaded
 // incase there are less than 32bits available in the first qword.
 // \return Number of bits available (clamps at 16 bits)
-u8 FillInternalBuffer(u32 * pointer, u32 advance)
+u16 FillInternalBuffer(u32 * pointer, u32 advance)
 {
 	if(g_BP.FP == 0)
 	{
-		if( fifo_wread1(next_readbits()) == 0 )
+		if( FIFOto_read(next_readbits()) == 0 )
 			return 0;
 
 		g_BP.bufferhasnew = 0;
 		inc_readbits();
 		g_BP.FP = 1;
 	}
-   	else if(g_BP.FP < 2 && g_BP.bufferhasnew == 0 ) 
+   	else if(g_BP.FP < 2 && g_BP.bufferhasnew == 0) 
 	{
 		// in reality, need only > 96, but IPU reads ahead
-		if( *(int*)pointer > 96) {
-			if( !fifo_wread1(next_readbits()) )
+		if( *(int*)pointer >= 96) {
+			if( FIFOto_read(next_readbits()) )
+			{
+				g_BP.FP += 1;
+			}else if(*(int*)pointer >= 128)
 				return 0;
-			g_BP.FP += 1;
+			
 		}
 	}
 
@@ -1189,7 +1259,8 @@ u8 FillInternalBuffer(u32 * pointer, u32 advance)
 		*pointer &= 127;
 	}
 
-	return (g_BP.FP+g_BP.bufferhasnew) == 1 ? g_BP.FP*128-pointer[0] : 128;
+	// fixed : added (g_BP.FP+g_BP.bufferhasnew)*128 as fp could have been 0
+	return (g_BP.FP+g_BP.bufferhasnew) == 1 ? g_BP.FP*128-(*(int*)pointer) : 128;
 }
 
 // whenever reading fractions of bytes. The low bits always come from the next byte
@@ -1410,8 +1481,22 @@ void ipu_csc(struct macroblock_8 *mb8, struct macroblock_rgb32 *rgb32, int sgn){
 	}
 }
 
-void ipu_dither(struct macroblock_8 *mb8, struct macroblock_rgb16 *rgb16, int dte){
-	SysPrintf("IPU: Dither not implemented");
+void ipu_dither2(struct macroblock_rgb32* rgb32, struct macroblock_rgb16 *rgb16, int dte)
+{
+	int i, j;
+	for(i = 0; i < 16; ++i) {
+		for(j = 0; j < 16; ++j) {
+			rgb16->c[i][j].r = rgb32->c[i][j].r>>3;
+			rgb16->c[i][j].g = rgb32->c[i][j].g>>3;
+			rgb16->c[i][j].b = rgb32->c[i][j].b>>3;
+			rgb16->c[i][j].a = rgb32->c[i][j].a==0x40;
+		}
+	}
+}
+
+void ipu_dither(struct macroblock_8 *mb8, struct macroblock_rgb16 *rgb16, int dte)
+{
+	//SysPrintf("IPU: Dither not implemented");
 }
 
 void ipu_vq(struct macroblock_rgb16 *rgb16, u8* indx4){
@@ -1455,66 +1540,16 @@ void ipu_copy(struct macroblock_8 *mb8, struct macroblock_16 *mb16){
 }
 
 ///////////////////// IPU DMA ////////////////////////
-void fifo_wclear()
+void FIFOto_clear()
 {
 	//assert( g_BP.IFC == 0 );
 	//memset(fifo_input,0,sizeof(fifo_input));
 	g_BP.IFC = 0;
-	readwpos = 0;
-	writewpos = 0; 
+	FIreadpos = 0;
+	FIwritepos = 0; 
 }
 
-int fifo_wread(void *value, int size)
-{
-	int transsize, firstsize;
-
-	transsize = size;
-
-	// transfer what is left in fifo
-	firstsize = min((int)g_BP.IFC, size);
-	g_BP.IFC -= firstsize;
-	size -= firstsize;
-
-	while( firstsize-- > 0) {
-		
-		// transfer firstsize qwords, split into two transfers
-		((u32*)value)[0] = fifo_input[readwpos];
-		((u32*)value)[1] = fifo_input[readwpos+1];
-		((u32*)value)[2] = fifo_input[readwpos+2];
-		((u32*)value)[3] = fifo_input[readwpos+3];
-		readwpos = (readwpos + 4) & 31;
-		value = (u32*)value + 4;
-	}
-
-	if(size > 0) {
-
-		// fifo is too small, so have to get from DMA
-		while( IPU1dma() > 0 ) {
-
-			firstsize = min(size, (int)g_BP.IFC);
-			size -= firstsize;
-			g_BP.IFC -= firstsize;
-			
-			while( firstsize-- > 0) {
-		
-				// transfer firstsize qwords, split into two transfers
-				((u32*)value)[0] = fifo_input[readwpos];
-				((u32*)value)[1] = fifo_input[readwpos+1];
-				((u32*)value)[2] = fifo_input[readwpos+2];
-				((u32*)value)[3] = fifo_input[readwpos+3];
-				readwpos = (readwpos + 4) & 31;
-				value = (u32*)value + 4;
-			}
-
-			if( size == 0 )
-				return transsize;
-		}
-	}
-
-	return transsize-size;
-}
-
-int fifo_wread1(void *value)
+int FIFOto_read(void *value)
 {
 	// wait until enough data
 	if( g_BP.IFC == 0 ) {
@@ -1525,16 +1560,16 @@ int fifo_wread1(void *value)
 	}
 
 	// transfer 1 qword, split into two transfers
-	((u32*)value)[0] = fifo_input[readwpos];
-	((u32*)value)[1] = fifo_input[readwpos+1];
-	((u32*)value)[2] = fifo_input[readwpos+2];
-	((u32*)value)[3] = fifo_input[readwpos+3];
-	readwpos = (readwpos + 4) & 31;
+	((u32*)value)[0] = fifo_input[FIreadpos]; fifo_input[FIreadpos] = 0;
+	((u32*)value)[1] = fifo_input[FIreadpos+1]; fifo_input[FIreadpos+1] = 0;
+	((u32*)value)[2] = fifo_input[FIreadpos+2]; fifo_input[FIreadpos+2] = 0;
+	((u32*)value)[3] = fifo_input[FIreadpos+3]; fifo_input[FIreadpos+3] = 0;
+	FIreadpos = (FIreadpos + 4) & 31;
 	g_BP.IFC--;
 	return 1;
 }
 
-int fifo_wwrite(u32* pMem, int size)
+int FIFOto_write(u32* pMem, int size)
 {
 	int transsize;
 	int firsttrans = min(size, 8-(int)g_BP.IFC);
@@ -1543,11 +1578,11 @@ int fifo_wwrite(u32* pMem, int size)
 	transsize = firsttrans;
 
 	while(transsize-- > 0) {
-		fifo_input[writewpos] = pMem[0];
-		fifo_input[writewpos+1] = pMem[1];
-		fifo_input[writewpos+2] = pMem[2];
-		fifo_input[writewpos+3] = pMem[3];
-		writewpos = (writewpos+4)&31;
+		fifo_input[FIwritepos] = pMem[0];
+		fifo_input[FIwritepos+1] = pMem[1];
+		fifo_input[FIwritepos+2] = pMem[2];
+		fifo_input[FIwritepos+3] = pMem[3];
+		FIwritepos = (FIwritepos+4)&31;
 		pMem +=4;
 	}
 
@@ -1555,17 +1590,20 @@ int fifo_wwrite(u32* pMem, int size)
 }
 
 #define IPU1chain() { \
-	int qwc = ipu1dma->qwc; \
-	pMem = (u32*)dmaGetAddr(ipu1dma->madr); \
-	if (pMem == NULL) { SysPrintf("ipu1dma NULL!\n"); return totalqwc; } \
-	qwc = fifo_wwrite(pMem, qwc); \
-	ipu1dma->madr += qwc<< 4; \
-	ipu1dma->qwc -= qwc; \
-	totalqwc += qwc; \
-	if( ipu1dma->qwc > 0 ) { \
-		g_nDMATransfer |= IPU_DMA_ACTV1; \
-		return totalqwc; \
-	} \
+	if(ipu1dma->qwc > 0)	\
+	{	\
+		int qwc = ipu1dma->qwc; \
+		pMem = (u32*)dmaGetAddr(ipu1dma->madr); \
+		if (pMem == NULL) { SysPrintf("ipu1dma NULL!\n"); return totalqwc; } \
+		qwc = FIFOto_write(pMem, qwc); \
+		ipu1dma->madr += qwc<< 4; \
+		ipu1dma->qwc -= qwc; \
+		totalqwc += qwc; \
+		if( ipu1dma->qwc > 0 ) { \
+			g_nDMATransfer |= IPU_DMA_ACTV1; \
+			return totalqwc; \
+		} \
+	}	\
 }
 
 int IPU1dma()
@@ -1578,10 +1616,6 @@ int IPU1dma()
 	assert( !(ipu1dma->chcr&0x40) );
 
 	if( !(ipu1dma->chcr & 0x100) || (cpuRegs.interrupt & (1<<DMAC_TO_IPU)) ) {
-		// wait for ipu interrupt
-		// just in case
-		if( cpuRegs.interrupt & (1<<DMAC_TO_IPU) )
-			g_nDMATransfer |= IPU_DMA_TIE1;
 		return 0;
 	}
 
@@ -1630,12 +1664,12 @@ int IPU1dma()
 			{
 			case 0x00000000:
 				ipu1dma->tadr += 16;
-				INT(DMAC_TO_IPU, totalqwc*BIAS);
+				INT(DMAC_TO_IPU, (1+totalqwc)*BIAS);
 				return totalqwc;
 
 			case 0x70000000:
 				ipu1dma->tadr = ipu1dma->madr;
-				INT(DMAC_TO_IPU, totalqwc*BIAS);
+				INT(DMAC_TO_IPU, (1+totalqwc)*BIAS);
 				return totalqwc;
 			}
 		}
@@ -1657,6 +1691,8 @@ int IPU1dma()
 		while (done == 0) {						 // Loop while Dn_CHCR.STR is 1
 			ptag = (u32*)dmaGetAddr(ipu1dma->tadr);  //Set memory pointer to TADR
 			if (ptag == NULL) {					 //Is ptag empty?
+				SysPrintf("IPU1 BUSERR\n");
+				ipu1dma->chcr = ( ipu1dma->chcr & 0xFFFF ) | ( (*ptag) & 0xFFFF0000 );  //Transfer upper part of tag to CHCR bits 31-15
 				psHu32(DMAC_STAT)|= 1<<15;		 //If yes, set BEIS (BUSERR) in DMAC_STAT register
 				break;
 			}
@@ -1739,31 +1775,89 @@ int IPU1dma()
 		{
 		case 0x00000000:
 			ipu1dma->tadr += 16;
-			INT(DMAC_TO_IPU, totalqwc*BIAS);
+			INT(DMAC_TO_IPU, (ipu1cycles+totalqwc)*BIAS);
 			return totalqwc;
 
 		case 0x70000000:
 			ipu1dma->tadr = ipu1dma->madr;
-			INT(DMAC_TO_IPU, totalqwc*BIAS);
+			INT(DMAC_TO_IPU, (ipu1cycles+totalqwc)*BIAS);
 			return totalqwc;
 		}
 	}
 
-	INT(DMAC_TO_IPU, ipu1cycles+totalqwc*BIAS);
+	INT(DMAC_TO_IPU, (ipu1cycles+totalqwc)*BIAS);
 	return totalqwc;
 }
 
-int IPU0dma(const void* ptr, int size)
+
+
+
+int FIFOfrom_write(u32 *value,int size)
+{
+	int transsize;
+	int firsttrans;
+	
+	if((int)ipuRegs->ctrl.OFC >= 8) IPU0dma();
+
+	transsize = min(size,8-(int)ipuRegs->ctrl.OFC);
+	firsttrans = transsize;
+
+    while(transsize-- > 0) {
+		fifo_output[FOwritepos] = ((u32*)value)[0];
+		fifo_output[FOwritepos+1] = ((u32*)value)[1];
+		fifo_output[FOwritepos+2] = ((u32*)value)[2];
+		fifo_output[FOwritepos+3] = ((u32*)value)[3];
+		FOwritepos = (FOwritepos+4)&31;
+		value += 4;
+	}
+
+	ipuRegs->ctrl.OFC+=firsttrans;
+	IPU0dma();
+	//SysPrintf("Written %d qwords, %d\n",firsttrans,ipuRegs->ctrl.OFC);
+
+	return firsttrans;
+}
+
+void FIFOfrom_read(void *value,int size)
+{
+	ipuRegs->ctrl.OFC -= size;
+	while(size > 0)
+	{
+		// transfer 1 qword, split into two transfers
+		((u32*)value)[0] = fifo_output[FOreadpos]; fifo_output[FOreadpos] = 0;
+		((u32*)value)[1] = fifo_output[FOreadpos+1]; fifo_output[FOreadpos+1] = 0;
+		((u32*)value)[2] = fifo_output[FOreadpos+2]; fifo_output[FOreadpos+2] = 0;
+		((u32*)value)[3] = fifo_output[FOreadpos+3]; fifo_output[FOreadpos+3] = 0;
+		(u32*)value += 4;
+		FOreadpos = (FOreadpos + 4) & 31;
+		size--;
+	}
+}
+
+
+void FIFOfrom_readsingle(void *value)
+{
+	if(ipuRegs->ctrl.OFC > 0)
+	{
+		ipuRegs->ctrl.OFC --;
+		// transfer 1 qword, split into two transfers
+		((u32*)value)[0] = fifo_output[FOreadpos]; fifo_output[FOreadpos] = 0;
+		((u32*)value)[1] = fifo_output[FOreadpos+1]; fifo_output[FOreadpos+1] = 0;
+		((u32*)value)[2] = fifo_output[FOreadpos+2]; fifo_output[FOreadpos+2] = 0;
+		((u32*)value)[3] = fifo_output[FOreadpos+3]; fifo_output[FOreadpos+3] = 0;
+		FOreadpos = (FOreadpos + 4) & 31;
+	}
+}
+
+int IPU0dma()
 {
 	int readsize;
 	void* pMem;
 
+	int qwc = ipu0dma->qwc;
+	u32 chcr = ipu0dma->chcr;
+
 	if( !(ipu0dma->chcr & 0x100) || (cpuRegs.interrupt & (1<<DMAC_FROM_IPU)) ) {
-		// wait for ipu interrupt
-		// just in case
-		if( cpuRegs.interrupt & (1<<DMAC_FROM_IPU) ) {
-			g_nDMATransfer |= IPU_DMA_TIE0;
-		}
 		return 0;
 	}
 
@@ -1773,19 +1867,16 @@ int IPU0dma(const void* ptr, int size)
 	assert( !(ipu0dma->chcr&0x40) );
 
 #ifdef IPU_LOG
-	IPU_LOG("dmaIPU0 chcr = %lx, madr = %lx, qwc  = %lx, ipuout_fifo.count=%x\n",
-			ipu0dma->chcr, ipu0dma->madr, ipu0dma->qwc, size);
+	IPU_LOG("dmaIPU0 chcr = %lx, madr = %lx, qwc  = %lx\n",
+			ipu0dma->chcr, ipu0dma->madr, ipu0dma->qwc);
 #endif
 
 	assert((ipu0dma->chcr & 0xC) == 0 );
 	pMem = (u32*)dmaGetAddr(ipu0dma->madr);
-
-	readsize = min(ipu0dma->qwc, size);
-		
-	memcpy_amd(pMem, ptr, readsize<<4);
+ 	readsize = min(ipu0dma->qwc, (int)ipuRegs->ctrl.OFC);
+	FIFOfrom_read(pMem,readsize);
 	ipu0dma->madr += readsize<< 4;
 	ipu0dma->qwc -= readsize; // note: qwc is u16
-	
 	if(ipu0dma->qwc == 0) {
 		if ((psHu32(DMAC_CTRL) & 0x30) == 0x30) { // STS == fromIPU
 			psHu32(DMAC_STADR) = ipu0dma->madr;
@@ -1793,10 +1884,13 @@ int IPU0dma(const void* ptr, int size)
 				case 0x80: // GIF
 					g_nDMATransfer |= IPU_DMA_GIFSTALL;
 					break;
+				case 0x40: // VIF
+					g_nDMATransfer |= IPU_DMA_VIFSTALL;
+					break;
 			}
 		}
-
-		INT(DMAC_FROM_IPU, (readsize*BIAS));
+		INT(DMAC_FROM_IPU,readsize*BIAS);
+        
 	}
 
 	return readsize;
@@ -1810,13 +1904,16 @@ void dmaIPU0() // fromIPU
 
 void dmaIPU1() // toIPU
 {
+	IPU1dma();
 	if( ipuRegs->ctrl.BUSY )
 		IPUWorker();
 }
 
+extern void dmaGIF();
+
 int ipu0Interrupt() {
 #ifdef IPU_LOG 
-	IPU_LOG("ipu0Interrupt:\n", cpuRegs.cycle);
+	IPU_LOG("ipu0Interrupt: %x\n", cpuRegs.cycle);
 #endif
 
 	if( g_nDMATransfer & IPU_DMA_FIREINT0 ) {
@@ -1827,24 +1924,29 @@ int ipu0Interrupt() {
 	if( g_nDMATransfer & IPU_DMA_GIFSTALL ) {
 		// gif
 		g_nDMATransfer &= ~IPU_DMA_GIFSTALL;
-		dmaGIF();
+		if(((DMACh*)&PS2MEM_HW[0xA000])->chcr & 0x100) dmaGIF();
+	}
+
+	if( g_nDMATransfer & IPU_DMA_VIFSTALL ) {
+		// vif
+		g_nDMATransfer &= ~IPU_DMA_VIFSTALL;
+		if(((DMACh*)&PS2MEM_HW[0x9000])->chcr & 0x100)dmaVIF1();
 	}
 
 	if( g_nDMATransfer & IPU_DMA_TIE0 ) {
 		g_nDMATransfer &= ~IPU_DMA_TIE0;
-		hwDmacIrq(DMAC_FROM_IPU);
-	}
-	else {
-		ipu0dma->chcr &= ~0x100;
-		hwDmacIrq(DMAC_FROM_IPU);
 	}
 
+	ipu0dma->chcr &= ~0x100;
+
+	hwDmacIrq(DMAC_FROM_IPU);
+	
 	return 1;
 }
 
 int ipu1Interrupt() {
 #ifdef IPU_LOG 
-	IPU_LOG("ipu1Interrupt:\n", cpuRegs.cycle);
+	IPU_LOG("ipu1Interrupt %x:\n", cpuRegs.cycle);
 #endif
 
 	if( g_nDMATransfer & IPU_DMA_FIREINT1 ) {
@@ -1854,12 +1956,10 @@ int ipu1Interrupt() {
 
 	if( g_nDMATransfer & IPU_DMA_TIE1 ) {
 		g_nDMATransfer &= ~IPU_DMA_TIE1;
-		hwDmacIrq(DMAC_TO_IPU);
-	}
-	else {
-		ipu1dma->chcr &= ~0x100;
-		hwDmacIrq(DMAC_TO_IPU);
-	}
-
+	}else
+	ipu1dma->chcr &= ~0x100;
+	
+	hwDmacIrq(DMAC_TO_IPU);
+	
 	return 1;
 }

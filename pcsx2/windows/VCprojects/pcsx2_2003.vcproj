@@ -23,26 +23,26 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				AdditionalOptions="/Ob0"
-				Optimization="2"
-				GlobalOptimizations="TRUE"
+				Optimization="3"
+				GlobalOptimizations="FALSE"
 				InlineFunctionExpansion="0"
 				EnableIntrinsicFunctions="TRUE"
 				ImproveFloatingPointConsistency="FALSE"
 				FavorSizeOrSpeed="1"
-				OmitFramePointers="TRUE"
+				OmitFramePointers="FALSE"
 				EnableFiberSafeOptimizations="TRUE"
-				OptimizeForProcessor="2"
+				OptimizeForProcessor="0"
 				OptimizeForWindowsApplication="FALSE"
 				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../ix86-32&quot;;../libs;../../pcl"
 				PreprocessorDefinitions="NDEBUG,WIN32,_WINDOWS,__MSCW32__,__WIN32__,__i386__,ENABLE_NLS,PACKAGE=\&quot;pcsx2\&quot;;WIN32_VIRTUAL_MEM;PCSX2_DEVBUILD"
 				StringPooling="TRUE"
 				MinimalRebuild="FALSE"
 				ExceptionHandling="TRUE"
-				RuntimeLibrary="4"
+				RuntimeLibrary="0"
 				StructMemberAlignment="5"
 				BufferSecurityCheck="FALSE"
 				EnableFunctionLevelLinking="FALSE"
-				EnableEnhancedInstructionSet="0"
+				EnableEnhancedInstructionSet="1"
 				PrecompiledHeaderFile=".\Release/pcsx2.pch"
 				AssemblerListingLocation=".\Release/"
 				ObjectFile=".\Release/"
@@ -124,7 +124,7 @@
 				Name="VCLinkerTool"
 				AdditionalOptions="/MACHINE:I386"
 				AdditionalDependencies="odbc32.lib odbccp32.lib comctl32.lib ../libs/gnu_gettext.lib ws2_32.lib winmm.lib ../libs/pthreadVC2.lib"
-				OutputFile="../../pcsx2exe/pcsx2d.exe"
+				OutputFile="D:\Files\ps2\pcsx2SSE2-0.8.1\pcsx2SSE2\pcsx2svnd.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"
 				AdditionalLibraryDirectories="..\"
@@ -248,7 +248,7 @@
 				OptimizeForProcessor="0"
 				OptimizeForWindowsApplication="FALSE"
 				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../ix86-32&quot;;../libs;../../pcl"
-				PreprocessorDefinitions="NDEBUG,WIN32,_WINDOWS,__MSCW32__,__WIN32__,__i386__,ENABLE_NLS,PACKAGE=\&quot;pcsx2\&quot;"
+				PreprocessorDefinitions="NDEBUG,WIN32,_WINDOWS,__MSCW32__,__WIN32__,__i386__,ENABLE_NLS,PACKAGE=\&quot;pcsx2\&quot;;PCSX2_DEVBUILD"
 				StringPooling="TRUE"
 				ExceptionHandling="TRUE"
 				RuntimeLibrary="4"
@@ -581,7 +581,7 @@
 			Name="GS"
 			Filter="">
 			<File
-				RelativePath="..\..\GS.c">
+				RelativePath="..\..\GS.cpp">
 			</File>
 			<File
 				RelativePath="..\..\GS.h">

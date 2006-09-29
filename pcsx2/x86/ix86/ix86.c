@@ -2800,6 +2800,14 @@ void CMP8ItoR( x86IntRegType to, u8 from )
 	write8( from ); 
 }
 
+// cmp m8 to r8
+void CMP8MtoR( x86IntRegType to, u32 from )
+{
+	write8( 0x3A );
+	ModRM( 0, to, DISP32 );
+	write32( MEMADDR(from, 4) ); 
+}
+
 /* test imm32 to r32 */
 void TEST32ItoR( x86IntRegType to, u32 from ) 
 {

@@ -175,6 +175,7 @@ int non_linear_quantizer_scale[]; // JayteeMaster: it is needed in Ipu.c
 
 void ipu_csc(struct macroblock_8 *mb8, struct macroblock_rgb32 *rgb32, int sgn);
 void ipu_dither(struct macroblock_8 *mb8, struct macroblock_rgb16 *rgb16, int dte);
+void ipu_dither2(struct macroblock_rgb32* rgb32, struct macroblock_rgb16 *rgb16, int dte);
 void ipu_vq(struct macroblock_rgb16 *rgb16, u8* indx4);
 void ipu_copy(struct macroblock_8 *mb8, struct macroblock_16 *mb16);
 
