@@ -674,109 +674,109 @@ u32 psxHwRead32(u32 add) {
 		case 0x1f801000:
 			hard = psxHu32(0x1000);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS MDECin (T2) 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS <spd_addr> 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801004:
 			hard = psxHu32(0x1004);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS 8 (T2) 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS <pio_addr> 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801008:
 			hard = psxHu32(0x1008);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS MDECin (T1) 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS <spd_delay> 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f80100C:
 			hard = psxHu32(0x100C);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS MDECout (T1) 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS dev1_delay 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801010:
 			hard = psxHu32(0x1010);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS GIF(SIF2) (T1) 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS rom_delay 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801014:
 			hard = psxHu32(0x1014);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS SPU(T1) spu_delay 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS spu_delay 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801018:
 			hard = psxHu32(0x1018);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS PIO(T1) 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS dev5_delay 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f80101C:
 			hard = psxHu32(0x101C);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS 8(T1) 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS <pio_delay> 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801020:
 			hard = psxHu32(0x1020);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS Config 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS com_delay 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801400:
 			hard = psxHu32(0x1400);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS MDECout(T2) 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS dev1_addr 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801404:
 			hard = psxHu32(0x1404);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS SPU(T2) 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS spu_addr 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801408:
 			hard = psxHu32(0x1408);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS PIO(T2) 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS dev5_addr 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f80140C:
 			hard = psxHu32(0x140C);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS SIF0(T2) 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS spu1_addr 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801410:
 			hard = psxHu32(0x1410);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS SIO2in(T2) 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS <dev9_addr3> 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801414:
 			hard = psxHu32(0x1414);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS SIF0(T1) 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS spu1_delay 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801418:
 			hard = psxHu32(0x1418);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS SIF1(T1) 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS <dev9_delay2> 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f80141C:
 			hard = psxHu32(0x141C);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS SIO2in(T1) 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS <dev9_delay3> 32bit read %lx\n", hard);
 #endif
 			return hard;
 		case 0x1f801420:
 			hard = psxHu32(0x1420);
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS SIO2out(T1) 32bit read %lx\n", hard);
+			PSXHW_LOG("SSBUS <dev9_delay1> 32bit read %lx\n", hard);
 #endif
 			return hard;
 
@@ -1879,109 +1879,109 @@ void psxHwWrite32(u32 add, u32 value) {
 		case 0x1f801000:
 			psxHu32(0x1000) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS MDECin (T2) 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS <spd_addr> 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f801004:
 			psxHu32(0x1004) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS 8 (T2) 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS <pio_addr> 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f801008:
 			psxHu32(0x1008) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS MDECin (T1) 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS <spd_delay> 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f80100C:
 			psxHu32(0x100C) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS MDECout (T1) 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS dev1_delay 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f801010:
 			psxHu32(0x1010) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS GIF(SIF2) (T1) 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS rom_delay 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f801014:
 			psxHu32(0x1014) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS SPU(T1) spu_delay 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS spu_delay 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f801018:
 			psxHu32(0x1018) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS PIO(T1) 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS dev5_delay 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f80101C:
 			psxHu32(0x101C) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS 8(T1) 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS <pio_delay> 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f801020:
 			psxHu32(0x1020) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS Config 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS com_delay 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f801400:
 			psxHu32(0x1400) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS MDECout(T2) 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS dev1_addr 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f801404:
 			psxHu32(0x1404) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS SPU(T2) 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS spu_addr 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f801408:
 			psxHu32(0x1408) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS PIO(T2) 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS dev5_addr 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f80140C:
 			psxHu32(0x140C) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS SIF0(T2) 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS spu1_addr 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f801410:
 			psxHu32(0x1410) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS SIO2in(T2) 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS <dev9_addr3> 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f801414:
 			psxHu32(0x1414) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS SIF0(T1) 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS spu1_delay 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f801418:
 			psxHu32(0x1418) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS SIF1(T1) 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS <dev9_delay2> 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f80141C:
 			psxHu32(0x141C) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS SIO2in(T1) 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS <dev9_delay3> 32bit write %lx\n", value);
 #endif
 			return;
 		case 0x1f801420:
 			psxHu32(0x1420) = value;
 #ifdef PSXHW_LOG
-			PSXHW_LOG("SSBUS SIO2out(T1) 32bit write %lx\n", value);
+			PSXHW_LOG("SSBUS <dev9_delay1> 32bit write %lx\n", value);
 #endif
 			return;
 #ifdef PSXHW_LOG
