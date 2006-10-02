@@ -3,9 +3,16 @@
 [ * Improved/changed feature ]
 [ - Bug fixed (we hope)      ]
 [ ! Attention (Notes)        ]
+[ M Maintenance              ]
+[ dates are dd/mm/yyyy !!!   ]
 
 ChangeLog:
  v0.9.2:
+ * 02/09/06:[*] Various changes in cdvd.c. Most notable is the implementation of cdvd.PwOff.
+		It is actualy INTR_STAT and has "completition" bits that are Ack'ed by cdvdman interrupt handler.
+		...to be continued.
+		(Florin)
+
  * 29/09/06:[-] Fixed condition where MFIFO could get ahead of itself/not have enough data available
 				(fixes Guitar Hero)
 			[-] Fixed up DMA Stalls between VIF/IPU/GIF, games such as Theme Park World should work properly now.
@@ -25,8 +32,9 @@ ChangeLog:
 			[-] Couple of small fixes to Tag BUSERR, altho i hope we never need them :P
 			[+] Added seperate EE counter logging
 				(Refraction)
- v0.9.1:		
- * 06/28/06:[+] MAJOR CHANGE: All recompilers and memory code rewritten.
+ 
+v0.9.1:		
+ * 28/06/06:[+] MAJOR CHANGE: All recompilers and memory code rewritten.
  				eeRec now does block analysis, constant propagation, liveness
  				analysis, mmx/xmm reg caching, etc.
  				vuRec is about 10x faster than older vurec. Both VU0 and
@@ -34,6 +42,46 @@ ChangeLog:
  				iopRec - does same as eeRec, except is simpler
  				Altogether, 3D scenes are 2-4x faster than 0.9 release.
  				(zerofrog)
+ * 09/05/06:[*] Moved repository to SVN. Play nice. Any questions... you know where to find me
+			[+] new developer blogs from me and auMatt
+				(Florin-auMatt)
+
+ * 05/05/06:[*] Changed names of the SSBUS registers in PsxHw.c
+			[!] dev1 is rom bus, dev5 is cdvd bus, dev9 is ata|smap|dvr|uart|flash bus
+				(Florin)
+
+ * 04/05/06:[+] Added atad and dev9 functions names to psxinterpreter.c
+				(Florin)
+
+ * 01/05/06:[+] Added *pass-through* MagicGate support. It will work with pre-decrypted files
+				(Florin)
+
+ * 30/04/06:[-] Fixed (almost:P) the debug bios for remote debugging in WinMain.c
+			[*] Added PSX detection in Misc.c
+			[+] Added DevBlog.txt file to Docs. Please read and contribute.
+				(Florin)
+
+ * 15/04/06:[M] Removed some *shit*; please don't commit *.suo/aps/opt/plg/ncb/exp files
+			[*] added/fixed some scmd commands in cdvd.c
+				(Florin)
+
+ * 13/04/06:[*] Implemented CDVD Scmd 0x3E(set OSDVER for PSTwo), Thanks to loser for info.
+ 				(auMatt)
+ 								
+ * 12/04/06:[!] Uploaded to CVS the latest version, (fixed vc2005 project,
+			converted all files to CR/LF ending)
+			[!] When commiting to CVS, please write same text to comment as in here
+			[*] Changed the _MSC_VER version displaying; hoping ms will keep it linear :)
+			[*] Implemented properly CDVD Scmd 0x36 (get OSDVER for PStwo)
+				(Florin)
+
+ * 10/04/06:[!] Changed to version 0.9.1
+			[-] Fixed some Vif FIFO bugs and moved VIF interrupt to check the channel has ended
+			[-] Fixed some counter bugs (better now i can test on my ps2!)
+			[!] This code is not perfectly stable and contains debug printouts! It is purely for the other
+				devs who dont have the latest code ;)
+				(Refraction)
+
  v0.9:
  * 02/04/06:[+] VU0 Rec added, still buggy
 			[*] VU1 Speedups and fixes, needs more testing but seems better
@@ -49,6 +97,7 @@ ChangeLog:
 			[*] Difference CPU options can be mixed and matched by users choice
 			[-] SIF communication fixed, games can now be booted via the bios (in most cases)
 			[!] Lots of other fixes have been made by due to lazyness we didnt document! :D
+			[+] MTGS and Dual Core modes added which are VERY experimental!
 			[!] This is the FINAL code for 0.9 enjoy!
 				(Refraction, ZeroFrog, Saqib)
  * 15/02/06:[+] Multithreaded GS/Dual Core Support

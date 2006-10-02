@@ -34,9 +34,9 @@ char *mg_zones[8] = {"Japan", "USA", "Europe", "Oceania", "Asia", "Russia", "Chi
 
 char *nCmdName[0x100]= {
 	"CdSync", "CdNop", "CdStandby", "CdStop",
-	"CdPause", "CdSeek", "CdRead", "CdReadAudio",
-	"DvdRead", "CdGetToc", "", "",
-	"CdReadKey", "", "", "",
+	"CdPause", "CdSeek", "CdRead", "CdReadCDDA",
+	"CdReadDVDV", "CdGetToc", "", "NCMD_B",
+	"CdReadKey", "", "sceCdReadXCDDA", "sceCdChgSpdlCtrl",
 };
 
 char *sCmdName[0x100]= {
@@ -45,13 +45,13 @@ char *sCmdName[0x100]= {
 	"sceCdReadClock", "sceCdWriteClock", "sceCdReadNVM", "sceCdWriteNVM",
 	"sceCdSetHDMode", "", "", "sceCdPowerOff",
 	"", "", "sceCdReadILinkID", "sceCdWriteILinkID", /*10*/
-	"sceAudioDigitalOut", "sceForbidDVD", "sceAutoAdjustCtrl", "sceCdReadModelNumber",
+	"sceAudioDigitalOut", "sceForbidDVDP", "sceAutoAdjustCtrl", "sceCdReadModelNumber",
 	"sceWriteModelNumber", "sceCdForbidCD", "sceCdBootCertify", "sceCdCancelPOffRdy",
 	"sceCdBlueLEDCtl", "", "sceRemote2Read", "sceRemote2_7",
 	"sceRemote2_6", "sceCdWriteWakeUpTime", "sceCdReadWakeUpTime", "", /*20*/
 	"sceCdRcBypassCtl", "", "", "",
-	"sceCdNoticeGameStart", "sceCdXBSPowerCtl", "sceCdXLEDCtl", "sceCdBuzzerCtl",
-	"", "", "", "",
+	"", "sceCdNoticeGameStart", "", "",
+	"sceCdXBSPowerCtl", "sceCdXLEDCtl", "sceCdBuzzerCtl", "",
 	"", "sceCdSetMediumRemoval", "sceCdGetMediumRemoval", "sceCdXDVRPReset", /*30*/
 	"", "", "__sceCdGetOSDVER", "",
 	"", "", "", "",
@@ -73,9 +73,9 @@ char *sCmdName[0x100]= {
 	"", "", "", "",
 	"", "", "", "",
 	"mechacon_auth_0x80", "mechacon_auth_0x81", "mechacon_auth_0x82", "mechacon_auth_0x83", /*80*/
-	"", "", "", "",
-	"", "", "", "",
-	"sceMgWriteData", "sceMgReadData", "", "mechacon_auth_0x8F",
+	"mechacon_auth_0x84", "mechacon_auth_0x85", "mechacon_auth_0x86", "mechacon_auth_0x87",
+	"mechacon_auth_0x88", "", "", "",
+	"", "sceMgWriteData", "sceMgReadData", "mechacon_auth_0x8F",
 	"sceMgWriteHeaderStart", "sceMgReadBITLength", "sceMgWriteDatainLength", "sceMgWriteDataoutLength", /*90*/
 	"sceMgReadKbit", "sceMgReadKbit2", "sceMgReadKcon", "sceMgReadKcon2",
 	"sceMgReadIcvPs2", "", "", "",
@@ -86,8 +86,9 @@ char *sCmdName[0x100]= {
 // NVM (eeprom) layout info
 typedef struct {
 	u32 biosVer;	// bios version that this eeprom layout is for
-	s32 config1;	// offset of 1st config block
-	s32 config2;	// offset of 2nd config block
+	s32 config0;	// offset of 1st config block
+	s32 config1;	// offset of 2nd config block
+	s32 config2;	// offset of 3rd config block
 	s32 consoleId;	// offset of console id (?)
 	s32 ilinkId;	// offset of ilink id (ilink mac address)
 	s32 modelNum;	// offset of ps2 model number (eg "SCPH-70002")
@@ -97,8 +98,8 @@ typedef struct {
 #define NVM_FORMAT_MAX	2
 NVMLayout nvmlayouts[NVM_FORMAT_MAX] =
 {
-	{0x000,  0x280, 0x300, 0x1C8, 0x1C0, 0x1A0, 0x180},	// eeproms from bios v0.00 and up
-	{0x160,  0x270, 0x2B0, 0x1C8, 0x1E0, 0x1B0, 0x180},	// eeproms from bios v1.60 and up
+	{0x000,  0x280, 0x300, 0x200, 0x1C8, 0x1C0, 0x1A0, 0x180},	// eeproms from bios v0.00 and up
+	{0x146,  0x270, 0x2B0, 0x200, 0x1C8, 0x1E0, 0x1B0, 0x180},	// eeproms from bios v1.70 and up
 };
 
 
@@ -303,7 +304,11 @@ s32 cdvdReadConfig(u8* config)
 	// check if block index is in bounds
 	else if(cdvd.CBlockIndex >= cdvd.CNumBlocks)
 		return 1;
-	else if(cdvd.CBlockIndex >= 4)
+	else if(
+		((cdvd.COffset == 0) && (cdvd.CBlockIndex >= 4))||
+		((cdvd.COffset == 1) && (cdvd.CBlockIndex >= 2))||
+		((cdvd.COffset == 2) && (cdvd.CBlockIndex >= 7))
+		)
 	{
 		memcpy(config, 0, 16);
 		return 0;
@@ -311,9 +316,11 @@ s32 cdvdReadConfig(u8* config)
 	
 	// get config data
 	if(cdvd.COffset == 0)
-		return GET_NVM_DATA(config, (cdvd.CBlockIndex++)*16, 16, config1);
-	else
+		return GET_NVM_DATA(config, (cdvd.CBlockIndex++)*16, 16, config0);	else
+	if(cdvd.COffset == 2)
 		return GET_NVM_DATA(config, (cdvd.CBlockIndex++)*16, 16, config2);
+	else
+		return GET_NVM_DATA(config, (cdvd.CBlockIndex++)*16, 16, config1);
 }
 s32 cdvdWriteConfig(const u8* config)
 {
@@ -323,14 +330,20 @@ s32 cdvdWriteConfig(const u8* config)
 	// check if block index is in bounds
 	else if(cdvd.CBlockIndex >= cdvd.CNumBlocks)
 		return 1;
-	else if(cdvd.CBlockIndex >= 4)
+	else if(
+		((cdvd.COffset == 0) && (cdvd.CBlockIndex >= 4))||
+		((cdvd.COffset == 1) && (cdvd.CBlockIndex >= 2))||
+		((cdvd.COffset == 2) && (cdvd.CBlockIndex >= 7))
+		)
 		return 0;
 	
 	// get config data
 	if(cdvd.COffset == 0)
-		return SET_NVM_DATA(config, (cdvd.CBlockIndex++)*16, 16, config1);
-	else
+		return SET_NVM_DATA(config, (cdvd.CBlockIndex++)*16, 16, config0);	else
+	if(cdvd.COffset == 2)
 		return SET_NVM_DATA(config, (cdvd.CBlockIndex++)*16, 16, config2);
+	else
+		return SET_NVM_DATA(config, (cdvd.CBlockIndex++)*16, 16, config1);
 }
 
 
@@ -850,9 +863,9 @@ u8   cdvdRead07(void) { // BREAK
 	return 0;
 }
 
-u8   cdvdRead08(void) { // PWOFF
+u8   cdvdRead08(void) { // INTR_STAT
 #ifdef CDR_LOG
-	CDR_LOG("cdvdRead08(PowerOff) %x\n", cdvd.PwOff);
+	CDR_LOG("cdvdRead08(IntrReason) %x\n", cdvd.PwOff);
 #endif
 	return cdvd.PwOff;
 }
@@ -1133,11 +1146,13 @@ void cdvdWrite04(u8 rt) { // NCOMMAND
 			SysPrintf("CdRead: Reading Sector %d(%d Blocks of Size %d) at Speed=%dx\n", cdvd.Sector, cdvd.nSectors,cdvd.BlockSize,cdvd.Speed);
 
 			cdvd.Readed = 0;
+			cdvd.PwOff = 1;//cmdcmplt
 			CDVDREAD_INT(1);
 			
 			break;
 
-		case 0x07: // CdReadAudio
+		case 0x07: // CdReadCDDA
+		case 0x0E: // CdReadXCDDA
 			cdvd.Sector   = *(int*)(cdvd.Param+0);
 			cdvd.nSectors = *(int*)(cdvd.Param+4);
 			if (cdvd.Param[8] == 0) cdvd.RetryCnt = 0x100;
@@ -1159,6 +1174,7 @@ void cdvdWrite04(u8 rt) { // NCOMMAND
 			SysPrintf("CdAudioRead: Reading Sector %d(%d Blocks of Size %d) at Speed=%dx\n", cdvd.Sector, cdvd.nSectors,cdvd.BlockSize,cdvd.Speed);
 
 			cdvd.Readed = 0;
+			cdvd.PwOff = 1;//cmdcmplt
 			CDVDREAD_INT(1);
 			break;
 
@@ -1176,6 +1192,7 @@ void cdvdWrite04(u8 rt) { // NCOMMAND
 #endif
 			SysPrintf("DvdRead: Reading Sector %d(%d Blocks of Size %d) at Speed=%dx\n", cdvd.Sector, cdvd.nSectors,cdvd.BlockSize,cdvd.Speed);
 			cdvd.Readed = 0;
+			cdvd.PwOff = 1;//cmdcmplt
 			CDVDREAD_INT(1);
 			break;
 
@@ -1207,6 +1224,15 @@ void cdvdWrite04(u8 rt) { // NCOMMAND
 			hwIntcIrq(INTC_SBUS);
 			break;
 			}
+
+		case 0x0F: // CdChgSpdlCtrl
+			SysPrintf("sceCdChgSpdlCtrl(%d)\n", cdvd.Param[0]);
+			cdvd.PwOff = 1;//cmdcmplt
+			psxHu32(0x1070)|= 0x4;
+			//SBUS
+			hwIntcIrq(INTC_SBUS);
+			break;
+
 		default:
 			SysPrintf("NCMD Unknown %x\n", rt);
 			psxHu32(0x1070)|= 0x4;
@@ -1241,10 +1267,11 @@ void cdvdWrite07(u8 rt) { // BREAK
 	SysPrintf("*PCSX2*: CDVD BREAK %x\n" , rt);
 }
 
-void cdvdWrite08(u8 rt) { // PWOFF
+void cdvdWrite08(u8 rt) { // INTR_STAT
 #ifdef CDR_LOG
-	CDR_LOG("cdvdWrite08(PowerOff) %x\n", rt);
+	CDR_LOG("cdvdWrite08(IntrReason) = ACK(%x)\n", rt);
 #endif
+	cdvd.PwOff &= ~rt;
 }
 
 void cdvdWrite0A(u8 rt) { // STATUS
@@ -1447,8 +1474,8 @@ void cdvdWrite16(u8 rt) { // SCOMMAND
 //		case 0x19: // sceCdForbidRead (0:1) - from xcdvdman
 //			break;
 
-		case 0x1A: // sceCdBootCertify (4:1)
-			SetResultSize(1);//on imput there are 4 bytes: 1;?10;J;C for 18000; 1;60;E;C for 39002 from ROMVER
+		case 0x1A: // sceCdBootCertify (4:1)//(4:16 in psx?)
+			SetResultSize(1);//on input there are 4 bytes: 1;?10;J;C for 18000; 1;60;E;C for 39002 from ROMVER
 			cdvd.Result[0]=1;//i guess that means okay
 			break;
 
@@ -1519,8 +1546,10 @@ void cdvdWrite16(u8 rt) { // SCOMMAND
 //		case 0x28: // cdvdman_call150 (1:1) - In V10 Bios 
 //			break;
 
-//		case 0x29: //sceCdNoticeGameStart (1:1)
-//			break;
+		case 0x29: //sceCdNoticeGameStart (1:1)
+			SetResultSize(1);
+			cdvd.Result[0] = 0;
+			break;
 
 //		case 0x2C: //sceCdXBSPowerCtl (2:2)
 //			break;
@@ -1554,7 +1583,7 @@ void cdvdWrite16(u8 rt) { // SCOMMAND
 		case 0x36: //cdvdman_call189 [__sceCdGetOSDVER - made up name] (0:15)
 			SetResultSize(15);
 			cdvd.Result[0] = cdvdReadOSDVER(&cdvd.Result[3]);
-			cdvd.Result[1] = 0;//0x10
+			cdvd.Result[1] = 0;//0x10 - encryption zone == (1<<mechaver[0])
 			cdvd.Result[2] = 0;
 			cdvd.Result[11] = 0;
 			cdvd.Result[12] = 0;
