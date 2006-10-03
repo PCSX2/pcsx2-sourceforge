@@ -13,6 +13,10 @@ ChangeLog:
 		...to be continued.
 		(Florin)
 
+ * 30/09/06:[*] Corrected performance counter register reads on COP0 (3 regs are accessed by 1) - Lego Racers 2
+			[-] Altered the order DIV on IOP rec handles signs - Lego Racers 2
+			(Refraction)
+
  * 29/09/06:[-] Fixed condition where MFIFO could get ahead of itself/not have enough data available
 				(fixes Guitar Hero)
 			[-] Fixed up DMA Stalls between VIF/IPU/GIF, games such as Theme Park World should work properly now.
