@@ -258,7 +258,7 @@ void JumpCheckSym(u32 addr, u32 pc) {
 		 pc <  0x00132454) ||
 		(pc >= 0x00786a90 &&
 		 pc <  0x00786ac8))*/
-	if (varLog & 0x40000000) {
+	/*if (varLog & 0x40000000) {
 		char *str;
 		char *strf;
 
@@ -273,17 +273,17 @@ void JumpCheckSym(u32 addr, u32 pc) {
 			if (!strcmp(str, "printf")) { SysPrintf("%s\n", (char*)PSM(cpuRegs.GPR.n.a0.UL[0])); }
 			if (!strcmp(str, "printk")) { SysPrintf("%s\n", (char*)PSM(cpuRegs.GPR.n.a0.UL[0])); }
 		}
-	}
+	}*/
 }
 
 void JumpCheckSymRet(u32 addr) {
-	if (varLog & 0x40000000) {
+	/*if (varLog & 0x40000000) {
 		char *str;
 		str = disR5900GetUpperSym(addr);
 		if (str != NULL) {
 			SysPrintf("Return       : %s, v0=%8.8x\n", str, cpuRegs.GPR.n.v0.UL[0]);
 		}
-	}
+	}*/
 }
 
 __inline void _cpuTestMissingINTC() {

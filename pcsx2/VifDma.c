@@ -1011,7 +1011,7 @@ void _dmaVIF0() {
 	
 	vif0Regs->stat|= 0x8000000; // FQC=8
 
-	if (!(vif0ch->chcr & 0x4)) { // Normal Mode 
+	if (!(vif0ch->chcr & 0x4) || vif0ch->qwc > 0) { // Normal Mode 
 		if(_VIF0chain() == -2) {
 			SysPrintf("Stall on normal\n");
 			vif0.vifstalled = 1;
@@ -1026,7 +1026,6 @@ void _dmaVIF0() {
 		INT(0, g_vifCycles);
 		return;
 	}*/
-
 	// Chain Mode
 	vif0.done = 0;
 	_vif0Interrupt();
@@ -1614,14 +1613,7 @@ int _chainVIF1() {
 	
 
 	//} else
-	if (vif1ch->chcr & 0x40) {
-		ret = VIF1transfer(vifptag+2, 2, 1);  //Transfer Tag
-		if (ret == -1) return -1;       //There has been an error
-		if (ret == -2) {
-			vif1.vifstalled = 1;
-			return vif1.done;        //IRQ set by VIFTransfer
-		}
-	}
+	
 	
 	if (!vif1.done && (psHu32(DMAC_CTRL) & 0xC0) == 0x40 && id == 4) { // STD == VIF1
 				// there are still bugs, need to also check if gif->madr +16*qwc >= stadr, if not, stall
@@ -1640,6 +1632,14 @@ int _chainVIF1() {
 			}
 	prevvifcycles = 0;
 
+	if (vif1ch->chcr & 0x40) {
+		ret = VIF1transfer(vifptag+2, 2, 1);  //Transfer Tag
+		if (ret == -1) return -1;       //There has been an error
+		if (ret == -2) {
+			vif1.vifstalled = 1;
+			return vif1.done;        //IRQ set by VIFTransfer
+		}
+	}
 #ifdef VIF_LOG
 		VIF_LOG("dmaChain %8.8x_%8.8x size=%d, id=%d, madr=%lx, tadr=%lx\n",
 				vifptag[1], vifptag[0], vif1ch->qwc, id, vif1ch->madr, vif1ch->tadr);
@@ -1790,7 +1790,7 @@ void _dmaVIF1() {
 	
 	vif1Regs->stat|= 0x10000000; // FQC=16
 
-	if (!(vif1ch->chcr & 0x4)) { // Normal Mode 
+	if (!(vif1ch->chcr & 0x4) || vif1ch->qwc > 0) { // Normal Mode 
 		if ((vif1ch->chcr & 0x1)) { // to Memory
 			if(_VIF1chain() == -2) {
 				SysPrintf("Stall on normal\n");
