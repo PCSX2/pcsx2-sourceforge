@@ -10,7 +10,8 @@ ChangeLog:
  v0.9.2:
  * 03/09/06:[-] Fixed MFIFO issue where VIF/GIF might not be ready
 			[*] Improved Guitar Hero fix, seems MFIFO isnt too keen on sliced transfers (especially on GIF)
-			(Refraction)
+			[*] Modified VS2005 Project file so it compiles - Thanks to CKemu for doing that :P
+			(Refraction - CKemu)
 
  * 02/09/06:[*] Various changes in cdvd.c. Most notable is the implementation of cdvd.PwOff.
 			It is actualy INTR_STAT and has "completition" bits that are Ack'ed by cdvdman interrupt handler.
