@@ -2510,7 +2510,7 @@ int hwMFIFOWrite(u32 addr, u8 *data, int size) {
 
 	addr = psHu32(DMAC_RBOR) + (addr & psHu32(DMAC_RBSR));
 	/* Check if the transfer should wrap around the ring buffer */
-	if ((addr+size) > (maddr+msize)) {
+	if ((addr+size) >= (maddr+msize)) {
 		int s1 = (maddr+msize) - addr;
 		int s2 = size - s1;
 

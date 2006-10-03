@@ -1752,6 +1752,7 @@ void _dmaVIF1() {
 //		 _VIF1chain();
 //		 INT(1, g_vifCycles);
 //	}
+	vif1.done = 0;
 	g_vifCycles = 0;
 
 	/*if( prevvifcycles != 0 ) {
@@ -1777,6 +1778,7 @@ void _dmaVIF1() {
 	}*/
 
 	if (((psHu32(DMAC_CTRL) & 0xC) == 0x8)) { // VIF MFIFO
+		vifMFIFOInterrupt();
 		return;
 	}
 

@@ -241,12 +241,12 @@ void dmaSPR0() { // fromSPR
 	if ((psHu32(DMAC_CTRL) & 0xC) == 0xC) { // GIF MFIFO
 		spr0->madr = psHu32(DMAC_RBOR) + (spr0->madr & psHu32(DMAC_RBSR));
 		//SysPrintf("mfifoGIFtransfer %x madr %x, tadr %x\n", gif->chcr, gif->madr, gif->tadr);
-		mfifoGIFtransfer(qwc);
+		if(gif->chcr & 0x100)mfifoGIFtransfer(qwc);
 	} else
 	if ((psHu32(DMAC_CTRL) & 0xC) == 0x8) { // VIF1 MFIFO
 		spr0->madr = psHu32(DMAC_RBOR) + (spr0->madr & psHu32(DMAC_RBSR));
 		//SysPrintf("mfifoVIF1transfer %x madr %x, tadr %x\n", vif1ch->chcr, vif1ch->madr, vif1ch->tadr);
-		mfifoVIF1transfer(qwc);
+		if(vif1ch->chcr & 0x100)mfifoVIF1transfer(qwc);
 	}
 	
 	FreezeMMXRegs(0);
