@@ -52,17 +52,6 @@ typedef union {   // Declare union type GPR register
 	s8  SC[16];
 } GPR_reg;
 
-typedef union {   // Declare union type GPR register
-	u64 UD[2];      //128 bits
-	s64 SD[2];
-	u32 UL[4];
-	s32 SL[4];
-	u16 US[8];
-	s16 SS[8];
-	u8  UC[16];
-	s8  SC[16];
-} PERF_reg;
-
 typedef union {
 	struct {
 		GPR_reg r0, at, v0, v1, a0, a1, a2, a3,
@@ -132,7 +121,7 @@ typedef struct {
 	u32 interrupt;
 	int branch;
 	int opmode;			// operating mode
-	u32 tempcycles;
+	u32 tempcycles;	
 } cpuRegisters;
 
 extern int EEsCycle;
