@@ -2796,7 +2796,7 @@ int mfifoVIF1rbTransfer() {
 	u32 *src;
 
 	/* Check if the transfer should wrap around the ring buffer */
-	if ((vif1ch->madr+(vif1ch->qwc << 4)) > (maddr+msize)) {
+	if ((vif1ch->madr+(vif1ch->qwc << 4)) >= (maddr+msize)) {
 		int s1 = (maddr+msize) - vif1ch->madr;
 		int s2 = (vif1ch->qwc << 4) - s1;
 
@@ -2851,6 +2851,7 @@ int mfifoVIF1chain() {
 	cycles+= (mfifoqwc) * BIAS; /* guessing */
 	mfifoqwc = 0;
 	//vif1ch->qwc = 0;
+	if(vif1.vifstalled == 1) SysPrintf("Vif1 MFIFO stalls not implemented\n");
 	vif1ch->madr = psHu32(DMAC_RBOR) + (vif1ch->madr & psHu32(DMAC_RBSR));
 	return 0;
 }
@@ -2875,20 +2876,9 @@ void mfifoVIF1transfer(int qwc) {
 				//INT(10,50);
 				return;
 			}
-	if(tempqwc > 0){
-		vif1ch->qwc = tempqwc;
-		tempqwc = 0;
-		if(vifqwc < vif1ch->qwc) {
-					SysPrintf("Vif MFIFO QWC greater than mfifo size, give Ref a dump :P\n");
-					tempqwc = vif1ch->qwc - vifqwc;
-					vif1ch->qwc = vifqwc;
-				}
-		vif1ch->tadr += vif1ch->qwc * 16;
-		vif1ch->tadr = psHu32(DMAC_RBOR) + (vif1ch->tadr & psHu32(DMAC_RBSR));
-	}
-//#ifdef VIF_LOG
-	//SysPrintf("mfifoVIF1transfer %x madr %x, tadr %x\n", vif1ch->chcr, vif1ch->madr, vif1ch->tadr);
-//#endif
+#ifdef VIF_LOG
+	VIF_LOG("mfifoVIF1transfer %x madr %x, tadr %x\n", vif1ch->chcr, vif1ch->madr, vif1ch->tadr);
+#endif
 	
  if((vif1ch->chcr & 0x100) == 0)SysPrintf("MFIFO VIF1 not ready!\n");
 	//while (qwc > 0 && done == 0) {
@@ -2898,7 +2888,7 @@ void mfifoVIF1transfer(int qwc) {
 				/*if( vifqwc > 1 )
 					SysPrintf("vif mfifo tadr==madr but qwc = %d\n", vifqwc);*/
 	#endif
-				hwDmacIrq(14);
+				//hwDmacIrq(14);
 				return;
 			}
 			vif1ch->tadr = psHu32(DMAC_RBOR) + (vif1ch->tadr & psHu32(DMAC_RBSR));
@@ -2916,18 +2906,16 @@ void mfifoVIF1transfer(int qwc) {
 			}
 			
 			vif1ch->chcr = ( vif1ch->chcr & 0xFFFF ) | ( (*ptag) & 0xFFFF0000 );
-	 
+			
 	#ifdef VIF_LOG
-			VIF_LOG("dmaChain %8.8x_%8.8x size=%d, id=%d, madr=%lx, tadr=%lx\n",
-					ptag[1], ptag[0], vif1ch->qwc, id, vif1ch->madr, vif1ch->tadr);
+			VIF_LOG("dmaChain %8.8x_%8.8x size=%d, id=%d, madr=%lx, tadr=%lx mfifo qwc = %x spr0 madr = %x\n",
+					ptag[1], ptag[0], vif1ch->qwc, id, vif1ch->madr, vif1ch->tadr, vifqwc, spr0->madr);
 	#endif
-			vifqwc--;
+			
 			switch (id) {
 				case 0: // Refe - Transfer Packet According to ADDR field
 					if(vifqwc < vif1ch->qwc && (vif1ch->madr & ~psHu32(DMAC_RBSR)) == psHu32(DMAC_RBOR)) {
-						//SysPrintf("Sliced VIF MFIFO Transfer %d\n", id);
-						tempqwc = vif1ch->qwc - vifqwc;
-						vif1ch->qwc = vifqwc;
+						return;
 					}
 					vif1ch->tadr += 16;
 					vif1.done = 1;										//End Transfer
@@ -2935,9 +2923,7 @@ void mfifoVIF1transfer(int qwc) {
 
 				case 1: // CNT - Transfer QWC following the tag.
 					if(vifqwc < vif1ch->qwc && ((vif1ch->tadr + 16) & ~psHu32(DMAC_RBSR)) == psHu32(DMAC_RBOR)) {
-						//SysPrintf("Sliced VIF MFIFO Transfer %d\n", id);
-						tempqwc = vif1ch->qwc - vifqwc;
-						vif1ch->qwc = vifqwc;
+						return;
 					}
 					vif1ch->madr = vif1ch->tadr + 16;						//Set MADR to QW after Tag            
 					vif1ch->tadr = vif1ch->madr + (vif1ch->qwc << 4);			//Set TADR to QW following the data
@@ -2946,9 +2932,7 @@ void mfifoVIF1transfer(int qwc) {
 
 				case 2: // Next - Transfer QWC following tag. TADR = ADDR
 					if(vifqwc < vif1ch->qwc && ((vif1ch->tadr + 16) & ~psHu32(DMAC_RBSR)) == psHu32(DMAC_RBOR)) {
-						//SysPrintf("Sliced VIF MFIFO Transfer %d\n", id);
-						tempqwc = vif1ch->qwc - vifqwc;
-						vif1ch->qwc = vifqwc;
+						return;
 					}
 					temp = vif1ch->madr;								//Temporarily Store ADDR
 					vif1ch->madr = vif1ch->tadr + 16; 					  //Set MADR to QW following the tag
@@ -2959,9 +2943,7 @@ void mfifoVIF1transfer(int qwc) {
 				case 3: // Ref - Transfer QWC from ADDR field
 				case 4: // Refs - Transfer QWC from ADDR field (Stall Control) 
 					if(vifqwc < vif1ch->qwc && (vif1ch->madr & ~psHu32(DMAC_RBSR)) == psHu32(DMAC_RBOR)) {
-						//SysPrintf("Sliced VIF MFIFO Transfer %d\n", id);
-						tempqwc = vif1ch->qwc - vifqwc;
-						vif1ch->qwc = vifqwc;
+						return;
 					}
 					vif1ch->tadr += 16;									//Set TADR to next tag
 					vif1.done = 0;
@@ -2969,28 +2951,19 @@ void mfifoVIF1transfer(int qwc) {
 
 				case 7: // End - Transfer QWC following the tag
 					if(vifqwc < vif1ch->qwc && ((vif1ch->tadr + 16) & ~psHu32(DMAC_RBSR)) == psHu32(DMAC_RBOR)) {
-						//SysPrintf("Sliced VIF MFIFO Transfer %d\n", id);
-						tempqwc = vif1ch->qwc - vifqwc;
-						vif1ch->qwc = vifqwc;
+						return;
 					}
 					vif1ch->madr = vif1ch->tadr + 16;						//Set MADR to data following the tag
 					vif1ch->tadr = vif1ch->madr + (vif1ch->qwc << 4);			//Set TADR to QW following the data
 					vif1.done = 1;										//End Transfer
 					break;
 			}
-
+			vifqwc--;
 			
 			//SysPrintf("VIF1 MFIFO qwc %d vif1 qwc %d, madr = %x, tadr = %x\n", qwc, vif1ch->qwc, vif1ch->madr, vif1ch->tadr);
 			vif1ch->tadr = psHu32(DMAC_RBOR) + (vif1ch->tadr & psHu32(DMAC_RBSR));
 			if((vif1ch->madr & ~psHu32(DMAC_RBSR)) == psHu32(DMAC_RBOR)){
 				vif1ch->madr = psHu32(DMAC_RBOR) + (vif1ch->madr & psHu32(DMAC_RBSR));
-	#ifdef PCSX2_DEVBUILD
-				if(vifqwc < vif1ch->qwc) {
-					//SysPrintf("Vif MFIFO QWC greater than mfifo size, give Ref a dump :P\n");
-					tempqwc = vif1ch->qwc - vifqwc;
-					vif1ch->qwc = vifqwc;
-				}
-	#endif
 				vifqwc -= vif1ch->qwc;
 			}
 	 }
@@ -3032,11 +3005,11 @@ int vifMFIFOInterrupt()
 {
 	
 	if(!(vif1ch->chcr & 0x100)) return 1;
-	else if(vifqwc == 0 && tempqwc == 0 && vif1.done == 0) return 1;
+	else if(vifqwc == 0 && vif1.done == 0) return 1;
 
 	if(vif1.done == 0 && vifqwc != 0) {
 		mfifoVIF1transfer(0);
-		if(tempqwc != 0 && vifqwc == 0)return 1;
+		if(vif1ch->qwc > 0) return 1;
 		else return 0;
 	}
 	if(vif1.done == 0 || vif1ch->qwc > 0) {
