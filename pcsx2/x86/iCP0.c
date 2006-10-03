@@ -98,6 +98,20 @@ void recMFC0( void )
 		else EEINST_RESETHASLIVE1(_Rt_);
 		return;
 	}
+	if( _Rd_ == 25 ) {
+		MOV32MtoR( EAX, (u32)&cpuRegs.CP0.r[ _Rt_ ] );
+		
+		_deleteEEreg(_Rt_, 0);
+		
+		switch(_Imm_ & 0x3F){
+				case 0: MOV32RtoM((u32)&cpuRegs.PERF.n.pccr, EAX); break;
+				case 1: MOV32RtoM((u32)&cpuRegs.PERF.n.pcr0, EAX); break;
+				case 3: MOV32RtoM((u32)&cpuRegs.PERF.n.pcr1, EAX); break;
+			}
+		SysPrintf("MFC0 PCCR = %x PCR0 = %x PCR1 = %x IMM= %x\n", 
+				cpuRegs.PERF.n.pccr, cpuRegs.PERF.n.pcr0, cpuRegs.PERF.n.pcr1, _Imm_ & 0x3F);
+		return;
+	}
 
 	_eeOnWriteReg(_Rt_, 1);
 
@@ -161,6 +175,15 @@ void recMTC0()
 				MOV32RtoM((u32)&s_iLastCOP0Cycle, ECX);
 				MOV32ItoM((u32)&cpuRegs.CP0.r[9], g_cpuConstRegs[_Rt_].UL[0]);
 				break;
+			case 25:
+				SysPrintf("MTC0 PCCR = %x PCR0 = %x PCR1 = %x IMM= %x\n", 
+				cpuRegs.PERF.n.pccr, cpuRegs.PERF.n.pcr0, cpuRegs.PERF.n.pcr1, _Imm_ & 0x3F);
+				switch(_Imm_ & 0x3F){
+					case 0: MOV32ItoM((u32)&cpuRegs.PERF.n.pccr, g_cpuConstRegs[_Rt_].UL[0]); break;
+					case 1: MOV32ItoM((u32)&cpuRegs.PERF.n.pcr0, g_cpuConstRegs[_Rt_].UL[0]); break;
+					case 3: MOV32ItoM((u32)&cpuRegs.PERF.n.pcr1, g_cpuConstRegs[_Rt_].UL[0]); break;
+				}
+				break;
 			default:
 				MOV32ItoM((u32)&cpuRegs.CP0.r[_Rd_], g_cpuConstRegs[_Rt_].UL[0]);
 				break;
@@ -180,6 +203,15 @@ void recMTC0()
 				MOV32MtoR(ECX, (u32)&cpuRegs.cycle);
 				_eeMoveGPRtoM((u32)&cpuRegs.CP0.r[9], _Rt_);
 				MOV32RtoM((u32)&s_iLastCOP0Cycle, ECX);
+				break;
+			case 25:
+				SysPrintf("MTC0 PCCR = %x PCR0 = %x PCR1 = %x IMM= %x\n", 
+				cpuRegs.PERF.n.pccr, cpuRegs.PERF.n.pcr0, cpuRegs.PERF.n.pcr1, _Imm_ & 0x3F);
+				switch(_Imm_ & 0x3F){
+					case 0: _eeMoveGPRtoM((u32)&cpuRegs.PERF.n.pccr, _Rt_); break;
+					case 1: _eeMoveGPRtoM((u32)&cpuRegs.PERF.n.pcr0, _Rt_); break;
+					case 3: _eeMoveGPRtoM((u32)&cpuRegs.PERF.n.pcr1, _Rt_); break;
+				}
 				break;
 			default:
 				_eeMoveGPRtoM((u32)&cpuRegs.CP0.r[_Rd_], _Rt_);

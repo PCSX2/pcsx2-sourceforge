@@ -523,10 +523,17 @@ void rpsxDIVsuperconsts(int info, int sign)
 		CMP32ItoR(ECX, 0);
 		j8Ptr[0] = JE8(0);
 		MOV32ItoR(EAX, imm);
-		CDQ();
 		
-		if( sign ) IDIV32R  (ECX);
-		else DIV32R(ECX);
+		
+		if( sign ) {
+		CDQ();
+		IDIV32R  (ECX);
+		}
+		else {
+			XOR32RtoR( EDX, EDX );
+			DIV32R(ECX);
+		}
+
 
 		MOV32RtoM((uptr)&psxRegs.GPR.n.lo, EAX);
 		MOV32RtoM((uptr)&psxRegs.GPR.n.hi, EDX);
@@ -546,10 +553,17 @@ void rpsxDIVsuperconstt(int info, int sign)
 	if( imm ) {
 		MOV32MtoR(EAX, (u32)&psxRegs.GPR.r[_Rs_]);
 		MOV32ItoR(ECX, imm);
-		CDQ();
+		//CDQ();
 		
-		if( sign ) IDIV32R  (ECX);
-		else DIV32R(ECX);
+		if( sign ) {
+			CDQ();
+			IDIV32R  (ECX);
+		}
+		else {
+			XOR32RtoR( EDX, EDX );
+			DIV32R(ECX);
+		}
+
 
 		MOV32RtoM((uptr)&psxRegs.GPR.n.lo, EAX);
 		MOV32RtoM((uptr)&psxRegs.GPR.n.hi, EDX);
