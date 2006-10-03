@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="windows-1253"?>
 <VisualStudioProject
 	ProjectType="Visual C++"
-	Version="8,00"
+	Version="8.00"
 	Name="pcsx2"
 	ProjectGUID="{1CEFD830-2B76-4596-A4EE-BCD7280A60BD}"
 	RootNamespace="pcsx2"
@@ -659,7 +659,7 @@
 			Name="GS"
 			>
 			<File
-				RelativePath="..\..\GS.c"
+				RelativePath="..\..\GS.cpp"
 				>
 			</File>
 			<File
@@ -1149,10 +1149,12 @@
 			Name="x86"
 			>
 			<File
-				RelativePath="..\..\x86\iCore.cpp">
+				RelativePath="..\..\x86\iCore.cpp"
+				>
 			</File>
 			<File
-				RelativePath="..\..\x86\iCore.h">
+				RelativePath="..\..\x86\iCore.h"
+				>
 			</File>
 			<File
 				RelativePath="..\..\x86\iCP0.c"
@@ -1183,10 +1185,12 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\x86\iR3000A.h">
+				RelativePath="..\..\x86\iR3000A.h"
+				>
 			</File>
 			<File
-				RelativePath="..\..\x86\iR3000Atables.cpp">
+				RelativePath="..\..\x86\iR3000Atables.cpp"
+				>
 			</File>
 			<File
 				RelativePath="..\..\x86\iR5900.c"
@@ -1197,7 +1201,8 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\x86\ir5900tables.c">
+				RelativePath="..\..\x86\ir5900tables.c"
+				>
 			</File>
 			<File
 				RelativePath="..\..\x86\iVU0micro.c"
@@ -1228,10 +1233,12 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\x86\iVUzerorec.cpp">
+				RelativePath="..\..\x86\iVUzerorec.cpp"
+				>
 			</File>
 			<File
-				RelativePath="..\..\x86\iVUzerorec.h">
+				RelativePath="..\..\x86\iVUzerorec.h"
+				>
 			</File>
 			<File
 				RelativePath="..\..\x86\recCOP2.c"
