@@ -182,7 +182,7 @@
 				Name="VCLinkerTool"
 				AdditionalOptions="/MACHINE:I386"
 				AdditionalDependencies="odbc32.lib odbccp32.lib comctl32.lib ../libs/gnu_gettext.lib ws2_32.lib winmm.lib ../libs/pthreadVC2.lib"
-				OutputFile="G:\Files\ps2\pcsx2SSE2-0.8.1\pcsx2SSE2\pcsx2d.exe"
+				OutputFile="../../pcsx2exe/pcsx2d.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
 				AdditionalLibraryDirectories="..\"
