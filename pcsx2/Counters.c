@@ -492,7 +492,7 @@ void rcntWcount(int index, u32 value) {
 #ifdef EECNT_LOG
 	EECNT_LOG("EE count write %d count %x with %x target %x eecycle %x\n", index, counters[index].count, value, counters[index].target, cpuRegs.eCycle);
 #endif
-	eecntmask &= ~(1 << index);
+	//eecntmask &= ~(1 << index);
 	counters[index].count = value & 0xffff;
 	rcntUpd(index);
 	rcntSet();
@@ -524,7 +524,7 @@ void rcntWmode(int index, u32 value)
 			gates &= ~(1<<index);
 			counters[index].mode &= ~0x80;
 	}else if(counters[index].mode & 0x4){
-		    SysPrintf("Gate enable on counter %x mode %x\n", index, counters[index].mode & 0x30);
+		    SysPrintf("Gate enable on counter %x mode %x\n", index, counters[index].mode);
 			gates |= 1<<index;
 			counters[index].mode &= ~0x80;
 			rcntReset(index);
@@ -542,7 +542,7 @@ void rcntStartGate(int mode){
 	for(i=0; i <=3; i++){  //Gates for counters
 		if(!(gates & (1<<i))) continue;
 		if ((counters[i].mode & 0x8) != mode) continue;
-		SysPrintf("Gate %d mode %d Start\n", i, (counters[i].mode & 0x30) >> 4);
+		//SysPrintf("Gate %d mode %d Start\n", i, (counters[i].mode & 0x30) >> 4);
 		switch((counters[i].mode & 0x30) >> 4){
 			case 0x0: //Count When Signal is low (off)
 				//counters[i].count = rcntRcount(i);
@@ -572,7 +572,7 @@ void rcntEndGate(int mode){
 	for(i=0; i <=3; i++){  //Gates for counters
 		if(!(gates & (1<<i))) continue;
 		if ((counters[i].mode & 0x8) != mode) continue;
-		SysPrintf("Gate %d mode %d End\n", i, (counters[i].mode & 0x30) >> 4);
+		//SysPrintf("Gate %d mode %d End\n", i, (counters[i].mode & 0x30) >> 4);
 		switch((counters[i].mode & 0x30) >> 4){
 			case 0x0: //Count When Signal is low (off)
 				//rcntUpd(i);

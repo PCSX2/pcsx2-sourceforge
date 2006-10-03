@@ -111,7 +111,10 @@ void _SPR0interleave() {
 	int cycles = 0;
 	u32 *pMem;
 	//SysPrintf("dmaSPR0 interleave\n");
-
+#ifdef SPR_LOG
+		SPR_LOG("SPR0 interleave size=%d, tqwc=%d, sqwc=%d, addr=%lx sadr=%lx\n",
+				spr0->qwc, tqwc, sqwc, spr0->madr, spr0->sadr);
+#endif
 	while (qwc > 0) {
 		spr0->qwc = min(tqwc, qwc); qwc-= spr0->qwc;
 		pMem = (u32*)dmaGetAddr(spr0->madr);
@@ -121,7 +124,7 @@ void _SPR0interleave() {
 		} else {
 			Cpu->Clear(spr0->madr, spr0->qwc<<2);
 			// clear VU mem also!
-			TestClearVUs(spr0->madr, qwc>>2);
+			TestClearVUs(spr0->madr, spr0->qwc<<2);
 
 			memcpy_amd((u8*)pMem, &PS2MEM_SCRATCH[spr0->sadr & 0x3fff], spr0->qwc<<4);
 		}
@@ -242,7 +245,7 @@ void dmaSPR0() { // fromSPR
 	} else
 	if ((psHu32(DMAC_CTRL) & 0xC) == 0x8) { // VIF1 MFIFO
 		spr0->madr = psHu32(DMAC_RBOR) + (spr0->madr & psHu32(DMAC_RBSR));
-		SysPrintf("mfifoVIF1transfer %x madr %x, tadr %x\n", vif1ch->chcr, vif1ch->madr, vif1ch->tadr);
+		//SysPrintf("mfifoVIF1transfer %x madr %x, tadr %x\n", vif1ch->chcr, vif1ch->madr, vif1ch->tadr);
 		mfifoVIF1transfer(qwc);
 	}
 	
@@ -293,12 +296,15 @@ void _SPR1interleave() {
 	int cycles = 0;
 	u32 *pMem;
 
-	//SysPrintf("dmaSPR1 interleave\n");
-	
+#ifdef SPR_LOG
+		SPR_LOG("SPR1 interleave size=%d, tqwc=%d, sqwc=%d, addr=%lx sadr=%lx\n",
+				spr1->qwc, tqwc, sqwc, spr1->madr, spr1->sadr);
+#endif
 	while (qwc > 0) {
 		spr1->qwc = min(tqwc, qwc); qwc-= spr1->qwc;
 		pMem = (u32*)dmaGetAddr(spr1->madr);
-		SPR1transfer(pMem, spr1->qwc << 2);
+		memcpy_amd(&PS2MEM_SCRATCH[spr1->sadr & 0x3fff], (u8*)pMem, spr1->qwc <<4);
+		spr1->sadr += spr1->qwc * 16;
 		cycles += spr1->qwc * BIAS;
 		spr1->madr+= (sqwc + spr1->qwc) * 16; //qwc-= sqwc;
 	}
@@ -346,6 +352,11 @@ void dmaSPR1() { // toSPR
 			done = 1;
 			break;
 		}
+		spr1->chcr = ( spr1->chcr & 0xFFFF ) | ( (*ptag) & 0xFFFF0000 );	//Transfer upper part of tag to CHCR bits 31-15
+
+		id        = (ptag[0] >> 28) & 0x7;			//ID for DmaChain copied from bit 28 of the tag
+		spr1->qwc  = (u16)ptag[0];					//QWC set to lower 16bits of the tag
+		spr1->madr = ptag[1];						//MADR = ADDR field
 
 		// Transfer dma tag if tte is set
 		if (spr1->chcr & 0x40) {
@@ -353,13 +364,10 @@ void dmaSPR1() { // toSPR
 			SPR_LOG("SPR TTE: %x_%x\n", ptag[3], ptag[2]);
 #endif
 			SPR1transfer(ptag, 4);				//Transfer Tag
+
 		}
 
-		spr1->chcr = ( spr1->chcr & 0xFFFF ) | ( (*ptag) & 0xFFFF0000 );	//Transfer upper part of tag to CHCR bits 31-15
-
-		id        = (ptag[0] >> 28) & 0x7;			//ID for DmaChain copied from bit 28 of the tag
-		spr1->qwc  = (u16)ptag[0];					//QWC set to lower 16bits of the tag
-		spr1->madr = ptag[1];						//MADR = ADDR field
+		
 
 #ifdef SPR_LOG
 		SPR_LOG("dmaChain %8.8x_%8.8x size=%d, id=%d, addr=%lx\n",

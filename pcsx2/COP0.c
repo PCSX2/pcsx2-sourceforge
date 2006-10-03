@@ -73,20 +73,43 @@ void MFC0() {
 	if (_Rd_ != 9) { COP0_LOG("%s\n", disR5900F(cpuRegs.code, cpuRegs.pc)); }
 #endif
 
-	if( _Rd_ == 9 ) {
-		// update
-		cpuRegs.CP0.n.Count += cpuRegs.cycle-s_iLastCOP0Cycle;
-		s_iLastCOP0Cycle = cpuRegs.cycle;
+	//if(bExecBIOS == FALSE && _Rd_ == 25) SysPrintf("MFC0 _Rd_ %x = %x\n", _Rd_, cpuRegs.CP0.r[_Rd_]);
+	switch (_Rd_) {
+		
+		case 12: cpuRegs.GPR.r[_Rt_].UD[0] = (s64)(cpuRegs.CP0.r[_Rd_] & 0xf0c79c1f); break;
+		case 25: 
+			
+				switch(_Imm_ & 0x3F){
+					case 0: cpuRegs.PERF.n.pccr = cpuRegs.CP0.r[_Rt_]; break;
+					case 1: cpuRegs.PERF.n.pcr0 = cpuRegs.CP0.r[_Rt_]; break;
+					case 3: cpuRegs.PERF.n.pcr1 = cpuRegs.CP0.r[_Rt_]; break;
+				}
+				SysPrintf("MFC0 PCCR = %x PCR0 = %x PCR1 = %x IMM= %x\n", 
+				cpuRegs.PERF.n.pccr, cpuRegs.PERF.n.pcr0, cpuRegs.PERF.n.pcr1, _Imm_ & 0x3F);
+				break;
+		case 9:
+			// update
+			cpuRegs.CP0.n.Count += cpuRegs.cycle-s_iLastCOP0Cycle;
+			s_iLastCOP0Cycle = cpuRegs.cycle;
+		default: cpuRegs.GPR.r[_Rt_].UD[0] = (s64)cpuRegs.CP0.r[_Rd_];
 	}
-	if(_Rd_ == 12) cpuRegs.GPR.r[_Rt_].UD[0] = (s64)(cpuRegs.CP0.r[_Rd_] & 0xf0c79c1f);
-	else cpuRegs.GPR.r[_Rt_].UD[0] = (s64)cpuRegs.CP0.r[_Rd_];
 }
 
 void MTC0() {
 #ifdef COP0_LOG
 	COP0_LOG("%s\n", disR5900F(cpuRegs.code, cpuRegs.pc));
 #endif
+	//if(bExecBIOS == FALSE && _Rd_ == 25) SysPrintf("MTC0 _Rd_ %x = %x\n", _Rd_, cpuRegs.CP0.r[_Rd_]);
 	switch (_Rd_) {
+		case 25: 
+			if(bExecBIOS == FALSE && _Rd_ == 25) SysPrintf("MTC0 PCCR = %x PCR0 = %x PCR1 = %x IMM= %x\n", 
+				cpuRegs.PERF.n.pccr, cpuRegs.PERF.n.pcr0, cpuRegs.PERF.n.pcr1, _Imm_ & 0x3F);
+			switch(_Imm_ & 0x3F){
+				case 0: cpuRegs.CP0.r[_Rd_] = (u32)cpuRegs.PERF.n.pccr; break;
+				case 1: cpuRegs.CP0.r[_Rd_] = (u32)cpuRegs.PERF.n.pcr0; break;
+				case 3: cpuRegs.CP0.r[_Rd_] = (u32)cpuRegs.PERF.n.pcr1; break;
+			}
+			break;
 		case 12: WriteCP0Status(cpuRegs.GPR.r[_Rt_].UL[0]); break;
 		case 9: s_iLastCOP0Cycle = cpuRegs.cycle; cpuRegs.CP0.r[9] = cpuRegs.GPR.r[_Rt_].UL[0]; break;
 		default: cpuRegs.CP0.r[_Rd_] = cpuRegs.GPR.r[_Rt_].UL[0]; break;
