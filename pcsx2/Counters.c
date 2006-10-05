@@ -64,7 +64,7 @@ void rcntSet() {
 			}
 		
 		// the + 10 is just in case of overflow
-			//if(counters[i].target == 0) continue;
+			if(eecntmask & (1<<i)) continue;
 			 c = (counters[i].target - rcntCycle(i)) * counters[i].rate;
 			if (c < nextCounter) {
 			nextCounter = c;
@@ -435,7 +435,7 @@ void rcntUpdate()
 		if (rcntCycle(i) >= 0xffff) {
 			counters[i].mode|= 0x0800; // Overflow flag
 			if (counters[i].mode & 0x0200) { // Overflow interrupt
-				
+				eecntmask &= ~(1 << i);
 				hwIntcIrq(counters[i].interrupt);
 //				SysPrintf("counter[%d] overflow interrupt (%x)\n", i, cpuRegs.cycle);
 			}
@@ -503,10 +503,11 @@ void rcntWmode(int index, u32 value)
 
 
 	if (value & 0xc00) { //Clear status flags, the ps2 only clears what is given in the value
+		eecntmask &= ~(1 << index);
 		counters[index].mode &= ~((value & 0xc00));
 	}
 
-	if((value & 0x3ff) != (counters[index].mode & 0x3ff))eecntmask &= ~(1 << index);
+	//if((value & 0x3ff) != (counters[index].mode & 0x3ff))eecntmask &= ~(1 << index);
 	counters[index].mode = (counters[index].mode & 0xc00) | (value & 0x3ff);
 
 #ifdef EECNT_LOG
@@ -530,7 +531,7 @@ void rcntWmode(int index, u32 value)
 			rcntReset(index);
 	}
 	else gates &= ~(1<<index);
-
+	counters[index].count = 0;
 	
 	rcntSet();
 
@@ -545,8 +546,8 @@ void rcntStartGate(int mode){
 		//SysPrintf("Gate %d mode %d Start\n", i, (counters[i].mode & 0x30) >> 4);
 		switch((counters[i].mode & 0x30) >> 4){
 			case 0x0: //Count When Signal is low (off)
-				//counters[i].count = rcntRcount(i);
-				//rcntUpd(i);
+				counters[i].count = rcntRcount(i);
+				rcntUpd(i);
 				counters[i].mode &= ~0x80;
 				break;
 			case 0x1: //Reset and start counting on Vsync start
@@ -575,7 +576,7 @@ void rcntEndGate(int mode){
 		//SysPrintf("Gate %d mode %d End\n", i, (counters[i].mode & 0x30) >> 4);
 		switch((counters[i].mode & 0x30) >> 4){
 			case 0x0: //Count When Signal is low (off)
-				//rcntUpd(i);
+				rcntUpd(i);
 				counters[i].mode |= 0x80;
 				break;
 			case 0x1: //Reset and start counting on Vsync start

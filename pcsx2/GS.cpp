@@ -1326,6 +1326,9 @@ void dmaGIF() {
 	int done=0;
 	int cycles=prevcycles;
 	u32 id;
+	/*if ((psHu32(DMAC_CTRL) & 0xC0)) { 
+			SysPrintf("DMA Stall Control %x\n",(psHu32(DMAC_CTRL) & 0xC0));
+			}*/
 
 	if ((psHu32(DMAC_CTRL) & 0xC) == 0xC ) { // GIF MFIFO
 		gifMFIFOInterrupt();
@@ -1392,6 +1395,9 @@ void dmaGIF() {
 	// Transfer Dn_QWC from Dn_MADR to GIF
 	if ((gif->chcr & 0xc) == 0 || gif->qwc > 0) { // Normal Mode
 		//gscount++;
+		if ((psHu32(DMAC_CTRL) & 0xC0) == 0x80 && (gif->chcr & 0xc) == 0) { 
+			SysPrintf("DMA Stall Control on GIF normal\n");
+		}
 		GIFchain();
 	}
 	else {
@@ -1552,7 +1558,9 @@ void mfifoGIFtransfer(int qwc) {
 				//INT(11,50);
 				return;
 			}
-
+/*if ((psHu32(DMAC_CTRL) & 0xC0)) { 
+			SysPrintf("DMA Stall Control %x\n",(psHu32(DMAC_CTRL) & 0xC0));
+			}*/
 #ifdef GIF_LOG
 	GIF_LOG("mfifoGIFtransfer %x madr %x, tadr %x\n", gif->chcr, gif->madr, gif->tadr);
 #endif

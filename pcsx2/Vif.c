@@ -2876,6 +2876,9 @@ void mfifoVIF1transfer(int qwc) {
 				//INT(10,50);
 				return;
 			}
+	/*if ((psHu32(DMAC_CTRL) & 0xC0)) { 
+			SysPrintf("DMA Stall Control %x\n",(psHu32(DMAC_CTRL) & 0xC0));
+			}*/
 #ifdef VIF_LOG
 	VIF_LOG("mfifoVIF1transfer %x madr %x, tadr %x\n", vif1ch->chcr, vif1ch->madr, vif1ch->tadr);
 #endif
