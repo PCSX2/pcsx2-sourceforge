@@ -173,7 +173,9 @@ void SIF0Dma()
 	do
 	{
 		notDone = 0;
-
+		/*if ((psHu32(DMAC_CTRL) & 0xC0)) { 
+			SysPrintf("DMA Stall Control %x\n",(psHu32(DMAC_CTRL) & 0xC0));
+		}*/
 		if(HW_DMA9_CHCR & 0x01000000) // If EE SIF0 is enabled
 		{
 			int size = sif0.counter; //HW_DMA9_BCR >> 16;

@@ -272,7 +272,7 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 	_vifRow = VIFdmanum ? g_vifRow1 : g_vifRow0;
 
 	// Unpacking
-	vif->wl = 0; vif->cl = 0;
+	//vif->wl = 0; vif->cl = 0;
 	//memsize = size;
 	size*= 4;
 	if (vifRegs->cycle.cl >= vifRegs->cycle.wl) { // skipping write
@@ -334,23 +334,23 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 			funcP = vif->usn ? ft->funcUpart : ft->funcSpart;
 
 			incdest = ((vifRegs->cycle.cl - vifRegs->cycle.wl)<<2) + 4;
-			wl = vifRegs->cycle.wl-1;
+			wl = vifRegs->cycle.wl;
 			chans = (ft->qsize/ft->dsize)*ft->gsize;
 
 			//SysPrintf("slow vif\n");
 
 			while (size >= ft->qsize) {
-				funcP( dest, (u32*)cdata, chans);
+				funcP( dest, (u32*)cdata, ft->qsize);
 				cdata += ft->qsize;
 				size -= ft->qsize;
-
-				if (vif->cl >= wl) {
+				++vif->cl;
+				if (vif->cl == wl) {
 					dest += incdest;
 					vif->cl = 0;
 				}
 				else {
 					dest += 4;
-					++vif->cl;
+					
 				}
 			}
 		}
@@ -388,14 +388,18 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 			funcP = vif->usn ? ft->funcUpart : ft->funcSpart;
 
 			while (size >= ft->dsize) {
-				if (vif->cl < vifRegs->cycle.wl) { /* unpack one qword */
+				if (vif->cl <= vifRegs->cycle.wl) { /* unpack one qword */
 					size-= funcP(dest, (u32*)cdata, (size/ft->dsize)*ft->gsize);
-					break;
+					//break;
 				}
-				dest += 4;
-				++vif->cl;
-				if (vif->cl == vifRegs->cycle.cl) {
-		    		vif->cl = 0;
+				
+				if (vif->cl == vifRegs->cycle.wl) {
+					dest += ((vifRegs->cycle.cl - vifRegs->cycle.wl)<<2) + 4;
+					vif->cl = 0;
+				}
+				else {
+					dest += 4;
+					++vif->cl;
 				}
 			}
 		}
@@ -557,6 +561,7 @@ void vif0UNPACK(u32 *data) {
 
 		len = ( ((( 32 >> vl ) * ( vn + 1 )) * n) + 31 ) >> 5;
     }
+	
    
     vif0.tag.cmd  = vif0.cmd;
     vif0.tag.size = len;
@@ -676,6 +681,7 @@ void vif0CMD(u32 *data, int size) {
         case 0x01: // STCYCL
             vif0Regs->cycle.cl =  data[0] & 0xff;
             vif0Regs->cycle.wl = (data[0] >> 8) & 0xff;
+			vif0.wl = 0; vif0.cl = 0;
             vif0.cmd &= ~0x7f;
             break;
 
@@ -1168,7 +1174,7 @@ void vif1FLUSH() {
 
 //		FreezeXMMRegs(0);
 //		FreezeMMXRegs(0);
-
+		
 		g_vifCycles+= (VU1.cycle - _cycles)*BIAS;
 	}
 }
@@ -1197,7 +1203,7 @@ void vif1UNPACK(u32 *data) {
    if ( ( data[0] >> 15) & 0x1 ) {
         vif1.tag.addr += vif1Regs->tops;
     }    
-
+	
     vif1.tag.addr <<= 4;
 	vif1.tag.addr &= 0x3fff;
     vif1.tag.cmd  = vif1.cmd;
@@ -1353,6 +1359,7 @@ void vif1CMD(u32 *data, int size) {
         case 0x01: // STCYCL
             vif1Regs->cycle.cl =  (u8)data[0];
             vif1Regs->cycle.wl = (u8)(data[0] >> 8);
+			vif1.wl = 0; vif1.cl = 0;
 			vif1.cmd &= ~0x7f;
             break;
 
@@ -1415,6 +1422,7 @@ void vif1CMD(u32 *data, int size) {
             break;
 
         case 0x20: // STMASK
+			
 			vif1.tag.size = 1;
             break;
 
@@ -1620,7 +1628,7 @@ int _chainVIF1() {
 				if( (vif1ch->madr + vif1ch->qwc * 16) >= psHu32(DMAC_STADR) ) {
 					// stalled
 
-					///SysPrintf("Vif1 Stalling %x, %x\n",vif1ch->madr, psHu32(DMAC_STADR));
+					//SysPrintf("Vif1 Stalling %x, %x, DMA_CTRL = %x\n",vif1ch->madr, psHu32(DMAC_STADR), psHu32(DMAC_CTRL));
 					/*prevvifcycles = g_vifCycles;
 					prevviftag = vifptag;*/
 					hwDmacIrq(13);
@@ -1742,6 +1750,9 @@ void _dmaVIF1() {
 			vif1ch->tadr, vif1ch->asr0, vif1ch->asr1 );
 #endif
 
+	/*if ((psHu32(DMAC_CTRL) & 0xC0)) { 
+			SysPrintf("DMA Stall Control %x\n",(psHu32(DMAC_CTRL) & 0xC0));
+			}*/
 	/* Check if there is a pending irq */
 	/*if (vif1.irq > 0) {
 		vif1.irq--;
@@ -1793,6 +1804,9 @@ void _dmaVIF1() {
 	vif1Regs->stat|= 0x10000000; // FQC=16
 
 	if (!(vif1ch->chcr & 0x4) || vif1ch->qwc > 0) { // Normal Mode 
+		if ((psHu32(DMAC_CTRL) & 0xC0) == 0x40) { 
+			SysPrintf("DMA Stall Control on VIF1 normal\n");
+		}
 		if ((vif1ch->chcr & 0x1)) { // to Memory
 			if(_VIF1chain() == -2) {
 				SysPrintf("Stall on normal\n");
