@@ -55,7 +55,7 @@ typedef struct
    int    cpu;
    int    placetopatch;
    u32    addr;
-   u32    data;
+   u64    data;
 } IniPatch;
 
 //
@@ -127,13 +127,13 @@ void _applypatch(int place, IniPatch *p) {
 
 	if (p->cpu == 1) { //EE
 		if (p->type == 1) { //byte
-			memWrite8(p->addr, p->data);
+			memWrite8(p->addr, (u8)p->data);
 		} else
 		if (p->type == 2) { //short
-			memWrite16(p->addr, p->data);
+			memWrite16(p->addr, (u16)p->data);
 		} else
 		if (p->type == 3) { //word
-			memWrite32(p->addr, p->data);
+			memWrite32(p->addr, (u32)p->data);
 		} else
 		if (p->type == 4) { //double
 			memWrite64(p->addr, p->data);
@@ -141,13 +141,13 @@ void _applypatch(int place, IniPatch *p) {
 	} else
 	if (p->cpu == 2) { //IOP
 		if (p->type == 1) { //byte
-			psxMemWrite8(p->addr, p->data);
+			psxMemWrite8(p->addr, (u8)p->data);
 		} else
 		if (p->type == 2) { //short
-			psxMemWrite16(p->addr, p->data);
+			psxMemWrite16(p->addr, (u16)p->data);
 		} else
-		if (p->type == 2) { //word
-			psxMemWrite32(p->addr, p->data);
+		if (p->type == 3) { //word
+			psxMemWrite32(p->addr, (u32)p->data);
 		}
 	}
 }
@@ -222,7 +222,7 @@ void patchFunc_patch( char * cmd, char * param )
 
    pText = strtok( NULL, "," );
    inifile_trim( pText );
-   sscanf( pText, "%X", &patch[ patchnumber ].data );
+   sscanf( pText, "%I64X", &patch[ patchnumber ].data );
 
    patchnumber++;
 }
