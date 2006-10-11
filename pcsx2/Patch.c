@@ -81,7 +81,9 @@ PatchTextTable commands[] =
 PatchTextTable dataType[] =
 {
    { "byte", 1, NULL },
-   { "word", 2, NULL },
+   { "short", 2, NULL },
+   { "word", 3, NULL },
+   { "double", 4, NULL },
    { "", 0, NULL }
 };
 
@@ -127,13 +129,22 @@ void _applypatch(int place, IniPatch *p) {
 		if (p->type == 1) { //byte
 			memWrite8(p->addr, p->data);
 		} else
-		if (p->type == 2) { //word
+		if (p->type == 2) { //short
+			memWrite16(p->addr, p->data);
+		} else
+		if (p->type == 3) { //word
 			memWrite32(p->addr, p->data);
+		} else
+		if (p->type == 4) { //double
+			memWrite64(p->addr, p->data);
 		}
 	} else
 	if (p->cpu == 2) { //IOP
 		if (p->type == 1) { //byte
 			psxMemWrite8(p->addr, p->data);
+		} else
+		if (p->type == 2) { //short
+			psxMemWrite16(p->addr, p->data);
 		} else
 		if (p->type == 2) { //word
 			psxMemWrite32(p->addr, p->data);
