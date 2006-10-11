@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="windows-1253"?>
 <VisualStudioProject
 	ProjectType="Visual C++"
-	Version="8.00"
+	Version="8,00"
 	Name="pcsx2"
 	ProjectGUID="{1CEFD830-2B76-4596-A4EE-BCD7280A60BD}"
 	RootNamespace="pcsx2"
@@ -54,7 +54,7 @@
 				OmitFramePointers="true"
 				EnableFiberSafeOptimizations="true"
 				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../ix86-32&quot;;../libs;../../pcl"
-				PreprocessorDefinitions="NDEBUG,WIN32,_WINDOWS,__MSCW32__,__WIN32__,__i386__,ENABLE_NLS,PACKAGE=\&quot;pcsx2\&quot;;WIN32_VIRTUAL_MEM;PCSX2_DEVBUILD;_CRT_SECURE_NO_DEPRECATE"
+				PreprocessorDefinitions="NDEBUG,WIN32,_WINDOWS,__MSCW32__,__WIN32__,__i386__,ENABLE_NLS,PACKAGE=\&quot;pcsx2\&quot;;WIN32_VIRTUAL_MEM;PCSX2_DEVBUILD;_CRT_SECURE_NO_DEPRECATE;TIXML_USE_STL"
 				StringPooling="true"
 				MinimalRebuild="false"
 				ExceptionHandling="1"
@@ -153,7 +153,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../ix86-32&quot;;../libs;../../pcl"
-				PreprocessorDefinitions="_DEBUG,WIN32,_WINDOWS,__MSCW32__,__WIN32__,__i386__,ENABLE_NLS,PACKAGE=\&quot;pcsx2\&quot;;WIN32_VIRTUAL_MEM;PCSX2_DEVBUILD;_CRT_SECURE_NO_DEPRECATE"
+				PreprocessorDefinitions="_DEBUG,WIN32,_WINDOWS,__MSCW32__,__WIN32__,__i386__,ENABLE_NLS,PACKAGE=\&quot;pcsx2\&quot;;WIN32_VIRTUAL_MEM;PCSX2_DEVBUILD;_CRT_SECURE_NO_DEPRECATE;TIXML_USE_STL"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
 				StructMemberAlignment="5"
@@ -249,7 +249,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../ix86-32&quot;;../libs;../../pcl"
-				PreprocessorDefinitions="_DEBUG,WIN32,_WINDOWS,__MSCW32__,__WIN32__,__i386__,ENABLE_NLS,PACKAGE=\&quot;pcsx2\&quot;;PCSX2_DEVBUILD;_CRT_SECURE_NO_DEPRECATE"
+				PreprocessorDefinitions="_DEBUG,WIN32,_WINDOWS,__MSCW32__,__WIN32__,__i386__,ENABLE_NLS,PACKAGE=\&quot;pcsx2\&quot;;PCSX2_DEVBUILD;_CRT_SECURE_NO_DEPRECATE;TIXML_USE_STL"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
 				StructMemberAlignment="5"
@@ -278,7 +278,7 @@
 				Name="VCLinkerTool"
 				AdditionalOptions="/MACHINE:I386"
 				AdditionalDependencies="odbc32.lib odbccp32.lib comctl32.lib ../libs/gnu_gettext.lib ws2_32.lib winmm.lib ../libs/pthreadVC2.lib"
-				OutputFile="../../pcsx2exe/pcsx2td.exe"
+				OutputFile="C:\Archivos de programa\Pcsx2\pcsx2td.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
 				AdditionalLibraryDirectories="..\"
@@ -351,7 +351,7 @@
 				OmitFramePointers="true"
 				EnableFiberSafeOptimizations="true"
 				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../ix86-32&quot;;../libs;../../pcl"
-				PreprocessorDefinitions="NDEBUG,WIN32,_WINDOWS,__MSCW32__,__WIN32__,__i386__,ENABLE_NLS,PACKAGE=\&quot;pcsx2\&quot;;PCSX2_DEVBUILD;_CRT_SECURE_NO_DEPRECATE"
+				PreprocessorDefinitions="NDEBUG,WIN32,_WINDOWS,__MSCW32__,__WIN32__,__i386__,ENABLE_NLS,PACKAGE=\&quot;pcsx2\&quot;;PCSX2_DEVBUILD;_CRT_SECURE_NO_DEPRECATE;TIXML_USE_STL"
 				StringPooling="true"
 				ExceptionHandling="1"
 				RuntimeLibrary="0"
@@ -1450,6 +1450,38 @@
 			</File>
 			<File
 				RelativePath="..\..\pcl\pcl_config.h"
+				>
+			</File>
+		</Filter>
+		<Filter
+			Name="TinyXML"
+			>
+			<File
+				RelativePath="..\..\tinyxml\tinystr.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\tinyxml\tinystr.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\tinyxml\tinyxml.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\tinyxml\tinyxml.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\tinyxml\tinyxmlerror.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\tinyxml\tinyxmlparser.cpp"
+				>
+			</File>
+			<File
+				RelativePath="..\..\tinyxml\xmlpatchloader.cpp"
 				>
 			</File>
 		</Filter>
