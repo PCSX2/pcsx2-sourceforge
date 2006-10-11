@@ -8,6 +8,9 @@
 
 ChangeLog:
  v0.9.2:
+ * 11/10/06:[+] Added XML Patch support
+			(Refraction - Gigaherz)
+
  * 05/10/06:[-] Fixed VIF Unpack skipping write cycle counting (Fixes XMen 2 amongst other SPS)
 			[-] Small counter change, am i ever going to get peace from these :(
 				(Refraction)

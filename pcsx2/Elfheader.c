@@ -551,7 +551,7 @@ BOOL loadSectionHeaders( char * Exepath )
 	return TRUE;
 }
 
-
+extern int LoadPatch(char *patchfile);
 int loadElfFile(char *filename) {
 	char str[256];
 	char str2[256];
@@ -622,7 +622,12 @@ int loadElfFile(char *filename) {
 		sprintf(str2,"patches not found can't apply patches crc=%8.8x",crc);//if patches found it will overwritten :p
 		if (gApp.hConsole) SetConsoleTitle(str2);
 #endif
-		inifile_read(str);
+		if(LoadPatch(str)!=0)
+		{
+			SysPrintf("XML Loader returned an error. Trying to load a pnach...\n");
+			inifile_read(str);
+		}
+		else SysPrintf("XML Loading success. Will not load from pnach...\n");
 		applypatch( 0 );
 	}
 
