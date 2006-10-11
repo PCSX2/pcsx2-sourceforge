@@ -9,6 +9,7 @@
 ChangeLog:
  v0.9.2:
  * 11/10/06:[+] Added XML Patch support
+			[-] More unpack fixes for GT3/GT4, Xmen, Midnight Club 2, FFX sky, Whiplash and more :)
 			(Refraction - Gigaherz)
 
  * 05/10/06:[-] Fixed VIF Unpack skipping write cycle counting (Fixes XMen 2 amongst other SPS)

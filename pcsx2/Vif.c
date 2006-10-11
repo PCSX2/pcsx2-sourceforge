@@ -69,6 +69,11 @@ static void _writeX( u32 *dest, u32 data )
 #endif
 	switch ( ( _vifRegs->mask >> n ) & 0x3 ) {
 		case 0:
+			if((_vif->cmd & 0x6F) == 0x6f) {
+				//SysPrintf("Phew X!\n");
+				*dest = data;
+				break;
+			}
 			if (_vifRegs->mode == 1) {
 				*dest = data + _vifRegs->r0;
 			} else 
@@ -109,6 +114,11 @@ static void _writeY( u32 *dest, u32 data )
 #endif
 	switch ( ( _vifRegs->mask >> n ) & 0x3 ) {
 		case 0:
+			if((_vif->cmd & 0x6F) == 0x6f) {
+				//SysPrintf("Phew Y!\n");
+				*dest = data;
+				break;
+			}
 			if (_vifRegs->mode == 1) {
 				*dest = data + _vifRegs->r1;
 			} else 
@@ -150,6 +160,11 @@ static void _writeZ( u32 *dest, u32 data )
 #endif
 	switch ( ( _vifRegs->mask >> n ) & 0x3 ) {
 		case 0:
+			if((_vif->cmd & 0x6F) == 0x6f) {
+				//SysPrintf("Phew Z!\n");
+				*dest = data;
+				break;
+			}
 			if (_vifRegs->mode == 1) {
 				*dest = data + _vifRegs->r2;
 			} else 
@@ -187,6 +202,11 @@ static void _writeW( u32 *dest, u32 data )
 #endif
 	switch ( ( _vifRegs->mask >> n ) & 0x3 ) {
 		case 0:
+			if((_vif->cmd & 0x6F) == 0x6f) {
+				//SysPrintf("Phew W!\n");
+				*dest = data;
+				break;
+			}
 			if (_vifRegs->mode == 1) {
 				*dest = data + _vifRegs->r3;
 			} else 
@@ -211,6 +231,11 @@ static void _writeW( u32 *dest, u32 data )
 
 static void writeX( u32 *dest, u32 data ) {
 	if (_vifRegs->code & 0x10000000) { _writeX(dest, data); return; }
+	if((_vif->cmd & 0x6F) == 0x6f) {
+		//SysPrintf("Phew X!\n");
+		*dest = data;
+		return;
+	}
 	if (_vifRegs->mode == 1) {
 		*dest = data + _vifRegs->r0;
 	} else 
@@ -221,12 +246,17 @@ static void writeX( u32 *dest, u32 data ) {
 		*dest = data;
 	}
 #ifdef VIF_LOG
-	VIF_LOG("writeX %8.8x : Mode %d, r0 = %x, writing %8.8x\n", *dest,_vifRegs->mode,_vifRegs->r0,data + _vifRegs->r0);
+	VIF_LOG("writeX %8.8x : Mode %d, r0 = %x, data %8.8x\n", *dest,_vifRegs->mode,_vifRegs->r0,data);
 #endif
 }
 
 static void writeY( u32 *dest, u32 data ) {
 	if (_vifRegs->code & 0x10000000) { _writeY(dest, data); return; }
+	if((_vif->cmd & 0x6F) == 0x6f) {
+		//SysPrintf("Phew Y!\n");
+		*dest = data;
+		return;
+	}
 	if (_vifRegs->mode == 1) {
 		*dest = data + _vifRegs->r1;
 	} else 
@@ -237,12 +267,17 @@ static void writeY( u32 *dest, u32 data ) {
 		*dest = data;
 	}
 #ifdef VIF_LOG
-	VIF_LOG("writeY %8.8x : Mode %d, r1 = %x, writing %8.8x\n", *dest,_vifRegs->mode,_vifRegs->r1,data + _vifRegs->r1);
+	VIF_LOG("writeY %8.8x : Mode %d, r1 = %x, data %8.8x\n", *dest,_vifRegs->mode,_vifRegs->r1,data);
 #endif
 }
 
 static void writeZ( u32 *dest, u32 data ) {
 	if (_vifRegs->code & 0x10000000) { _writeZ(dest, data); return; }
+	if((_vif->cmd & 0x6F) == 0x6f) {
+		//SysPrintf("Phew Z!\n");
+		*dest = data;
+		return;
+	}
 	if (_vifRegs->mode == 1) {
 		*dest = data + _vifRegs->r2;
 	} else 
@@ -253,12 +288,17 @@ static void writeZ( u32 *dest, u32 data ) {
 		*dest = data;
 	}
 #ifdef VIF_LOG
-	VIF_LOG("writeZ %8.8x : Mode %d, r2 = %x, writing %8.8x\n", *dest,_vifRegs->mode,_vifRegs->r2,data + _vifRegs->r2);
+	VIF_LOG("writeZ %8.8x : Mode %d, r2 = %x, data %8.8x\n", *dest,_vifRegs->mode,_vifRegs->r2,data);
 #endif
 }
 
 static void writeW( u32 *dest, u32 data ) {
 	if (_vifRegs->code & 0x10000000) { _writeW(dest, data); return; }
+	if((_vif->cmd & 0x6F) == 0x6f) {
+		//SysPrintf("Phew X!\n");
+		*dest = data;
+		return;
+	}
 	if (_vifRegs->mode == 1) {
 		*dest = data + _vifRegs->r3;
 	} else 
@@ -269,7 +309,7 @@ static void writeW( u32 *dest, u32 data ) {
 		*dest = data;
 	}
 #ifdef VIF_LOG
-	VIF_LOG("writeW %8.8x : Mode %d, r3 = %x, writing %8.8x\n", *dest,_vifRegs->mode,_vifRegs->r3,data + _vifRegs->r3);
+	VIF_LOG("writeW %8.8x : Mode %d, r3 = %x, data %8.8x\n", *dest,_vifRegs->mode,_vifRegs->r3,data);
 #endif
 }
 
@@ -367,9 +407,9 @@ int  UNPACK_S_8upart(u32 *dest, u32 *data, int size) {
 
 void UNPACK_V2_32( u32 *dest, u32 *data ) {
 		writeX(dest++, *data++);
-		writeY(dest++, *data++);
-		writeZ(dest++, 0);
-		writeW(dest++, 0);
+		writeY(dest++, *data);
+		writeZ(dest++, *data);
+		writeW(dest++, *data++);
 	
 }
 
@@ -390,9 +430,9 @@ int  UNPACK_V2_32part( u32 *dest, u32 *data, int size ) {
 	 \
  \
 		writeX(dest++, *sdata++); \
-		writeY(dest++, *sdata++); \
-		writeZ(dest++, 0); \
-		writeW(dest++, 0); \
+		writeY(dest++, *sdata); \
+		writeZ(dest++, *sdata); \
+		writeW(dest++, *sdata++); \
 	
 
 void UNPACK_V2_16s(u32 *dest, u32 *data) {
@@ -428,9 +468,9 @@ int  UNPACK_V2_16upart(u32 *dest, u32 *data, int size) {
 	 \
  \
 		writeX(dest++, *cdata++); \
-		writeY(dest++, *cdata++); \
-		writeZ(dest++, 0); \
-		writeW(dest++, 0); 
+		writeY(dest++, *cdata); \
+		writeZ(dest++, *cdata); \
+		writeW(dest++, *cdata++); 
 
 void UNPACK_V2_8s(u32 *dest, u32 *data) {
 	_UNPACK_V2_8(s8);
@@ -462,8 +502,8 @@ int  UNPACK_V2_8upart(u32 *dest, u32 *data, int size) {
 void UNPACK_V3_32(u32 *dest, u32 *data) {
 		writeX(dest++, *data++);
 		writeY(dest++, *data++);
-		writeZ(dest++, *data++);
-		writeW(dest++, 0);
+		writeZ(dest++, *data);
+		writeW(dest++, *data++);
 }
 
 int  UNPACK_V3_32part(u32 *dest, u32 *data, int size) {
@@ -484,8 +524,8 @@ int  UNPACK_V3_32part(u32 *dest, u32 *data, int size) {
  \
 		writeX(dest++, *sdata++); \
 		writeY(dest++, *sdata++); \
-		writeZ(dest++, *sdata++); \
-		writeW(dest++, 0); 
+		writeZ(dest++, *sdata); \
+		writeW(dest++, *sdata++); 
 
 void UNPACK_V3_16s(u32 *dest, u32 *data) {
 	_UNPACK_V3_16(s16);
@@ -521,8 +561,8 @@ int  UNPACK_V3_16upart(u32 *dest, u32 *data, int size) {
  \
 		writeX(dest++, *cdata++); \
 		writeY(dest++, *cdata++); \
-		writeZ(dest++, *cdata++); \
-		writeW(dest++, 0); 
+		writeZ(dest++, *cdata); \
+		writeW(dest++, *cdata++); 
 
 void UNPACK_V3_8s(u32 *dest, u32 *data) {
 	_UNPACK_V3_8(s8);
