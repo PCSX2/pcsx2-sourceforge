@@ -7,6 +7,7 @@ using namespace std;
 
 extern "C" {
 #include "../ps2etypes.h"
+#include "../patch.h"
 }
 
 static int gPass = 0;
@@ -19,15 +20,7 @@ static int gFail = 0;
 // and show how to add and remove nodes.
 //
 
-extern "C" typedef struct
-{
-   int    type;
-   int    cpu;
-   int    placetopatch;
-   u32    addr;
-   u32    data;
-} IniPatch;
-
+#ifdef __WIN32__
 extern "C" typedef struct {
 	HWND hWnd;           // Main window handle
 	HINSTANCE hInstance; // Application instance
@@ -35,10 +28,6 @@ extern "C" typedef struct {
 	HANDLE hConsole;
 } AppData;
 
-extern "C" extern IniPatch patch[ 1024 ];
-extern "C" extern int patchnumber;
-
-#ifdef __WIN32__
 extern "C" extern AppData gApp;
 #endif
 

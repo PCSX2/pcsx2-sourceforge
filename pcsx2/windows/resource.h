@@ -35,6 +35,8 @@
 #define IDD_DUMP                        136
 #define IDD_DUMPMEM                     137
 #define IDD_PATCHBROWSER                138
+#define IDD_FINDER                      174
+#define IDD_ADD                         175
 #define IDC_MEM_SCROLL                  1001
 #define IDC_EXECBP                      1001
 #define IDC_CNTBP                       1002
@@ -565,6 +567,31 @@
 #define IDC_EECNTLOG                    1530
 #define IDC_SYMLOG                      1531
 #define IDC_STDOUTPUTLOG                1532
+#define IDC_SEARCH                      1701
+#define IDC_VALUE                       1702
+#define IDC_OLD                         1703
+#define IDC_SET                         1704
+#define IDC_EQ                          1705
+#define IDC_GT                          1706
+#define IDC_LT                          1707
+#define IDC_GE                          1708
+#define IDC_LE                          1709
+#define IDC_EE                          1710
+#define IDC_NE                          1211
+#define IDC_IOP                         1712
+#define IDC_RESET                       1713
+#define IDC_ADD                         1714
+#define IDC_LRESULTS                    1715
+#define IDC_STATUS                      1716
+#define IDC_UNSIGNED                    1717
+#define IDC_8B                          1718
+#define IDC_16B                         1719
+#define IDC_32B                         1720
+#define IDC_64B                         1721
+#define IDC_RESULTS                     1722
+#define IDC_NAME                        1723
+#define IDC_ADDR                        1725
+#define IDC_MATCHES                     1726
 #define ID_FILEOPEN                     40001
 #define ID_DEBUG_MEMORY_DUMP            40002
 #define ID_FILE_EXIT                    40003
@@ -629,6 +656,7 @@
 #define ID_SPU2HACK                     40061
 #define ID_VSYNCRATE                    40062
 #define ID_HELP_HELP                    40063
+#define ID_CHEAT_FINDER_SHOW            40100
 #define ID_LANGS                        50000
 
 // Next default values for new objects

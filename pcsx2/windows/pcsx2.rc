@@ -987,7 +987,116 @@ SPLASH_LOGO             BITMAP                  "..\\pcsxAbout.bmp"
 
 
 /////////////////////////////////////////////////////////////////////////////
-// Spanish (Argentina) resources
+// Español resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ESN)
+#ifdef _WIN32
+LANGUAGE LANG_SPANISH, SUBLANG_SPANISH_MODERN
+#pragma code_page(1252)
+#endif //_WIN32
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_FINDER DIALOGEX 3, 1, 262, 212
+STYLE DS_SETFONT | WS_CAPTION | WS_SYSMENU
+CAPTION "Cheat Finder"
+FONT 8, "MS Sans Serif", 0, 0, 0x1
+BEGIN
+    CONTROL         "Results",IDC_RESULTS,"SysListView32",LVS_REPORT | 
+                    WS_TABSTOP,96,15,161,153,WS_EX_CLIENTEDGE
+    GROUPBOX        "Values of size",IDC_STATIC,5,44,86,45
+    CHECKBOX        "Unsigned",IDC_UNSIGNED,11,74,70,10,NOT WS_TABSTOP
+    CONTROL         "64bits",IDC_64B,"Button",BS_AUTORADIOBUTTON | WS_GROUP,
+                    48,64,33,10
+    CONTROL         "32bits",IDC_32B,"Button",BS_AUTORADIOBUTTON | WS_GROUP,
+                    48,54,33,10
+    CONTROL         "16bits",IDC_16B,"Button",BS_AUTORADIOBUTTON | WS_GROUP,
+                    11,64,33,10
+    CONTROL         "8bits",IDC_8B,"Button",BS_AUTORADIOBUTTON | WS_GROUP,11,
+                    54,33,10
+    PUSHBUTTON      "Close",IDCANCEL,208,192,49,15,NOT WS_TABSTOP
+    PUSHBUTTON      "Search",IDC_SEARCH,96,192,49,15,NOT WS_TABSTOP
+    GROUPBOX        "Comapred to",IDC_STATIC,5,162,86,45
+    EDITTEXT        IDC_VALUE,21,192,65,12,ES_AUTOHSCROLL | NOT WS_TABSTOP
+    CONTROL         "Specific Value",IDC_SET,"Button",BS_AUTORADIOBUTTON | 
+                    WS_GROUP,11,182,75,10
+    CONTROL         "Old Value",IDC_OLD,"Button",BS_AUTORADIOBUTTON | 
+                    WS_GROUP,11,172,75,10
+    GROUPBOX        "Search in",IDC_STATIC,5,5,86,35
+    CONTROL         "Smaller or equal",IDC_LE,"Button",BS_AUTORADIOBUTTON | 
+                    WS_GROUP,11,139,75,10
+    CONTROL         "Greater or equal",IDC_GE,"Button",BS_AUTORADIOBUTTON | 
+                    WS_GROUP,11,129,75,10
+    CONTROL         "Smaller",IDC_LT,"Button",BS_AUTORADIOBUTTON | WS_GROUP,
+                    11,120,75,10
+    CONTROL         "Greater",IDC_GT,"Button",BS_AUTORADIOBUTTON | WS_GROUP,
+                    11,110,75,10
+    CONTROL         "Equal",IDC_EQ,"Button",BS_AUTORADIOBUTTON | WS_GROUP,11,
+                    101,75,10
+    PUSHBUTTON      "Reset",IDC_RESET,96,172,49,15,NOT WS_TABSTOP
+    PUSHBUTTON      "Add",IDC_ADD,208,172,49,15,NOT WS_TABSTOP
+    RTEXT           "1 match found.",IDC_MATCHES,125,5,132,10,NOT WS_GROUP
+    LTEXT           "Results:",IDC_STATIC,96,5,29,10,NOT WS_GROUP
+    CONTROL         "EE RAM",IDC_EE,"Button",BS_AUTORADIOBUTTON | WS_GROUP,
+                    11,15,43,10
+    CONTROL         "IOP RAM",IDC_IOP,"Button",BS_AUTORADIOBUTTON | WS_GROUP,
+                    11,25,43,10
+    CONTROL         "Not equal",IDC_NE,"Button",BS_AUTORADIOBUTTON | 
+                    WS_GROUP,11,148,75,10
+    GROUPBOX        "being",IDC_STATIC,5,92,86,67
+END
+
+IDD_ADD DIALOGEX 3, 1, 145, 74
+STYLE DS_SETFONT | WS_CAPTION | WS_SYSMENU
+CAPTION "Add Cheat"
+FONT 8, "MS Sans Serif", 0, 0, 0x0
+BEGIN
+    PUSHBUTTON      "OK",IDOK,37,54,49,15,NOT WS_TABSTOP
+    PUSHBUTTON      "Cancel",IDCANCEL,91,54,49,15,NOT WS_TABSTOP
+    LTEXT           "Cheat Name",IDC_STATIC,5,30,75,10,NOT WS_GROUP
+    LTEXT           "New Value",IDC_STATIC,69,5,70,10,NOT WS_GROUP
+    LTEXT           "Address",IDC_STATIC,5,5,59,10,NOT WS_GROUP
+    EDITTEXT        IDC_NAME,5,39,134,12,ES_AUTOHSCROLL | ES_READONLY | NOT 
+                    WS_TABSTOP
+    EDITTEXT        IDC_VALUE,69,15,70,12,ES_AUTOHSCROLL | NOT WS_TABSTOP
+    EDITTEXT        IDC_ADDR,5,15,59,12,ES_AUTOHSCROLL | NOT WS_TABSTOP
+END
+
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE 
+BEGIN
+    "#include ""afxres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+#endif    // Español resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Español (Argentina) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ESS)
 #ifdef _WIN32
