@@ -24,48 +24,9 @@
 
 #include "PsxCommon.h"
 
-//
-// Defines
-//
-#define MAX_PATCH 1024 
+#include "windows/cheats/cheats.h"
 
-#define IFIS(x,str) if(!strnicmp(x,str,sizeof(str)-1))
-
-#define GETNEXT_PARAM() \
-	while ( *param && ( *param != ',' ) ) param++; \
-   if ( *param ) param++; \
-	while ( *param && ( *param == ' ' ) ) param++; \
-	if ( *param == 0 ) { SysPrintf( _( "Not enough params for inicommand\n" ) ); return; }
-
-//
-// Typedefs
-//
-typedef void (*PATCHTABLEFUNC)( char * text1, char * text2 );
-
-typedef struct
-{
-   char           * text;
-   int            code;
-   PATCHTABLEFUNC func;
-} PatchTextTable;
-
-typedef struct
-{
-   int    type;
-   int    cpu;
-   int    placetopatch;
-   u32    addr;
-   u64    data;
-} IniPatch;
-
-//
-// Function prototypes
-//
-void patchFunc_comment( char * text1, char * text2 );
-void patchFunc_gametitle( char * text1, char * text2 );
-void patchFunc_patch( char * text1, char * text2 );
-
-void inifile_trim( char * buffer );
+#include "patch.h"
 
 //
 // Variables
@@ -331,4 +292,35 @@ void inifile_read( char * name )
 void resetpatch( void )
 {
    patchnumber = 0;
+}
+
+void AddPatch(int Source, int Address, int Size, int Unsigned, any *data)
+{
+
+	if ( patchnumber >= MAX_PATCH )
+	{
+		SysPrintf( "Patch ERROR: Maximum number of patches reached.\n");
+		return;
+	}
+
+	patch[patchnumber].placetopatch = 1;
+	patch[patchnumber].cpu = Source+1;
+	patch[patchnumber].addr=Address;
+	patch[patchnumber].type=Size+1;
+
+	if(Unsigned) switch(Size)
+	{
+		case 0:	patch[patchnumber].data = data->vu8;	break;
+		case 1:	patch[patchnumber].data = data->vu16;	break;
+		case 2:	patch[patchnumber].data = data->vu32;	break;
+		case 3:	patch[patchnumber].data = data->vu64;	break;
+	}
+	else switch(Size)
+	{
+		case 0:	patch[patchnumber].data = data->vs8;	break;
+		case 1:	patch[patchnumber].data = data->vs16;	break;
+		case 2:	patch[patchnumber].data = data->vs32;	break;
+		case 3:	patch[patchnumber].data = data->vs64;	break;
+	}
+	patchnumber++;
 }

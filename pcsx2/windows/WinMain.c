@@ -45,6 +45,8 @@
 #include "iCore.h"
 #include "iVUzerorec.h"
 
+#include "cheats/cheats.h"
+
 #define COMPILEDATE         __DATE__
 
 static int efile;
@@ -390,6 +392,13 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	
 #ifdef WIN32_VIRTUAL_MEM
 	LPVOID lpMemReserved;
+#endif
+
+	InitCommonControls();
+	pInstance=hInstance;
+	FirstShow=true;
+
+#ifdef WIN32_VIRTUAL_MEM
 
 	if( !SysLoggedSetLockPagesPrivilege( GetCurrentProcess(), TRUE ) )
 		return 0;
@@ -745,6 +754,11 @@ LRESULT WINAPI MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 		case WM_COMMAND:
 			switch (LOWORD(wParam)) 
 			{
+
+			case ID_CHEAT_FINDER_SHOW:
+				ShowFinder(pInstance,hWnd);
+				return TRUE;
+
 			case ID_FILE_EXIT:
 				SysClose();
 				PostQuitMessage(0);
@@ -1090,6 +1104,8 @@ void CreateMainMenu() {
 	ADDSUBMENU(0, _("&Misc"));
 	ADDMENUITEM(0,("Enable &Patches"), ID_PATCHES);
 	ADDMENUITEM(0,("Enable &Console"), ID_CONSOLE); 
+	ADDSEPARATOR(0);
+	ADDMENUITEM(0,("Show Patch &Finder"), ID_CHEAT_FINDER_SHOW); 
 
 
     ADDSUBMENU(0, _("&Help"));

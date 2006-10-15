@@ -191,7 +191,7 @@
 				Name="VCLinkerTool"
 				AdditionalOptions="/MACHINE:I386"
 				AdditionalDependencies="odbc32.lib odbccp32.lib comctl32.lib ../libs/gnu_gettext.lib ws2_32.lib winmm.lib ../libs/pthreadVC2.lib"
-				OutputFile="../../pcsx2exe/pcsx2td.exe"
+				OutputFile="c:/archivos de programa/pcsx2/pcsx2td.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"
 				AdditionalLibraryDirectories="..\"
@@ -661,27 +661,41 @@
 			<File
 				RelativePath="..\..\System.h">
 			</File>
-			<File
-				RelativePath="..\..\tinyxml\tinystr.cpp">
-			</File>
-			<File
-				RelativePath="..\..\tinyxml\tinystr.h">
-			</File>
-			<File
-				RelativePath="..\..\tinyxml\tinyxml.cpp">
-			</File>
-			<File
-				RelativePath="..\..\tinyxml\tinyxml.h">
-			</File>
-			<File
-				RelativePath="..\..\tinyxml\tinyxmlerror.cpp">
-			</File>
-			<File
-				RelativePath="..\..\tinyxml\tinyxmlparser.cpp">
-			</File>
-			<File
-				RelativePath="..\..\tinyxml\xmlpatchloader.cpp">
-			</File>
+			<Filter
+				Name="Cheats"
+				Filter="">
+				<File
+					RelativePath="..\cheats\cheats.c">
+				</File>
+				<File
+					RelativePath="..\cheats\cheats.h">
+				</File>
+			</Filter>
+			<Filter
+				Name="TinyXML"
+				Filter="">
+				<File
+					RelativePath="..\..\tinyxml\tinystr.cpp">
+				</File>
+				<File
+					RelativePath="..\..\tinyxml\tinystr.h">
+				</File>
+				<File
+					RelativePath="..\..\tinyxml\tinyxml.cpp">
+				</File>
+				<File
+					RelativePath="..\..\tinyxml\tinyxml.h">
+				</File>
+				<File
+					RelativePath="..\..\tinyxml\tinyxmlerror.cpp">
+				</File>
+				<File
+					RelativePath="..\..\tinyxml\tinyxmlparser.cpp">
+				</File>
+				<File
+					RelativePath="..\..\tinyxml\xmlpatchloader.cpp">
+				</File>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="Counters"
