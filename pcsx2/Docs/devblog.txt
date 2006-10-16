@@ -121,7 +121,7 @@ h. I'm thinking of a method to check for modified content (dumps made with a
 [desc] PS2 NVM Data not 100%
 [hist] 2006-05-07 initial version
 
-             ณv0-v11 ณ v12-  ณ Bits  ณ Bytes บ
+             ณv0-v8 ณ  v9-   ณ Bits  ณ Bytes บ
 อออออออออออออุอออออออุอออออออุอออออออุอออออออน
 อออออออออออออุอออออออุอออออออุอออออออุอออออออน
 PS1 Disc Spd ณ 0x300 ณ 0x2c0 ณ       ณ       บ
@@ -146,6 +146,7 @@ Rem. Control ณ       ณ 0x2c4 ณ   5   ณ       บ
 Checksum     ณ 0x31f ณ 0x2cf ณ  All  ณ       บ
 
 Checksum is calculated by the previous 15 bytes added together, then ANDed with 0xFF
+Serial Number of Console can be obtained from bytes 7,6 & 5 of the Console ID in dec.
 
 
 ==============================================================================
