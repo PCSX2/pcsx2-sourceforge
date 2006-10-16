@@ -377,7 +377,7 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 
 	if( _vifRegs->offset > 0) {
 		int offinc, destinc, unpacksize;
-			SysPrintf("aligning packet size = %d offset %d\n", size, vifRegs->offset);
+			//SysPrintf("aligning packet size = %d offset %d\n", size, vifRegs->offset);
 			// SSE doesn't handle such small data
 			ft = &VIFfuncTable[ unpackType ];
 			func = vif->usn ? ft->funcU : ft->funcS;
@@ -407,7 +407,7 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 					dest += destinc;
 					
 				}
-				SysPrintf("aligning packet done size = %d offset %d\n", size, vifRegs->offset);
+			//	SysPrintf("aligning packet done size = %d offset %d\n", size, vifRegs->offset);
 			//}
 				//skipmeminc += (((vifRegs->cycle.cl - vifRegs->cycle.wl)<<2)*4) * skipped;
 		}
@@ -672,6 +672,14 @@ void vif0UNPACK(u32 *data) {
 	int vifNum;
     int vl, vn;
     int len;
+
+	
+	if(vif0Regs->cycle.wl == 0 && vif0Regs->cycle.wl < vif0Regs->cycle.cl){
+		SysPrintf("Vif0 CL %d, WL %d\n", vif0Regs->cycle.cl, vif0Regs->cycle.wl);
+		vif0.cmd &= ~0x7f;
+		return;
+	}
+
 
 	vif0FLUSH();
 
@@ -1104,12 +1112,12 @@ int _vif0Interrupt() {
 	}
 	
 
-	// hack?
+	/*// hack?
 	vif0.tag.size = 0;
 	vif0.cmd = 0;
 	vif0Regs->stat &= ~VIF0_STAT_VPS;
 	// hack?
-
+*/
 	vif0ch->chcr &= ~0x100;
 	hwDmacIrq(DMAC_VIF0);
 	vif0Regs->stat&= ~0xF000000; // FQC=0
@@ -1318,6 +1326,12 @@ void vif1UNPACK(u32 *data) {
 	int vifNum;
     int vl, vn;
     int len;
+
+	if(vif1Regs->cycle.wl == 0 && vif1Regs->cycle.wl < vif1Regs->cycle.cl){
+		SysPrintf("Vif1 CL %d, WL %d\n", vif1Regs->cycle.cl, vif1Regs->cycle.wl);
+		vif1.cmd &= ~0x7f;
+		return;
+	}
 
 	vif1FLUSH();
 
@@ -1855,13 +1869,13 @@ int _vif1Interrupt() {
 		return 0;
 	}
 	
-
+/*
 	// hack?
 	vif1.tag.size = 0;
 	vif1.cmd = 0;
 	vif1Regs->stat &= ~VIF1_STAT_VPS;
 	// hack?
-
+*/
 
 	
 	prevviftag = NULL;

@@ -8,6 +8,11 @@
 
 ChangeLog:
  v0.9.2:
+ * 16/10/06:[-] Counter bugz again, seemed to effect the text in xmen
+			[-] Fixed an ipu bug which stopped the GTA4 videos working
+			[-] couple more smaller unpack changes to remove a hack
+			(Refraction)
+			
  * 15/10/06:[*] Moved some declarations from patch.c to patch.h
 			[-] Fixed problem with XML patch loading (see above).
 			[+] Merged my WIP cheat finder dialog (note WIP).

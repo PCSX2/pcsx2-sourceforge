@@ -1683,18 +1683,20 @@ int IPU1dma()
 	// Transfer Dn_QWC from Dn_MADR to GIF
 	if( ipu1dma->qwc > 0 ) {
 		IPU1chain();
+		INT(DMAC_TO_IPU, (ipu1cycles+totalqwc)*BIAS);
+	return totalqwc;
 	}
 	if ((ipu1dma->chcr & 0xc) == 0 ) { // Normal Mode
 	}
 	else {
 		// Chain Mode
-		while (done == 0) {						 // Loop while Dn_CHCR.STR is 1
+		//while (done == 0) {						 // Loop while Dn_CHCR.STR is 1
 			ptag = (u32*)dmaGetAddr(ipu1dma->tadr);  //Set memory pointer to TADR
 			if (ptag == NULL) {					 //Is ptag empty?
 				SysPrintf("IPU1 BUSERR\n");
 				ipu1dma->chcr = ( ipu1dma->chcr & 0xFFFF ) | ( (*ptag) & 0xFFFF0000 );  //Transfer upper part of tag to CHCR bits 31-15
 				psHu32(DMAC_STAT)|= 1<<15;		 //If yes, set BEIS (BUSERR) in DMAC_STAT register
-				break;
+				return totalqwc;
 			}
 			ipu1cycles+=1; // Add 1 cycles from the QW read for the tag
 			
@@ -1751,7 +1753,7 @@ int IPU1dma()
 
 			IPU1chain();
 
-			if ((ipu1dma->chcr & 0x80) && (ptag[0]&0x80000000) ) {			 //Check TIE bit of CHCR and IRQ bit of tag
+			if ((ipu1dma->chcr & 0x80) && (ptag[0]&0x80000000)  && ipu1dma->qwc == 0) {			 //Check TIE bit of CHCR and IRQ bit of tag
 				SysPrintf("IPU1 TIE\n");
 
 				if( done ) {
@@ -1769,8 +1771,9 @@ int IPU1dma()
 				g_nDMATransfer |= IPU_DMA_TIE1;
 				return totalqwc;
 			}
-		}
+		//}
 
+			if(ipu1dma->qwc == 0){
 		switch( ptag[0]&0x70000000 )
 		{
 		case 0x00000000:
@@ -1783,6 +1786,7 @@ int IPU1dma()
 			INT(DMAC_TO_IPU, (ipu1cycles+totalqwc)*BIAS);
 			return totalqwc;
 		}
+			}
 	}
 
 	INT(DMAC_TO_IPU, (ipu1cycles+totalqwc)*BIAS);
