@@ -64,7 +64,7 @@ void rcntSet() {
 			}
 		
 		// the + 10 is just in case of overflow
-			if(eecntmask & (1<<i)) continue;
+			//if(eecntmask & (1<<i) || !(counters[i].mode & 0x100)) continue;
 			 c = (counters[i].target - rcntCycle(i)) * counters[i].rate;
 			if (c < nextCounter) {
 			nextCounter = c;
@@ -409,40 +409,53 @@ void rcntUpdate()
 	for (i=0; i<=3; i++) {
 		if (!(counters[i].mode & 0x80)) continue; // Stopped
 		counters[i].count += (int)((cpuRegs.cycle - counters[i].sCycleT) / counters[i].rate);
-		
+		counters[i].sCycleT = cpuRegs.cycle - (cpuRegs.cycle % counters[i].rate);
 	}
 	for (i=0; i<=3; i++) {
 		if (!(counters[i].mode & 0x80)) continue; // Stopped
 
-		if ((eecntmask & (1 << i)) == 0) {
-			if (rcntCycle(i) >= counters[i].target) { // Target interrupt
-				if (rcntCycle(i) != counters[i].target) counters[i].sCycleT += (rcntCycle(i) - counters[i].target) * counters[i].rate;
-				counters[i].mode|= 0x0400; // Target flag
-				if(counters[i].mode & 0x100) {
+		
+			if ((counters[i].count & ~0x3) == (counters[i].target & ~0x3)) { // Target interrupt
+				/*if (rcntCycle(i) != counters[i].target){
+					SysPrintf("rcntcycle = %d, target = %d, cyclet = %d\n", rcntCycle(i), counters[i].target, counters[i].sCycleT);
+					counters[i].sCycleT += (rcntCycle(i) - counters[i].target) * counters[i].rate;
+					SysPrintf("rcntcycle = %d, target = %d, cyclet = %d\n", rcntCycle(i), counters[i].target, counters[i].sCycleT);
+				}*/
+				//if ((eecntmask & (1 << i)) == 0) {
+			
+				if(counters[i].mode & 0x100  && (counters[i].mode & 0x400) == 0) {
+						counters[i].mode|= 0x0400; // Target flag
 					hwIntcIrq(counters[i].interrupt);
 					
 				}
-				eecntmask |= (1 << i);
+#ifdef EECNT_LOG
+	EECNT_LOG("EE target reached %d target %x count %x\n", i, counters[i].target, counters[i].count);
+#endif
+				//eecntmask |= (1 << i);
+				//}
 				if (counters[i].mode & 0x40) { // Reset on target
 					counters[i].count = 0;
 					eecntmask &= ~(1 << i);
-					rcntUpd(i);
+					//rcntUpd(i);
 				}
-			}
+			
 		}
 		
 		
-		if (rcntCycle(i) >= 0xffff) {
-			counters[i].mode|= 0x0800; // Overflow flag
-			if (counters[i].mode & 0x0200) { // Overflow interrupt
-				eecntmask &= ~(1 << i);
+		if (counters[i].count >= 0xffff) {
+			eecntmask &= ~(1 << i);
+#ifdef EECNT_LOG
+	EECNT_LOG("EE overflow reached %d target %x count %x\n", i, counters[i].target, counters[i].count);
+#endif
+			if (counters[i].mode & 0x0200  && (counters[i].mode & 0x800) == 0) { // Overflow interrupt
+				counters[i].mode|= 0x0800; // Overflow flag
 				hwIntcIrq(counters[i].interrupt);
 //				SysPrintf("counter[%d] overflow interrupt (%x)\n", i, cpuRegs.cycle);
 			}
 			counters[i].count = 0;
-			rcntUpd(i);
+			//rcntUpd(i);
 		} 
-		rcntUpd(i);
+	//	rcntUpd(i);
 	}
 	
 	if ((cpuRegs.cycle - counters[4].sCycleT) >= counters[4].CycleT && hblankend == 1){
@@ -492,6 +505,7 @@ void rcntWcount(int index, u32 value) {
 #ifdef EECNT_LOG
 	EECNT_LOG("EE count write %d count %x with %x target %x eecycle %x\n", index, counters[index].count, value, counters[index].target, cpuRegs.eCycle);
 #endif
+	//if((u16)value < counters[index].target)
 	//eecntmask &= ~(1 << index);
 	counters[index].count = value & 0xffff;
 	rcntUpd(index);
@@ -507,6 +521,7 @@ void rcntWmode(int index, u32 value)
 		counters[index].mode &= ~((value & 0xc00));
 	}
 
+		
 	//if((value & 0x3ff) != (counters[index].mode & 0x3ff))eecntmask &= ~(1 << index);
 	counters[index].mode = (counters[index].mode & 0xc00) | (value & 0x3ff);
 
@@ -522,6 +537,7 @@ void rcntWmode(int index, u32 value)
 	}
 
 	if((counters[index].mode & 0xF) == 0x7) {
+		SysPrintf("Gate disabled %d\n", index);
 			gates &= ~(1<<index);
 			counters[index].mode &= ~0x80;
 	}else if(counters[index].mode & 0x4){
@@ -531,8 +547,7 @@ void rcntWmode(int index, u32 value)
 			rcntReset(index);
 	}
 	else gates &= ~(1<<index);
-	counters[index].count = 0;
-	
+	//counters[index].count = 0;
 	rcntSet();
 
 }
@@ -598,7 +613,7 @@ void rcntEndGate(int mode){
 }
 void rcntWtarget(int index, u32 value) {
 
-	if((u16)value > counters[index].target) eecntmask &= ~(1 << index);
+	eecntmask &= ~(1 << index);
 	counters[index].target = value & 0xffff;
 	
 #ifdef EECNT_LOG
