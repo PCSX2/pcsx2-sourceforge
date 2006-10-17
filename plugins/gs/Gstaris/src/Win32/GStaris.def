@@ -1,0 +1,27 @@
+; GStaris.def : Declares the module parameters for the DLL.
+
+LIBRARY      "GStaris"
+DESCRIPTION  'GStaris OpenGL'
+
+EXPORTS
+    ; Explicit exports can go here
+	PS2EgetLibType		@2
+	PS2EgetLibName		@3
+	PS2EgetLibVersion2	@4
+	GSinit				@5
+	GSshutdown			@6
+	GSopen				@7
+	GSclose				@8
+	GSwrite32			@9
+	GSwrite64			@10
+	GSread32			@11
+	GSread64			@12
+	GSgifTransfer1		@13
+	GSgifTransfer2      @14
+	GSgifTransfer3      @15
+	GSvsync				@16
+	GSmakeSnapshot		@17
+	GSkeyEvent			@18
+	GSconfigure			@19
+	GStest				@20
+	GSabout				@21

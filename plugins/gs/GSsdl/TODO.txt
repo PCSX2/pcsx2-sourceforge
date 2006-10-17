@@ -1,0 +1,10 @@
+In SDL
+------
+implement the frame counter
+implement the fullscreen
+implement the frameskip
+Maybe more? :)
+
+In Emulation
+------------
+Fix several bugs

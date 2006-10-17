@@ -1,0 +1,26 @@
+; GPUsdl: Declares the module parameters for the DLL.
+
+LIBRARY      "GSsdl"
+;DESCRIPTION  'GSsdl dll'
+
+EXPORTS
+    ; Explicit exports can go here
+	PS2EgetLibType		@2
+	PS2EgetLibName		@3
+	PS2EgetLibVersion	@4
+	GSinit				@5
+	GSshutdown			@6
+	GSopen				@7
+	GSclose				@8
+	GSwrite32			@9
+	GSwrite64			@10
+	GSread32			@11
+	GSread64			@12
+	GSgifTransfer		@13
+	GSgifTransfer2		@14
+	GSvsync				@15
+	GSmakeSnapshot		@16
+	GSkeyEvent			@17
+	GSconfigure			@18
+	GStest				@19
+	GSabout				@20

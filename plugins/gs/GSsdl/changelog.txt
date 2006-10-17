@@ -1,0 +1,19 @@
+27/04/03
+
+small fixes to emulation code
+
+
+11/04/03
+
+Add the finish register that linuz did in gssoft 0.41
+
+
+21/01/03 
+
+Implement the Snapshot function using SDL 
+Change the SetAlpha setting. 255 is now opague according to sdl .1.2.5
+
+
+19/01/03 
+
+Implement With SDL_Listmodes the supported modes + colour depth :)
