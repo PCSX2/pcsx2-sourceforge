@@ -19,10 +19,8 @@ class result
 {
 public:
 	u32 address;
-	u64 oldval;
-	result(u32 addr,u64 oldv):
-		address(addr),
-		oldval(oldv)
+	result(u32 addr):
+		address(addr)
 	{
 	}
 };
@@ -113,9 +111,9 @@ void SearchReset()
 	
 }
 
-int AddResult(u32 addr, u64 old)
+int AddResult(u32 addr)
 {
-	result nr=result(addr,old);
+	result nr=result(addr);
 	results.push_back(nr);
 	return 1;
 }
@@ -219,7 +217,7 @@ void SearchFirst()
 		}
 
 		if(CompareAny(val,cto)) {
-			AddResult(addr,old);
+			AddResult(addr);
 			cur=(u64*)(((char*)cur)+MSize);
 			addr+=MSize;
 			UpdateStatus();
@@ -258,7 +256,7 @@ void SearchMore()
 		}
 		
 		if(CompareAny(val,cto)) {
-			AddResult(addr,old);
+			AddResult(addr);
 			UpdateStatus();
 		}
 	}
@@ -364,7 +362,9 @@ void AddResults(HWND hWnd)
 
 	for(i=0;i<mresults;i++)
 	{
-		u64 o=results[i].oldval;
+		u64 o=0;
+		memcpy(&o,olds+results[i].address,msize[Source]);
+
 		u64 v=*(u64*)(mptr[Source]+results[i].address);
 
 		sprintf(tn,"%08x",results[i].address);
@@ -455,6 +455,7 @@ BOOL CALLBACK FinderProc(HWND hWnd,UINT uMsg,WPARAM wParam,LPARAM lParam)
 				GROUP_SELECT(IDC_LT);
 				GROUP_SELECT(IDC_GE);
 				GROUP_SELECT(IDC_LE);
+				GROUP_SELECT(IDC_NE);
 
 			GROUP_INIT(IDC_8B,Size);
 				GROUP_SELECT(IDC_8B);
@@ -564,12 +565,14 @@ BOOL CALLBACK FinderProc(HWND hWnd,UINT uMsg,WPARAM wParam,LPARAM lParam)
 				HANDLE_GROUP_ITEM(IDC_LT);
 				HANDLE_GROUP_ITEM(IDC_GE);
 				HANDLE_GROUP_ITEM(IDC_LE);
+				HANDLE_GROUP_ITEM(IDC_NE);
 				BEGIN_GROUP_HANDLER(IDC_EQ,Compare);
 					GROUP_SELECT(IDC_EQ);
 					GROUP_SELECT(IDC_GT);
 					GROUP_SELECT(IDC_LT);
 					GROUP_SELECT(IDC_GE);
 					GROUP_SELECT(IDC_LE);
+					GROUP_SELECT(IDC_NE);
 					break;
 
 				HANDLE_GROUP_ITEM(IDC_8B);
