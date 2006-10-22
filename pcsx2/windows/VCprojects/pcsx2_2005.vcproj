@@ -798,6 +798,10 @@
 				Name="Cheats"
 				>
 				<File
+					RelativePath="..\cheats\browser.cpp"
+					>
+				</File>
+				<File
 					RelativePath="..\cheats\cheats.cpp"
 					>
 				</File>
