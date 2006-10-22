@@ -62,6 +62,8 @@ typedef struct {
 } _langs;
 _langs *langs = NULL;
 
+int firstRun=1;
+
 void OpenConsole() {
 	COORD csize;
 	CONSOLE_SCREEN_BUFFER_INFO csbiInfo; 
@@ -503,6 +505,8 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	SysPrintf("\tF11 - save GS state\n");
 	SysPrintf("\tF12 - dump hardware registers\n");
 #endif
+
+	LoadPatch("default");
 
 	RunGui();
 
@@ -1130,8 +1134,6 @@ void CreateMainWindow(int nCmdShow) {
 	BITMAP bm;
 	RECT rect;
 	int w, h;
-
-	LoadPatch("default");
 
 #ifdef _MSC_VER
 	sprintf(COMPILER, "(VC%d)", (_MSC_VER+100)/200);//hacky:) works for VC6 & VC.NET

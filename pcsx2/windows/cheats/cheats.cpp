@@ -49,7 +49,7 @@ bool FirstSearch;
 
 bool FirstShow;
 
-char *olds;
+char olds[0x02000000];
 
 char tn[100];
 char to[100];
@@ -102,8 +102,6 @@ void UpdateStatus()
 
 void SearchReset()
 {
-	if(olds) free(olds);
-	olds=(char*)malloc(msize[Source]);
 	memcpy(olds,mptr[Source],msize[Source]);
 	FirstSearch=true;
 
@@ -210,7 +208,6 @@ void SearchFirst()
 		(u64)val=0;
 		memcpy(&val,cur,MSize);			//update the buffer
 		memcpy(&old,olds+addr,MSize);	//
-		memcpy(olds+addr,cur,MSize);
 		if(CompareTo==0)
 		{
 			cto=old;
@@ -249,7 +246,6 @@ void SearchMore()
 		addr=oldr[i].address;
 		memcpy(&val,mptr[Source]+addr,MSize);
 		memcpy(&old,olds+addr,MSize);
-		memcpy(olds+addr,mptr[Source]+addr,MSize);
 		if(CompareTo==0)
 		{
 			cto=old;
@@ -363,7 +359,7 @@ void AddResults(HWND hWnd)
 	for(i=0;i<mresults;i++)
 	{
 		u64 o=0;
-		memcpy(&o,olds+results[i].address,msize[Source]);
+		memcpy(&o,olds+results[i].address,(1<<Size));
 
 		u64 v=*(u64*)(mptr[Source]+results[i].address);
 
@@ -535,6 +531,8 @@ BOOL CALLBACK FinderProc(HWND hWnd,UINT uMsg,WPARAM wParam,LPARAM lParam)
 					else			SearchMore();
 					
 					AddResults(hWnd);
+
+					memcpy(olds,mptr[Source],msize[Source]);
 
 					ENABLE_CONTROL(IDC_SEARCH,	true);
 					ENABLE_CONTROL(IDC_RESET,	true);
