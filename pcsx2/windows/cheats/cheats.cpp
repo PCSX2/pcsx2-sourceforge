@@ -56,7 +56,7 @@ char to[100];
 char tv[100];
 
 #ifdef WIN32_VIRTUAL_MEM
-char *mptr[2]={PS2MEM_BASE,PS2MEM_PSX};
+u8 *mptr[2]={PS2MEM_BASE,PS2MEM_PSX};
 #else
 char *mptr[2];
 extern "C" extern s8 *psxM;
