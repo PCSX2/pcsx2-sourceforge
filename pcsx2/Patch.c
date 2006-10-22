@@ -86,6 +86,8 @@ int PatchTableExecute( char * text1, char * text2, PatchTextTable * Table )
 void _applypatch(int place, IniPatch *p) {
 	if (p->placetopatch != place) return;
 
+	if (p->enabled == false) return;
+
 	if (p->cpu == 1) { //EE
 		if (p->type == 1) { //byte
 			memWrite8(p->addr, (u8)p->data);
@@ -294,33 +296,19 @@ void resetpatch( void )
    patchnumber = 0;
 }
 
-void AddPatch(int Source, int Address, int Size, int Unsigned, any *data)
+int AddPatch(int Mode, int Place, int Address, int Size, u64 data)
 {
 
 	if ( patchnumber >= MAX_PATCH )
 	{
 		SysPrintf( "Patch ERROR: Maximum number of patches reached.\n");
-		return;
+		return -1;
 	}
 
-	patch[patchnumber].placetopatch = 1;
-	patch[patchnumber].cpu = Source+1;
+	patch[patchnumber].placetopatch = Mode;
+	patch[patchnumber].cpu = Place;
 	patch[patchnumber].addr=Address;
-	patch[patchnumber].type=Size+1;
-
-	if(Unsigned) switch(Size)
-	{
-		case 0:	patch[patchnumber].data = data->vu8;	break;
-		case 1:	patch[patchnumber].data = data->vu16;	break;
-		case 2:	patch[patchnumber].data = data->vu32;	break;
-		case 3:	patch[patchnumber].data = data->vu64;	break;
-	}
-	else switch(Size)
-	{
-		case 0:	patch[patchnumber].data = data->vs8;	break;
-		case 1:	patch[patchnumber].data = data->vs16;	break;
-		case 2:	patch[patchnumber].data = data->vs32;	break;
-		case 3:	patch[patchnumber].data = data->vs64;	break;
-	}
-	patchnumber++;
+	patch[patchnumber].type=Size;
+	patch[patchnumber].data = data;
+	return patchnumber++;
 }

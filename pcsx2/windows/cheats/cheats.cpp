@@ -2,14 +2,32 @@
 #include <windows.h>
 #include <commctrl.h>
 #include <stdlib.h>
+
+#include <vector>
+
+extern "C" {
 #include "windows/resource.h"
 #include "PS2Etypes.h"
 #include "PS2Edefs.h"
 #include "Memory.h"
 
 #include "cheats.h"
+#include "../../patch.h"
+}
 
-char *sizenames[4]={"char","half","word","dword"};
+class result
+{
+public:
+	u32 address;
+	u64 oldval;
+	result(u32 addr,u64 oldv):
+		address(addr),
+		oldval(oldv)
+	{
+	}
+};
+
+char *sizenames[4]={"char","short","word","double"};
 
 char mtext[100];
 
@@ -23,11 +41,9 @@ int Compare;
 int Size;
 int CompareTo;
 
-any CompareValue;
+u64 CompareValue;
 
-result *results;
-int aresults;
-int nresults;
+std::vector<result> results;
 
 //int mresults;
 
@@ -45,7 +61,7 @@ char tv[100];
 char *mptr[2]={PS2MEM_BASE,PS2MEM_PSX};
 #else
 char *mptr[2];
-extern s8 *psxM;
+extern "C" extern s8 *psxM;
 #endif
 
 int  msize[2]={0x02000000,0x00200000};
@@ -79,7 +95,7 @@ void UpdateStatus()
 	if((nticks-lticks)>250)
 	{
 		int nshown=ListView_GetItemCount(GetDlgItem(hWndFinder,IDC_RESULTS));
-		sprintf(mtext,"%d matches found (%d shown).",nresults,nshown);
+		sprintf(mtext,"%d matches found (%d shown).",results.size(),nshown);
 		SetWindowText(GetDlgItem(hWndFinder,IDC_MATCHES),mtext);
 		lticks=nticks;
 		DoEvents();
@@ -89,178 +105,111 @@ void UpdateStatus()
 void SearchReset()
 {
 	if(olds) free(olds);
-	olds=malloc(msize[Source]);
+	olds=(char*)malloc(msize[Source]);
 	memcpy(olds,mptr[Source],msize[Source]);
 	FirstSearch=true;
-	if(results) free(results);
-	results=NULL;
-	aresults=0;
-	nresults=0;
+
+	results.clear();
+	
 }
 
-int AddResult(u32 addr, any old)
+int AddResult(u32 addr, u64 old)
 {
-	result*tr;
-	result nr;
-
-	//if(nresults>=32768) return;
-
-	if(aresults==0)
-	{
-		nresults=0;
-		aresults=256;
-		results=(result*)malloc(sizeof(result)*aresults);
-	}
-	else if(nresults==aresults)
-	{
-		tr=results;
-		aresults<<=1;
-		results=(result*)malloc(sizeof(result)*aresults);
-		if(results==0)
-		{
-			aresults>>=1;
-			results=tr;
-			MessageBox(hWndFinder,
-				"Failed to allocate more memory to save the results: "
-				"Search aborted.","Warning!",MB_OK|MB_ICONWARNING);
-			return 0;
-		}
-		memcpy(results,tr,sizeof(result)*nresults);
-		free(tr);
-	}
-	nr.address=addr;
-	nr.oldval=old;
-	results[nresults++]=nr;
+	result nr=result(addr,old);
+	results.push_back(nr);
 	return 1;
 }
 
-bool CompareAny(any val,any cto)
+bool CompareAny(u64 val,u64 cto)
 {
-	if(Unsigned) switch(Compare)
+
+	if(Unsigned) 
 	{
-		case 0: /* EQ */
-			switch(Size){
-				case 0:return val.vu8 ==cto.vu8;
-				case 1:return val.vu16==cto.vu16;
-				case 2:return val.vu32==cto.vu32;
-				case 3:return val.vu64==cto.vu64;
-				default:return false;
-			}
-		case 1: /* GT */
-			switch(Size){
-				case 0:return val.vu8 > cto.vu8;
-				case 1:return val.vu16> cto.vu16;
-				case 2:return val.vu32> cto.vu32;
-				case 3:return val.vu64> cto.vu64;
-				default:return false;
-			}
-		case 2: /* LT */
-			switch(Size){
-				case 0:return val.vu8 < cto.vu8;
-				case 1:return val.vu16< cto.vu16;
-				case 2:return val.vu32< cto.vu32;
-				case 3:return val.vu64< cto.vu64;
-				default:return false;
-			}
-		case 3: /* GE */
-			switch(Size){
-				case 0:return val.vu8 >=cto.vu8;
-				case 1:return val.vu16>=cto.vu16;
-				case 2:return val.vu32>=cto.vu32;
-				case 3:return val.vu64>=cto.vu64;
-				default:return false;
-			}
-		case 4: /* LE */
-			switch(Size){
-				case 0:return val.vu8 <=cto.vu8;
-				case 1:return val.vu16<=cto.vu16;
-				case 2:return val.vu32<=cto.vu32;
-				case 3:return val.vu64<=cto.vu64;
-				default:return false;
-			}
-		default:/* NE */
-			switch(Size){
-				case 0:return val.vu8 !=cto.vu8;
-				case 1:return val.vu16!=cto.vu16;
-				case 2:return val.vu32!=cto.vu32;
-				case 3:return val.vu64!=cto.vu64;
-				default:return false;
-			}
+		switch(Size)
+		{
+			case 0:
+				val=(u8)val;
+				cto=(u8)cto;
+				break;
+			case 1:
+				val=(u16)val;
+				cto=(u16)cto;
+				break;
+			case 2:
+				val=(u32)val;
+				cto=(u32)cto;
+				break;
+			case 3:
+				break;
+			default:return false;
+		}
+		switch(Compare)
+		{
+			case 0: /* EQ */
+				return val==cto;
+			case 1: /* GT */
+				return val> cto;
+			case 2: /* LT */
+				return val< cto;
+			case 3: /* GE */
+				return val>=cto;
+			case 4: /* LE */
+				return val<=cto;
+			default:/* NE */
+				return val!=cto;
+		}
 	}
-	else switch(Compare)
+	else
 	{
-		case 0: /* EQ */
-			switch(Size){
-				case 0:return val.vs8 ==cto.vs8;
-				case 1:return val.vs16==cto.vs16;
-				case 2:return val.vs32==cto.vs32;
-				case 3:return val.vs64==cto.vs64;
-				default:return false;
-			}
-		case 1: /* GT */
-			switch(Size){
-				case 0:return val.vs8 > cto.vs8;
-				case 1:return val.vs16> cto.vs16;
-				case 2:return val.vs32> cto.vs32;
-				case 3:return val.vs64> cto.vs64;
-				default:return false;
-			}
-		case 2: /* LT */
-			switch(Size){
-				case 0:return val.vs8 < cto.vs8;
-				case 1:return val.vs16< cto.vs16;
-				case 2:return val.vs32< cto.vs32;
-				case 3:return val.vs64< cto.vs64;
-				default:return false;
-			}
-		case 3: /* GE */
-			switch(Size){
-				case 0:return val.vs8 >=cto.vs8;
-				case 1:return val.vs16>=cto.vs16;
-				case 2:return val.vs32>=cto.vs32;
-				case 3:return val.vs64>=cto.vs64;
-				default:return false;
-			}
-		case 4: /* LE */
-			switch(Size){
-				case 0:return val.vs8 <=cto.vs8;
-				case 1:return val.vs16<=cto.vs16;
-				case 2:return val.vs32<=cto.vs32;
-				case 3:return val.vs64<=cto.vs64;
-				default:return false;
-			}
-		default:/* NE */
-			switch(Size){
-				case 0:return val.vs8 !=cto.vs8;
-				case 1:return val.vs16!=cto.vs16;
-				case 2:return val.vs32!=cto.vs32;
-				case 3:return val.vs64!=cto.vs64;
-				default:return false;
-			}
+		switch(Size)
+		{
+			case 0:
+				val=(s8)val;
+				cto=(s8)cto;
+				break;
+			case 1:
+				val=(s16)val;
+				cto=(s16)cto;
+				break;
+			case 2:
+				val=(s32)val;
+				cto=(s32)cto;
+				break;
+			case 3:
+				break;
+			default:return false;
+		}
+		switch(Compare)
+		{
+			case 0: /* EQ */
+				return (s64)val==(s64)cto;
+			case 1: /* GT */
+				return (s64)val> (s64)cto;
+			case 2: /* LT */
+				return (s64)val< (s64)cto;
+			case 3: /* GE */
+				return (s64)val>=(s64)cto;
+			case 4: /* LE */
+				return (s64)val<=(s64)cto;
+			default:/* NE */
+				return (s64)val!=(s64)cto;
+		}
 	}
 }
-#define COMPAREOLD switch(Compare) { \
-		case 0: /* EQ */ r=memcmp(&val,&cto,MSize)==0; break; \
-		case 1: /* GT */ r=memcmp(&val,&cto,MSize)>0; break; \
-		case 2: /* LT */ r=memcmp(&val,&cto,MSize)<0; break; \
-		case 3: /* GE */ r=memcmp(&val,&cto,MSize)>=0; break; \
-		case 4: /* LE */ r=memcmp(&val,&cto,MSize)<=0; break; \
-		default:/* NE */ r=memcmp(&val,&cto,MSize)!=0; break; \
-	}
 
 void SearchFirst()
 {
 	int MSize=1<<Size;
-	any*cur=(any*)mptr[Source];
-	any cto=CompareValue;
-	any val;
-	any old;
+	u64*cur=(u64*)mptr[Source];
+	u64 cto=CompareValue;
+	u64 val;
+	u64 old;
 	int addr;
 
 	addr=0;
 	while((addr+MSize)<msize[Source])
 	{
-		val.vu64=0;
+		(u64)val=0;
 		memcpy(&val,cur,MSize);			//update the buffer
 		memcpy(&old,olds+addr,MSize);	//
 		memcpy(olds+addr,cur,MSize);
@@ -271,12 +220,12 @@ void SearchFirst()
 
 		if(CompareAny(val,cto)) {
 			AddResult(addr,old);
-			cur=(any*)(((char*)cur)+MSize);
+			cur=(u64*)(((char*)cur)+MSize);
 			addr+=MSize;
 			UpdateStatus();
 		}
 		else {
-			cur=(any*)(((char*)cur)+1);
+			cur=(u64*)(((char*)cur)+1);
 			addr+=1;
 		}
 	}
@@ -285,23 +234,20 @@ void SearchFirst()
 
 void SearchMore()
 {
-	int i;
+	u32 i;
 	int MSize=1<<Size;
-	any cto=CompareValue;
-	any val;
-	any old;
+	u64 cto=CompareValue;
+	u64 val;
+	u64 old;
 	int addr;
 
-	result*oldr=results;
-	int noldr=nresults;
+	std::vector<result> oldr=std::vector<result>(results);
 
-	results=NULL;
-	aresults=0;
-	nresults=0;
+	results.clear();
 
-	for(i=0;i<noldr;i++)
+	for(i=0;i<oldr.size();i++)
 	{
-		val.vu64=0;
+		val =0;
 		addr=oldr[i].address;
 		memcpy(&val,mptr[Source]+addr,MSize);
 		memcpy(&old,olds+addr,MSize);
@@ -333,7 +279,7 @@ BOOL CALLBACK AddCheatProc(HWND hWnd,UINT uMsg,WPARAM wParam,LPARAM lParam)
 	int wmId,wmEvent,i,mresults;
 	static HWND hParent;
 	UINT state;
-	any value;
+	u64 value;
 	static int Selected;
 
 	switch(uMsg)
@@ -382,8 +328,8 @@ BOOL CALLBACK AddCheatProc(HWND hWnd,UINT uMsg,WPARAM wParam,LPARAM lParam)
 				
 				case IDOK:
 					GetWindowText(GetDlgItem(hWnd,IDC_VALUE),tv,100);
-					value.vs64=_atoi64(tv);
-					AddPatch(Source,results[Selected].address,Size,Unsigned,&value);
+					value=_atoi64(tv);
+					AddPatch(1,Source+1,results[Selected].address,Size+1,value);
 
 					EndDialog(hWnd,1);
 					break;
@@ -409,46 +355,44 @@ void AddResults(HWND hWnd)
 	int i,mresults;
 	u64 sizemask=(1<<(1<<Size))-1;
 
-	if(nresults>32768) {
+	mresults=results.size();
+	if(mresults>32768) {
 		mresults=32768;
-	}
-	else {
-		mresults=nresults;
 	}
 
 	ListView_DeleteAllItems(GetDlgItem(hWnd,IDC_RESULTS));
 
 	for(i=0;i<mresults;i++)
 	{
-		any o=results[i].oldval;
-		any v=*(any*)(mptr[Source]+results[i].address);
+		u64 o=results[i].oldval;
+		u64 v=*(u64*)(mptr[Source]+results[i].address);
 
 		sprintf(tn,"%08x",results[i].address);
 
 		if(Unsigned) 
 		{
-			sprintf(to,"%I64u",o.vu64&sizemask);
-			sprintf(tv,"%I64u",v.vu64&sizemask);
+			sprintf(to,"%I64u",(u64)o&sizemask);
+			sprintf(tv,"%I64u",(u64)v&sizemask);
 		}
 		else
 		{
 			switch(Size)
 			{
 				case 0:
-					o.vs64=o.vs8;
-					v.vs64=v.vs8;
+					o=(s64)(s8)o;
+					v=(s64)(s8)v;
 					break;
 				case 1:
-					o.vs64=o.vs16;
-					v.vs64=v.vs16;
+					o=(s64)(s16)o;
+					v=(s64)(s16)v;
 					break;
 				case 2:
-					o.vs64=o.vs32;
-					v.vs64=v.vs32;
+					o=(s64)(s32)o;
+					v=(s64)(s32)v;
 					break;
 			}
-			sprintf(to,"%I64d",o.vs64);
-			sprintf(tv,"%I64d",v.vs64);
+			sprintf(to,"%I64d",(s64)o);
+			sprintf(tv,"%I64d",(s64)v);
 		}
 
 		item[0].iItem=i;
@@ -462,12 +406,12 @@ void AddResults(HWND hWnd)
 		UpdateStatus();
 	}
 
-	if(nresults>32768) {
-		sprintf(mtext,"%d matches found (32768 shown).",nresults);
+	if(results.size()>32768) {
+		sprintf(mtext,"%d matches found (32768 shown).",results.size());
 		SetWindowText(GetDlgItem(hWnd,IDC_MATCHES),mtext);
 	}
 	else {
-		sprintf(mtext,"%d matches found.",nresults);
+		sprintf(mtext,"%d matches found.",results.size());
 		SetWindowText(GetDlgItem(hWnd,IDC_MATCHES),mtext);
 	}
 
@@ -487,7 +431,7 @@ BOOL CALLBACK FinderProc(HWND hWnd,UINT uMsg,WPARAM wParam,LPARAM lParam)
 		case WM_INITDIALOG:
 
 #ifndef WIN32_VIRTUAL_MEM
-			mptr[0]=psM;
+			mptr[0]=(char*)psM;
 			mptr[1]=psxM;
 #endif
 
@@ -570,7 +514,7 @@ BOOL CALLBACK FinderProc(HWND hWnd,UINT uMsg,WPARAM wParam,LPARAM lParam)
 
 				case IDC_SEARCH:
 					GetWindowText(GetDlgItem(hWnd,IDC_VALUE),mtext,100);
-					CompareValue.vs64=atoi(mtext);
+					CompareValue=atoi(mtext);
 					ENABLE_CONTROL(IDC_SEARCH,	false);
 					ENABLE_CONTROL(IDC_RESET,	false);
 					ENABLE_CONTROL(IDC_ADD,		false);

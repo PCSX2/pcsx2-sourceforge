@@ -13,7 +13,7 @@
 #undef APSTUDIO_READONLY_SYMBOLS
 
 /////////////////////////////////////////////////////////////////////////////
-// Romanian resources
+// Rumano resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ROM)
 #ifdef _WIN32
@@ -59,12 +59,12 @@ BEGIN
 END
 #endif    // APSTUDIO_INVOKED
 
-#endif    // Romanian resources
+#endif    // Rumano resources
 /////////////////////////////////////////////////////////////////////////////
 
 
 /////////////////////////////////////////////////////////////////////////////
-// English (U.S.) resources
+// Inglés (Estados Unidos) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENU)
 #ifdef _WIN32
@@ -922,12 +922,12 @@ END
 //
 
 IDB_PS2SILVER           BITMAP                  "ps2_silver.bmp"
-#endif    // English (U.S.) resources
+#endif    // Inglés (Estados Unidos) resources
 /////////////////////////////////////////////////////////////////////////////
 
 
 /////////////////////////////////////////////////////////////////////////////
-// English (U.K.) resources
+// Inglés (Reino Unido) resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENG)
 #ifdef _WIN32
@@ -982,7 +982,7 @@ END
 //
 
 SPLASH_LOGO             BITMAP                  "..\\pcsxAbout.bmp"
-#endif    // English (U.K.) resources
+#endif    // Inglés (Reino Unido) resources
 /////////////////////////////////////////////////////////////////////////////
 
 
@@ -1064,6 +1064,40 @@ BEGIN
     EDITTEXT        IDC_VALUE,69,15,70,12,ES_AUTOHSCROLL | NOT WS_TABSTOP
     EDITTEXT        IDC_ADDR,5,15,59,12,ES_AUTOHSCROLL | NOT WS_TABSTOP
 END
+
+IDD_CHEATS DIALOGEX 0, 0, 232, 222
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | 
+    WS_SYSMENU
+CAPTION "Dialog"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,119,201,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,175,201,50,14
+    CONTROL         "",IDC_GROUPS,"SysTreeView32",TVS_HASBUTTONS | 
+                    TVS_HASLINES | TVS_EDITLABELS | TVS_CHECKBOXES | 
+                    WS_TABSTOP,7,7,218,126,WS_EX_CLIENTEDGE
+    CONTROL         "",IDC_PATCHES,"SysListView32",LVS_REPORT | WS_TABSTOP,7,
+                    139,218,57,WS_EX_CLIENTEDGE
+END
+
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// DESIGNINFO
+//
+
+#ifdef APSTUDIO_INVOKED
+GUIDELINES DESIGNINFO 
+BEGIN
+    IDD_CHEATS, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 225
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 215
+    END
+END
+#endif    // APSTUDIO_INVOKED
 
 
 #ifdef APSTUDIO_INVOKED
@@ -1261,12 +1295,12 @@ END
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
 IDI_ICON                ICON                    "Cdrom02.ico"
-#endif    // Spanish (Argentina) resources
+#endif    // Español (Argentina) resources
 /////////////////////////////////////////////////////////////////////////////
 
 
 /////////////////////////////////////////////////////////////////////////////
-// Greek resources
+// Griego resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ELL)
 #ifdef _WIN32
@@ -1484,7 +1518,7 @@ END
 
 #endif    // APSTUDIO_INVOKED
 
-#endif    // Greek resources
+#endif    // Griego resources
 /////////////////////////////////////////////////////////////////////////////
 
 

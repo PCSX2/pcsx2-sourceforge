@@ -762,6 +762,50 @@
 				RelativePath="..\..\System.h"
 				>
 			</File>
+			<Filter
+				Name="TinyXML"
+				>
+				<File
+					RelativePath="..\..\tinyxml\tinystr.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\tinyxml\tinystr.h"
+					>
+				</File>
+				<File
+					RelativePath="..\..\tinyxml\tinyxml.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\tinyxml\tinyxml.h"
+					>
+				</File>
+				<File
+					RelativePath="..\..\tinyxml\tinyxmlerror.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\tinyxml\tinyxmlparser.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\..\tinyxml\xmlpatchloader.cpp"
+					>
+				</File>
+			</Filter>
+			<Filter
+				Name="Cheats"
+				>
+				<File
+					RelativePath="..\cheats\cheats.cpp"
+					>
+				</File>
+				<File
+					RelativePath="..\cheats\cheats.h"
+					>
+				</File>
+			</Filter>
 		</Filter>
 		<Filter
 			Name="Counters"
@@ -1450,38 +1494,6 @@
 			</File>
 			<File
 				RelativePath="..\..\pcl\pcl_config.h"
-				>
-			</File>
-		</Filter>
-		<Filter
-			Name="TinyXML"
-			>
-			<File
-				RelativePath="..\..\tinyxml\tinystr.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\tinyxml\tinystr.h"
-				>
-			</File>
-			<File
-				RelativePath="..\..\tinyxml\tinyxml.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\tinyxml\tinyxml.h"
-				>
-			</File>
-			<File
-				RelativePath="..\..\tinyxml\tinyxmlerror.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\tinyxml\tinyxmlparser.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\tinyxml\xmlpatchloader.cpp"
 				>
 			</File>
 		</Filter>

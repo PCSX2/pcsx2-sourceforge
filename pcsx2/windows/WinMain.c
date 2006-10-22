@@ -759,6 +759,10 @@ LRESULT WINAPI MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 				ShowFinder(pInstance,hWnd);
 				return TRUE;
 
+			case ID_CHEAT_BROWSER_SHOW:
+				ShowCheats(pInstance,hWnd);
+				return TRUE;
+
 			case ID_FILE_EXIT:
 				SysClose();
 				PostQuitMessage(0);
@@ -1105,7 +1109,8 @@ void CreateMainMenu() {
 	ADDMENUITEM(0,("Enable &Patches"), ID_PATCHES);
 	ADDMENUITEM(0,("Enable &Console"), ID_CONSOLE); 
 	ADDSEPARATOR(0);
-	ADDMENUITEM(0,("Show Patch &Finder"), ID_CHEAT_FINDER_SHOW); 
+	ADDMENUITEM(0,("Patch &Finder..."), ID_CHEAT_FINDER_SHOW); 
+	ADDMENUITEM(0,("Patch &Browser..."), ID_CHEAT_BROWSER_SHOW); 
 
 
     ADDSUBMENU(0, _("&Help"));
@@ -1125,6 +1130,8 @@ void CreateMainWindow(int nCmdShow) {
 	BITMAP bm;
 	RECT rect;
 	int w, h;
+
+	LoadPatch("default");
 
 #ifdef _MSC_VER
 	sprintf(COMPILER, "(VC%d)", (_MSC_VER+100)/200);//hacky:) works for VC6 & VC.NET

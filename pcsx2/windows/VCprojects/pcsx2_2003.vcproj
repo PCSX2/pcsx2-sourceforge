@@ -191,7 +191,7 @@
 				Name="VCLinkerTool"
 				AdditionalOptions="/MACHINE:I386"
 				AdditionalDependencies="odbc32.lib odbccp32.lib comctl32.lib ../libs/gnu_gettext.lib ws2_32.lib winmm.lib ../libs/pthreadVC2.lib"
-				OutputFile="c:/archivos de programa/pcsx2/pcsx2td.exe"
+				OutputFile="F:/coses/emulation/ps2/pcsx2/pcsx2td.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="TRUE"
 				AdditionalLibraryDirectories="..\"
@@ -665,10 +665,16 @@
 				Name="Cheats"
 				Filter="">
 				<File
-					RelativePath="..\cheats\cheats.c">
+					RelativePath="..\cheats\browser.cpp">
+				</File>
+				<File
+					RelativePath="..\cheats\cheats.cpp">
 				</File>
 				<File
 					RelativePath="..\cheats\cheats.h">
+				</File>
+				<File
+					RelativePath="..\..\cheatscpp.h">
 				</File>
 			</Filter>
 			<Filter
