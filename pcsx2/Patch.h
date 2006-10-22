@@ -29,6 +29,7 @@ typedef struct
 typedef struct
 {
    int enabled;
+   int group;
    int type;
    int cpu;
    int placetopatch;
@@ -62,6 +63,8 @@ void applypatch( int place );
 void inifile_read( char * name );
 void inifile_command( char * cmd );
 void resetpatch( void );
+
+int AddPatch(int Mode, int Place, int Address, int Size, u64 data);
 
 #endif /* __PATCH_H__ */
 

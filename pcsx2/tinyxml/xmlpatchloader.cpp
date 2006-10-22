@@ -1,41 +1,58 @@
 #include <windows.h>
 #include <iostream>
 #include <sstream>
+#include <vector>
+#include <string>
 using namespace std;
 
 #include "tinyxml.h"
 
 extern "C" {
-#include "../ps2etypes.h"
-#include "../patch.h"
+#	include "../ps2etypes.h"
+#	include "../patch.h"
+
+#	ifdef __WIN32__
+	struct AppData {
+		HWND hWnd;           // Main window handle
+		HINSTANCE hInstance; // Application instance
+		HMENU hMenu;         // Main window menu
+		HANDLE hConsole;
+	} extern gApp;
+#	endif
+
+	void SysPrintf(char *fmt, ...);
+	int LoadPatch(char *patchfile);
 }
 
-static int gPass = 0;
-static int gFail = 0;
+#include "../cheatscpp.h"
 
-//
-// This file demonstrates some basic functionality of TinyXml.
-// Note that the example is very contrived. It presumes you know
-// what is in the XML file. But it does test the basic operations,
-// and show how to add and remove nodes.
-//
+int LoadGroup(TiXmlNode *group, int parent);
 
-#ifdef __WIN32__
-extern "C" typedef struct {
-	HWND hWnd;           // Main window handle
-	HINSTANCE hInstance; // Application instance
-	HMENU hMenu;         // Main window menu
-	HANDLE hConsole;
-} AppData;
+Group::Group(int nParent,bool nEnabled, string &nTitle):
+		parentIndex(nParent),enabled(nEnabled),title(nTitle)
+{
+}
 
-extern "C" extern AppData gApp;
-#endif
+Patch::Patch(int patch, int grp, bool en, string &ttl):
+	title(ttl),
+	group(grp),
+	enabled(en),
+	patchIndex(patch)
+{
+}
 
-extern "C" void SysPrintf(char *fmt, ...);
+Patch Patch::operator =(const Patch&p)
+{
+	title.assign(p.title);
+	group=p.group;
+	enabled=p.enabled;
+	patchIndex=p.patchIndex;
+	return *this;
+}
 
-extern "C" int LoadPatch(char *patchfile);
 
-int LoadGroup(TiXmlNode *group);
+vector<Group> groups;
+vector<Patch> patches;
 
 int LoadPatch(char *crc)
 {
@@ -65,7 +82,7 @@ int LoadPatch(char *crc)
 	if(title)
 		SysPrintf("XML Patch Loader: Game Title: %s\n",title);
 
-	int result=LoadGroup(root);
+	int result=LoadGroup(root,-1);
 	if(result) {
 		patchnumber=0;
 		return result;
@@ -86,7 +103,7 @@ int LoadPatch(char *crc)
 }
 
 
-int LoadGroup(TiXmlNode *group)
+int LoadGroup(TiXmlNode *group,int gParent)
 {
 
 	TiXmlElement *groupelement = group->ToElement();
@@ -96,12 +113,13 @@ int LoadGroup(TiXmlNode *group)
 		SysPrintf("XML Patch Loader: Group Title: %s\n",gtitle);
 
 	const char *enable=groupelement->Attribute("enabled");
+	bool gEnabled=true;
 	if(enable)
 	{
 		if(strcmp(enable,"false")==0)
 		{
 			SysPrintf("XML Patch Loader: Group is disabled.\n");
-			return 0;
+			gEnabled=false;
 		}
 	}
 
@@ -113,6 +131,18 @@ int LoadGroup(TiXmlNode *group)
 		if(comment)
 			SysPrintf("XML Patch Loader: Group Comment:\n%s\n---\n",comment);
 	}
+
+	string t;
+	
+	if(gtitle)
+		t.assign(gtitle);
+	else
+		t.clear();
+	
+	Group gp=Group(gParent,gEnabled,t);
+	groups.push_back(gp);
+
+	int gIndex=groups.size()-1;
 
 	TiXmlNode *cpatch = group->FirstChild("PATCH");
 	while(cpatch)
@@ -137,7 +167,7 @@ int LoadGroup(TiXmlNode *group)
 			SysPrintf("XML Patch Loader: Patch title: %s\n", ptitle);
 		}
 
-		bool penabled=true;
+		bool penabled=gEnabled;
 		if(penable)
 		{
 			if(strcmp(penable,"false")==0)
@@ -147,108 +177,116 @@ int LoadGroup(TiXmlNode *group)
 			}
 		}
 
-		if(penabled)
-		{
-			if(!applymode) applymode="frame";
-			if(!place) place="EE";
-			if(!address) {
-				SysPrintf("XML Patch Loader: ERROR: Patch doesn't contain an address.\n");
-				return -1;
-			}
-			if(!value) {
-				SysPrintf("XML Patch Loader: ERROR: Patch doesn't contain a value.\n");
-				return -1;
-			}
-			if(!size) {
-				SysPrintf("XML Patch Loader: WARNING: Patch doesn't contain the size. Trying to deduce from the value size.\n");
-				switch(strlen(value))
-				{
-					case 8:
-					case 7:
-					case 6:
-					case 5:
-						size="32";
-						break;
-					case 4:
-					case 3:
-						size="16";
-						break;
-					case 2:
-					case 1:
-						size="8";
-						break;
-					case 0:
-						size="0";
-						break;
-					default:
-						size="64";
-						break;
-				}
-			}
-
-			if(strcmp(applymode,"startup")==0)
-			{
-				patch[patchnumber].placetopatch=0;
-			} else
-			if(strcmp(applymode,"vsync")==0)
-			{
-				patch[patchnumber].placetopatch=1;
-			} else
-			{
-				SysPrintf("XML Patch Loader: ERROR: Invalid applymode attribute.\n");
-				patchnumber=0;
-				return -1;
-			}
-			
-			if(strcmp(place,"EE")==0)
-			{
-				patch[patchnumber].cpu=1;
-			} else
-			if(strcmp(place,"IOP")==0)
-			{
-				patch[patchnumber].cpu=2;
-			} else
-			{
-				SysPrintf("XML Patch Loader: ERROR: Invalid place attribute.\n");
-				patchnumber=0;
-				return -1;
-			}
-
-			if(strcmp(size,"64")==0)
-			{
-				patch[patchnumber].type=4;
-			} else
-			if(strcmp(size,"32")==0)
-			{
-				patch[patchnumber].type=3;
-			} else
-			if(strcmp(size,"16")==0)
-			{
-				patch[patchnumber].type=2;
-			} else
-			if(strcmp(size,"8")==0)
-			{
-				patch[patchnumber].type=1;
-			} else
-			{
-				SysPrintf("XML Patch Loader: ERROR: Invalid size attribute.\n");
-				patchnumber=0;
-				return -1;
-			}
-
-			sscanf( address, "%X", &patch[ patchnumber ].addr );
-			sscanf( value, "%I64X", &patch[ patchnumber ].data );
-
-			patchnumber++;
-
+		if(!applymode) applymode="frame";
+		if(!place) place="EE";
+		if(!address) {
+			SysPrintf("XML Patch Loader: ERROR: Patch doesn't contain an address.\n");
+			return -1;
 		}
+		if(!value) {
+			SysPrintf("XML Patch Loader: ERROR: Patch doesn't contain a value.\n");
+			return -1;
+		}
+		if(!size) {
+			SysPrintf("XML Patch Loader: WARNING: Patch doesn't contain the size. Trying to deduce from the value size.\n");
+			switch(strlen(value))
+			{
+				case 8:
+				case 7:
+				case 6:
+				case 5:
+					size="32";
+					break;
+				case 4:
+				case 3:
+					size="16";
+					break;
+				case 2:
+				case 1:
+					size="8";
+					break;
+				case 0:
+					size="0";
+					break;
+				default:
+					size="64";
+					break;
+			}
+		}
+
+		if(strcmp(applymode,"startup")==0)
+		{
+			patch[patchnumber].placetopatch=0;
+		} else
+		if(strcmp(applymode,"vsync")==0)
+		{
+			patch[patchnumber].placetopatch=1;
+		} else
+		{
+			SysPrintf("XML Patch Loader: ERROR: Invalid applymode attribute.\n");
+			patchnumber=0;
+			return -1;
+		}
+		
+		if(strcmp(place,"EE")==0)
+		{
+			patch[patchnumber].cpu=1;
+		} else
+		if(strcmp(place,"IOP")==0)
+		{
+			patch[patchnumber].cpu=2;
+		} else
+		{
+			SysPrintf("XML Patch Loader: ERROR: Invalid place attribute.\n");
+			patchnumber=0;
+			return -1;
+		}
+
+		if(strcmp(size,"64")==0)
+		{
+			patch[patchnumber].type=4;
+		} else
+		if(strcmp(size,"32")==0)
+		{
+			patch[patchnumber].type=3;
+		} else
+		if(strcmp(size,"16")==0)
+		{
+			patch[patchnumber].type=2;
+		} else
+		if(strcmp(size,"8")==0)
+		{
+			patch[patchnumber].type=1;
+		} else
+		{
+			SysPrintf("XML Patch Loader: ERROR: Invalid size attribute.\n");
+			patchnumber=0;
+			return -1;
+		}
+
+		sscanf( address, "%X", &patch[ patchnumber ].addr );
+		sscanf( value, "%I64X", &patch[ patchnumber ].data );
+
+		patch[patchnumber].enabled=penabled;
+
+		string pt;
+
+		if(ptitle)
+			pt.assign(ptitle);
+		else
+			pt.clear();
+		
+		Patch p=Patch(patchnumber,gIndex,penabled,pt);
+		patches.push_back(p);
+
+		patchnumber++;
 
 		cpatch = cpatch->NextSibling("PATCH");
 	}
 
 	cpatch = group->FirstChild("GROUP");
 	while(cpatch) {
-		int result=LoadGroup(cpatch);
+		int result=LoadGroup(cpatch,gIndex);
 		if(result) return result;
 		cpatch = cpatch->NextSibling("GROUP");
 	}

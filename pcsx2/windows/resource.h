@@ -32,6 +32,7 @@
 #define IDD_IOPREGS                     128
 #define IDD_USERNAME                    129
 #define IDB_PS2SILVER                   132
+#define IDD_CHEATS                      133
 #define IDD_DUMP                        136
 #define IDD_DUMPMEM                     137
 #define IDD_PATCHBROWSER                138
@@ -472,6 +473,7 @@
 #define IDC_REGCACHING                  1208
 #define IDC_INTERLACEHACK               1210
 #define IDC_SAFECOUNTERS                1211
+#define IDC_NE                          1211
 #define IDC_IOPCLK                      1213
 #define IDC_ADVRESET                    1214
 #define IDC_FASTIOPCLK                  1215
@@ -536,6 +538,8 @@
 #define IDC_CPU_FL_SKIPVU               1268
 #define IDC_CPU_VUGROUP                 1269
 #define IDC_MONTHCALENDAR1              1270
+#define IDC_GROUPS                      1272
+#define IDC_PATCHES                     1273
 #define IDC_LOG                         1500
 #define IDC_CPULOG                      1500
 #define IDC_MEMLOG                      1501
@@ -577,7 +581,6 @@
 #define IDC_GE                          1708
 #define IDC_LE                          1709
 #define IDC_EE                          1710
-#define IDC_NE                          1211
 #define IDC_IOP                         1712
 #define IDC_RESET                       1713
 #define IDC_ADD                         1714
@@ -657,15 +660,16 @@
 #define ID_VSYNCRATE                    40062
 #define ID_HELP_HELP                    40063
 #define ID_CHEAT_FINDER_SHOW            40100
+#define ID_CHEAT_BROWSER_SHOW           40101
 #define ID_LANGS                        50000
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        133
+#define _APS_NEXT_RESOURCE_VALUE        134
 #define _APS_NEXT_COMMAND_VALUE         40018
-#define _APS_NEXT_CONTROL_VALUE         1271
+#define _APS_NEXT_CONTROL_VALUE         1274
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif
