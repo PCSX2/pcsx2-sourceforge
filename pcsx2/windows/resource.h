@@ -473,7 +473,6 @@
 #define IDC_REGCACHING                  1208
 #define IDC_INTERLACEHACK               1210
 #define IDC_SAFECOUNTERS                1211
-#define IDC_NE                          1211
 #define IDC_IOPCLK                      1213
 #define IDC_ADVRESET                    1214
 #define IDC_FASTIOPCLK                  1215
@@ -580,7 +579,8 @@
 #define IDC_LT                          1707
 #define IDC_GE                          1708
 #define IDC_LE                          1709
-#define IDC_EE                          1710
+#define IDC_NE                          1710
+#define IDC_EE                          1711
 #define IDC_IOP                         1712
 #define IDC_RESET                       1713
 #define IDC_ADD                         1714
