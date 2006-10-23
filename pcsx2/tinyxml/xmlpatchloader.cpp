@@ -267,7 +267,7 @@ int LoadGroup(TiXmlNode *group,int gParent)
 		sscanf( address, "%X", &patch[ patchnumber ].addr );
 		sscanf( value, "%I64X", &patch[ patchnumber ].data );
 
-		patch[patchnumber].enabled=penabled;
+		patch[patchnumber].enabled=penabled?1:0;
 
 		string pt;
 

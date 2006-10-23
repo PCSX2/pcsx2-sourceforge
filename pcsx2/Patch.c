@@ -86,7 +86,7 @@ int PatchTableExecute( char * text1, char * text2, PatchTextTable * Table )
 void _applypatch(int place, IniPatch *p) {
 	if (p->placetopatch != place) return;
 
-	if (p->enabled == false) return;
+	if (p->enabled == 0) return;
 
 	if (p->cpu == 1) { //EE
 		if (p->type == 1) { //byte
@@ -186,6 +186,8 @@ void patchFunc_patch( char * cmd, char * param )
    pText = strtok( NULL, "," );
    inifile_trim( pText );
    sscanf( pText, "%I64X", &patch[ patchnumber ].data );
+
+   patch[ patchnumber ].enabled = 1;
 
    patchnumber++;
 }
