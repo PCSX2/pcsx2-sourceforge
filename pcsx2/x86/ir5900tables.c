@@ -256,9 +256,7 @@ static void recMTSAB( void )
 	else {
 		_eeMoveGPRtoR(EAX, _Rs_);
 		AND32ItoR(EAX, 0xF);
-		MOV32ItoR(ECX, _Imm_);
-		AND32ItoR(ECX, 0xF);
-		XOR32RtoR(EAX, ECX);
+		XOR32ItoR(EAX, _Imm_&0xf);
 		SHL32ItoR(EAX, 3);
 		MOV32RtoM((u32)&cpuRegs.sa, EAX);
 	}
@@ -272,9 +270,7 @@ static void recMTSAH( void )
 	else {
 		_eeMoveGPRtoR(EAX, _Rs_);
 		AND32ItoR(EAX, 0x7);
-		MOV32ItoR(ECX, _Imm_);
-		AND32ItoR(ECX, 0x7);
-		XOR32RtoR(EAX, ECX);
+		XOR32RtoR(EAX, _Imm_&0x7);
 		SHL32ItoR(EAX, 4);
 		MOV32RtoM((u32)&cpuRegs.sa, EAX);
 	}

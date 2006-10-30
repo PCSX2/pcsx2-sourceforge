@@ -19,6 +19,10 @@
 #ifndef __COMMON_H__
 #define __COMMON_H__
 
+#if defined (__linux__)  // some distributions are lower case
+#define __LINUX__
+#endif
+
 #include <zlib.h>
 #if defined(__WIN32__)
 
@@ -54,13 +58,10 @@ extern AppData gApp;
 // Definitions added Feb 16, 2006 by efp
 #define __declspec(x)
 #define __forceinline inline
-#define _aligned_malloc(x,y) posix_memalign(y,x)
-#define _aligned_free(x) free(x)
 #define pthread_mutex__unlock pthread_mutex_unlock
 
-#endif
+#elif defined(__MINGW32__)
 
-#if defined(__MINGW32__)
 #include <sys/types.h>
 #include <math.h>
 #define BOOL int
@@ -94,7 +95,12 @@ extern AppData gApp;
 #define fpuatanf atanf
 #define fpuatan2f atan2f
 
+#else
+
+#error Need to specify OS target!
+
 #endif
+
 #ifdef ENABLE_NLS
 
 #ifdef __MSCW32__
@@ -203,7 +209,7 @@ extern TESTRUNARGS g_TestRun;
 #include <pthread.h> // sync functions
 
 #include "R5900.h"
-#include "Debug.h"
+#include "DebugTools/Debug.h"
 #include "System.h"
 #include "Memory.h"
 #include "Elfheader.h"
@@ -215,13 +221,13 @@ extern TESTRUNARGS g_TestRun;
 #include "Plugins.h"
 #include "PS2Edefs.h"
 #include "Counters.h"
-#include "IPU.h"
+#include "IPU/IPU.h"
 #include "Misc.h"
 #include "Patch.h"
 #include "COP0.h"
 #include "VifDma.h"
 #if (defined(__i386__) || defined(__x86_64__))
-#include "ix86/ix86.h"
+#include "x86/ix86/ix86.h"
 #endif
 
 int cdCaseopen;

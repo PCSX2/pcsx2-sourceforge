@@ -19,7 +19,15 @@
 #ifndef __MISC_H__
 #define __MISC_H__
 
+#include <stddef.h>
+#include <malloc.h>
+
 #undef s_addr
+
+// compile-time assert
+#ifndef C_ASSERT
+#define C_ASSERT(e) typedef char __C_ASSERT__[(e)?1:-1]
+#endif
 
 #define PCSX2_GSMULTITHREAD 1 // uses multithreaded gs
 #define PCSX2_DUALCORE 2 // speed up for dual cores
@@ -140,6 +148,42 @@ void memxor_mmx(void* dst, const void* src1, int cmpsize);
 void __Log(char *fmt, ...);
 void injectIRX(char *filename);
 
+#ifdef __WIN32__
+
+#define _ALIGNED_MALLOC _aligned_malloc
+#define _ALIGNED_FREE _aligned_free
+
+#elif defined(__MINGW32__)
+
+#define _ALIGNED_MALLOC(x,y) __mingw_aligned_malloc(x,y)
+#define _ALIGNED_FREE(x) __mingw_aligned_free(x)
+
+#else
+
+// declare linux equivalents
+
+inline void* pcsx2_aligned_malloc(size_t size, size_t align)
+{
+	char* p = (char*)malloc(size+align+1);
+	int off = 1+align - ((int)(long long)(p+1) % align);
+
+	p += off;
+	p[-1] = off;
+
+	return p;
+}
+
+inline void pcsx2_aligned_free(void* pmem)
+{
+	char* p = (char*)pmem;
+	free(p - (int)p[-1]);
+}
+
+#define _ALIGNED_MALLOC pcsx2_aligned_malloc
+#define _ALIGNED_FREE pcsx2_aligned_free
+
+#endif
+
 // cross-platform atomic operations
 #if defined (__MSCW32__)
 
@@ -170,12 +214,7 @@ LONG  __cdecl _InterlockedAnd(LPLONG volatile Addend, LONG Value);
 #pragma intrinsic (_InterlockedAnd)
 #define InterlockedAnd _InterlockedAnd
 
-//#pragma intrinsic (_InterlockedExchangePointer)
-//#define InterlockedExchangePointer _InterlockedExchangePointer
-
-#else
-
-// declare linux equivalents
+#elif defined(__LINUX__)
 
 #endif
 

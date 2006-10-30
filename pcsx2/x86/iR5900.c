@@ -2120,11 +2120,11 @@ __declspec(naked) void _StartPerfCounter()
 		push eax
 		push ebx
 		push ecx
-	}
+	
+		rdtsc
+		mov dword ptr [offset lbase], eax
+		mov dword ptr [offset lbase + 4], edx
 
-	QueryPerformanceCounter(&lbase);
-
-	__asm {
 		pop ecx
 		pop ebx
 		pop eax
@@ -2139,12 +2139,9 @@ __declspec(naked) void _StopPerfCounter()
 		push eax
 		push ebx
 		push ecx
-	}
-
-	QueryPerformanceCounter(&lfinal);
-	__asm {
-		mov eax, dword ptr [offset lfinal]
-		mov edx, dword ptr [offset lfinal + 4]
+	
+		rdtsc
+	
 		sub eax, dword ptr [offset lbase]
 		sbb edx, dword ptr [offset lbase + 4]
 		mov ecx, s_pCurBlock_ltime
@@ -3011,8 +3008,9 @@ StartRecomp:
 	s_startcount = 0;
 //	if( pc+32 < s_nEndBlock ) {
 //		// only blocks with more than 8 insts
-//		PUSH32I((u32)&lbase);
-//		CALLFunc((u32)QueryPerformanceCounter);
+//		//PUSH32I((u32)&lbase);
+//		//CALLFunc((u32)QueryPerformanceCounter);
+//		lbase.QuadPart = GetCPUTick();
 //		s_startcount = 1;
 //	}
 #endif
@@ -3025,7 +3023,7 @@ StartRecomp:
 		}
 	}
 
-	if( (dumplog & 1)  )
+	if( (dumplog & 1) ) //|| usecop2 )
 		iDumpBlock(startpc, recPtr);
 #endif
 

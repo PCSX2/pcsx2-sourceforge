@@ -21,7 +21,7 @@
 #include <math.h>
 #include "Common.h"
 #include "PsxCommon.h"
-#include "gs.h"
+#include "GS.h"
 
 int gates = 0;
 extern u8 psxhblankgate;

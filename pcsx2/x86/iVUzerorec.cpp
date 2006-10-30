@@ -45,8 +45,8 @@ extern "C" {
 #include "VU.h"
 
 #include "memory.h"
-#include "hw.h"
-#include "gs.h"
+#include "Hw.h"
+#include "GS.h"
 
 #include "ix86/ix86.h"
 #include "ir5900.h"
@@ -4006,3 +4006,4 @@ void recSVUunknown( void )
 { 
 	SysPrintf("Unknown SVU micromode opcode called\n"); 
 }
+

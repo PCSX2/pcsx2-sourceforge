@@ -33,7 +33,7 @@
 
 #include "Common.h"
 #include "Hw.h"
-#include "gs.h"
+#include "GS.h"
 
 #include <assert.h>
 

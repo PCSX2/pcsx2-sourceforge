@@ -572,19 +572,19 @@ void CALLBACK KeyEvent(keyEvent* ev) {
 				case PCSX2_FRAMELIMIT_NORMAL:
 					if( GSsetFrameSkip != NULL ) GSsetFrameSkip(0);
 					Cpu->ExecuteVU1Block = recExecuteVU1Block;
-					SysPrintf("Frame Limit Mode Changed to: Normal\n");
+					SysPrintf("Normal - Frame Limit Mode Changed\n");
 					break;
 				case PCSX2_FRAMELIMIT_LIMIT:
 					if( GSsetFrameSkip != NULL ) GSsetFrameSkip(0);
 					Cpu->ExecuteVU1Block = recExecuteVU1Block;
-					SysPrintf("Frame Limit Mode Changed to: Limit\n");
+					SysPrintf("Limit - Frame Limit Mode Changed\n");
 					break;
 				case PCSX2_FRAMELIMIT_SKIP:
 					Cpu->ExecuteVU1Block = recExecuteVU1Block;
-					SysPrintf("Frame Limit Mode Changed to: Frame Skip\n");
+					SysPrintf("Frame Skip - Frame Limit Mode Changed\n");
 					break;
 				case PCSX2_FRAMELIMIT_VUSKIP:
-					SysPrintf("Frame Limit Mode Changed to: VU Skip\n");
+					SysPrintf("VU Skip - Frame Limit Mode Changed\n");
 					break;
 			}
 			SaveConfig();
@@ -1591,7 +1591,7 @@ PLSA_TRANSLATED_SID2 GetSIDInformation (LPWSTR AccountName,LSA_HANDLE PolicyHand
   return ltsTranslatedSID;
 }
 
-BOOL AddPrivileges(PSID AccountSID, LSA_HANDLE PolicyHandle)
+BOOL AddPrivileges(PSID AccountSID, LSA_HANDLE PolicyHandle, BOOL bAdd)
 {
   LSA_UNICODE_STRING lucPrivilege;
   NTSTATUS ntsResult;
@@ -1603,12 +1603,24 @@ BOOL AddPrivileges(PSID AccountSID, LSA_HANDLE PolicyHandle)
          return FALSE;
   }
 
-  ntsResult = LsaAddAccountRights(
-    PolicyHandle,  // An open policy handle.
-    AccountSID,    // The target SID.
-    &lucPrivilege, // The privilege(s).
-    1              // Number of privileges.
-  );                
+  if( bAdd ) {
+    ntsResult = LsaAddAccountRights(
+        PolicyHandle,  // An open policy handle.
+        AccountSID,    // The target SID.
+        &lucPrivilege, // The privilege(s).
+        1              // Number of privileges.
+    );
+  }
+  else {
+      ntsResult = LsaRemoveAccountRights(
+        PolicyHandle,  // An open policy handle.
+        AccountSID,    // The target SID
+        FALSE,
+        &lucPrivilege, // The privilege(s).
+        1              // Number of privileges.
+    );
+  }
+      
   if (ntsResult == 0) 
   {
     wprintf(L"Privilege added.\n");
@@ -1707,7 +1719,7 @@ BOOL SysLoggedSetLockPagesPrivilege ( HANDLE hProcess, BOOL bEnable)
 	} 
 	else 
 	{
-	Info.Privilege[0].Attributes = 0;
+	Info.Privilege[0].Attributes = SE_PRIVILEGE_REMOVED;
 	}
 
 	// Get the LUID.
@@ -1742,8 +1754,10 @@ BOOL SysLoggedSetLockPagesPrivilege ( HANDLE hProcess, BOOL bEnable)
 			LSA_HANDLE policy;
 			PLSA_TRANSLATED_SID2 ltsTranslatedSID;
 
-			if( !DialogBox(gApp.hInstance, MAKEINTRESOURCE(IDD_USERNAME), gApp.hWnd, (DLGPROC)UserNameProc) )
-				return FALSE;
+//			if( !DialogBox(gApp.hInstance, MAKEINTRESOURCE(IDD_USERNAME), gApp.hWnd, (DLGPROC)UserNameProc) )
+//				return FALSE;
+            DWORD len = sizeof(s_szUserName);
+            GetUserNameW(s_szUserName, &len);
 
 			policy = GetPolicyHandle();
 
@@ -1752,7 +1766,7 @@ BOOL SysLoggedSetLockPagesPrivilege ( HANDLE hProcess, BOOL bEnable)
 				ltsTranslatedSID = GetSIDInformation(s_szUserName, policy);
 
 				if( ltsTranslatedSID != NULL ) {
-					bSuc = AddPrivileges(ltsTranslatedSID->Sid, policy);
+					bSuc = AddPrivileges(ltsTranslatedSID->Sid, policy, bEnable);
 					LsaFreeMemory(ltsTranslatedSID);
 				}
 

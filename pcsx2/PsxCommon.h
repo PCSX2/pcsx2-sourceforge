@@ -18,10 +18,12 @@
 #ifndef __PSXCOMMON_H__
 #define __PSXCOMMON_H__
 
+#ifdef __WIN32__
 #include <windows.h>
+#endif
+
 #include "PS2Etypes.h"
 
-//#include "Common.h"
 #include "System.h"
 #include <zlib.h>
 
@@ -35,15 +37,9 @@ int cdOpenCase;
 #include "PsxBios.h"
 #include "PsxDma.h"
 #include "PsxCounters.h"
-//#include "Mdec.h"
 #include "CdRom.h"
 #include "Sio.h"
-//#include "Spu.h"
-//#include "Decode_XA.h"
-//#include "Misc.h"
-#include "Debug.h"
-//#include "Gte.h"
-//#include "PsxGPU.h"
+#include "DebugTools/Debug.h"
 #include "PsxSio2.h"
 #include "CDVD.h"
 

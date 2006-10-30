@@ -110,11 +110,11 @@ typedef struct {
 	GPR_reg HI;
 	GPR_reg LO;			// hi & log 128bit wide
 	CP0regs CP0;		// is COP0 32bit?
-	PERFregs PERF;
 	u32 sa;				// shift amount (32bit), needs to be 16 byte aligned
 	u32 constzero;		// always 0, for MFSA
     u32 pc;				// Program counter
     u32 code;			// The instruction
+    PERFregs PERF;
 	u32 eCycle[32];
 	u32 sCycle[32];		// for internal counters
 	u32 cycle;			// calculate cpucycles..

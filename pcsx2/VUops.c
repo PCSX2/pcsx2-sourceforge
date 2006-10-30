@@ -28,7 +28,7 @@
 #include "VUmicro.h"
 #include "VUflags.h"
 #include "VUops.h"
-#include "gs.h"
+#include "GS.h"
 
 //Lower/Upper instructions can use that..
 #define _Ft_ ((VU->code >> 16) & 0x1F)  // The rt part of the instruction register 

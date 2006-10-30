@@ -25,7 +25,7 @@
 #include "VUmicro.h"
 #include "PsxMem.h"
 #include "IPU.h"
-#include "gs.h"
+#include "GS.h"
 
 #include <assert.h>
 

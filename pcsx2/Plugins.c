@@ -23,7 +23,7 @@
 
 #include "Common.h"
 #include "PsxCommon.h"
-#include "gs.h"
+#include "GS.h"
 
 #ifdef __MSCW32__
 #pragma warning(disable:4244)
