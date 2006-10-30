@@ -114,7 +114,7 @@ __inline void doBranch(u32 tar) {
 	cpuRegs.branch = 0;
 	cpuRegs.pc = branchPC;
 
-	cpuBranchTest();
+	IntcpuBranchTest();
 }
 
 void intDoBranch(u32 target) {
@@ -319,7 +319,7 @@ void DSRLV(){ if (!_Rd_) return; cpuRegs.GPR.r[_Rd_].UD[0] = (u64)(cpuRegs.GPR.r
 *********************************************************/
 #define RepBranchi32(op) \
 	if (cpuRegs.GPR.r[_Rs_].SD[0] op cpuRegs.GPR.r[_Rt_].SD[0]) doBranch(_BranchTarget_); \
-	else cpuBranchTest();
+	else IntcpuBranchTest();
 
 
 void BEQ() {	RepBranchi32(==) }  // Branch if Rs == Rt
@@ -332,13 +332,13 @@ void BNE() {	RepBranchi32(!=) }  // Branch if Rs != Rt
 #define RepZBranchi32(op) \
 	if(cpuRegs.GPR.r[_Rs_].SD[0] op 0) { \
 		doBranch(_BranchTarget_); \
-	} else cpuBranchTest();
+	} else IntcpuBranchTest();
 
 #define RepZBranchLinki32(op) \
 	_SetLink(31); \
 	if(cpuRegs.GPR.r[_Rs_].SD[0] op 0) { \
 		doBranch(_BranchTarget_); \
-	} else cpuBranchTest();
+	} else IntcpuBranchTest();
 
 void BGEZ()   { RepZBranchi32(>=) }      // Branch if Rs >= 0
 void BGEZAL() { RepZBranchLinki32(>=) }  // Branch if Rs >= 0 and link
@@ -355,18 +355,18 @@ void BLTZAL() { RepZBranchLinki32(<) }   // Branch if Rs <  0 and link
 #define RepZBranchi32Likely(op) \
 	if(cpuRegs.GPR.r[_Rs_].SD[0] op 0) { \
 		doBranch(_BranchTarget_); \
-	} else { cpuRegs.pc +=4; cpuBranchTest(); }
+	} else { cpuRegs.pc +=4; IntcpuBranchTest(); }
 
 #define RepZBranchLinki32Likely(op) \
 	_SetLink(31); \
 	if(cpuRegs.GPR.r[_Rs_].SD[0] op 0) { \
 		doBranch(_BranchTarget_); \
-	} else { cpuRegs.pc +=4; cpuBranchTest(); }
+	} else { cpuRegs.pc +=4; IntcpuBranchTest(); }
 
 #define RepBranchi32Likely(op) \
 	if(cpuRegs.GPR.r[_Rs_].SD[0] op cpuRegs.GPR.r[_Rt_].SD[0]) { \
 		doBranch(_BranchTarget_); \
-	} else { cpuRegs.pc +=4; cpuBranchTest(); }
+	} else { cpuRegs.pc +=4; IntcpuBranchTest(); }
 
 
 void BEQL()    {  RepBranchi32Likely(==)      }  // Branch if Rs == Rt

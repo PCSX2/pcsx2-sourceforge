@@ -380,6 +380,53 @@ u32 s_lastvsync[2];
 extern u8 g_globalXMMSaved, g_globalMMXSaved;
 u32 loaded = 0;
 
+void IntcpuBranchTest()
+{
+	assert( !g_globalXMMSaved && !g_globalMMXSaved );
+	g_EEFreezeRegs = 0;
+
+//	if( !loaded && cpuRegs.cycle > 0x08000000 ) {
+//		char strstate[255];
+//		sprintf(strstate, "sstates/%8.8x.000", ElfCRC);
+//		LoadState(strstate);
+//		loaded = 1;
+//	}
+
+	g_nextBranchCycle = cpuRegs.cycle + EE_WAIT_CYCLE;
+
+	if ((int)(cpuRegs.cycle - nextsCounter) >= nextCounter)
+		rcntUpdate();
+
+	if (cpuRegs.interrupt)
+		_cpuTestInterrupts();
+
+	if( (int)(g_nextBranchCycle-nextsCounter) >= nextCounter )
+		g_nextBranchCycle = nextsCounter+nextCounter;
+
+//#ifdef CPU_LOG
+//	cpuTestMissingHwInts();
+//#endif
+	_cpuTestTIMR();
+
+	EEsCycle += cpuRegs.cycle - EEoCycle;
+	EEoCycle = cpuRegs.cycle;
+
+	psxCpu->ExecuteBlock();
+	
+	if (VU0.VI[REG_VPU_STAT].UL & 0x1) {
+		Cpu->ExecuteVU0Block();
+	}
+	if (VU0.VI[REG_VPU_STAT].UL & 0x100) {
+		Cpu->ExecuteVU1Block();
+	}
+
+	if( (int)cpuRegs.cycle-(int)g_nextBranchCycle > 0 )
+		g_nextBranchCycle = cpuRegs.cycle+1;
+
+	assert( !g_globalXMMSaved && !g_globalMMXSaved );
+	g_EEFreezeRegs = 1;
+}
+
 void cpuBranchTest()
 {
 	assert( !g_globalXMMSaved && !g_globalMMXSaved );
