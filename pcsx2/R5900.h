@@ -228,6 +228,7 @@ void cpuShutdown();
 void cpuException(u32 code, u32 bd);
 void cpuTlbMissR(u32 addr, u32 bd);
 void cpuTlbMissW(u32 addr, u32 bd);
+void IntcpuBranchTest();
 void cpuBranchTest();
 void cpuTestHwInts();
 void cpuTestINTCInts();
