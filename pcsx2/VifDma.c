@@ -1574,7 +1574,6 @@ void vif1CMD(u32 *data, int size) {
 
         case 0x14: // MSCAL
         case 0x15: // MSCALF
-			vif1FLUSH();
             vuExecMicro( (u16)(data[0]) << 3, VIF1dmanum );
 			vif1.cmd &= ~0x7f;
             break;
