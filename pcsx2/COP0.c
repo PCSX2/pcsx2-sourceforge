@@ -82,7 +82,7 @@ void MFC0() {
 		    switch(_Imm_ & 0x3F){
 			    case 0: cpuRegs.GPR.r[_Rt_].UD[0] = (s64)cpuRegs.PERF.n.pccr; break;
 			    case 1:
-					if((cpuRegs.PERF.n.pccr & 0x80000020) == 0x80000020) {
+					if((cpuRegs.PERF.n.pccr & 0x800003E0) == 0x80000020) {
 						cpuRegs.PERF.n.pcr0 += cpuRegs.cycle-s_iLastPERFCycle[0];
 						s_iLastPERFCycle[0] = cpuRegs.cycle;
 					}
@@ -90,7 +90,7 @@ void MFC0() {
                     cpuRegs.GPR.r[_Rt_].UD[0] = (s64)cpuRegs.PERF.n.pcr0;
                     break;
 			    case 3:
-					if((cpuRegs.PERF.n.pccr & 0x80008000) == 0x80008000) {
+					if((cpuRegs.PERF.n.pccr & 0x800F8000) == 0x80008000) {
 						cpuRegs.PERF.n.pcr1 += cpuRegs.cycle-s_iLastPERFCycle[1];
 						s_iLastPERFCycle[1] = cpuRegs.cycle;
 					}
@@ -119,9 +119,9 @@ void MTC0() {
 				cpuRegs.PERF.n.pccr, cpuRegs.PERF.n.pcr0, cpuRegs.PERF.n.pcr1, _Imm_ & 0x3F);*/
 			switch(_Imm_ & 0x3F){
 				case 0:
-					if((cpuRegs.PERF.n.pccr & 0x80000020) == 0x80000020)
+					if((cpuRegs.PERF.n.pccr & 0x800003E0) == 0x80000020)
 						cpuRegs.PERF.n.pcr0 += cpuRegs.cycle-s_iLastPERFCycle[0];
-					if((cpuRegs.PERF.n.pccr & 0x80008000) == 0x80008000)
+					if((cpuRegs.PERF.n.pccr & 0x800F8000) == 0x80008000)
 						cpuRegs.PERF.n.pcr1 += cpuRegs.cycle-s_iLastPERFCycle[1];
 					cpuRegs.PERF.n.pccr = cpuRegs.GPR.r[_Rt_].UL[0];
 					s_iLastPERFCycle[0] = cpuRegs.cycle;

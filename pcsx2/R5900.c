@@ -356,11 +356,11 @@ static void _cpuTestTIMR() {
 	cpuRegs.CP0.n.Count += cpuRegs.cycle-s_iLastCOP0Cycle;
 	s_iLastCOP0Cycle = cpuRegs.cycle;
 
-	if((cpuRegs.PERF.n.pccr & 0x80000020) == 0x80000020) {
+	if((cpuRegs.PERF.n.pccr & 0x800003E0) == 0x80000020) {
 		cpuRegs.PERF.n.pcr0 += cpuRegs.cycle-s_iLastPERFCycle[0];
 		s_iLastPERFCycle[0] = cpuRegs.cycle;
 	}
-	if((cpuRegs.PERF.n.pccr & 0x80008000) == 0x80008000) {
+	if((cpuRegs.PERF.n.pccr & 0x800F8000) == 0x80008000) {
 		cpuRegs.PERF.n.pcr1 += cpuRegs.cycle-s_iLastPERFCycle[1];
 		s_iLastPERFCycle[1] = cpuRegs.cycle;
 	}

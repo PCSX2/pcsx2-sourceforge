@@ -109,7 +109,7 @@ void recMFC0( void )
 					// check if needs to be incremented
 					MOV32MtoR(ECX, (u32)&cpuRegs.PERF.n.pccr);
 					MOV32MtoR(EAX, (u32)&cpuRegs.PERF.n.pcr0);
-					AND32ItoR(ECX, 0x80000020);
+					AND32ItoR(ECX, 0x800003E0);
 
 					CMP32ItoR(ECX, 0x80000020);
 					j8Ptr[0] = JNE8(0);
@@ -126,7 +126,7 @@ void recMFC0( void )
 					// check if needs to be incremented
 					MOV32MtoR(ECX, (u32)&cpuRegs.PERF.n.pccr);
 					MOV32MtoR(EAX, (u32)&cpuRegs.PERF.n.pcr1);
-					AND32ItoR(ECX, 0x80008000);
+					AND32ItoR(ECX, 0x800F8000);
 
 					CMP32ItoR(ECX, 0x80008000);
 					j8Ptr[0] = JNE8(0);
@@ -202,7 +202,7 @@ void updatePCCR()
 	MOV32RtoR(EDX, EAX);
 	MOV32MtoR(ECX, (u32)&cpuRegs.cycle);
 
-	AND32ItoR(EAX, 0x80000020);
+	AND32ItoR(EAX, 0x800003E0);
 	CMP32ItoR(EAX, 0x80000020);
 	j8Ptr[0] = JNE8(0);
 	MOV32MtoR(EAX, (u32)&s_iLastPERFCycle[0]);
@@ -210,7 +210,7 @@ void updatePCCR()
 	SUB32RtoM((u32)&cpuRegs.PERF.n.pcr0, EAX);
 	x86SetJ8(j8Ptr[0]);
 
-	AND32ItoR(EDX, 0x80008000);
+	AND32ItoR(EDX, 0x800F8000);
 	CMP32ItoR(EDX, 0x80008000);
 	j8Ptr[0] = JNE8(0);
 	MOV32MtoR(EAX, (u32)&s_iLastPERFCycle[1]);
