@@ -37,6 +37,7 @@ typedef struct {
 	u8 done;
 	u8 vifstalled;
 	u8 irqoffset; // 32bit offset where next vif code is
+	u32 savedtag;
 } vifStruct;
 
 vifStruct vif0;

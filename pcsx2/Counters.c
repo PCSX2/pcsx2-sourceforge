@@ -64,7 +64,7 @@ void rcntSet() {
 			}
 		
 		// the + 10 is just in case of overflow
-			//if(eecntmask & (1<<i) || !(counters[i].mode & 0x100)) continue;
+			if(eecntmask & (1<<i) || !(counters[i].mode & 0x100)) continue;
 			 c = (counters[i].target - rcntCycle(i)) * counters[i].rate;
 			if (c < nextCounter) {
 			nextCounter = c;
@@ -422,15 +422,11 @@ void rcntUpdate()
 					SysPrintf("rcntcycle = %d, target = %d, cyclet = %d\n", rcntCycle(i), counters[i].target, counters[i].sCycleT);
 				}*/
 				//if ((eecntmask & (1 << i)) == 0) {
-			
-				if(counters[i].mode & 0x100  && (counters[i].mode & 0x400) == 0) {
-						counters[i].mode|= 0x0400; // Target flag
+				counters[i].mode|= 0x0400; // Target flag
+				if(counters[i].mode & 0x100) {
 					hwIntcIrq(counters[i].interrupt);
 					
 				}
-#ifdef EECNT_LOG
-	EECNT_LOG("EE target reached %d target %x count %x\n", i, counters[i].target, counters[i].count);
-#endif
 				//eecntmask |= (1 << i);
 				//}
 				if (counters[i].mode & 0x40) { // Reset on target
@@ -444,11 +440,9 @@ void rcntUpdate()
 		
 		if (counters[i].count >= 0xffff) {
 			eecntmask &= ~(1 << i);
-#ifdef EECNT_LOG
-	EECNT_LOG("EE overflow reached %d target %x count %x\n", i, counters[i].target, counters[i].count);
-#endif
-			if (counters[i].mode & 0x0200  && (counters[i].mode & 0x800) == 0) { // Overflow interrupt
-				counters[i].mode|= 0x0800; // Overflow flag
+			counters[i].mode|= 0x0800; // Overflow flag
+			if (counters[i].mode & 0x0200) { // Overflow interrupt
+				
 				hwIntcIrq(counters[i].interrupt);
 //				SysPrintf("counter[%d] overflow interrupt (%x)\n", i, cpuRegs.cycle);
 			}
@@ -537,7 +531,6 @@ void rcntWmode(int index, u32 value)
 	}
 
 	if((counters[index].mode & 0xF) == 0x7) {
-		SysPrintf("Gate disabled %d\n", index);
 			gates &= ~(1<<index);
 			counters[index].mode &= ~0x80;
 	}else if(counters[index].mode & 0x4){

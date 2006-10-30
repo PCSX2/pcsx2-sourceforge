@@ -387,6 +387,7 @@ static int ParseCommandLine(char* pcmd)
 }
 
 #endif
+extern void LoadPatch(char *crc);
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
 	char *lang;
@@ -1047,7 +1048,7 @@ void CreateMainMenu() {
 	ADDSUBMENUS(0, 1, _("&States"));
 	ADDSEPARATOR(0);
 	ADDMENUITEM(0, _("&Open ELF File"), ID_FILEOPEN);
-	ADDMENUITEM(0, _("&Run CD"), ID_FILE_RUNCD);
+	ADDMENUITEM(0, _("&Run CD/DVD"), ID_FILE_RUNCD);
 	ADDSUBMENUS(1, 3, _("&Save"));
 	ADDSUBMENUS(1, 2, _("&Load"));
 	ADDMENUITEM(2, _("&Other..."), ID_FILE_STATES_LOAD_OTHER);
@@ -1075,7 +1076,7 @@ void CreateMainMenu() {
 
 	ADDSUBMENU(0,_("&Config"));
 #ifdef PCSX2_DEVBUILD
-	ADDMENUITEM(0,_("&Advanced"), ID_CONFIG_ADVANCED);
+//	ADDMENUITEM(0,_("&Advanced"), ID_CONFIG_ADVANCED);
 #endif
 	ADDMENUITEM(0,_("&Patches"), ID_PATCHBROWSER);
 	ADDMENUITEM(0,_("C&pu"), ID_CONFIG_CPU);

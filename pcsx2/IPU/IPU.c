@@ -1681,12 +1681,11 @@ int IPU1dma()
 	}
 
 	// Transfer Dn_QWC from Dn_MADR to GIF
-	if( ipu1dma->qwc > 0 ) {
+	
+	if ((ipu1dma->chcr & 0xc) == 0 ||  ipu1dma->qwc > 0) { // Normal Mode
 		IPU1chain();
 		INT(DMAC_TO_IPU, (ipu1cycles+totalqwc)*BIAS);
-	return totalqwc;
-	}
-	if ((ipu1dma->chcr & 0xc) == 0 ) { // Normal Mode
+		return totalqwc;
 	}
 	else {
 		// Chain Mode
