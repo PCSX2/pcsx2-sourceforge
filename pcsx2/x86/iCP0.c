@@ -98,16 +98,17 @@ void recMFC0( void )
 		else EEINST_RESETHASLIVE1(_Rt_);
 		return;
 	}
-	if( _Rd_ == 25 ) {
-		MOV32MtoR( EAX, (u32)&cpuRegs.CP0.r[ _Rt_ ] );
+	if( _Rd_ == 25 ) {		
 		
 		_deleteEEreg(_Rt_, 0);
-		
 		switch(_Imm_ & 0x3F){
-				case 0: MOV32RtoM((u32)&cpuRegs.PERF.n.pccr, EAX); break;
-				case 1: MOV32RtoM((u32)&cpuRegs.PERF.n.pcr0, EAX); break;
-				case 3: MOV32RtoM((u32)&cpuRegs.PERF.n.pcr1, EAX); break;
+				case 0: MOV32MtoR(EAX, (u32)&cpuRegs.PERF.n.pccr); break;
+				case 1: MOV32MtoR(EAX, (u32)&cpuRegs.PERF.n.pcr0); break;
+				case 3: MOV32MtoR(EAX, (u32)&cpuRegs.PERF.n.pcr1); break;
 			}
+			
+		MOV32RtoM( (u32)&cpuRegs.CP0.r[ _Rt_ ], EAX );
+		
 		SysPrintf("MFC0 PCCR = %x PCR0 = %x PCR1 = %x IMM= %x\n", 
 				cpuRegs.PERF.n.pccr, cpuRegs.PERF.n.pcr0, cpuRegs.PERF.n.pcr1, _Imm_ & 0x3F);
 		return;

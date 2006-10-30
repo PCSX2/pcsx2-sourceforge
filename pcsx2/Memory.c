@@ -54,12 +54,12 @@ BIOS
 #include <sys/stat.h>
 
 #include "Common.h"
-#include "ir5900.h"
+#include "iR5900.h"
 #include "PsxMem.h"
 #include "R3000A.h"
-#include "psxhw.h"
+#include "PsxHw.h"
 #include "VUmicro.h"
-#include "gs.h"
+#include "GS.h"
 
 #include <assert.h>
 

@@ -5,9 +5,10 @@
  */
 
 #include <string.h>
-#ifdef __LINUX__
-#define strnicmp strncasecmp
-#endif
+
+//#ifndef strnicmp
+//#define strnicmp strncasecmp
+//#endif
 
 #include "CDVDiso.h"
 #include "CDVDisodrv.h"

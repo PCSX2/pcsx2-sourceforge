@@ -22,7 +22,7 @@
 #include "Common.h"
 #include "Vif.h"
 #include "VUmicro.h"
-#include "gs.h"
+#include "GS.h"
 
 #include "VifDma.h" 
 
@@ -197,6 +197,9 @@ void vifDmaInit() {
 __inline static int _limit( int a, int max ) {
    return ( a > max ? max : a );
 }
+
+extern void DummyExecuteVU1Block(void);
+
 static int skipped = 0;
 static int skipmeminc = 0;
 //#define VIFUNPACKDEBUG
@@ -312,6 +315,12 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 		assert( v->addr < 0x4000 );
 		v->addr &= 0xfff;
 	} else {
+
+		if( Cpu->ExecuteVU1Block == DummyExecuteVU1Block ) {
+			// don't process since the frame is dummy
+			return;
+		}
+
 		VU = &VU1;
 		vif = &vif1;
 		vifRegs = vif1Regs;
@@ -1568,8 +1577,7 @@ void vif1CMD(u32 *data, int size) {
 
         case 0x14: // MSCAL
         case 0x15: // MSCALF
-			vif1FLUSH();
-            vuExecMicro( (u16)(data[0]) << 3, VIF1dmanum );
+			vuExecMicro( (u16)(data[0]) << 3, VIF1dmanum );
 			vif1.cmd &= ~0x7f;
             break;
 

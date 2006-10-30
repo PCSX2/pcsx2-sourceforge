@@ -53,7 +53,6 @@ static u32 vuprogcount = 0;
 void iDumpVU0Registers()
 {
 	int i;
-	assert( VU0.VI[26].UL != 0x160 );
 	
 	for(i = 1; i < 32; ++i) {
 		__Log("v%d: %x %x %x %x, vi: ", i, VF_VAL(VU0.VF[i].UL[3]), VF_VAL(VU0.VF[i].UL[2]),
@@ -80,8 +79,8 @@ void recExecuteVU0Block( void )
 //	__Log("VU: %x %x\n", VU0.VI[ REG_TPC ].UL, vuprogcount);
 //	iDumpVU0Registers();
 
-	//vudump |= 0x10;
-	//vudump |= 0x80;
+//	vudump |= 0x10;
+//	vudump |= 0x80;
 
 	if( (vudump&0x80) && !CHECK_VU0REC ) {
 		__Log("tVU: %x\n", VU0.VI[ REG_TPC ].UL);

@@ -19,7 +19,7 @@
 #ifndef _PCSX2_CORE_RECOMPILER_
 #define _PCSX2_CORE_RECOMPILER_
 
-#include "ivumicro.h"
+#include "iVUmicro.h"
 
 // used to keep block information
 #define BLOCKTYPE_STARTPC	4		// startpc offset

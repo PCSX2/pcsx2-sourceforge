@@ -44,15 +44,14 @@ extern "C" {
 #include "Vif.h"
 #include "VU.h"
 #include "vifdma.h"
-#include "debug.h"
 #include "memory.h"
-#include "hw.h"
+#include "Hw.h"
 
 #include "ix86/ix86.h"
 #include "ir5900.h"
 
 #include "counters.h"
-#include "gs.h"
+#include "GS.h"
 
 extern _GSinit            GSinit;
 extern _GSopen            GSopen;
@@ -379,9 +378,9 @@ void CSRwrite(u32 value)
 		GSCSRr = 0x551B4002;   // Set the FINISH bit to 1 - GS is always at a finish state as we don't have a FIFO(saqib)
 	             //Since when!! Refraction, since 4/21/06 (zerofrog)
 		GSIMR = 0x7F00; //This is bits 14-8 thats all that should be 1
-		
+
 		// and this too (fixed megaman ac)
-		CSRw |= 0xF;
+		CSRw = (u32)GSCSRr;
 		GSwriteCSR(CSRw);
 	}
 }
@@ -1040,22 +1039,20 @@ static void GSRegHandlerSIGNAL(u32* data)
 
 	if (CSRw & 0x1) {
 		GSCSRr |= 1; // signal
-		CSRw &= ~1;
-		if (!(GSIMR&0x100) )
-		gsIrq();
+		//CSRw &= ~1;
 	}
-	
+	if (!(GSIMR&0x100) )
+		gsIrq();
 }
 
 static void GSRegHandlerFINISH(u32* data)
 {
 	if (CSRw & 0x2) {
-		CSRw &= ~2;
+		//CSRw &= ~2;
 		GSCSRr |= 2; // finish
-		if (!(GSIMR&0x200) )
-		gsIrq();
 	}
-	
+	if (!(GSIMR&0x200) )
+		gsIrq();
 }
 
 static void GSRegHandlerLABEL(u32* data)

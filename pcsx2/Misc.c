@@ -31,7 +31,7 @@
 #include "RDebug/deci2.h"
 #endif
 
-#include "gs.h"
+#include "GS.h"
 
 DWORD dwSaveVersion = 0x7a30000d;
 extern u32 s_iLastCOP0Cycle;

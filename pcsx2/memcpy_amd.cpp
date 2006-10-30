@@ -33,9 +33,6 @@
 
 #include <assert.h>
 
-#include <xmmintrin.h>
-#include <emmintrin.h>
-
 /*****************************************************************************
 MEMCPY_AMD.CPP
 ******************************************************************************/
@@ -71,6 +68,8 @@ MEMCPY_AMD.CPP
 // This is faster than using software prefetch.  The technique is great for
 // getting maximum read bandwidth, especially in DDR memory systems.
 
+//#include <stddef.h>
+
 // Inline assembly syntax for use with Visual C++
 extern "C" {
 
@@ -78,8 +77,8 @@ extern "C" {
 #include <windows.h>
 #endif
 
-#include "ps2etypes.h"
-#include "misc.h"
+#include "PS2Etypes.h"
+#include "Misc.h"
 
 void FreezeMMXRegs_(int save);
 void FreezeXMMRegs_(int save);
@@ -96,15 +95,17 @@ void checkregs()
 }
 #endif
 
+#ifdef _MSC_VER
+
 void * memcpy_amd(void *dest, const void *src, size_t n)
 {
 	FreezeMMXRegs(1);
-
+	
 #ifdef _DEBUG
 	__asm call checkregs
 #endif
-
-	__asm {
+		
+    __asm {
 	mov		ecx, [n]		; number of bytes to copy
 	mov		edi, [dest]		; destination
 	mov		esi, [src]		; source
@@ -592,5 +593,19 @@ End:
 		emms
 	}
 }
+
+#else
+// assume gcc or mingw
+
+#include <memory.h>
+
+void * memcpy_amd(void *dest, const void *src, size_t n)
+{
+memcpy(dest, src, n);
+return dest;
+}
+
+
+#endif
 
 }

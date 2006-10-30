@@ -25,7 +25,7 @@
 #include "Debug.h"
 #include "R3000A.h"
 #include "VUmicro.h"
-#include "gs.h"
+#include "GS.h"
 
 static int inter;
 
