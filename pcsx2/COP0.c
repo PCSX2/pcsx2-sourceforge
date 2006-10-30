@@ -80,12 +80,12 @@ void MFC0() {
 		case 25: 
 			
 				switch(_Imm_ & 0x3F){
-					case 0: cpuRegs.PERF.n.pccr = cpuRegs.CP0.r[_Rt_]; break;
-					case 1: cpuRegs.PERF.n.pcr0 = cpuRegs.CP0.r[_Rt_]; break;
-					case 3: cpuRegs.PERF.n.pcr1 = cpuRegs.CP0.r[_Rt_]; break;
+					case 0: cpuRegs.GPR.r[_Rt_].UD[0] = (s64)cpuRegs.PERF.n.pccr; break;
+					case 1: cpuRegs.GPR.r[_Rt_].UD[0] = (s64)cpuRegs.PERF.n.pcr0; break;
+					case 3: cpuRegs.GPR.r[_Rt_].UD[0] = (s64)cpuRegs.PERF.n.pcr1; break;
 				}
-				SysPrintf("MFC0 PCCR = %x PCR0 = %x PCR1 = %x IMM= %x\n", 
-				cpuRegs.PERF.n.pccr, cpuRegs.PERF.n.pcr0, cpuRegs.PERF.n.pcr1, _Imm_ & 0x3F);
+				/*SysPrintf("MFC0 PCCR = %x PCR0 = %x PCR1 = %x IMM= %x\n", 
+				cpuRegs.PERF.n.pccr, cpuRegs.PERF.n.pcr0, cpuRegs.PERF.n.pcr1, _Imm_ & 0x3F);*/
 				break;
 		case 9:
 			// update
@@ -102,12 +102,12 @@ void MTC0() {
 	//if(bExecBIOS == FALSE && _Rd_ == 25) SysPrintf("MTC0 _Rd_ %x = %x\n", _Rd_, cpuRegs.CP0.r[_Rd_]);
 	switch (_Rd_) {
 		case 25: 
-			if(bExecBIOS == FALSE && _Rd_ == 25) SysPrintf("MTC0 PCCR = %x PCR0 = %x PCR1 = %x IMM= %x\n", 
-				cpuRegs.PERF.n.pccr, cpuRegs.PERF.n.pcr0, cpuRegs.PERF.n.pcr1, _Imm_ & 0x3F);
+			/*if(bExecBIOS == FALSE && _Rd_ == 25) SysPrintf("MTC0 PCCR = %x PCR0 = %x PCR1 = %x IMM= %x\n", 
+				cpuRegs.PERF.n.pccr, cpuRegs.PERF.n.pcr0, cpuRegs.PERF.n.pcr1, _Imm_ & 0x3F);*/
 			switch(_Imm_ & 0x3F){
-				case 0: cpuRegs.CP0.r[_Rd_] = (u32)cpuRegs.PERF.n.pccr; break;
-				case 1: cpuRegs.CP0.r[_Rd_] = (u32)cpuRegs.PERF.n.pcr0; break;
-				case 3: cpuRegs.CP0.r[_Rd_] = (u32)cpuRegs.PERF.n.pcr1; break;
+				case 0: cpuRegs.PERF.n.pccr = cpuRegs.GPR.r[_Rt_].UL[0]; break;
+				case 1: cpuRegs.PERF.n.pcr0 = cpuRegs.GPR.r[_Rt_].UL[0]; break;
+				case 3: cpuRegs.PERF.n.pcr1 = cpuRegs.GPR.r[_Rt_].UL[0]; break;
 			}
 			break;
 		case 12: WriteCP0Status(cpuRegs.GPR.r[_Rt_].UL[0]); break;

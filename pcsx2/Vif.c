@@ -64,9 +64,9 @@ static void _writeX( u32 *dest, u32 data )
 		case 2:  n = 16; break;
 		default: n = 24; break;
 	}
-#ifdef VIF_LOG
+/*#ifdef VIF_LOG
 	VIF_LOG("_writeX %x = %x (writecycle=%d; mask %x; mode %d)\n", (u32)dest-(u32)VU1.Mem, data, _vif->cl, ( _vifRegs->mask >> n ) & 0x3,_vifRegs->mode);
-#endif
+#endif*/
 	switch ( ( _vifRegs->mask >> n ) & 0x3 ) {
 		case 0:
 			if((_vif->cmd & 0x6F) == 0x6f) {
@@ -95,9 +95,9 @@ static void _writeX( u32 *dest, u32 data )
 			break;
 	}
 
-#ifdef VIF_LOG
+/*#ifdef VIF_LOG
 	VIF_LOG("_writeX-done : Data %x : Row %x\n", *dest, _vifRegs->r0);
-#endif
+#endif*/
 }
 
 static void _writeY( u32 *dest, u32 data )
@@ -109,9 +109,9 @@ static void _writeY( u32 *dest, u32 data )
 		case 2:  n = 18; break;
 		default: n = 26; break;
 	}
-#ifdef VIF_LOG
+/*#ifdef VIF_LOG
 	VIF_LOG("_writeY %x = %x (writecycle=%d; mask %x; mode %d)\n", (u32)dest-(u32)VU1.Mem, data, _vif->cl, ( _vifRegs->mask >> n ) & 0x3,_vifRegs->mode);
-#endif
+#endif*/
 	switch ( ( _vifRegs->mask >> n ) & 0x3 ) {
 		case 0:
 			if((_vif->cmd & 0x6F) == 0x6f) {
@@ -141,9 +141,9 @@ static void _writeY( u32 *dest, u32 data )
 			break;
 	}
 
-#ifdef VIF_LOG
+/*#ifdef VIF_LOG
 	VIF_LOG("_writeY-done : Data %x : Row %x\n", *dest, _vifRegs->r1);
-#endif
+#endif*/
 }
 
 static void _writeZ( u32 *dest, u32 data )
@@ -155,9 +155,9 @@ static void _writeZ( u32 *dest, u32 data )
 		case 2:  n = 20; break;
 		default: n = 28; break;
 	}
-#ifdef VIF_LOG
+/*#ifdef VIF_LOG
 	VIF_LOG("_writeZ %x = %x (writecycle=%d; mask %x; mode %d)\n", (u32)dest-(u32)VU1.Mem, data, _vif->cl, ( _vifRegs->mask >> n ) & 0x3,_vifRegs->mode);
-#endif
+#endif*/
 	switch ( ( _vifRegs->mask >> n ) & 0x3 ) {
 		case 0:
 			if((_vif->cmd & 0x6F) == 0x6f) {
@@ -197,9 +197,9 @@ static void _writeW( u32 *dest, u32 data )
 		case 2:  n = 22; break;
 		default: n = 30; break;
 	}
-#ifdef VIF_LOG
+/*#ifdef VIF_LOG
 	VIF_LOG("_writeW %x = %x (writecycle=%d; mask %x; mode %d)\n", (u32)dest-(u32)VU1.Mem, data, _vif->cl, ( _vifRegs->mask >> n ) & 0x3,_vifRegs->mode);
-#endif
+#endif*/
 	switch ( ( _vifRegs->mask >> n ) & 0x3 ) {
 		case 0:
 			if((_vif->cmd & 0x6F) == 0x6f) {
@@ -245,9 +245,9 @@ static void writeX( u32 *dest, u32 data ) {
 	} else {
 		*dest = data;
 	}
-#ifdef VIF_LOG
+/*#ifdef VIF_LOG
 	VIF_LOG("writeX %8.8x : Mode %d, r0 = %x, data %8.8x\n", *dest,_vifRegs->mode,_vifRegs->r0,data);
-#endif
+#endif*/
 }
 
 static void writeY( u32 *dest, u32 data ) {
@@ -266,9 +266,9 @@ static void writeY( u32 *dest, u32 data ) {
 	} else {
 		*dest = data;
 	}
-#ifdef VIF_LOG
+/*#ifdef VIF_LOG
 	VIF_LOG("writeY %8.8x : Mode %d, r1 = %x, data %8.8x\n", *dest,_vifRegs->mode,_vifRegs->r1,data);
-#endif
+#endif*/
 }
 
 static void writeZ( u32 *dest, u32 data ) {
@@ -287,9 +287,9 @@ static void writeZ( u32 *dest, u32 data ) {
 	} else {
 		*dest = data;
 	}
-#ifdef VIF_LOG
+/*#ifdef VIF_LOG
 	VIF_LOG("writeZ %8.8x : Mode %d, r2 = %x, data %8.8x\n", *dest,_vifRegs->mode,_vifRegs->r2,data);
-#endif
+#endif*/
 }
 
 static void writeW( u32 *dest, u32 data ) {
@@ -308,9 +308,9 @@ static void writeW( u32 *dest, u32 data ) {
 	} else {
 		*dest = data;
 	}
-#ifdef VIF_LOG
+/*#ifdef VIF_LOG
 	VIF_LOG("writeW %8.8x : Mode %d, r3 = %x, data %8.8x\n", *dest,_vifRegs->mode,_vifRegs->r3,data);
-#endif
+#endif*/
 }
 
 void UNPACK_S_32(u32 *dest, u32 *data) {
