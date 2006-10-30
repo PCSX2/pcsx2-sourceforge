@@ -73,6 +73,7 @@ REC_SYS(EI);
 
 ////////////////////////////////////////////////////
 extern u32 s_iLastCOP0Cycle;
+extern u32 s_iLastPERFCycle[2];
 
 void recMFC0( void )
 {
@@ -102,9 +103,43 @@ void recMFC0( void )
 		
 		_deleteEEreg(_Rt_, 0);
 		switch(_Imm_ & 0x3F){
-				case 0: MOV32MtoR(EAX, (u32)&cpuRegs.PERF.n.pccr); break;
-				case 1: MOV32MtoR(EAX, (u32)&cpuRegs.PERF.n.pcr0); break;
-				case 3: MOV32MtoR(EAX, (u32)&cpuRegs.PERF.n.pcr1); break;
+				case 0:
+					MOV32MtoR(EAX, (u32)&cpuRegs.PERF.n.pccr); break;
+				case 1:
+					// check if needs to be incremented
+					MOV32MtoR(ECX, (u32)&cpuRegs.PERF.n.pccr);
+					MOV32MtoR(EAX, (u32)&cpuRegs.PERF.n.pcr0);
+					AND32ItoR(ECX, 0x80000020);
+
+					CMP32ItoR(ECX, 0x80000020);
+					j8Ptr[0] = JNE8(0);
+					
+					MOV32MtoR(EDX, (u32)&cpuRegs.cycle);
+					SUB32MtoR(EAX, (u32)&s_iLastPERFCycle[0]);
+					ADD32RtoR(EAX, EDX);
+					MOV32RtoM((u32)&s_iLastPERFCycle[0], EDX);
+					MOV32RtoM((u32)&cpuRegs.PERF.n.pcr0, EAX);
+
+					x86SetJ8(j8Ptr[0]);
+					break;
+				case 3:
+					// check if needs to be incremented
+					MOV32MtoR(ECX, (u32)&cpuRegs.PERF.n.pccr);
+					MOV32MtoR(EAX, (u32)&cpuRegs.PERF.n.pcr1);
+					AND32ItoR(ECX, 0x80008000);
+
+					CMP32ItoR(ECX, 0x80008000);
+					j8Ptr[0] = JNE8(0);
+					
+					MOV32MtoR(EDX, (u32)&cpuRegs.cycle);
+					SUB32MtoR(EAX, (u32)&s_iLastPERFCycle[1]);
+					ADD32RtoR(EAX, EDX);
+					MOV32RtoM((u32)&s_iLastPERFCycle[1], EDX);
+					MOV32RtoM((u32)&cpuRegs.PERF.n.pcr1, EAX);
+
+					x86SetJ8(j8Ptr[0]);
+					
+					break;
 			}
 			
 		MOV32RtoM( (u32)&cpuRegs.CP0.r[ _Rt_ ], EAX );
@@ -160,6 +195,30 @@ void recMFC0( void )
 	}
 }
 
+void updatePCCR()
+{
+	// read the old pccr and update pcr0/1
+	MOV32MtoR(EAX, (u32)&cpuRegs.PERF.n.pccr);
+	MOV32RtoR(EDX, EAX);
+	MOV32MtoR(ECX, (u32)&cpuRegs.cycle);
+
+	AND32ItoR(EAX, 0x80000020);
+	CMP32ItoR(EAX, 0x80000020);
+	j8Ptr[0] = JNE8(0);
+	MOV32MtoR(EAX, (u32)&s_iLastPERFCycle[0]);
+	ADD32RtoM((u32)&cpuRegs.PERF.n.pcr0, ECX);
+	SUB32RtoM((u32)&cpuRegs.PERF.n.pcr0, EAX);
+	x86SetJ8(j8Ptr[0]);
+
+	AND32ItoR(EDX, 0x80008000);
+	CMP32ItoR(EDX, 0x80008000);
+	j8Ptr[0] = JNE8(0);
+	MOV32MtoR(EAX, (u32)&s_iLastPERFCycle[1]);
+	ADD32RtoM((u32)&cpuRegs.PERF.n.pcr1, ECX);
+	SUB32RtoM((u32)&cpuRegs.PERF.n.pcr1, EAX);
+	x86SetJ8(j8Ptr[0]);
+}
+
 void recMTC0()
 {
 	if( GPR_IS_CONST1(_Rt_) ) {
@@ -180,9 +239,25 @@ void recMTC0()
 				SysPrintf("MTC0 PCCR = %x PCR0 = %x PCR1 = %x IMM= %x\n", 
 				cpuRegs.PERF.n.pccr, cpuRegs.PERF.n.pcr0, cpuRegs.PERF.n.pcr1, _Imm_ & 0x3F);
 				switch(_Imm_ & 0x3F){
-					case 0: MOV32ItoM((u32)&cpuRegs.PERF.n.pccr, g_cpuConstRegs[_Rt_].UL[0]); break;
-					case 1: MOV32ItoM((u32)&cpuRegs.PERF.n.pcr0, g_cpuConstRegs[_Rt_].UL[0]); break;
-					case 3: MOV32ItoM((u32)&cpuRegs.PERF.n.pcr1, g_cpuConstRegs[_Rt_].UL[0]); break;
+					case 0:
+						
+						updatePCCR();
+						MOV32ItoM((u32)&cpuRegs.PERF.n.pccr, g_cpuConstRegs[_Rt_].UL[0]);
+
+						// update the cycles
+						MOV32RtoM((u32)&s_iLastPERFCycle[0], ECX);
+						MOV32RtoM((u32)&s_iLastPERFCycle[1], ECX);
+						break;
+					case 1:
+						MOV32MtoR(EAX, (u32)&cpuRegs.cycle);
+						MOV32ItoM((u32)&cpuRegs.PERF.n.pcr0, g_cpuConstRegs[_Rt_].UL[0]);
+						MOV32RtoM((u32)&s_iLastPERFCycle[0], EAX);
+						break;
+					case 3:
+						MOV32MtoR(EAX, (u32)&cpuRegs.cycle);
+						MOV32ItoM((u32)&cpuRegs.PERF.n.pcr1, g_cpuConstRegs[_Rt_].UL[0]);
+						MOV32RtoM((u32)&s_iLastPERFCycle[1], EAX);
+						break;
 				}
 				break;
 			default:
@@ -209,9 +284,24 @@ void recMTC0()
 				SysPrintf("MTC0 PCCR = %x PCR0 = %x PCR1 = %x IMM= %x\n", 
 				cpuRegs.PERF.n.pccr, cpuRegs.PERF.n.pcr0, cpuRegs.PERF.n.pcr1, _Imm_ & 0x3F);
 				switch(_Imm_ & 0x3F){
-					case 0: _eeMoveGPRtoM((u32)&cpuRegs.PERF.n.pccr, _Rt_); break;
-					case 1: _eeMoveGPRtoM((u32)&cpuRegs.PERF.n.pcr0, _Rt_); break;
-					case 3: _eeMoveGPRtoM((u32)&cpuRegs.PERF.n.pcr1, _Rt_); break;
+					case 0:
+						updatePCCR();
+						_eeMoveGPRtoM((u32)&cpuRegs.PERF.n.pccr, _Rt_);
+
+						// update the cycles
+						MOV32RtoM((u32)&s_iLastPERFCycle[0], ECX);
+						MOV32RtoM((u32)&s_iLastPERFCycle[1], ECX);
+						break;
+					case 1:
+						MOV32MtoR(ECX, (u32)&cpuRegs.cycle);
+						_eeMoveGPRtoM((u32)&cpuRegs.PERF.n.pcr0, _Rt_);
+						MOV32RtoM((u32)&s_iLastPERFCycle[0], ECX);
+						break;
+					case 3:
+						MOV32MtoR(ECX, (u32)&cpuRegs.cycle);
+						_eeMoveGPRtoM((u32)&cpuRegs.PERF.n.pcr1, _Rt_);
+						MOV32RtoM((u32)&s_iLastPERFCycle[1], ECX);
+						break;
 				}
 				break;
 			default:

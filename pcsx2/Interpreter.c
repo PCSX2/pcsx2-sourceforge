@@ -101,8 +101,8 @@ void execI() {
 	
 	debugI();
 	cpuRegs.pc+= 4;
-	if((cpuRegs.PERF.n.pccr & 0x80000020) == 0x80000020) cpuRegs.PERF.n.pcr0++;
-	if((cpuRegs.PERF.n.pccr & 0x80008000) == 0x80008000) cpuRegs.PERF.n.pcr1++;
+//	if((cpuRegs.PERF.n.pccr & 0x80000020) == 0x80000020) cpuRegs.PERF.n.pcr0++;
+//	if((cpuRegs.PERF.n.pccr & 0x80008000) == 0x80008000) cpuRegs.PERF.n.pcr1++;
 	
 	Int_OpcodePrintTable[cpuRegs.code >> 26]();
 }

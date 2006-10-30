@@ -66,6 +66,7 @@ void WriteCP0Status(u32 value) {
 }
 
 extern u32 s_iLastCOP0Cycle;
+extern u32 s_iLastPERFCycle[2];
 
 void MFC0() {
 	if (!_Rt_) return;
@@ -78,15 +79,27 @@ void MFC0() {
 		
 		case 12: cpuRegs.GPR.r[_Rt_].UD[0] = (s64)(cpuRegs.CP0.r[_Rd_] & 0xf0c79c1f); break;
 		case 25: 
-			
-				switch(_Imm_ & 0x3F){
-					case 0: cpuRegs.GPR.r[_Rt_].UD[0] = (s64)cpuRegs.PERF.n.pccr; break;
-					case 1: cpuRegs.GPR.r[_Rt_].UD[0] = (s64)cpuRegs.PERF.n.pcr0; break;
-					case 3: cpuRegs.GPR.r[_Rt_].UD[0] = (s64)cpuRegs.PERF.n.pcr1; break;
-				}
-				/*SysPrintf("MFC0 PCCR = %x PCR0 = %x PCR1 = %x IMM= %x\n", 
-				cpuRegs.PERF.n.pccr, cpuRegs.PERF.n.pcr0, cpuRegs.PERF.n.pcr1, _Imm_ & 0x3F);*/
-				break;
+		    switch(_Imm_ & 0x3F){
+			    case 0: cpuRegs.GPR.r[_Rt_].UD[0] = (s64)cpuRegs.PERF.n.pccr; break;
+			    case 1:
+					if((cpuRegs.PERF.n.pccr & 0x80000020) == 0x80000020) {
+						cpuRegs.PERF.n.pcr0 += cpuRegs.cycle-s_iLastPERFCycle[0];
+						s_iLastPERFCycle[0] = cpuRegs.cycle;
+					}
+        
+                    cpuRegs.GPR.r[_Rt_].UD[0] = (s64)cpuRegs.PERF.n.pcr0;
+                    break;
+			    case 3:
+					if((cpuRegs.PERF.n.pccr & 0x80008000) == 0x80008000) {
+						cpuRegs.PERF.n.pcr1 += cpuRegs.cycle-s_iLastPERFCycle[1];
+						s_iLastPERFCycle[1] = cpuRegs.cycle;
+					}
+					cpuRegs.GPR.r[_Rt_].UD[0] = (s64)cpuRegs.PERF.n.pcr1;
+					break;
+		    }
+		    /*SysPrintf("MFC0 PCCR = %x PCR0 = %x PCR1 = %x IMM= %x\n", 
+		    cpuRegs.PERF.n.pccr, cpuRegs.PERF.n.pcr0, cpuRegs.PERF.n.pcr1, _Imm_ & 0x3F);*/
+		    break;
 		case 9:
 			// update
 			cpuRegs.CP0.n.Count += cpuRegs.cycle-s_iLastCOP0Cycle;
@@ -105,9 +118,17 @@ void MTC0() {
 			/*if(bExecBIOS == FALSE && _Rd_ == 25) SysPrintf("MTC0 PCCR = %x PCR0 = %x PCR1 = %x IMM= %x\n", 
 				cpuRegs.PERF.n.pccr, cpuRegs.PERF.n.pcr0, cpuRegs.PERF.n.pcr1, _Imm_ & 0x3F);*/
 			switch(_Imm_ & 0x3F){
-				case 0: cpuRegs.PERF.n.pccr = cpuRegs.GPR.r[_Rt_].UL[0]; break;
-				case 1: cpuRegs.PERF.n.pcr0 = cpuRegs.GPR.r[_Rt_].UL[0]; break;
-				case 3: cpuRegs.PERF.n.pcr1 = cpuRegs.GPR.r[_Rt_].UL[0]; break;
+				case 0:
+					if((cpuRegs.PERF.n.pccr & 0x80000020) == 0x80000020)
+						cpuRegs.PERF.n.pcr0 += cpuRegs.cycle-s_iLastPERFCycle[0];
+					if((cpuRegs.PERF.n.pccr & 0x80008000) == 0x80008000)
+						cpuRegs.PERF.n.pcr1 += cpuRegs.cycle-s_iLastPERFCycle[1];
+					cpuRegs.PERF.n.pccr = cpuRegs.GPR.r[_Rt_].UL[0];
+					s_iLastPERFCycle[0] = cpuRegs.cycle;
+					s_iLastPERFCycle[1] = cpuRegs.cycle;
+					break;
+				case 1: cpuRegs.PERF.n.pcr0 = cpuRegs.GPR.r[_Rt_].UL[0]; s_iLastPERFCycle[0] = cpuRegs.cycle; break;
+				case 3: cpuRegs.PERF.n.pcr1 = cpuRegs.GPR.r[_Rt_].UL[0]; s_iLastPERFCycle[1] = cpuRegs.cycle; break;
 			}
 			break;
 		case 12: WriteCP0Status(cpuRegs.GPR.r[_Rt_].UL[0]); break;
