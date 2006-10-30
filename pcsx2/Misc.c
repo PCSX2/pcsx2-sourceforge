@@ -33,8 +33,9 @@
 
 #include "GS.h"
 
-DWORD dwSaveVersion = 0x7a30000d;
+DWORD dwSaveVersion = 0x7a30000e;
 extern u32 s_iLastCOP0Cycle;
+extern u32 s_iLastPERFCycle[2];
 extern int g_psxWriteOk;
 
 PcsxConfig Config;
@@ -533,6 +534,7 @@ int SaveState(char *file) {
 	gzwrite(f, &g_nextBranchCycle, sizeof(g_nextBranchCycle));
 	gzwrite(f, &g_psxNextBranchCycle, sizeof(g_psxNextBranchCycle));
 	gzwrite(f, &s_iLastCOP0Cycle, sizeof(s_iLastCOP0Cycle));
+	gzwrite(f, s_iLastPERFCycle, sizeof(s_iLastPERFCycle));
 	gzwrite(f, &g_psxWriteOk, sizeof(g_psxWriteOk));
 
 	//gzwrite(f, (void*)&ipuRegs, sizeof(IPUregisters));   // ipu regs
@@ -598,9 +600,12 @@ int LoadState(char *file) {
 	gzread(f, &dwVer, 4);
 
 	if( dwVer != dwSaveVersion ) {
-		gzclose(f);
-		MessageBox(NULL, "Save state wrong version", "Error", MB_OK);
-		return 0;
+
+		if( dwVer != 0x7a30000d ) {
+			gzclose(f);
+			MessageBox(NULL, "Save state wrong version", "Error", MB_OK);
+			return 0;
+		}
 	}
 
 	// stop and reset the system first
@@ -648,6 +653,9 @@ int LoadState(char *file) {
 	gzread(f, &g_nextBranchCycle, sizeof(g_nextBranchCycle));
 	gzread(f, &g_psxNextBranchCycle, sizeof(g_psxNextBranchCycle));
 	gzread(f, &s_iLastCOP0Cycle, sizeof(s_iLastCOP0Cycle));
+	if( dwVer >= 0x7a30000e ) {
+		gzread(f, s_iLastPERFCycle, sizeof(s_iLastPERFCycle));
+	}
 	gzread(f, &g_psxWriteOk, sizeof(g_psxWriteOk));
 
 	rcntFreeze(f, 0);

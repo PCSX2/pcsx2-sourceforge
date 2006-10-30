@@ -350,9 +350,20 @@ void _cpuTestInterrupts() {
 }
 
 u32 s_iLastCOP0Cycle = 0;
+u32 s_iLastPERFCycle[2] = {0,0};
+
 static void _cpuTestTIMR() {
 	cpuRegs.CP0.n.Count += cpuRegs.cycle-s_iLastCOP0Cycle;
 	s_iLastCOP0Cycle = cpuRegs.cycle;
+
+	if((cpuRegs.PERF.n.pccr & 0x80000020) == 0x80000020) {
+		cpuRegs.PERF.n.pcr0 += cpuRegs.cycle-s_iLastPERFCycle[0];
+		s_iLastPERFCycle[0] = cpuRegs.cycle;
+	}
+	if((cpuRegs.PERF.n.pccr & 0x80008000) == 0x80008000) {
+		cpuRegs.PERF.n.pcr1 += cpuRegs.cycle-s_iLastPERFCycle[1];
+		s_iLastPERFCycle[1] = cpuRegs.cycle;
+	}
 
 	if ( (cpuRegs.CP0.n.Status.val & 0x8000) &&
 		cpuRegs.CP0.n.Count >= cpuRegs.CP0.n.Compare && cpuRegs.CP0.n.Count < cpuRegs.CP0.n.Compare+1000 ) {
