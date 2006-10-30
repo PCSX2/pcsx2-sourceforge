@@ -64,10 +64,11 @@ typedef struct {
 	UNPACKPARTFUNCTYPE   funcUpart;
 	UNPACKPARTFUNCTYPE   funcSpart;
 
-	int bsize; // total byte size of compressed data
+	int bsize; // currently unused
 	int dsize; // byte size of one channel
-	int gsize; // repeat count
-	int qsize; // bytes of compressed size of 1 decompressed qword
+	int gsize; // size of data in bytes used for each write cycle
+	int qsize; // used for unpack parts, num of vectors that 
+			   // will be decompressed from data for 1 cycle
 } VIFUnpackFuncTable;
 
 /* block size; data size; group size; qword size; */
@@ -200,88 +201,93 @@ __inline static int _limit( int a, int max ) {
 
 extern void DummyExecuteVU1Block(void);
 
-//#define VIFUNPACKDEBUG
-static void ProcessMemSkip(int size, unsigned int unpackType){
-//	const VIFUnpackFuncTable *unpack;
-//	unpack = &VIFfuncTable[ unpackType ];
+//#define VIFUNPACKDEBUG //enable unpack debugging output 
+
+static void ProcessMemSkip(int size, unsigned int unpackType, const unsigned int VIFdmanum){
+	const VIFUnpackFuncTable *unpack;
+	vifStruct *vif;
+	unpack = &VIFfuncTable[ unpackType ];
 //	varLog |= 0x00000400;
+	if (VIFdmanum == 0) vif = &vif0;
+	else vif = &vif1;
+
 	switch(unpackType){
 		case 0x0:
-			//skipmeminc = size*4;
+			vif->tag.addr += size*4;
 #ifdef VIFUNPACKDEBUG
-			SysPrintf("Processing S-32 skip, size = %d, skip = %d\n", size, skipmeminc);
+			SysPrintf("Processing S-32 skip, size = %d\n", size);
 #endif
 			break;
 		case 0x1:
-			//skipmeminc = size*8;
+			vif->tag.addr += size*8;
 #ifdef VIFUNPACKDEBUG
-			SysPrintf("Processing S-16 skip, size = %d, skip = %d\n", size, skipmeminc);
+			SysPrintf("Processing S-16 skip, size = %d\n", size);
 #endif
 			break;
 		case 0x2:
-			//skipmeminc = size*16;
+			vif->tag.addr += size*16;
 #ifdef VIFUNPACKDEBUG
-			SysPrintf("Processing S-8 skip, size = %d, skip = %d\n", size, skipmeminc);
+			SysPrintf("Processing S-8 skip, size = %d\n", size);
 #endif
 			break;
 		case 0x4:
-			//skipmeminc = size + ((size / unpack->gsize) * 4);
+			vif->tag.addr += size + ((size / unpack->gsize) * 4);
 #ifdef VIFUNPACKDEBUG
-			SysPrintf("Processing V2-32 skip, size = %d, skip = %d\n", size, skipmeminc);
+			SysPrintf("Processing V2-32 skip, size = %d\n", size);
 #endif
 			break;
 		case 0x5:
-			//skipmeminc = (size * 2) + ((size / unpack->gsize) * 4);
+			vif->tag.addr += (size * 2) + ((size / unpack->gsize) * 4);
 #ifdef VIFUNPACKDEBUG
-			SysPrintf("Processing V2-16 skip, size = %d, skip = %d\n", size, skipmeminc);
+			SysPrintf("Processing V2-16 skip, size = %d\n", size);
 #endif
 			break;
 		case 0x6:
-			//skipmeminc = (size * 4) + ((size / unpack->gsize) * 4);
+			vif->tag.addr += (size * 4) + ((size / unpack->gsize) * 4);
 #ifdef VIFUNPACKDEBUG
-			SysPrintf("Processing V2-8 skip, size = %d, skip = %d\n", size, skipmeminc);
+			SysPrintf("Processing V2-8 skip, size = %d\n", size);
 #endif
 			break;
 		case 0x8:
-			//skipmeminc = size + ((size / unpack->gsize) * 4);
+			vif->tag.addr += size + ((size / unpack->gsize) * 4);
 #ifdef VIFUNPACKDEBUG
-			SysPrintf("Processing V3-32 skip, size = %d, skip = %d\n", size, skipmeminc);
+			SysPrintf("Processing V3-32 skip, size = %d\n", size);
 #endif
 			break;
 		case 0x9:
-			//skipmeminc = (size * 2) + ((size / unpack->gsize) * 4);
+			vif->tag.addr += (size * 2) + ((size / unpack->gsize) * 4);
 #ifdef VIFUNPACKDEBUG
-			SysPrintf("Processing V3-16 skip, size = %d, skip = %d\n", size, skipmeminc);
+			SysPrintf("Processing V3-16 skip, size = %d\n", size);
 #endif
 			break;
 		case 0xA:
-			//skipmeminc = (size * 4) + ((size / unpack->gsize) * 4);
+			vif->tag.addr += (size * 4) + ((size / unpack->gsize) * 4);
 #ifdef VIFUNPACKDEBUG
-			SysPrintf("Processing V3-8 skip, size = %d, skip = %d\n", size, skipmeminc);
+			SysPrintf("Processing V3-8 skip, size = %d\n", size);
 #endif
 			break;
 		case 0xC:
-			//skipmeminc = size;
+			vif->tag.addr += size;
 #ifdef VIFUNPACKDEBUG
-			SysPrintf("Processing V4-32 skip, size = %d, skip = %d CL = %d, WL = %d\n", size, skipmeminc, vif1Regs->cycle.cl, vif1Regs->cycle.wl);
+			SysPrintf("Processing V4-32 skip, size = %d, CL = %d, WL = %d\n", size, vif1Regs->cycle.cl, vif1Regs->cycle.wl);
 #endif
 			break;
 		case 0xD:
-			//skipmeminc = size * 2;
+			vif->tag.addr += size * 2;
 #ifdef VIFUNPACKDEBUG
-			SysPrintf("Processing V4-16 skip, size = %d, skip = %d\n", size, skipmeminc);
+			SysPrintf("Processing V4-16 skip, size = %d\n", size);
 #endif
 			break;
 		case 0xE:
-			//skipmeminc = size * 4;
+			vif->tag.addr += size * 4;
 #ifdef VIFUNPACKDEBUG
-			SysPrintf("Processing V4-8 skip, size = %d, skip = %d\n", size, skipmeminc);
+			SysPrintf("Processing V4-8 skip, size = %d\n", size);
 #endif
 			break;
 		case 0xF:
-			//skipmeminc = size * 8;
+			vif->tag.addr +=  size * 8;
 #ifdef VIFUNPACKDEBUG
-			SysPrintf("Processing V4-5 skip, size = %d, skip = %d\n", size, skipmeminc);
+			SysPrintf("Processing V4-5 skip, size = %d\n", size);
 #endif
 			break;		
 		default:
@@ -365,9 +371,8 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 
 	if(unpackType == 0xC && vifRegs->mode == 0 && !(vifRegs->code & 0x10000000) && vifRegs->cycle.cl == vifRegs->cycle.wl) {
 		// v4-32
-#ifdef VIFUNPACKDEBUG
-		if (v->size != size)ProcessMemSkip(size << 2, unpackType);
-#endif
+		if (v->size != size)ProcessMemSkip(size << 2, unpackType, VIFdmanum);
+
 		memcpy_amd((u8*)dest, cdata, size << 2);
 		size = 0;
 		return;
@@ -384,9 +389,9 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 	//memsize = size;
 	size*= 4;
 
-#ifdef VIFUNPACKDEBUG
-	if (v->size != size/4)ProcessMemSkip(size, unpackType);
-#endif
+
+	if (v->size != size/4)ProcessMemSkip(size, unpackType, VIFdmanum);
+
 	if( _vifRegs->offset > 0) {
 		int destinc, unpacksize;
 #ifdef VIFUNPACKDEBUG
@@ -597,7 +602,7 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 					size -= ft->dsize;
 			}
 #ifdef VIFUNPACKDEBUG
-			SysPrintf("leftover done, size %d, vifnum %d, addr %x\n", size, vifRegs->num, vif->tag.addr + skipmeminc);
+			SysPrintf("leftover done, size %d, vifnum %d, addr %x\n", size, vifRegs->num, vif->tag.addr);
 #endif
 		}
 	if(vifRegs->num == 0 && size > 3) SysPrintf("Size = %x, Vifnum = 0!\n", size);
@@ -737,7 +742,7 @@ int vif0transferData(u32 *data, int size) {
 		if (size < vif0.tag.size) {
 			VIFunpack(data, &vif0.tag, size, VIF0dmanum);
 		//	g_vifCycles+= size >> 1;
-			vif0.tag.addr += size << 2;
+			//vif0.tag.addr += size << 2;
 			vif0.tag.size -= size; 
 			ret = size;
 		} else {
@@ -1397,10 +1402,9 @@ int vif1transferData(u32 *data, int size) {
 			   'in pieces' */
 			VIFunpack(data, &vif1.tag, size, VIF1dmanum);
 		//	g_vifCycles+= size >> 1;
-			vif1.tag.addr += size << 2;
+			//vif1.tag.addr += size << 2;
 			vif1.tag.size -= size; 
 			ret = size;
-			
 		} else {
 			/* we got all the data, transfer it fully */
 			VIFunpack(data, &vif1.tag, vif1.tag.size, VIF1dmanum);
