@@ -64,9 +64,9 @@ typedef union {
 
 typedef union {
 	struct {
-		u32 pccr, pcr0, pcr1;
+		u32 pccr, pcr0, pcr1, pad;
 	} n;
-	u32 r[3];
+	u32 r[4];
 } PERFregs;
 
 typedef union {
