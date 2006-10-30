@@ -2385,7 +2385,7 @@ void recompileNextInstruction(int delayslot)
 
 	if( delayslot )
 		pblock->uType = BLOCKTYPE_DELAYSLOT;
-
+		
 	s_pCode = (int *)PSM( pc );
 	assert(s_pCode);
 
@@ -2396,7 +2396,7 @@ void recompileNextInstruction(int delayslot)
 	cpuRegs.code = *(int *)s_pCode;
 	s_nBlockCycles++;
 	pc += 4;
-
+	
 //#ifdef _DEBUG
 //	CMP32ItoM((u32)s_pCode, cpuRegs.code);
 //	j8Ptr[0] = JE8(0);
@@ -2478,7 +2478,29 @@ void recompileNextInstruction(int delayslot)
 	}
 	else {
 	 	assert( !(g_pCurInstInfo->info & EEINSTINFO_NOREC) );
-		
+
+		// if this instruction is a jump or a branch, exit right away
+		if( delayslot ) {
+			switch(cpuRegs.code>>26) {
+				case 1:
+					switch(_Rt_) {
+						case 0: case 1: case 2: case 3: case 0x10: case 0x11: case 0x12: case 0x13:
+							SysPrintf("branch %x in delay slot!\n", cpuRegs.code);
+							_clearNeededX86regs();
+							_clearNeededMMXregs();
+							_clearNeededXMMregs();
+							return;
+					}
+					break;
+
+				case 2: case 3: case 4: case 5: case 6: case 7: case 0x14: case 0x15: case 0x16: case 0x17:
+					SysPrintf("branch %x in delay slot!\n", cpuRegs.code);
+					_clearNeededX86regs();
+					_clearNeededMMXregs();
+					_clearNeededXMMregs();
+					return;
+			}
+		}
 		recBSC[ cpuRegs.code >> 26 ]();
 	}
 
