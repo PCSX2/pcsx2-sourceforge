@@ -358,7 +358,7 @@ void VU0unknown() {
 #endif
 }  
 
-void VU0regsunknown() {
+void VU0regsunknown(_VURegsNum *VUregsn) {
 	assert(0);
 #ifdef CPU_LOG
 	CPU_LOG("Unknown VU micromode opcode called\n"); 
