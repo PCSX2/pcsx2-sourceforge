@@ -19,7 +19,7 @@ ChangeLog:
 			(Refraction - Zerofrog)
 			
  * 16/10/06:[-] Counter bugz again, seemed to effect the text in xmen
-			[-] Fixed an ipu bug which stopped the GTA4 videos working
+			[-] Fixed an ipu bug which stopped the GTA San Andreas videos working
 			[-] couple more smaller unpack changes to remove a hack
 			(Refraction)
 			
