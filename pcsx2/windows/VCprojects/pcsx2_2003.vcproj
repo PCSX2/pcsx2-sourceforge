@@ -1101,52 +1101,52 @@
 				Name="ix86-32"
 				Filter="">
 				<File
-					RelativePath="..\..\ix86-32\iR5900Arit.c">
+					RelativePath="..\..\x86\ix86-32\iR5900Arit.c">
 				</File>
 				<File
-					RelativePath="..\..\ix86-32\iR5900Arit.h">
+					RelativePath="..\..\x86\ix86-32\iR5900Arit.h">
 				</File>
 				<File
-					RelativePath="..\..\ix86-32\iR5900AritImm.c">
+					RelativePath="..\..\x86\ix86-32\iR5900AritImm.c">
 				</File>
 				<File
-					RelativePath="..\..\ix86-32\iR5900AritImm.h">
+					RelativePath="..\..\x86\ix86-32\iR5900AritImm.h">
 				</File>
 				<File
-					RelativePath="..\..\ix86-32\iR5900Branch.c">
+					RelativePath="..\..\x86\ix86-32\iR5900Branch.c">
 				</File>
 				<File
-					RelativePath="..\..\ix86-32\iR5900Branch.h">
+					RelativePath="..\..\x86\ix86-32\iR5900Branch.h">
 				</File>
 				<File
-					RelativePath="..\..\ix86-32\iR5900Jump.c">
+					RelativePath="..\..\x86\ix86-32\iR5900Jump.c">
 				</File>
 				<File
-					RelativePath="..\..\ix86-32\iR5900Jump.h">
+					RelativePath="..\..\x86\ix86-32\iR5900Jump.h">
 				</File>
 				<File
-					RelativePath="..\..\ix86-32\iR5900LoadStore.c">
+					RelativePath="..\..\x86\ix86-32\iR5900LoadStore.c">
 				</File>
 				<File
-					RelativePath="..\..\ix86-32\iR5900LoadStore.h">
+					RelativePath="..\..\x86\ix86-32\iR5900LoadStore.h">
 				</File>
 				<File
-					RelativePath="..\..\ix86-32\iR5900Move.c">
+					RelativePath="..\..\x86\ix86-32\iR5900Move.c">
 				</File>
 				<File
-					RelativePath="..\..\ix86-32\iR5900Move.h">
+					RelativePath="..\..\x86\ix86-32\iR5900Move.h">
 				</File>
 				<File
-					RelativePath="..\..\ix86-32\iR5900MultDiv.c">
+					RelativePath="..\..\x86\ix86-32\iR5900MultDiv.c">
 				</File>
 				<File
-					RelativePath="..\..\ix86-32\iR5900MultDiv.h">
+					RelativePath="..\..\x86\ix86-32\iR5900MultDiv.h">
 				</File>
 				<File
-					RelativePath="..\..\ix86-32\iR5900Shift.c">
+					RelativePath="..\..\x86\ix86-32\iR5900Shift.c">
 				</File>
 				<File
-					RelativePath="..\..\ix86-32\iR5900Shift.h">
+					RelativePath="..\..\x86\ix86-32\iR5900Shift.h">
 				</File>
 			</Filter>
 		</Filter>
