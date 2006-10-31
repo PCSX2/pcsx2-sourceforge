@@ -745,7 +745,7 @@ EERECOMPILE_CODE0(DIVU1, XMMINFO_READS|XMMINFO_READT);
 //do EEINST_SETSIGNEXT
 REC_FUNC( MADD, _Rd_ );
 
-__declspec(align(16)) static u32 s_MaddMask[] = { 0x80000000, 0, 0x80000000, 0 };
+static PCSX2_ALIGNED16(u32 s_MaddMask[]) = { 0x80000000, 0, 0x80000000, 0 };
 
 void recMADDU()
 {

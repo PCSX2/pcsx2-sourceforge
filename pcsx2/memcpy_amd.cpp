@@ -598,6 +598,7 @@ End:
 // assume gcc or mingw
 
 #include <memory.h>
+#include <string.h>
 
 void * memcpy_amd(void *dest, const void *src, size_t n)
 {

@@ -2855,7 +2855,8 @@ static void checkvucodefn(u32 curpc, u32 vuindex, u32 oldcode)
 
 void VuInstruction::Recompile(list<VuInstruction>::const_iterator& itinst, u32 vuxyz)
 {
-	__declspec(align(16)) static VECTOR _VF, _VFc;
+	static PCSX2_ALIGNED16(VECTOR _VF);
+    static PCSX2_ALIGNED16(VECTOR _VFc);
 	u32 *ptr;
 	u8* pjmp;
 	int vfregstore=0, viregstore=0;

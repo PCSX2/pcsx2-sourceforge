@@ -765,7 +765,7 @@ void hwRead128(u32 mem, u64 *out) {
 #endif
 }
 
-__declspec(align(16)) u32 s_TempFIFO[4];
+PCSX2_ALIGNED16(u32 s_TempFIFO[4]);
 void hwConstRead128(u32 mem, int xmmreg) {
 	if (mem >= 0x10004000 && mem < 0x10008000) {
 		iFlushCall(0);

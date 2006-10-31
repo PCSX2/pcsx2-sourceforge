@@ -81,13 +81,13 @@ _vuopinfo *cinfo = NULL;
 
 #define _X_Y_Z_W  ((( VU->code >> 21 ) & 0xF ) )
 
-__declspec(align(16)) float recMult_float_to_int4[4] = { 16.0, 16.0, 16.0, 16.0 };
-__declspec(align(16)) float recMult_float_to_int12[4] = { 4096.0, 4096.0, 4096.0, 4096.0 };
-__declspec(align(16)) float recMult_float_to_int15[4] = { 32768.0, 32768.0, 32768.0, 32768.0 };
+PCSX2_ALIGNED16(float recMult_float_to_int4[4]) = { 16.0, 16.0, 16.0, 16.0 };
+PCSX2_ALIGNED16(float recMult_float_to_int12[4]) = { 4096.0, 4096.0, 4096.0, 4096.0 };
+PCSX2_ALIGNED16(float recMult_float_to_int15[4]) = { 32768.0, 32768.0, 32768.0, 32768.0 };
 
-__declspec(align(16)) float recMult_int_to_float4[4] = { 0.0625f, 0.0625f, 0.0625f, 0.0625f };
-__declspec(align(16)) float recMult_int_to_float12[4] = { 0.000244140625, 0.000244140625, 0.000244140625, 0.000244140625 };
-__declspec(align(16)) float recMult_int_to_float15[4] = { 0.000030517578125, 0.000030517578125, 0.000030517578125, 0.000030517578125 };
+PCSX2_ALIGNED16(float recMult_int_to_float4[4]) = { 0.0625f, 0.0625f, 0.0625f, 0.0625f };
+PCSX2_ALIGNED16(float recMult_int_to_float12[4]) = { 0.000244140625, 0.000244140625, 0.000244140625, 0.000244140625 };
+PCSX2_ALIGNED16(float recMult_int_to_float15[4]) = { 0.000030517578125, 0.000030517578125, 0.000030517578125, 0.000030517578125 };
 static s32 bpc;
 _VURegsNum* g_VUregs = NULL;
 u8 g_MACFlagTransform[256] = {0}; // used to flip xyzw bits
@@ -934,21 +934,21 @@ int _vuGetTempXMMreg(int info)
 	return t1reg;
 }
 
-__declspec(align(16)) u32 g_minvals[4] = {0xff7fffff, 0xff7fffff, 0xff7fffff, 0xff7fffff};
-__declspec(align(16)) u32 g_maxvals[4] = {0x7f7fffff, 0x7f7fffff, 0x7f7fffff, 0x7f7fffff};
+PCSX2_ALIGNED16(u32 g_minvals[4]) = {0xff7fffff, 0xff7fffff, 0xff7fffff, 0xff7fffff};
+PCSX2_ALIGNED16(u32 g_maxvals[4]) = {0x7f7fffff, 0x7f7fffff, 0x7f7fffff, 0x7f7fffff};
 
-static __declspec(align(16)) int const_clip[] = {
+static PCSX2_ALIGNED16(int const_clip[]) = {
 	0x7fffffff, 0x7fffffff, 0x7fffffff, 0x7fffffff,
 	0x80000000, 0x80000000, 0x80000000, 0x80000000 };
 
-static __declspec(align(16)) u32 s_FloatMinMax[] = {
+static PCSX2_ALIGNED16(u32 s_FloatMinMax[]) = {
 	0x007fffff, 0x007fffff, 0x007fffff, 0x007fffff,
 	0x7f7fffff, 0x7f7fffff, 0x7f7fffff, 0x7f7fffff,
 	0,			0,			0,			0 };
 
-static __declspec(align(16)) float s_fones[] = { 1.0f, 1.0f, 1.0f, 1.0f, -1.0f, -1.0f, -1.0f, -1.0f };
-static __declspec(align(16)) u32 s_mask[] = {0x7fffff, 0x7fffff, 0x7fffff, 0x7fffff };
-static __declspec(align(16)) u32 s_expmask[] = {0x7f800000, 0x7f800000, 0x7f800000, 0x7f800000};
+static PCSX2_ALIGNED16(float s_fones[]) = { 1.0f, 1.0f, 1.0f, 1.0f, -1.0f, -1.0f, -1.0f, -1.0f };
+static PCSX2_ALIGNED16(u32 s_mask[]) = {0x7fffff, 0x7fffff, 0x7fffff, 0x7fffff };
+static PCSX2_ALIGNED16(u32 s_expmask[]) = {0x7f800000, 0x7f800000, 0x7f800000, 0x7f800000};
 
 void CheckForOverflowSS_(int fdreg, int t0reg)
 {
@@ -1109,7 +1109,7 @@ void recUpdateFlags(VURegs * VU, int reg, int info)
 /*   VU Upper instructions    */
 /******************************/
 
-static __declspec(align(16)) int const_abs_table[16][4] = 
+static PCSX2_ALIGNED16(int const_abs_table[16][4]) = 
 {
    { 0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff },
    { 0xffffffff, 0xffffffff, 0xffffffff, 0x7fffffff },
@@ -1144,7 +1144,7 @@ void recVUMI_ABS(VURegs *VU, int info)
 	}
 }
 
-__declspec(align(16)) float s_two[4] = {0,0,0,2};
+PCSX2_ALIGNED16(float s_two[4]) = {0,0,0,2};
 
 void recVUMI_ADD(VURegs *VU, int info)
 {
@@ -1556,7 +1556,7 @@ void recVUMI_SUB_iq(VURegs *VU, int addr, int info)
 	if( addr == VU_REGQ_ADDR ) CheckForOverflow(VU, info, EEREC_D);
 }
 
-static __declspec(align(16)) s_unaryminus[4] = {0x80000000, 0, 0, 0};
+static PCSX2_ALIGNED16(s_unaryminus[4]) = {0x80000000, 0, 0, 0};
 
 void recVUMI_SUB_xyzw(VURegs *VU, int xyzw, int info)
 {
@@ -4416,7 +4416,7 @@ void recVUMI_MFP(VURegs *VU, int info)
 	}
 }
 
-static __declspec(align(16)) float s_tempmem[4];
+static PCSX2_ALIGNED16(float s_tempmem[4]);
 
 void recVUMI_WAITP(VURegs *VU, int info)
 {

@@ -643,8 +643,8 @@ void recDIV_S_(int info)
 
 FPURECOMPILE_CONSTCODE(DIV_S, XMMINFO_WRITED|XMMINFO_READS|XMMINFO_READT);
 
-__declspec(align(16)) static u32 s_neg[4] = { 0x80000000, 0, 0, 0 };
-__declspec(align(16)) static u32 s_pos[4] = { 0x7fffffff, 0, 0, 0 };
+static u32 PCSX2_ALIGNED16(s_neg[4]) = { 0x80000000, 0, 0, 0 };
+static u32 PCSX2_ALIGNED16(s_pos[4]) = { 0x7fffffff, 0, 0, 0 };
 
 void recSQRT_S_xmm(int info)
 {

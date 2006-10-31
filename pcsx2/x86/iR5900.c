@@ -1707,7 +1707,10 @@ void recExecuteBlock( void ) {
 extern u32 g_nextBranchCycle;
 
 u32 g_lastpc = 0;
-static u32 g_temp;
+u32 g_EEDispatchTemp;
+u32 s_pCurBlock_ltime;
+
+#ifdef _MSC_VER
 
 // jumped to when invalid pc address
 __declspec(naked,noreturn) void Dispatcher()
@@ -1737,8 +1740,8 @@ CheckPtr:
 	}
 
 #ifdef _DEBUG
-	__asm mov g_temp, eax
-	assert( g_temp );
+	__asm mov g_EEDispatchTemp, eax
+	assert( g_EEDispatchTemp );
 #endif
 
 //	__asm {
@@ -1834,8 +1837,8 @@ __declspec(naked,noreturn) void DispatcherReg()
 	}
 
 #ifdef _DEBUG
-	__asm mov g_temp, eax
-	assert( g_temp );
+	__asm mov g_EEDispatchTemp, eax
+	assert( g_EEDispatchTemp );
 #endif
 
 	__asm {
@@ -1855,6 +1858,68 @@ recomp:
 		jmp eax // fnptr
 	}
 }
+
+#ifdef PCSX2_DEVBUILD
+__declspec(naked) void _StartPerfCounter()
+{
+	__asm {
+		push eax
+		push ebx
+		push ecx
+	
+		rdtsc
+		mov dword ptr [offset lbase], eax
+		mov dword ptr [offset lbase + 4], edx
+
+		pop ecx
+		pop ebx
+		pop eax
+		ret
+	}
+}
+
+__declspec(naked) void _StopPerfCounter()
+{
+	__asm {
+		push eax
+		push ebx
+		push ecx
+	
+		rdtsc
+	
+		sub eax, dword ptr [offset lbase]
+		sbb edx, dword ptr [offset lbase + 4]
+		mov ecx, s_pCurBlock_ltime
+		add eax, dword ptr [ecx]
+		adc edx, dword ptr [ecx + 4]
+		mov dword ptr [ecx], eax
+		mov dword ptr [ecx + 4], edx
+		pop ecx
+		pop ebx
+		pop eax
+		ret
+	}
+}
+
+#endif // PCSX2_DEVBUILD
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+    
+void Dispatcher();
+void DispatcherClear();
+void DispatcherReg();
+void _StartPerfCounter();
+void _StopPerfCounter();
+
+#ifdef __cplusplus
+}
+#endif
+
+#else // _MSC_VER
+
+#endif
 
 ////////////////////////////////////////////////////
 void recClear64(BASEBLOCK* p)
@@ -2112,51 +2177,6 @@ void iFlushCall(int flushtype)
 		x86FpuState=FPU_STATE;
 	}
 }
-
-#ifdef PCSX2_DEVBUILD
-__declspec(naked) void _StartPerfCounter()
-{
-	__asm {
-		push eax
-		push ebx
-		push ecx
-	
-		rdtsc
-		mov dword ptr [offset lbase], eax
-		mov dword ptr [offset lbase + 4], edx
-
-		pop ecx
-		pop ebx
-		pop eax
-		ret
-	}
-}
-
-static u32 s_pCurBlock_ltime;
-__declspec(naked) void _StopPerfCounter()
-{
-	__asm {
-		push eax
-		push ebx
-		push ecx
-	
-		rdtsc
-	
-		sub eax, dword ptr [offset lbase]
-		sbb edx, dword ptr [offset lbase + 4]
-		mov ecx, s_pCurBlock_ltime
-		add eax, dword ptr [ecx]
-		adc edx, dword ptr [ecx + 4]
-		mov dword ptr [ecx], eax
-		mov dword ptr [ecx + 4], edx
-		pop ecx
-		pop ebx
-		pop eax
-		ret
-	}
-}
-
-#endif
 
 void StartPerfCounter()
 {
@@ -2527,28 +2547,28 @@ void recompileNextInstruction(int delayslot)
 //	_freeMMXregs();
 }
 
-__declspec(naked) void iDummyBlock()
-{
-//	g_lastpc = cpuRegs.pc;
-//
-//	do {
-//		cpuRegs.cycle = g_nextBranchCycle;
-//		cpuBranchTest();
-//	} while(g_lastpc == cpuRegs.pc);
-//
-//	__asm jmp DispatcherReg
-	__asm {
-RepDummy:
-		add cpuRegs.cycle, 9
-		call cpuBranchTest
-		cmp cpuRegs.pc, 0x81fc0
-		je RepDummy
-		jmp DispatcherReg
-	}
-}
+//__declspec(naked) void iDummyBlock()
+//{
+////	g_lastpc = cpuRegs.pc;
+////
+////	do {
+////		cpuRegs.cycle = g_nextBranchCycle;
+////		cpuBranchTest();
+////	} while(g_lastpc == cpuRegs.pc);
+////
+////	__asm jmp DispatcherReg
+//	__asm {
+//RepDummy:
+//		add cpuRegs.cycle, 9
+//		call cpuBranchTest
+//		cmp cpuRegs.pc, 0x81fc0
+//		je RepDummy
+//		jmp DispatcherReg
+//	}
+//}
 
 ////////////////////////////////////////////////////
-#include "r3000a.h"
+#include "R3000A.h"
 #include "PsxCounters.h"
 #include "psxmem.h"
 extern tIPU_BP g_BP;

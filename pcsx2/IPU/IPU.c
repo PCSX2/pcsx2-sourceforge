@@ -67,8 +67,8 @@ void FIFOto_clear();
 
 int FOreadpos = 0, FOwritepos = 0;
 static int FIreadpos = 0, FIwritepos = 0;
-__declspec(align(16)) u32 fifo_input[32];
-__declspec(align(16)) u32 fifo_output[32];
+PCSX2_ALIGNED16(u32 fifo_input[32]);
+PCSX2_ALIGNED16(u32 fifo_output[32]);
 
 void ReorderBitstream();
 u16 FillInternalBuffer(u32 * pointer, u32 advance);
@@ -101,10 +101,10 @@ static u8 niq[64],			//non-intraquant matrix
 u16 vqclut[16];			//clut conversion table
 static u8 s_thresh[2];		//thresholds for color conversions
 int coded_block_pattern=0;
-__declspec(align(16)) struct macroblock_8  mb8;
-__declspec(align(16)) struct macroblock_16 mb16;
-__declspec(align(16)) struct macroblock_rgb32 rgb32;
-__declspec(align(16)) struct macroblock_rgb16 rgb16;
+PCSX2_ALIGNED16(struct macroblock_8  mb8);
+PCSX2_ALIGNED16(struct macroblock_16 mb16);
+PCSX2_ALIGNED16(struct macroblock_rgb32 rgb32);
+PCSX2_ALIGNED16(struct macroblock_rgb16 rgb16);
 
 u8 indx4[16*16/2];
 u32	mpeg2_inited;		//mpeg2_idct_init() must be called only once
@@ -115,7 +115,7 @@ decoder_t tempdec;
 extern u8 mpeg2_scan_norm[64];
 extern u8 mpeg2_scan_alt[64];
 
-__declspec(align(16)) u8 _readbits[80];	//local buffer (ring buffer)
+PCSX2_ALIGNED16(u8 _readbits[80]);	//local buffer (ring buffer)
 u8* readbits = _readbits; // always can decrement by one 1qw
 
 #define SATURATE_4BITS(val)		((val)>15 ? 15 : (val))

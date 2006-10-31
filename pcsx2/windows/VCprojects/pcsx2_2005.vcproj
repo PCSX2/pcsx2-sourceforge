@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="windows-1253"?>
 <VisualStudioProject
 	ProjectType="Visual C++"
-	Version="8,00"
+	Version="8.00"
 	Name="pcsx2"
 	ProjectGUID="{1CEFD830-2B76-4596-A4EE-BCD7280A60BD}"
 	RootNamespace="pcsx2"
@@ -53,7 +53,7 @@
 				FavorSizeOrSpeed="1"
 				OmitFramePointers="true"
 				EnableFiberSafeOptimizations="true"
-				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../ix86-32&quot;;../libs;../../pcl"
+				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../x86/ix86-32&quot;;../libs;../../pcl"
 				PreprocessorDefinitions="NDEBUG,WIN32,_WINDOWS,__MSCW32__,__WIN32__,__i386__,ENABLE_NLS,PACKAGE=\&quot;pcsx2\&quot;;WIN32_VIRTUAL_MEM;PCSX2_DEVBUILD;_CRT_SECURE_NO_DEPRECATE;TIXML_USE_STL"
 				StringPooling="true"
 				MinimalRebuild="false"
@@ -152,7 +152,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../ix86-32&quot;;../libs;../../pcl"
+				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../x86/ix86-32&quot;;../libs;../../pcl"
 				PreprocessorDefinitions="_DEBUG,WIN32,_WINDOWS,__MSCW32__,__WIN32__,__i386__,ENABLE_NLS,PACKAGE=\&quot;pcsx2\&quot;;WIN32_VIRTUAL_MEM;PCSX2_DEVBUILD;_CRT_SECURE_NO_DEPRECATE;TIXML_USE_STL"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
@@ -248,7 +248,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../ix86-32&quot;;../libs;../../pcl"
+				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../x86/ix86-32&quot;;../libs;../../pcl"
 				PreprocessorDefinitions="_DEBUG,WIN32,_WINDOWS,__MSCW32__,__WIN32__,__i386__,ENABLE_NLS,PACKAGE=\&quot;pcsx2\&quot;;PCSX2_DEVBUILD;_CRT_SECURE_NO_DEPRECATE;TIXML_USE_STL"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
@@ -350,7 +350,7 @@
 				FavorSizeOrSpeed="1"
 				OmitFramePointers="true"
 				EnableFiberSafeOptimizations="true"
-				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../ix86-32&quot;;../libs;../../pcl"
+				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../x86/ix86-32&quot;;../libs;../../pcl"
 				PreprocessorDefinitions="NDEBUG,WIN32,_WINDOWS,__MSCW32__,__WIN32__,__i386__,ENABLE_NLS,PACKAGE=\&quot;pcsx2\&quot;;PCSX2_DEVBUILD;_CRT_SECURE_NO_DEPRECATE;TIXML_USE_STL"
 				StringPooling="true"
 				ExceptionHandling="1"
@@ -1328,67 +1328,67 @@
 				Name="ix86-32"
 				>
 				<File
-					RelativePath="..\..\ix86-32\iR5900Arit.c"
+					RelativePath="..\..\x86\ix86-32\iR5900Arit.c"
 					>
 				</File>
 				<File
-					RelativePath="..\..\ix86-32\iR5900Arit.h"
+					RelativePath="..\..\x86\ix86-32\iR5900Arit.h"
 					>
 				</File>
 				<File
-					RelativePath="..\..\ix86-32\iR5900AritImm.c"
+					RelativePath="..\..\x86\ix86-32\iR5900AritImm.c"
 					>
 				</File>
 				<File
-					RelativePath="..\..\ix86-32\iR5900AritImm.h"
+					RelativePath="..\..\x86\ix86-32\iR5900AritImm.h"
 					>
 				</File>
 				<File
-					RelativePath="..\..\ix86-32\iR5900Branch.c"
+					RelativePath="..\..\x86\ix86-32\iR5900Branch.c"
 					>
 				</File>
 				<File
-					RelativePath="..\..\ix86-32\iR5900Branch.h"
+					RelativePath="..\..\x86\ix86-32\iR5900Branch.h"
 					>
 				</File>
 				<File
-					RelativePath="..\..\ix86-32\iR5900Jump.c"
+					RelativePath="..\..\x86\ix86-32\iR5900Jump.c"
 					>
 				</File>
 				<File
-					RelativePath="..\..\ix86-32\iR5900Jump.h"
+					RelativePath="..\..\x86\ix86-32\iR5900Jump.h"
 					>
 				</File>
 				<File
-					RelativePath="..\..\ix86-32\iR5900LoadStore.c"
+					RelativePath="..\..\x86\ix86-32\iR5900LoadStore.c"
 					>
 				</File>
 				<File
-					RelativePath="..\..\ix86-32\iR5900LoadStore.h"
+					RelativePath="..\..\x86\ix86-32\iR5900LoadStore.h"
 					>
 				</File>
 				<File
-					RelativePath="..\..\ix86-32\iR5900Move.c"
+					RelativePath="..\..\x86\ix86-32\iR5900Move.c"
 					>
 				</File>
 				<File
-					RelativePath="..\..\ix86-32\iR5900Move.h"
+					RelativePath="..\..\x86\ix86-32\iR5900Move.h"
 					>
 				</File>
 				<File
-					RelativePath="..\..\ix86-32\iR5900MultDiv.c"
+					RelativePath="..\..\x86\ix86-32\iR5900MultDiv.c"
 					>
 				</File>
 				<File
-					RelativePath="..\..\ix86-32\iR5900MultDiv.h"
+					RelativePath="..\..\x86\ix86-32\iR5900MultDiv.h"
 					>
 				</File>
 				<File
-					RelativePath="..\..\ix86-32\iR5900Shift.c"
+					RelativePath="..\..\x86\ix86-32\iR5900Shift.c"
 					>
 				</File>
 				<File
-					RelativePath="..\..\ix86-32\iR5900Shift.h"
+					RelativePath="..\..\x86\ix86-32\iR5900Shift.h"
 					>
 				</File>
 			</Filter>

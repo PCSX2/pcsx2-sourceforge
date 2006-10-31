@@ -29,10 +29,11 @@
 
 static int inter;
 
-__declspec(align(16)) cpuRegisters cpuRegs;
-__declspec(align(16)) fpuRegisters fpuRegs;
-__declspec(align(16)) tlbs tlb[48];
-__declspec(align(16)) GPR_reg64 g_cpuConstRegs[32] = {0};
+PCSX2_ALIGNED16(cpuRegisters cpuRegs);
+PCSX2_ALIGNED16(fpuRegisters fpuRegs);
+PCSX2_ALIGNED16(tlbs tlb[48]);
+PCSX2_ALIGNED16(GPR_reg64 g_cpuConstRegs[32]) = {0};
+
 u32 g_cpuHasConstReg = 0, g_cpuFlushedConstReg = 0;
 R5900cpu *Cpu;
 
@@ -49,6 +50,8 @@ int cpuInit()
 	SysPrintf("Color Legend: White - PCSX2 message\n");
 	SysPrintf(COLOR_GREEN "              Green - EE sio2 printf\n" COLOR_RESET);
 	SysPrintf(COLOR_RED   "              Red   - IOP printf\n" COLOR_RESET);
+
+    printf("%d", (u32)&cpuRegs.pc - (u32)&cpuRegs);
 
 	InitFPUOps();
 	cpudetectInit();

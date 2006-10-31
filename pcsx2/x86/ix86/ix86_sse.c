@@ -1,8 +1,9 @@
 #include <assert.h>
 #include "ix86.h"
 
-__declspec(align(16)) unsigned int p[4],p2[4];
-__declspec(align(16)) float f[4];
+PCSX2_ALIGNED16(unsigned int p[4]);
+PCSX2_ALIGNED16(unsigned int p2[4]);
+PCSX2_ALIGNED16(float f[4]);
 
 
 XMMSSEType g_xmmtypes[XMMREGS] = {0};

@@ -24,6 +24,8 @@
 #endif
 
 #include <zlib.h>
+#include <string.h>
+
 #if defined(__WIN32__)
 
 #include <windows.h>
@@ -36,28 +38,6 @@ typedef struct {
 } AppData;
 
 extern AppData gApp;
-#define pthread_mutex__unlock pthread_mutex_unlock
-
-#elif defined (__LINUX__) 
-
-#include <sys/types.h>
-#include <stdlib.h> // posix_memalign()
-#define BOOL int
-
-#undef TRUE
-#define TRUE  1
-#undef FALSE
-#define FALSE 0
-
-#define max(a,b)            (((a) > (b)) ? (a) : (b))
-#define min(a,b)            (((a) < (b)) ? (a) : (b))
-
-#define strnicmp strncasecmp
-#define stricmp strcasecmp
-
-// Definitions added Feb 16, 2006 by efp
-#define __declspec(x)
-#define __forceinline inline
 #define pthread_mutex__unlock pthread_mutex_unlock
 
 #elif defined(__MINGW32__)
@@ -97,7 +77,38 @@ extern AppData gApp;
 
 #else
 
-#error Need to specify OS target!
+#include <sys/types.h>
+#include <stdlib.h> // posix_memalign()
+#define BOOL int
+
+#undef TRUE
+#define TRUE  1
+#undef FALSE
+#define FALSE 0
+
+#ifndef max
+#define max(a,b)            (((a) > (b)) ? (a) : (b))
+#endif
+
+#ifndef min
+#define min(a,b)            (((a) < (b)) ? (a) : (b))
+#endif
+
+#ifndef strnicmp
+#define strnicmp strncasecmp
+#endif
+
+#ifndef stricmp
+#define stricmp strcasecmp
+#endif
+
+// Definitions added Feb 16, 2006 by efp
+#ifndef __declspec
+#define __declspec(x)
+#endif
+
+#define __forceinline inline
+#define pthread_mutex__unlock pthread_mutex_unlock
 
 #endif
 

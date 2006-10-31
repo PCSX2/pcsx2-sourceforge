@@ -1507,7 +1507,7 @@ LRESULT WINAPI UserNameProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 				{
 					char str[255];
 					GetWindowText(GetDlgItem(hDlg, IDC_USER_NAME), str, 255);
-					swprintf(s_szUserName, L"%S", str);
+					_swprintf(s_szUserName, L"%S", str);
 					EndDialog(hDlg, TRUE );
 					return TRUE;
 				}
