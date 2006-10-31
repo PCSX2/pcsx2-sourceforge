@@ -306,7 +306,7 @@ void SIF0Dma()
 				}
 				else if(sif0.fifoSize >= 4) // Read a tag
 				{
-					__declspec(align(16)) static u32 tag[4];
+					static PCSX2_ALIGNED16(u32 tag[4]);
 					SIF0read((u32*)&tag[0], 4); // Tag
 
 					sif0dma->qwc = (u16)tag[0];

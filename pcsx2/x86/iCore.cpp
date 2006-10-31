@@ -39,8 +39,8 @@ char g_globalMMXLocked = 0, g_globalXMMLocked = 0;
 
 _xmmregs xmmregs[XMMREGS], s_saveXMMregs[XMMREGS];
 
-__declspec(align(16)) u64 g_globalMMXData[8];
-__declspec(align(16)) u64 g_globalXMMData[2*XMMREGS];
+PCSX2_ALIGNED16(u64 g_globalMMXData[8]);
+PCSX2_ALIGNED16(u64 g_globalXMMData[2*XMMREGS]);
 
 // X86 caching
 _x86regs x86regs[X86REGS], s_saveX86regs[X86REGS];
@@ -2003,7 +2003,7 @@ int _signExtendGPRtoMMX(x86MMXRegType to, u32 gprreg, int shift)
 	assert(0);
 }
 
-__declspec(align(16)) u32 s_zeros[4] = {0};
+PCSX2_ALIGNED16(u32 s_zeros[4]) = {0};
 int _signExtendXMMtoM(u32 to, x86SSERegType from, int candestroy)
 {
 	int t0reg;
@@ -2217,7 +2217,7 @@ void _recMove128MtoRmOffset(u32 offset, u32 from)
 	MOV32RtoRmOffset(ECX, EDX, offset+12);
 }
 
-__declspec(align(16)) static u32 s_ones[2] = {0xffffffff, 0xffffffff};
+static PCSX2_ALIGNED16(u32 s_ones[2]) = {0xffffffff, 0xffffffff};
 
 void LogicalOpRtoR(x86MMXRegType to, x86MMXRegType from, int op)
 {

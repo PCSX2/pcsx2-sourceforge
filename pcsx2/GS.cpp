@@ -99,7 +99,7 @@ void gsWaitGS();
 
 extern long pDsp;
 
-__declspec(align(16)) u8 g_MTGSMem[0x2000]; // mtgs has to have its own memory
+PCSX2_ALIGNED16(u8 g_MTGSMem[0x2000]); // mtgs has to have its own memory
 
 } // extern "C"
 
@@ -132,7 +132,7 @@ typedef struct
 } GIFTAG;
 
 static GIFTAG g_path[3];
-__declspec(align(16)) static BYTE s_byRegs[3][16];
+static PCSX2_ALIGNED16(BYTE s_byRegs[3][16]);
 
 HANDLE g_hAllGsReady[3] = {NULL};
 

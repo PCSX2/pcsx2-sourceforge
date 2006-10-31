@@ -208,8 +208,7 @@ void recPLZCW()
 	GPR_DEL_CONST(_Rd_);
 }
 
-__declspec(align(16)) static u32 s_CmpMasks[] = {
-	0x0000ffff, 0x0000ffff, 0x0000ffff, 0x0000ffff };
+static u32 PCSX2_ALIGNED16(s_CmpMasks[]) = { 0x0000ffff, 0x0000ffff, 0x0000ffff, 0x0000ffff };
 
 void recPMFHL()
 {
@@ -1548,8 +1547,8 @@ REC_FUNC( QFSRV, _Rd_);
 #else
 
 ////////////////////////////////////////////////////
-__declspec(align(16)) int s_MaskHighBitD[4] = { 0x80000000, 0x80000000, 0x80000000, 0x80000000 };
-__declspec(align(16)) int s_MaskHighBitW[4] = { 0x80008000, 0x80008000, 0x80008000, 0x80008000 };
+PCSX2_ALIGNED16(int s_MaskHighBitD[4]) = { 0x80000000, 0x80000000, 0x80000000, 0x80000000 };
+PCSX2_ALIGNED16(int s_MaskHighBitW[4]) = { 0x80008000, 0x80008000, 0x80008000, 0x80008000 };
 
 void recPABSW()
 {
@@ -2306,7 +2305,7 @@ void recPDIVBW()
 }
 
 ////////////////////////////////////////////////////
-__declspec(align(16)) int s_mask[4] = {~0, 0, ~0, 0};
+PCSX2_ALIGNED16(int s_mask[4]) = {~0, 0, ~0, 0};
 
 void recPHMADH()
 {
@@ -2960,7 +2959,7 @@ REC_FUNC( PEXCH, _Rd_);
 REC_FUNC( PSRAVW, _Rd_ ); 
 
 ////////////////////////////////////////////////////
-__declspec(align(16)) u32 s_tempPINTEH[4] = {0x0000ffff, 0x0000ffff, 0x0000ffff, 0x0000ffff };
+PCSX2_ALIGNED16(u32 s_tempPINTEH[4]) = {0x0000ffff, 0x0000ffff, 0x0000ffff, 0x0000ffff };
 
 void recPINTEH()
 {

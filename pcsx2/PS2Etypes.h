@@ -10,7 +10,7 @@
 #endif
 
 // Basic types
-#if defined(__MSCW32__)
+#if defined(_WIN32)
 
 typedef __int8  s8;
 typedef __int16 s16;
@@ -28,7 +28,9 @@ typedef u64 uptr;
 typedef u32 uptr;
 #endif
 
-#elif defined(__LINUX__) || defined(__MINGW32__)
+#define PCSX2_ALIGNED16(x) __declspec(align(16)) x
+
+#else
 
 typedef char s8;
 typedef short s16;
@@ -46,13 +48,20 @@ typedef u64 uptr;
 typedef u32 uptr;
 #endif
 
+#ifdef __LINUX__
 typedef union _LARGE_INTEGER
 {
 	long long QuadPart;
 } LARGE_INTEGER;
-
 #endif
 
+#if defined(__MINGW32__)
+#define PCSX2_ALIGNED16(x) __declspec(align(16)) x
+#else
+#define PCSX2_ALIGNED16(x) x __attribute((aligned(16)))
+#endif
+
+#endif
 
 typedef struct {
 	int size;

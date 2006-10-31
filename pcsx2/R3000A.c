@@ -27,7 +27,7 @@ R3000Acpu *psxCpu;
 u32 g_psxConstRegs[32];
 u32 g_psxHasConstReg, g_psxFlushedConstReg;
 
-__declspec(align(16)) psxRegisters psxRegs;
+PCSX2_ALIGNED16(psxRegisters psxRegs);
 
 int psxInit()
 {

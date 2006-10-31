@@ -48,7 +48,7 @@
 
 #include "VUflags.h"
 
-__declspec(align(16)) VURegs VU0;
+PCSX2_ALIGNED16(VURegs VU0);
 
 void COP2() {
 #ifdef VU0_LOG

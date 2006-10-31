@@ -150,13 +150,17 @@ void injectIRX(char *filename);
 
 #ifdef __WIN32__
 
-#define _ALIGNED_MALLOC _aligned_malloc
-#define _ALIGNED_FREE _aligned_free
+//#define _ALIGNED_MALLOC _aligned_malloc
+//#define _ALIGNED_FREE _aligned_free
+
+#define PCSX2_ALIGNED16(x) __declspec(align(16)) x
 
 #elif defined(__MINGW32__)
 
-#define _ALIGNED_MALLOC(x,y) __mingw_aligned_malloc(x,y)
-#define _ALIGNED_FREE(x) __mingw_aligned_free(x)
+#define _aligned_malloc(x,y) __mingw_aligned_malloc(x,y)
+#define _aligned_free(x) __mingw_aligned_free(x)
+
+#define PCSX2_ALIGNED16(x) __declspec(align(16)) x
 
 #else
 
@@ -165,7 +169,7 @@ void injectIRX(char *filename);
 inline void* pcsx2_aligned_malloc(size_t size, size_t align)
 {
 	char* p = (char*)malloc(size+align+1);
-	int off = 1+align - ((int)(long long)(p+1) % align);
+	int off = 1+align - ((int)(p+1) % align);
 
 	p += off;
 	p[-1] = off;
@@ -179,8 +183,10 @@ inline void pcsx2_aligned_free(void* pmem)
 	free(p - (int)p[-1]);
 }
 
-#define _ALIGNED_MALLOC pcsx2_aligned_malloc
-#define _ALIGNED_FREE pcsx2_aligned_free
+//#define _aligned_malloc pcsx2_aligned_malloc
+//#define _aligned_free pcsx2_aligned_free
+
+#define PCSX2_ALIGNED16(x) x __attribute((aligned(16)))
 
 #endif
 

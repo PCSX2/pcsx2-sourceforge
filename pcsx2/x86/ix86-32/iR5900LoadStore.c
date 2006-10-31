@@ -63,7 +63,7 @@ REC_FUNC(SQC2);
 
 #else
 
-__declspec(align(16)) u64 retValues[2];
+PCSX2_ALIGNED16(u64 retValues[2]);
 extern u32 maxrecmem;
 static u32 s_bCachingMem = 0;
 static u32 s_nAddMemOffset = 0;
@@ -3760,7 +3760,7 @@ void recSQC2_co( void )
 
 #else
 
-__declspec(align(16)) u32 dummyValue[4];
+PCSX2_ALIGNED16(u32 dummyValue[4]);
 
 ////////////////////////////////////////////////////
 void recLB( void ) 

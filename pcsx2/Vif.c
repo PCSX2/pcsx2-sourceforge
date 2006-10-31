@@ -28,7 +28,10 @@
 
 VIFregisters *_vifRegs;
 u32* _vifMaskRegs = NULL;
-__declspec(align(16)) u32 g_vifRow0[4], g_vifCol0[4], g_vifRow1[4], g_vifCol1[4];
+PCSX2_ALIGNED16(u32 g_vifRow0[4]);
+PCSX2_ALIGNED16(u32 g_vifCol0[4]);
+PCSX2_ALIGNED16(u32 g_vifRow1[4]);
+PCSX2_ALIGNED16(u32 g_vifCol1[4]);
 u32* _vifRow = NULL;
 
 vifStruct *_vif;
@@ -715,7 +718,8 @@ int  UNPACK_V4_5part(u32 *dest, u32 *data, int size) {
 #include <xmmintrin.h>
 #include <emmintrin.h>
 
-__declspec(align(16)) u32 g_vif1Masks[64], g_vif0Masks[64];
+PCSX2_ALIGNED16(u32 g_vif1Masks[64]);
+PCSX2_ALIGNED16(g_vif0Masks[64]);
 u32 g_vif1HasMask3[4] = {0}, g_vif0HasMask3[4] = {0};
 
 //static const u32 writearr[4] = { 0xffffffff, 0, 0, 0 };
@@ -724,7 +728,7 @@ u32 g_vif1HasMask3[4] = {0}, g_vif0HasMask3[4] = {0};
 //static const u32 updatearr[4] = {0xffffffff, 0xffffffff, 0xffffffff, 0 };
 
 // arranged in writearr, rowarr, colarr, updatearr
-static __declspec(align(16)) s_maskarr[16][4] = {
+static PCSX2_ALIGNED16(s_maskarr[16][4]) = {
 	0xffffffff, 0x00000000, 0x00000000, 0xffffffff,
 	0xffff0000, 0x0000ffff, 0x00000000, 0xffffffff,
 	0xffff0000, 0x00000000, 0x0000ffff, 0xffffffff,
@@ -2209,7 +2213,7 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 } \
 
 // V4-5
-__declspec(align(16)) static u32 s_TempDecompress[4] = {0};
+static PCSX2_ALIGNED16(u32 s_TempDecompress[4]) = {0};
 
 #define DECOMPRESS_RGBA(OFFSET) { \
 	/* R */ \
