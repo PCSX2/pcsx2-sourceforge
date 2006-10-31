@@ -20,7 +20,7 @@
 #include <string.h>
 
 #include "PsxCommon.h"
-#include "ir5900.h"
+#include "iR5900.h"
 
 #ifdef __MSCW32__
 #pragma warning(disable:4244)

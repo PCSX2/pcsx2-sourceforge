@@ -102,31 +102,31 @@ void VU1LowerOP_T3_11();
 
 void VU1unknown();
 
-void VU0regs_UPPER_FD_00();
-void VU0regs_UPPER_FD_01();
-void VU0regs_UPPER_FD_10();
-void VU0regs_UPPER_FD_11();
+void VU0regs_UPPER_FD_00(_VURegsNum *VUregsn);
+void VU0regs_UPPER_FD_01(_VURegsNum *VUregsn);
+void VU0regs_UPPER_FD_10(_VURegsNum *VUregsn);
+void VU0regs_UPPER_FD_11(_VURegsNum *VUregsn);
 
-void VU0regsLowerOP();
-void VU0regsLowerOP_T3_00();
-void VU0regsLowerOP_T3_01();
-void VU0regsLowerOP_T3_10();
-void VU0regsLowerOP_T3_11();
+void VU0regsLowerOP(_VURegsNum *VUregsn);
+void VU0regsLowerOP_T3_00(_VURegsNum *VUregsn);
+void VU0regsLowerOP_T3_01(_VURegsNum *VUregsn);
+void VU0regsLowerOP_T3_10(_VURegsNum *VUregsn);
+void VU0regsLowerOP_T3_11(_VURegsNum *VUregsn);
 
-void VU0regsunknown();
+void VU0regsunknown(_VURegsNum *VUregsn);
 
-void VU1regs_UPPER_FD_00();
-void VU1regs_UPPER_FD_01();
-void VU1regs_UPPER_FD_10();
-void VU1regs_UPPER_FD_11();
+void VU1regs_UPPER_FD_00(_VURegsNum *VUregsn);
+void VU1regs_UPPER_FD_01(_VURegsNum *VUregsn);
+void VU1regs_UPPER_FD_10(_VURegsNum *VUregsn);
+void VU1regs_UPPER_FD_11(_VURegsNum *VUregsn);
 
-void VU1regsLowerOP();
-void VU1regsLowerOP_T3_00();
-void VU1regsLowerOP_T3_01();
-void VU1regsLowerOP_T3_10();
-void VU1regsLowerOP_T3_11();
+void VU1regsLowerOP(_VURegsNum *VUregsn);
+void VU1regsLowerOP_T3_00(_VURegsNum *VUregsn);
+void VU1regsLowerOP_T3_01(_VURegsNum *VUregsn);
+void VU1regsLowerOP_T3_10(_VURegsNum *VUregsn);
+void VU1regsLowerOP_T3_11(_VURegsNum *VUregsn);
 
-void VU1regsunknown();
+void VU1regsunknown(_VURegsNum *VUregsn);
 
 /*****************************************
    VU0 Micromode Upper instructions

@@ -26,9 +26,8 @@ typedef struct {
 	u32 sCycleT, CycleT;
 } psxCounter;
 
-psxCounter psxCounters[8];
-
-u32 psxNextCounter, psxNextsCounter;
+extern psxCounter psxCounters[8];
+extern u32 psxNextCounter, psxNextsCounter;
 
 void psxRcntInit();
 void psxRcntUpdate();

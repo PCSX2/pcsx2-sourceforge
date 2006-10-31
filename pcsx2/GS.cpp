@@ -48,7 +48,7 @@ extern "C" {
 #include "Hw.h"
 
 #include "ix86/ix86.h"
-#include "ir5900.h"
+#include "iR5900.h"
 
 #include "counters.h"
 #include "GS.h"
@@ -1728,7 +1728,7 @@ DWORD WINAPI GSThreadProc(LPVOID lpParam)
 		ret = GSopen((void *)&pDsp, "PCSX2", 1);
 		GSCSRr = 0x551B4000; // 0x55190000
 		SysPrintf("gsOpen done\n");
-		if (ret != 0) { SysMessage ("Error Opening GS Plugin"); return -1; }
+		if (ret != 0) { SysMessage ("Error Opening GS Plugin"); return (DWORD)-1; }
 		SetEvent(g_hGSDone);
 	}
 

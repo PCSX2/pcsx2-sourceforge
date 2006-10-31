@@ -1253,6 +1253,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\x86\iVif.cpp"
+				>
+			</File>
+			<File
 				RelativePath="..\..\x86\iVU0micro.c"
 				>
 			</File>

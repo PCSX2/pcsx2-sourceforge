@@ -388,7 +388,7 @@ void LB() {
 
 	addr = cpuRegs.GPR.r[_Rs_].UL[0] + _Imm_;
 	if (_Rt_) {
-		memRead8RS(addr, &cpuRegs.GPR.r[_Rt_].SD[0]);
+		memRead8RS(addr, &cpuRegs.GPR.r[_Rt_].UD[0]);
 	} else {
 		u64 dummy;
 		memRead8RS(addr, &dummy);
@@ -400,7 +400,7 @@ void LBU() {
 
 	addr = cpuRegs.GPR.r[_Rs_].UL[0] + _Imm_;
 	if (_Rt_) {
-		memRead8RU(addr, &cpuRegs.GPR.r[_Rt_].SD[0]);
+		memRead8RU(addr, &cpuRegs.GPR.r[_Rt_].UD[0]);
 	} else {
 		u64 dummy;
 		memRead8RU(addr, &dummy);
@@ -412,7 +412,7 @@ void LH() {
 
 	addr = cpuRegs.GPR.r[_Rs_].UL[0] + _Imm_;
 	if (_Rt_) {
-		memRead16RS(addr, &cpuRegs.GPR.r[_Rt_].SD[0]);
+		memRead16RS(addr, &cpuRegs.GPR.r[_Rt_].UD[0]);
 	} else {
 		u64 dummy;
 		memRead16RS(addr, &dummy);
@@ -424,7 +424,7 @@ void LHU() {
 
 	addr = cpuRegs.GPR.r[_Rs_].UL[0] + _Imm_;
 	if (_Rt_) {
-		memRead16RU(addr, &cpuRegs.GPR.r[_Rt_].SD[0]);
+		memRead16RU(addr, &cpuRegs.GPR.r[_Rt_].UD[0]);
 	} else {
 		u64 dummy;
 		memRead16RU(addr, &dummy);
@@ -436,7 +436,7 @@ void LW() {
 
 	addr = cpuRegs.GPR.r[_Rs_].UL[0] + _Imm_;
 	if (_Rt_) {
-		memRead32RS(addr, &cpuRegs.GPR.r[_Rt_].SD[0]);
+		memRead32RS(addr, &cpuRegs.GPR.r[_Rt_].UD[0]);
 	} else {
 		u64 dummy;
 		memRead32RS(addr, &dummy);
@@ -448,7 +448,7 @@ void LWU() {
 
 	addr = cpuRegs.GPR.r[_Rs_].UL[0] + _Imm_;
 	if (_Rt_) {
-		memRead32RU(addr, &cpuRegs.GPR.r[_Rt_].SD[0]);
+		memRead32RU(addr, &cpuRegs.GPR.r[_Rt_].UD[0]);
 	} else {
 		u64 dummy;
 		memRead32RU(addr, &dummy);
@@ -513,8 +513,8 @@ void LD() {
 	}
 }
 
-u64 LDL_MASK[8] = { 0x00ffffffffffffff, 0x0000ffffffffffff, 0x000000ffffffffff, 0x00000000ffffffff, 
-					0x0000000000ffffff, 0x000000000000ffff, 0x00000000000000ff, 0x0000000000000000 };
+u64 LDL_MASK[8] = { 0x00ffffffffffffffLL, 0x0000ffffffffffffLL, 0x000000ffffffffffLL, 0x00000000ffffffffLL, 
+					0x0000000000ffffffLL, 0x000000000000ffffLL, 0x00000000000000ffLL, 0x0000000000000000LL };
 u32 LDL_SHIFT[8] = { 56, 48, 40, 32, 24, 16, 8, 0 };
 
 void LDL() {
@@ -528,8 +528,8 @@ void LDL() {
 								(mem << LDL_SHIFT[shift]);
 }
 
-u64 LDR_MASK[8] = { 0x0000000000000000, 0xff00000000000000, 0xffff000000000000, 0xffffff0000000000,
-					0xffffffff00000000, 0xffffffffff000000, 0xffffffffffff0000, 0xffffffffffffff00 };
+u64 LDR_MASK[8] = { 0x0000000000000000LL, 0xff00000000000000LL, 0xffff000000000000LL, 0xffffff0000000000LL,
+					0xffffffff00000000LL, 0xffffffffff000000LL, 0xffffffffffff0000LL, 0xffffffffffffff00LL };
 u32 LDR_SHIFT[8] = { 0, 8, 16, 24, 32, 40, 48, 56 };
 
 void LDR() {  
@@ -630,8 +630,8 @@ void SD() {
     memWrite64(addr,cpuRegs.GPR.r[_Rt_].UD[0]); 
 }
 
-u64 SDL_MASK[8] = { 0xffffffffffffff00, 0xffffffffffff0000, 0xffffffffff000000, 0xffffffff00000000, 
-					0xffffff0000000000, 0xffff000000000000, 0xff00000000000000, 0x0000000000000000 };
+u64 SDL_MASK[8] = { 0xffffffffffffff00LL, 0xffffffffffff0000LL, 0xffffffffff000000LL, 0xffffffff00000000LL, 
+					0xffffff0000000000LL, 0xffff000000000000LL, 0xff00000000000000LL, 0x0000000000000000LL };
 u32 SDL_SHIFT[8] = { 56, 48, 40, 32, 24, 16, 8, 0 };
 
 void SDL() {
@@ -645,8 +645,8 @@ void SDL() {
 		      ( mem & SDL_MASK[shift]) );
 }
 
-u64 SDR_MASK[8] = { 0x0000000000000000, 0x00000000000000ff, 0x000000000000ffff, 0x0000000000ffffff,
-					0x00000000ffffffff, 0x000000ffffffffff, 0x0000ffffffffffff, 0x00ffffffffffffff };
+u64 SDR_MASK[8] = { 0x0000000000000000LL, 0x00000000000000ffLL, 0x000000000000ffffLL, 0x0000000000ffffffLL,
+					0x00000000ffffffffLL, 0x000000ffffffffffLL, 0x0000ffffffffffffLL, 0x00ffffffffffffffLL };
 u32 SDR_SHIFT[8] = { 0, 8, 16, 24, 32, 40, 48, 56 };
 
 void SDR() {
@@ -735,8 +735,8 @@ int __Deci2Call(int call, u32 *addr) {
 //			SysPrintf("deci2msg: %s", (char*)PSM(deci2addr[4]+0xc));
 			if (deci2addr == NULL) return 1;
 			if (deci2addr[1]>0xc){
-				u8* pdeciaddr = dmaGetAddr(deci2addr[4]+0xc);
-				if( pdeciaddr == NULL ) pdeciaddr = PSM(deci2addr[4]+0xc);
+				u8* pdeciaddr = (u8*)dmaGetAddr(deci2addr[4]+0xc);
+				if( pdeciaddr == NULL ) pdeciaddr = (u8*)PSM(deci2addr[4]+0xc);
 				else pdeciaddr += (deci2addr[4]+0xc)%16;
 				memcpy(deci2buffer, pdeciaddr, deci2addr[1]-0xc);
 				deci2buffer[deci2addr[1]-0xc>=255?255:deci2addr[1]-0xc]='\0';
@@ -956,7 +956,7 @@ static void intExecuteBlock() {
 extern void iDumpVU0Registers();
 extern void iDumpVU1Registers();
 extern u32 vudump;
-extern vu0branch, vu1branch;
+extern int vu0branch, vu1branch;
 
 void intExecuteVU0Block() {
 int i;

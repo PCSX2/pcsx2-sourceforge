@@ -191,19 +191,19 @@ void PMFHL() {
 		case 0x02: // SLW
 			{
 				u64 TempU64 = ((u64)cpuRegs.HI.UL[0] << 32) | (u64)cpuRegs.LO.UL[0];
-				if (TempU64 >= 0x000000007fffffff) {
-					cpuRegs.GPR.r[_Rd_].UD[0] = 0x000000007fffffff;
-				} else if (TempU64 <= 0xffffffff80000000) {
-					cpuRegs.GPR.r[_Rd_].UD[0] = 0xffffffff80000000;
+				if (TempU64 >= 0x000000007fffffffLL) {
+					cpuRegs.GPR.r[_Rd_].UD[0] = 0x000000007fffffffLL;
+				} else if (TempU64 <= 0xffffffff80000000LL) {
+					cpuRegs.GPR.r[_Rd_].UD[0] = 0xffffffff80000000LL;
 				} else {
 					cpuRegs.GPR.r[_Rd_].UD[0] = (s64)cpuRegs.LO.SL[0];
 				}
 
 				TempU64 = ((u64)cpuRegs.HI.UL[2] << 32) | (u64)cpuRegs.LO.UL[2];
-				if (TempU64 >= 0x000000007fffffff) {
-					cpuRegs.GPR.r[_Rd_].UD[1] = 0x000000007fffffff;
-				} else if (TempU64 <= 0xffffffff80000000) {
-					cpuRegs.GPR.r[_Rd_].UD[1] = 0xffffffff80000000;
+				if (TempU64 >= 0x000000007fffffffLL) {
+					cpuRegs.GPR.r[_Rd_].UD[1] = 0x000000007fffffffLL;
+				} else if (TempU64 <= 0xffffffff80000000LL) {
+					cpuRegs.GPR.r[_Rd_].UD[1] = 0xffffffff80000000LL;
 				} else {
 					cpuRegs.GPR.r[_Rd_].UD[1] = (s64)cpuRegs.LO.SL[2];
 				}
@@ -429,8 +429,8 @@ void PCGTB() {
     if (sTemp64 > 0x7FFFFFFF) { \
         cpuRegs.GPR.r[_Rd_].UL[n] = 0x7FFFFFFF; \
     } else \
-    if ((sTemp64 < 0x180000000) && (sTemp64 >= 0x100000000)) { \
-        cpuRegs.GPR.r[_Rd_].UL[n] = 0x80000000; \
+    if ((sTemp64 < 0x180000000LL) && (sTemp64 >= 0x100000000LL)) { \
+        cpuRegs.GPR.r[_Rd_].UL[n] = 0x80000000LL; \
     } else { \
         cpuRegs.GPR.r[_Rd_].UL[n] = (s32)sTemp64; \
     }
@@ -448,8 +448,8 @@ void PADDSW() {
     if (sTemp64 >= 0x7FFFFFFF) { \
         cpuRegs.GPR.r[_Rd_].UL[n] = 0x7FFFFFFF; \
     } else \
-    if ((sTemp64 < 0x180000000) && (sTemp64 >= 0x100000000)) { \
-        cpuRegs.GPR.r[_Rd_].UL[n] = 0x80000000; \
+    if ((sTemp64 < 0x180000000LL) && (sTemp64 >= 0x100000000LL)) { \
+        cpuRegs.GPR.r[_Rd_].UL[n] = 0x80000000LL; \
     } else { \
         cpuRegs.GPR.r[_Rd_].UL[n] = (s32)sTemp64; \
     }

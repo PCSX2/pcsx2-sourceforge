@@ -302,14 +302,14 @@ void vu1Exec(VURegs* VU) {
 _vuTables(VU1, VU1);
 _vuRegsTables(VU1, VU1regs);
 
-void VU1unknown() {
+void VU1unknown(_VURegsNum *VUregsn) {
 	//assert(0);
 #ifdef CPU_LOG
 	CPU_LOG("Unknown VU micromode opcode called\n"); 
 #endif
 }  
  
-void VU1regsunknown() {
+void VU1regsunknown(_VURegsNum *VUregsn) {
 	//assert(0);
 #ifdef CPU_LOG
 	CPU_LOG("Unknown VU micromode opcode called\n"); 

@@ -17,12 +17,10 @@
  */
 
 #include <string.h>
-#include <xmmintrin.h>
-#include <emmintrin.h>
 #include "Common.h"
 #include "SPR.h"
 
-#include "ir5900.h"
+#include "iR5900.h"
 
 #define spr0 ((DMACh*)&PS2MEM_HW[0xD000])
 #define spr1 ((DMACh*)&PS2MEM_HW[0xD400])

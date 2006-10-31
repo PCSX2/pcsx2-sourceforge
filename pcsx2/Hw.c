@@ -21,10 +21,10 @@
 #include <malloc.h>
 
 #include "Common.h"
-#include "ir5900.h"
+#include "iR5900.h"
 #include "VUmicro.h"
 #include "PsxMem.h"
-#include "IPU.h"
+#include "IPU/IPU.h"
 #include "GS.h"
 
 #include <assert.h>

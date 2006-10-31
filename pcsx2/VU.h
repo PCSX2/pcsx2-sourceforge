@@ -99,7 +99,7 @@ typedef struct {
 	u32 clipflag;
 } fmacPipe;
 
-typedef struct {
+typedef struct _VURegs {
 	VECTOR	VF[32];
 	REG_VI	VI[32];
 	VECTOR ACC;
@@ -113,7 +113,7 @@ typedef struct {
 	u32 cycle;
 	u32 flags;
 
-	void (*vuExec)(void*);
+	void (*vuExec)(struct _VURegs*);
 	VIFregisters *vifRegs;
 
 	u8 *Mem;

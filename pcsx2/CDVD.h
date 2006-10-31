@@ -88,7 +88,7 @@ typedef struct {
 extern cdvdStruct cdvd;
 
 void cdvdReset();
-void cdvdReadTimeRcnt();
+void cdvdReadTimeRcnt(int mode);
 void cdvdVsync();
 int  cdvdInterrupt();
 int  cdvdFreeze(gzFile f, int Mode);

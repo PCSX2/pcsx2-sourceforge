@@ -107,7 +107,6 @@ extern AppData gApp;
 #define __declspec(x)
 #endif
 
-#define __forceinline inline
 #define pthread_mutex__unlock pthread_mutex_unlock
 
 #endif
@@ -248,7 +247,6 @@ extern u16 logProtocol;
 extern u8  logSource;
 #define PCSX2_VERSION "0.9.2"
 
-#ifdef __MSCW32__
 // C++ code for sqrtf
 void InitFPUOps();
 extern float (*fpusqrtf)(float fval);
@@ -258,7 +256,7 @@ extern float (*fpucosf)(float fval);
 extern float (*fpuexpf)(float fval);
 extern float (*fpuatanf)(float fval);
 extern float (*fpuatan2f)(float fvalx, float fvaly);
-#endif
+
 // Added Feb 16, 2006 by efp
 #ifdef __LINUX__
 #include <errno.h> // EBUSY

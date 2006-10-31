@@ -18,8 +18,6 @@
 
 #include <string.h>
 #include <malloc.h>
-#include <xmmintrin.h>
-#include <emmintrin.h>
 #include "Common.h"
 #include "PsxCommon.h"
 #include "Sif.h"

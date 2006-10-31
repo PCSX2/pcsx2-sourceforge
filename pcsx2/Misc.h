@@ -148,24 +148,9 @@ void memxor_mmx(void* dst, const void* src1, int cmpsize);
 void __Log(char *fmt, ...);
 void injectIRX(char *filename);
 
-#ifdef __WIN32__
-
-//#define _ALIGNED_MALLOC _aligned_malloc
-//#define _ALIGNED_FREE _aligned_free
-
-#define PCSX2_ALIGNED16(x) __declspec(align(16)) x
-
-#elif defined(__MINGW32__)
-
-#define _aligned_malloc(x,y) __mingw_aligned_malloc(x,y)
-#define _aligned_free(x) __mingw_aligned_free(x)
-
-#define PCSX2_ALIGNED16(x) __declspec(align(16)) x
-
-#else
+#if !defined(_MSC_VER) && !defined(HAVE_ALIGNED_MALLOC)
 
 // declare linux equivalents
-
 inline void* pcsx2_aligned_malloc(size_t size, size_t align)
 {
 	char* p = (char*)malloc(size+align+1);
@@ -183,10 +168,8 @@ inline void pcsx2_aligned_free(void* pmem)
 	free(p - (int)p[-1]);
 }
 
-//#define _aligned_malloc pcsx2_aligned_malloc
-//#define _aligned_free pcsx2_aligned_free
-
-#define PCSX2_ALIGNED16(x) x __attribute((aligned(16)))
+#define _aligned_malloc pcsx2_aligned_malloc
+#define _aligned_free pcsx2_aligned_free
 
 #endif
 

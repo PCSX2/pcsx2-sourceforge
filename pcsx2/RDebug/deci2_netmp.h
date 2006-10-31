@@ -1,4 +1,4 @@
-/*  Pcsx2 - Pc Ps2 Emulator
+    /*  Pcsx2 - Pc Ps2 Emulator
  *  Copyright (C) 2002-2003  Pcsx2 Team
  *
  *  This program is free software; you can redistribute it and/or modify

@@ -25,7 +25,6 @@
 #include "pcl_config.h"
 #include "pcl.h"
 
-
 #if defined(CO_USE_UCONEXT)
 #include <ucontext.h>
 
@@ -353,7 +352,25 @@ static int co_set_context(co_ctx_t *ctx, void *func, char *stkbase, long stksiz)
 	ctx->cc[0].__jmpbuf[JB_LR] = (int) func;
 	ctx->cc[0].__jmpbuf[JB_GPR1] = (int) stack;
 #else
-#error "PCL: Unsupported setjmp/longjmp platform. Please report to <davidel@xmailserver.org>"
+
+    // automatically assume windows/x86 (cygwin)
+typedef struct __JUMP_BUFFER {
+    unsigned long Ebp;
+    unsigned long Ebx;
+    unsigned long Edi;
+    unsigned long Esi;
+    unsigned long Esp;
+    unsigned long Eip;
+    unsigned long Registration;
+    unsigned long TryLevel;
+    unsigned long Cookie;
+    unsigned long UnwindFunc;
+    unsigned long UnwindData[6];
+} _JUMP_BUFFER;
+
+    ((_JUMP_BUFFER *) &ctx->cc)->Eip = (long) func;
+	((_JUMP_BUFFER *) &ctx->cc)->Esp = (long) stack;
+#warning "PCL: Unsupported setjmp/longjmp platform. Please report to <davidel@xmailserver.org>"
 #endif
 
 	return 0;

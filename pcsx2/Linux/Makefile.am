@@ -9,8 +9,8 @@ pcsx2_LDFLAGS =
 
 LDADD = ../libpcsx2.a ../DebugTools/libDebugTools.a ../IPU/libIPU.a ../x86/ix86/libix86.a ../pcl/libpcl.a ../RDebug/libRDebug.a ../zlib/libpcsx2zlib.a
 
-if __x86_64__
+if X86_64
 LDADD += ../x86/ix86-64/libx86-64recomp.a
-else !__x86_64__
+else
 LDADD += ../x86/ix86-32/libx86-32recomp.a
-endif !__x86_64__
+endif
