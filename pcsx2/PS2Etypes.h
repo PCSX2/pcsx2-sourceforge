@@ -61,6 +61,10 @@ typedef union _LARGE_INTEGER
 #define PCSX2_ALIGNED16(x) x __attribute((aligned(16)))
 #endif
 
+#ifndef __forceinline
+#define __forceinline inline
+#endif
+
 #endif
 
 typedef struct {

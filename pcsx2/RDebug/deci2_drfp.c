@@ -26,6 +26,8 @@ typedef struct tag_DECI2_DCMP_HEADER{
 	u16				_pad;	//+0A
 } DECI2_DCMP_HEADER;		//=0C
 
+extern char d2_message[100];
+
 void D2_DCMP(char *inbuffer, char *outbuffer, char *message){
 	DECI2_DCMP_HEADER	*in=(DECI2_DCMP_HEADER*)inbuffer,
 				*out=(DECI2_DCMP_HEADER*)outbuffer;

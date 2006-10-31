@@ -37,13 +37,11 @@ extern u32* _vifMaskRegs;
 extern u32 g_vifRow0[4], g_vifCol0[4], g_vifRow1[4], g_vifCol1[4];
 extern u32* _vifRow;
 
-extern u32 g_vif1Masks[48], g_vif0Masks[48];
-extern u32 g_vif1HasMask3[4], g_vif0HasMask3[4];
+vifStruct vif0, vif1;
 
-#if (defined(__i386__) || defined(__x86_64__))
-#include <xmmintrin.h>
-#include <emmintrin.h>
-#endif
+PCSX2_ALIGNED16(u32 g_vif1Masks[64]);
+PCSX2_ALIGNED16(u32 g_vif0Masks[64]);
+u32 g_vif1HasMask3[4] = {0}, g_vif0HasMask3[4] = {0};
 
 // Generic constants
 static const unsigned int VIF0intc = 4;
@@ -295,6 +293,14 @@ static void ProcessMemSkip(int size, unsigned int unpackType, const unsigned int
 			break;
 	}
 }
+
+#ifdef _MSC_VER
+//#define __MMX__
+//#define __SSE__
+#include <xmmintrin.h>
+#include <emmintrin.h>
+#endif
+
 static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdmanum) {
 	u32 *dest;
 	unsigned int unpackType;
@@ -307,8 +313,9 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 	u8 *cdata = (u8*)data;
 	int memsize;
 
+#ifdef _MSC_VER
 	_mm_prefetch((char*)data, _MM_HINT_NTA);
-
+#endif
 
 	if (VIFdmanum == 0) {
 		VU = &VU0;
@@ -378,7 +385,9 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 		return;
 	}
 
+#ifdef _MSC_VER
 	_mm_prefetch((char*)data+128, _MM_HINT_NTA);
+#endif
 	_vifRegs = (VIFregisters*)vifRegs;
 	_vifMaskRegs = VIFdmanum ? g_vif1Masks : g_vif0Masks;
     _vif = vif;

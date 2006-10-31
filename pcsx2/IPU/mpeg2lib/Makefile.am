@@ -1,4 +1,4 @@
-INCLUDES = -I../ -I../../
+INCLUDES = -I../ -I../../ -I../../x86
 noinst_LIBRARIES = libmpeg2IPU.a
 
-libpcsx2_a_SOURCES = Idct.c Mpeg.c Mpeg.h Vlc.h
+libmpeg2IPU_a_SOURCES = Idct.c Mpeg.c Mpeg.h Vlc.h

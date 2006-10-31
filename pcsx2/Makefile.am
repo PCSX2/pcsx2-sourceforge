@@ -20,4 +20,4 @@ Counters.h    InterTables.h  PsxBios2.h      PsxSio2.c         VifDma.c \
 Decode_XA.c   Mdec.c         PsxBios.c       PsxSio2.h         VifDma.h
 
 
-SUBDIRS = . DebugTools IPU pcl RDebug zlib Linux tinyxml x86
+SUBDIRS = . DebugTools IPU pcl RDebug zlib tinyxml x86 Linux 

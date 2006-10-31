@@ -21,7 +21,7 @@
 
 //2002-09-20 (Florin)
 extern char args[256];		//to be filled by GUI
-unsigned int args_ptr;
+extern unsigned int args_ptr;
 //-------------------
 int loadElfFile(char *filename);
 

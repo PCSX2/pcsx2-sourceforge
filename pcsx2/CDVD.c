@@ -742,7 +742,7 @@ int cdvdReadSector() {
 	}
 	// decrypt sector's bytes
 	if(cdvd.decSet)
-		mechaDecryptBytes(PSXM(HW_DMA3_MADR), cdvd.BlockSize);
+		mechaDecryptBytes((unsigned char*)PSXM(HW_DMA3_MADR), cdvd.BlockSize);
 
 //	SysPrintf("sector %x;%x;%x\n", PSXMu8(HW_DMA3_MADR+0), PSXMu8(HW_DMA3_MADR+1), PSXMu8(HW_DMA3_MADR+2));
 

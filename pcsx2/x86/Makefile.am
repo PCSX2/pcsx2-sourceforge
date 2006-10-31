@@ -7,9 +7,12 @@ iCore.h    iFPU.h  iR3000A.h          ir5900tables.c  iVU1micro.h  iVUzerorec.cp
 iCP0.c     iMMI.c  iR3000Atables.cpp  iVU0micro.c     iVUmicro.c   iVUzerorec.h \
 iCP0.h     iMMI.h  iR5900.c           iVU0micro.h     iVUmicro.h   recCOP2.c
 
-SUBDIRS = ix86
-if __x86_64__
-SUBDIRS += ix86-64
-else !__x86_64__
-SUBDIRS += ix86-32
-endif !__x86_64__
+
+
+if X86_64
+tempdir = ix86-64
+else
+tempdir = ix86-32
+endif
+
+SUBDIRS = ix86 $(tempdir)

@@ -2220,12 +2220,12 @@ int memInit() {
 	memLUTRU = (uptr*)_aligned_malloc(0x100000 * sizeof(uptr), 16);
 	memLUTWU = (uptr*)_aligned_malloc(0x100000 * sizeof(uptr), 16);
 
-	psM  = (char*)_aligned_malloc(0x02000010, 16);
-	psR  = (char*)_aligned_malloc(0x00400010, 16);
-	psR1 = (char*)_aligned_malloc(0x00080010, 16);
-	psR2 = (char*)_aligned_malloc(0x00080010, 16);
-	psER = (char*)_aligned_malloc(0x001C0010, 16);
-	psS  = (char*)_aligned_malloc(0x00004010, 16);
+	psM  = (u8*)_aligned_malloc(0x02000010, 16);
+	psR  = (u8*)_aligned_malloc(0x00400010, 16);
+	psR1 = (u8*)_aligned_malloc(0x00080010, 16);
+	psR2 = (u8*)_aligned_malloc(0x00080010, 16);
+	psER = (u8*)_aligned_malloc(0x001C0010, 16);
+	psS  = (u8*)_aligned_malloc(0x00004010, 16);
 	if (memLUTRK == NULL || memLUTWK == NULL ||
 		memLUTRU == NULL || memLUTWU == NULL || 
 		psM  == NULL || psR  == NULL || psR1 == NULL || 

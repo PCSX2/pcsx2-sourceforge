@@ -40,8 +40,7 @@ typedef struct {
 	u32 savedtag;
 } vifStruct;
 
-vifStruct vif0;
-vifStruct vif1;
+extern vifStruct vif0, vif1;
 
 #define vif0ch ((DMACh*)&PS2MEM_HW[0x8000])
 #define vif1ch ((DMACh*)&PS2MEM_HW[0x9000])

@@ -2,8 +2,9 @@ AC_INIT(pcsx2,0.9.2,zerofrog@gmail.com)
 
 AM_INIT_AUTOMAKE(pcsx2,0.9.2)
 
-AC_PROG_CC
-AC_PROG_CXX
+AC_PROG_CC([gcc g++ cl KCC CC cxx cc++ xlC aCC c++])
+AC_PROG_CXX([gcc g++ cl KCC CC cxx cc++ xlC aCC c++])
+AC_PROG_CPP([gcc g++ cl KCC CC cxx cc++ xlC aCC c++])
 
 AC_PROG_RANLIB
 
@@ -27,6 +28,8 @@ AC_MSG_RESULT($debug)
 dnl CFLAGS+="-masm=intel "
 dnl CPPFLAGS="-masm=intel "
 dnl CXXFLAGS="-masm=intel "
+
+AC_CHECK_FUNCS([ _aligned_malloc _aligned_free ], AC_DEFINE(HAVE_ALIGNED_MALLOC))
 
 dnl Check for dev build
 AC_MSG_CHECKING(for development build)
@@ -61,15 +64,17 @@ then
 AC_DEFINE(__x86_64__,1,[__x86_64__])
 fi
 AC_MSG_RESULT($cpu64)
-AM_CONDITIONAL(__x86_64__, test x$cpu64 = xyes)
+AM_CONDITIONAL(X86_64, test x$cpu64 = xyes)
 
 AC_OUTPUT([
  Makefile
  DebugTools/Makefile
  Linux/Makefile
  IPU/Makefile
+ IPU/mpeg2lib/Makefile
  pcl/Makefile
  RDebug/Makefile
+ tinyxml/Makefile
  x86/Makefile
  x86/ix86/Makefile
  x86/ix86-32/Makefile

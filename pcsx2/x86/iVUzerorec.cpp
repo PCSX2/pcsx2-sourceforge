@@ -49,7 +49,7 @@ extern "C" {
 #include "GS.h"
 
 #include "ix86/ix86.h"
-#include "ir5900.h"
+#include "iR5900.h"
 
 #include "iVUzerorec.h"
 

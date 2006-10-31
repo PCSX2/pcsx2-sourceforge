@@ -24,11 +24,8 @@
 #include <assert.h>
 #include <time.h>
 
-#include <xmmintrin.h>
-#include <emmintrin.h>
-
-#include "ir5900.h"
-#include "pcl.h"
+#include "iR5900.h"
+#include "pcl/pcl.h"
 
 #ifdef __WIN32__
 #define FASTCALL	__fastcall

@@ -117,16 +117,19 @@ static s32 iCpuId( u32 cmd, u32 *regs )
    }
 
    __asm__ __volatile__ (
+      "push %%ebx\n"
+      "push %%edx\n"
       "mov %4, %%eax\n"
       "cpuid\n"
       "mov %%eax, %0\n"
       "mov %%ebx, %1\n"
       "mov %%ecx, %2\n"
       "mov %%edx, %3\n"
-      : "=m" (regs[0]), "=m" (regs[1]),
-        "=m" (regs[2]), "=m" (regs[3])
+      "pop %%edx\n"
+      "pop %%ebx\n"
+      : "=m" (regs[0]), "=m" (regs[1]), "=m" (regs[2]), "=m" (regs[3])
       : "m"(cmd)
-      : "eax", "ebx", "ecx", "edx"
+      : "eax", "ecx"//, "edx", "ebx"
    );
 
    return 0;

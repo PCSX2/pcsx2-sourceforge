@@ -186,7 +186,7 @@ unsigned int parseCommandLine( char *filename )
       {
          return 0;
       }
-		strcpy( &PS2MEM_BASE[ args_ptr ], p );						//fill param 0; i.e. name of the program
+		strcpy( (char*)&PS2MEM_BASE[ args_ptr ], p );						//fill param 0; i.e. name of the program
 
 		for ( i = strlen( p ) + 1 + 256, argc = 0; i > 0; i-- )
       {
@@ -574,7 +574,7 @@ int loadElfFile(char *filename) {
 	SysPrintf("loadElfFile: %d\n", elfsize);
 	elfdata = (u8*)malloc(elfsize);
 	if (elfdata == NULL) return -1;
-	readFile(filename, elfdata, 0, elfsize);
+	readFile(filename, (char*)elfdata, 0, elfsize);
 
 /*	{
 		FILE *f = fopen("game.elf", "wb");
@@ -601,8 +601,8 @@ int loadElfFile(char *filename) {
 	//---------------
 
 	for ( i = 0; i < 0x100000; i++ ) {
-		if ( strcmp( "rom0:OSDSYS", PSM( i ) ) == 0 ) {
-			strcpy( PSM( i ), filename );
+		if ( strcmp( "rom0:OSDSYS", (char*)PSM( i ) ) == 0 ) {
+			strcpy( (char*)PSM( i ), filename );
 			SysPrintf( "addr %x \"%s\" -> \"%s\"\n", i, "rom0:OSDSYS", filename );
 		}
 	}
