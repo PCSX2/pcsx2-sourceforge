@@ -116,7 +116,12 @@ s32 CALLBACK CDVDopen() {
 	}
 
 	if (BlockDump) {
-		fdump = isoCreate("block.dump", ISOFLAGS_BLOCKDUMP);
+		char fname[MAX_PATH],ext[MAX_PATH];
+		char fname_only[MAX_PATH];
+		_splitpath(IsoFile,NULL,NULL,fname,ext);
+		_makepath(fname_only,NULL,NULL,fname,NULL);
+		strcat(fname_only, ".dump");
+		fdump = isoCreate(fname_only, ISOFLAGS_BLOCKDUMP);
 		if (fdump) {
 			isoSetFormat(fdump, iso->blockofs, iso->blocksize, iso->blocks);
 		}
