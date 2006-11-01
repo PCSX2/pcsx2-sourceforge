@@ -491,7 +491,7 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 				dest = (u32*)((u8*)dest + ((left/vifRegs->cycle.wl)*vifRegs->cycle.cl + left%vifRegs->cycle.wl)*16);
 			}
 
-			vif->tag.addr += (size / ft->gsize) * ((vifRegs->cycle.cl - vifRegs->cycle.wl)*16);
+			vif->tag.addr += ((size / ft->gsize) / vifRegs->cycle.wl) * ((vifRegs->cycle.cl - vifRegs->cycle.wl)*16);
 			size = writemask;
 
 			//QueryPerformanceCounter(&lfinal);
