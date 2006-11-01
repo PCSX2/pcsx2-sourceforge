@@ -32,43 +32,43 @@
 
 #ifndef MMI_RECOMPILE
 
-REC_FUNC( PLZCW );
+REC_FUNC( PLZCW, _Rd_ );
 
 #ifndef MMI0_RECOMPILE
 
-REC_FUNC( MMI0 );
+REC_FUNC( MMI0, _Rd_ );
 
 #endif
 
 #ifndef MMI1_RECOMPILE
 
-REC_FUNC( MMI1 );
+REC_FUNC( MMI1, _Rd_ );
 
 #endif
 
 #ifndef MMI2_RECOMPILE
 
-REC_FUNC( MMI2 );
+REC_FUNC( MMI2, _Rd_ );
 
 #endif
 
 #ifndef MMI3_RECOMPILE
 
-REC_FUNC( MMI3 );
+REC_FUNC( MMI3, _Rd_ );
 
 #endif
 
-REC_FUNC( PMFHL );
-REC_FUNC( PMTHL );
+REC_FUNC( PMFHL, _Rd_ );
+REC_FUNC( PMTHL, _Rd_ );
 
-REC_FUNC( PSRLW );
-REC_FUNC( PSRLH );
+REC_FUNC( PSRLW, _Rd_ );
+REC_FUNC( PSRLH, _Rd_ );
 
-REC_FUNC( PSRAH );
-REC_FUNC( PSRAW );
+REC_FUNC( PSRAH, _Rd_ );
+REC_FUNC( PSRAW, _Rd_ );
 
-REC_FUNC( PSLLH );
-REC_FUNC( PSLLW );
+REC_FUNC( PSLLH, _Rd_ );
+REC_FUNC( PSLLW, _Rd_ );
 
 #else
 
