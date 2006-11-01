@@ -995,6 +995,9 @@ void rpropCP1(EEINST* prev, EEINST* pinst)
 			rpropSetRead(_Rt_, EEINST_LIVE1|EEINST_REALXMM|EEINST_MMX);
 			break;
 		case 8: // bc1
+			// reset since don't know which path to go
+			_recClearInst(prev);
+			prev->info = 0;
 			break;
 		case 16:
 			// floating point ops
