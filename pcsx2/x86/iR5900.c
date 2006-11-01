@@ -1466,10 +1466,10 @@ void SetCPUState()
 		// do NOT set Denormals-Are-Zero flag (charlie and chocfac messes up)
 		g_sseMXCSR = 0x9f80; // changing the rounding mode to 0x2000 (near) kills grandia III!
 							// changing the rounding mode to 0x0000 or 0x4000 totally kills gitaroo
-							// so... grandia III wins
+							// so... grandia III wins (you can change individual games with the 'roundmode' patch command)
 
 		__asm ldmxcsr g_sseMXCSR // set the new sse control
-		g_sseVUMXCSR = g_sseMXCSR|0x6000;
+		//g_sseVUMXCSR = g_sseMXCSR|0x6000;
 	}
 }
 

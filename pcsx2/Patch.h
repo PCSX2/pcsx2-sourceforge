@@ -43,6 +43,8 @@ typedef struct
 void patchFunc_comment( char * text1, char * text2 );
 void patchFunc_gametitle( char * text1, char * text2 );
 void patchFunc_patch( char * text1, char * text2 );
+void patchFunc_fastmemory( char * text1, char * text2 );
+void patchFunc_roundmode( char * text1, char * text2 );
 
 void inifile_trim( char * buffer );
 

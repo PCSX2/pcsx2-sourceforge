@@ -36,6 +36,12 @@ PatchTextTable commands[] =
    { "comment", 1, patchFunc_comment },
    { "gametitle", 2, patchFunc_gametitle },
    { "patch", 3, patchFunc_patch },
+   { "fastmemory", 4, patchFunc_fastmemory }, // enable for faster but bugger mem (mvc2 is faster)
+   { "roundmode", 5, patchFunc_roundmode }, // changes rounding mode for floating point
+											// syntax: roundmode=X,Y
+											// possible values for X,Y: NEAR, DOWN, UP, CHOP
+											// X - EE rounding mode (default is NEAR)
+											// Y - VU rounding mode (default is CHOP)
    { "", 0, NULL }
 };
 
@@ -204,8 +210,10 @@ void inifile_command( char * cmd )
 
    if ( ! pEqual )
    {
-      SysPrintf( "Ini file ERROR: unknow line: %s \n", cmd );
-      return;
+	   // fastmemory doesn't have =
+	   pEqual = cmd+strlen(cmd);
+//      SysPrintf( "Ini file ERROR: unknow line: %s \n", cmd );
+//      return;
    }
 
    memset( command, 0, sizeof( command ) );
@@ -313,4 +321,55 @@ int AddPatch(int Mode, int Place, int Address, int Size, u64 data)
 	patch[patchnumber].type=Size;
 	patch[patchnumber].data = data;
 	return patchnumber++;
+}
+
+extern void SetFastMemory(int); // iR5900LoadStore.c
+
+void patchFunc_fastmemory( char * cmd, char * param )
+{
+	SetFastMemory(1);
+}
+
+extern u32 g_sseMXCSR, g_sseVUMXCSR; // iR5900.c
+extern void SetCPUState();
+
+void patchFunc_roundmode( char * cmd, char * param )
+{
+	//roundmode = X,Y
+	int index;
+	char * pText;
+	
+	index = 0;
+	pText = strtok( NULL, ", " );
+	while(pText != NULL) {
+		u32 type = 0xffff;
+		if( stricmp(pText, "near") == 0 ) {
+			type = 0x0000;
+		}
+		else if( stricmp(pText, "down") == 0 ) {
+			type = 0x2000;
+		}
+		else if( stricmp(pText, "up") == 0 ) {
+			type = 0x4000;
+		}
+		else if( stricmp(pText, "chop") == 0 ) {
+			type = 0x6000;
+		}
+
+		if( type == 0xffff ) {
+			printf("bad argument (%s) to round mode! skipping...\n", pText);
+			break;
+		}
+
+		if( index == 0 ) g_sseMXCSR = 0x9f80|type;
+		else g_sseVUMXCSR = 0x9f80|type;
+
+		if( index == 1 )
+			break;
+
+		index++;
+		pText = strtok(NULL, ", ");
+	}
+
+	SetCPUState();
 }

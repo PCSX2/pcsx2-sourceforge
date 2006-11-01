@@ -181,6 +181,22 @@ static u16 g_MemMasks16[16] ={0x0000, 0x8001, 0x0002, 0x0003,
 							  0x0005, 0x8005, 0x0005, 0x8005,
 							  0x0001, 0x0001, 0x0001, 0x0005 };
 
+static int s_bFastMemory = 0;
+void SetFastMemory(int bSetFast)
+{
+	s_bFastMemory  = bSetFast;
+	if( bSetFast) {
+		g_MemMasks0[0] = 0x00f0; g_MemMasks0[1] = 0x80f1; g_MemMasks0[2] = 0x00f0; g_MemMasks0[3] = 0x00f1;
+		g_MemMasks8[0] = 0x0080; g_MemMasks8[1] = 0x8081; g_MemMasks8[2] = 0x0080; g_MemMasks8[3] = 0x0081;
+		g_MemMasks16[0] = 0x0000; g_MemMasks16[1] = 0x8001; g_MemMasks16[2] = 0x0000; g_MemMasks16[3] = 0x0001;
+	}
+	else {
+		g_MemMasks0[0] = 0x00f0; g_MemMasks0[1] = 0x80f1; g_MemMasks0[2] = 0x00f2; g_MemMasks0[3] = 0x00f3;
+		g_MemMasks8[0] = 0x0080; g_MemMasks8[1] = 0x8081; g_MemMasks8[2] = 0x0082; g_MemMasks8[3] = 0x0083;
+		g_MemMasks16[0] = 0x0000; g_MemMasks16[1] = 0x8001; g_MemMasks16[2] = 0x0002; g_MemMasks16[3] = 0x0003;
+	}
+}
+
 void assertmem()
 {
 	__asm mov s_tempaddr, ecx
