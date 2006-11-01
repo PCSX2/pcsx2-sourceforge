@@ -322,7 +322,7 @@ void gsReset()
 	memset(g_RealGSMem, 0, 0x2000);
 #endif
 
-	GSCSRr = 0x551B4000;   // Set the FINISH bit to 1 for now
+	GSCSRr = 0x551B400F;   // Set the FINISH bit to 1 for now
 	GSIMR = 0x7f00;
 	psHu32(GIF_STAT) = 0;
 	psHu32(GIF_CTRL) = 0;
@@ -1730,7 +1730,7 @@ DWORD WINAPI GSThreadProc(LPVOID lpParam)
 			return 0;
 		}
 		ret = GSopen((void *)&pDsp, "PCSX2", 1);
-		GSCSRr = 0x551B4000; // 0x55190000
+		GSCSRr = 0x551B400F; // 0x55190000
 		SysPrintf("gsOpen done\n");
 		if (ret != 0) { SysMessage ("Error Opening GS Plugin"); return (DWORD)-1; }
 		SetEvent(g_hGSDone);
