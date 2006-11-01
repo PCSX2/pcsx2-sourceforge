@@ -1742,7 +1742,7 @@ DWORD WINAPI GSThreadProc(LPVOID lpParam)
 				return 0;
 			}
 		}
-		else if( !(++counter & 0xffff) ) {
+		else if( !(counter++ & 0xffff) ) {
 			if( WaitForSingleObject(g_hVuGSExit, 0) == WAIT_OBJECT_0 ) {
 				GSclose();
 				return 0;
@@ -1952,13 +1952,13 @@ void RunGSState(gzFile f)
 				if( g_SaveGSStream != 3 )
 					return;
 
-				if( skipfirst ) {
-					++it;
-					it = packets.erase(packets.begin(), it);
-					skipfirst = 0;
-				}
-				
-				it = packets.begin();
+//				if( skipfirst ) {
+//					++it;
+//					it = packets.erase(packets.begin(), it);
+//					skipfirst = 0;
+//				}
+//				
+//				it = packets.begin();
 				continue;
 				break;
 			default:

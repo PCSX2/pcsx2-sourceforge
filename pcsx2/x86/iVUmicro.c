@@ -1959,7 +1959,9 @@ void recVUMI_MUL_iq(VURegs *VU, int addr, int info)
 	if( !_Fd_ ) info |= PROCESS_EE_SET_D(EEREC_TEMP);
 	recVUMI_MUL_iq_toD(VU, addr, EEREC_D, info);
 	recUpdateFlags(VU, EEREC_D, info);
-	if( addr == VU_REGQ_ADDR ) CheckForOverflow(VU, info, EEREC_D);
+	// spacefisherman needs overflow checking on MULi.z
+	if( addr == VU_REGQ_ADDR || _Z )
+		CheckForOverflow(VU, info, EEREC_D);
 }
 
 void recVUMI_MUL_xyzw(VURegs *VU, int xyzw, int info)
@@ -4446,9 +4448,15 @@ void vuSqSumXYZ(int regd, int regs, int regtemp)
 void recVUMI_ESADD( VURegs *VU, int info)
 {
 	assert( VU == &VU1 );
-	vuSqSumXYZ(EEREC_TEMP, EEREC_S, EEREC_D);
+	if( EEREC_TEMP != EEREC_D ) {
+		vuSqSumXYZ(EEREC_TEMP, EEREC_S, EEREC_D);
 
-	SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(REG_P, 0), EEREC_TEMP);
+		SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(REG_P, 0), EEREC_TEMP);
+	}
+	else {
+		// special code to reset P
+		MOV32ItoM(VU_VI_ADDR(REG_P, 0), 0);
+	}
 }
 
 void recVUMI_ERSADD( VURegs *VU, int info )
