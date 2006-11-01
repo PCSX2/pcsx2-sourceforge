@@ -444,7 +444,7 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 		}
 	if (vifRegs->cycle.cl >= vifRegs->cycle.wl && size > 0 && vifRegs->num > 0) { // skipping write
 
-		/*if( !(v->addr&0xf) && cpucaps.hasStreamingSIMD2Extensions ) {
+		if( !(v->addr&0xf) && cpucaps.hasStreamingSIMD2Extensions ) {
 			const UNPACKPARTFUNCTYPE* pfn;
 			int writemask;
 			//static LARGE_INTEGER lbase, lfinal;
@@ -488,12 +488,13 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 				dest = (u32*)((u8*)dest + ((left/vifRegs->cycle.wl)*vifRegs->cycle.cl + left%vifRegs->cycle.wl)*16);
 			}
 
+			vif->tag.addr += (size / VIFfuncTable[ unpackType ].gsize) * ((vifRegs->cycle.cl - vifRegs->cycle.wl)*16);
 			size = writemask;
 
 			//QueryPerformanceCounter(&lfinal);
 			//((LARGE_INTEGER*)g_nCounters)->QuadPart += lfinal.QuadPart - lbase.QuadPart;
 		}
-		else {*/
+		else {
 			int incdest;
 			ft = &VIFfuncTable[ unpackType ];
 			// Assigning the normal upack function, the part type is assigned later
@@ -501,10 +502,11 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 			funcP = vif->usn ? ft->funcUpart : ft->funcSpart;
 
 			incdest = ((vifRegs->cycle.cl - vifRegs->cycle.wl)<<2) + 4;
-					
 			
 			//SysPrintf("slow vif\n");
 			//if(skipped > 0) skipped = 0;
+			vif->tag.addr += (size / ft->gsize) * ((vifRegs->cycle.cl - vifRegs->cycle.wl)*16);
+
 			while (size >= ft->gsize && vifRegs->num > 0) {
 				funcP( dest, (u32*)cdata, ft->qsize);
 				cdata += ft->gsize;
@@ -515,7 +517,6 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 				++vif->cl;
 				if (vif->cl == vifRegs->cycle.wl) {
 					dest += incdest;
-					vif->tag.addr += ((vifRegs->cycle.cl - vifRegs->cycle.wl)*16);
 					vif->cl = 0;					
 				}
 				else 
@@ -524,8 +525,7 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 					
 				}
 			}
-			
-		//}
+		}
 
 		// used for debugging vif
 //		{
