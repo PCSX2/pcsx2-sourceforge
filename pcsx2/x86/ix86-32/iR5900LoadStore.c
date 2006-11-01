@@ -3779,6 +3779,11 @@ void recSQC2_co( void )
 
 PCSX2_ALIGNED16(u32 dummyValue[4]);
 
+void SetFastMemory(int bSetFast)
+{
+	// nothing
+}
+
 ////////////////////////////////////////////////////
 void recLB( void ) 
 {
