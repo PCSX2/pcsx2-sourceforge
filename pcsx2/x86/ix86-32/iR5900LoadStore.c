@@ -1517,7 +1517,8 @@ void recLQ_coX(int num)
 		if( _Rt_ ) SSEX_MOVDQARmtoROffset(mmreg, ECX, PS2MEM_BASE_+s_nAddMemOffset);
 
 		for(i = 0; i < num; ++i) {
-			if( nextrts[i] ) SSEX_MOVDQARmtoROffset(mmregs[i], ECX, PS2MEM_BASE_+s_nAddMemOffset+(*(s16*)PSM(pc+i*4))-_Imm_);
+			u32 off = s_nAddMemOffset+(*(s16*)PSM(pc+i*4))-_Imm_;
+			if( nextrts[i] ) SSEX_MOVDQARmtoROffset(mmregs[i], ECX, PS2MEM_BASE_+off&~0xf);
 		}
 
 		if( dohw ) {
