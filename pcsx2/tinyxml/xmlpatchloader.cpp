@@ -144,6 +144,61 @@ int LoadGroup(TiXmlNode *group,int gParent)
 
 	int gIndex=groups.size()-1;
 
+
+	TiXmlNode *fastmemory=group->FirstChild("FASTMEMORY");
+	if(fastmemory!=NULL)
+		SetFastMemory(1);
+
+	TiXmlNode *roundmode=group->FirstChild("ROUNDMODE");
+	if(roundmode!=NULL)
+	{
+		int eetype;
+		int vutype;
+
+		TiXmlElement *rm=roundmode->ToElement();
+		if(rm!=NULL)
+		{
+			const char *eetext=rm->Attribute("ee");
+			const char *vutext=rm->Attribute("vu");
+
+			if(eetext != NULL) {
+				eetype = 0xffff;
+				if( stricmp(eetext, "near") == 0 ) {
+					eetype = 0x0000;
+				}
+				else if( stricmp(eetext, "down") == 0 ) {
+					eetype = 0x2000;
+				}
+				else if( stricmp(eetext, "up") == 0 ) {
+					eetype = 0x4000;
+				}
+				else if( stricmp(eetext, "chop") == 0 ) {
+					eetype = 0x6000;
+				}
+			}
+
+			if(vutext != NULL) {
+				vutype = 0xffff;
+				if( stricmp(vutext, "near") == 0 ) {
+					vutype = 0x0000;
+				}
+				else if( stricmp(vutext, "down") == 0 ) {
+					vutype = 0x2000;
+				}
+				else if( stricmp(vutext, "up") == 0 ) {
+					vutype = 0x4000;
+				}
+				else if( stricmp(vutext, "chop") == 0 ) {
+					vutype = 0x6000;
+				}
+			}
+		}
+		if(( eetype == 0xffff )||( vutype == 0xffff )) {
+			printf("XML Patch Loader: WARNING: Invalid value in ROUNDMODE.\n");
+		}
+		else SetRoundMode(eetype,vutype);
+	}
+
 	TiXmlNode *cpatch = group->FirstChild("PATCH");
 	while(cpatch)
 	{

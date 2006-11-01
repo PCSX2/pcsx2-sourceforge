@@ -68,5 +68,11 @@ void resetpatch( void );
 
 int AddPatch(int Mode, int Place, int Address, int Size, u64 data);
 
+void SetFastMemory(int); // iR5900LoadStore.c
+
+extern u32 g_sseMXCSR, g_sseVUMXCSR; // iR5900.c
+void SetCPUState();
+void SetRoundMode(u32 ee, u32 vu);
+
 #endif /* __PATCH_H__ */
 

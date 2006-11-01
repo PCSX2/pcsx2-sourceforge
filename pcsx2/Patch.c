@@ -323,21 +323,19 @@ int AddPatch(int Mode, int Place, int Address, int Size, u64 data)
 	return patchnumber++;
 }
 
-extern void SetFastMemory(int); // iR5900LoadStore.c
-
 void patchFunc_fastmemory( char * cmd, char * param )
 {
 	SetFastMemory(1);
 }
-
-extern u32 g_sseMXCSR, g_sseVUMXCSR; // iR5900.c
-extern void SetCPUState();
 
 void patchFunc_roundmode( char * cmd, char * param )
 {
 	//roundmode = X,Y
 	int index;
 	char * pText;
+
+	u32 eetype;
+	u32 vutype;
 	
 	index = 0;
 	pText = strtok( NULL, ", " );
@@ -361,8 +359,8 @@ void patchFunc_roundmode( char * cmd, char * param )
 			break;
 		}
 
-		if( index == 0 ) g_sseMXCSR = 0x9f80|type;
-		else g_sseVUMXCSR = 0x9f80|type;
+		if( index == 0 ) eetype=type;
+		else			 vutype=type;
 
 		if( index == 1 )
 			break;
@@ -370,6 +368,14 @@ void patchFunc_roundmode( char * cmd, char * param )
 		index++;
 		pText = strtok(NULL, ", ");
 	}
+
+	SetRoundMode(eetype,vutype);
+}
+
+void SetRoundMode(u32 ee, u32 vu)
+{
+	g_sseMXCSR = 0x9f80|ee;
+	g_sseVUMXCSR = 0x9f80|vu;
 
 	SetCPUState();
 }
