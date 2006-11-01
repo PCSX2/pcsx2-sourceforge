@@ -345,7 +345,7 @@ void gsGIFReset()
 //	else
 //		GSreset();
 
-	GSCSRr = 0x551B4000;   // Set the FINISH bit to 1 for now
+	GSCSRr = 0x551B400F;   // Set the FINISH bit to 1 for now
 	GSIMR = 0x7f00;
 	psHu32(GIF_STAT) = 0;
 	psHu32(GIF_CTRL) = 0;
@@ -375,12 +375,12 @@ void CSRwrite(u32 value)
 		}
 		else GSreset();
 
-		GSCSRr = 0x551B4002;   // Set the FINISH bit to 1 - GS is always at a finish state as we don't have a FIFO(saqib)
-	             //Since when!! Refraction, since 4/21/06 (zerofrog)
+		GSCSRr = 0x551B400F;   // Set the FINISH bit to 1 - GS is always at a finish state as we don't have a FIFO(saqib)
+	             //Since when!! Refraction, since 4/21/06 (zerofrog) ok ill let you off, looks like theyre all set (ref)
 		GSIMR = 0x7F00; //This is bits 14-8 thats all that should be 1
 
 		// and this too (fixed megaman ac)
-		CSRw = (u32)GSCSRr;
+		//CSRw = (u32)GSCSRr;
 		GSwriteCSR(CSRw);
 	}
 }
@@ -1036,20 +1036,24 @@ void gsIrq() {
 static void GSRegHandlerSIGNAL(u32* data)
 {
 	GSSIGLBLID->SIGID = (GSSIGLBLID->SIGID&~data[1])|(data[0]&data[1]);
-
-	if (CSRw & 0x1) {
+	
+	if (!(GSCSRr & 0x1)) {
 		GSCSRr |= 1; // signal
 		//CSRw &= ~1;
+		
 	}
 	if (!(GSIMR&0x100) )
 		gsIrq();
+	
 }
 
 static void GSRegHandlerFINISH(u32* data)
 {
-	if (CSRw & 0x2) {
+	
+	if (!(GSCSRr & 0x2)) {
 		//CSRw &= ~2;
 		GSCSRr |= 2; // finish
+		
 	}
 	if (!(GSIMR&0x200) )
 		gsIrq();
