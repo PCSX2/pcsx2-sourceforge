@@ -1807,6 +1807,9 @@ BOOL SysLoggedSetLockPagesPrivilege ( HANDLE hProcess, BOOL bEnable)
 static u32 s_dwPageSize = 0;
 int SysPhysicalAlloc(u32 size, PSMEMORYBLOCK* pblock)
 {
+//#ifdef WIN32_FILE_MAPPING
+//	assert(0);
+//#endif
 	ULONG_PTR NumberOfPagesInitial; // initial number of pages requested
 	int PFNArraySize;               // memory to request for PFN array
 	BOOL bResult;

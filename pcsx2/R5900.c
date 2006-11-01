@@ -388,13 +388,6 @@ void IntcpuBranchTest()
 	assert( !g_globalXMMSaved && !g_globalMMXSaved );
 	g_EEFreezeRegs = 0;
 
-//	if( !loaded && cpuRegs.cycle > 0x08000000 ) {
-//		char strstate[255];
-//		sprintf(strstate, "sstates/%8.8x.000", ElfCRC);
-//		LoadState(strstate);
-//		loaded = 1;
-//	}
-
 	g_nextBranchCycle = cpuRegs.cycle + EE_WAIT_CYCLE;
 
 	if ((int)(cpuRegs.cycle - nextsCounter) >= nextCounter)

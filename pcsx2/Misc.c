@@ -534,7 +534,7 @@ int SaveState(char *file) {
 	gzwrite(f, &g_nextBranchCycle, sizeof(g_nextBranchCycle));
 	gzwrite(f, &g_psxNextBranchCycle, sizeof(g_psxNextBranchCycle));
 	gzwrite(f, &s_iLastCOP0Cycle, sizeof(s_iLastCOP0Cycle));
-	gzwrite(f, s_iLastPERFCycle, sizeof(s_iLastPERFCycle));
+	gzwrite(f, s_iLastPERFCycle, sizeof(u32)*2);
 	gzwrite(f, &g_psxWriteOk, sizeof(g_psxWriteOk));
 
 	//gzwrite(f, (void*)&ipuRegs, sizeof(IPUregisters));   // ipu regs
@@ -654,7 +654,7 @@ int LoadState(char *file) {
 	gzread(f, &g_psxNextBranchCycle, sizeof(g_psxNextBranchCycle));
 	gzread(f, &s_iLastCOP0Cycle, sizeof(s_iLastCOP0Cycle));
 	if( dwVer >= 0x7a30000e ) {
-		gzread(f, s_iLastPERFCycle, sizeof(s_iLastPERFCycle));
+		gzread(f, s_iLastPERFCycle, sizeof(u32)*2);
 	}
 	gzread(f, &g_psxWriteOk, sizeof(g_psxWriteOk));
 

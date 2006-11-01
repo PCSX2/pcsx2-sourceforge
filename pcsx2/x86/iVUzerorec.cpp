@@ -1916,6 +1916,9 @@ void VuBaseBlock::AssignVFRegs()
 			}
 			else if( regs->VIwrite & (1<<REG_P) ) {
 				free1 = _allocTempXMMreg(XMMT_FPS, -1);
+				// protects against insts like esadd vf0
+				if( free0 == -1 )
+					free0 = free1;
 				_freeXMMreg(free1);
 			}
 
@@ -2383,7 +2386,7 @@ extern "C" u32 s_vucount = 0;
 static u32 lastrec = 0, skipparent = -1;
 static u32 s_saveecx, s_saveedx, s_saveebx, s_saveesi, s_saveedi, s_saveebp;
 static u32 badaddrs[][2] = {0,0xffff};
-
+				
 __declspec(naked) static void svudispfn()
 {
 	static u32 i;
@@ -2416,7 +2419,7 @@ __declspec(naked) static void svudispfn()
 			
 			if( i == ARRAYSIZE(badaddrs) )
 			{
-				__Log("tVU: %x\n", s_svulast);
+				__Log("tVU: %x\n", s_svulast, s_vucount);
 				if( curvu ) iDumpVU1Registers();
 				else iDumpVU0Registers();
 				s_vucount++;
