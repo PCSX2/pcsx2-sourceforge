@@ -2084,7 +2084,7 @@ C4_Done: \
 #define defUNPACK_SkippingWrite2(name, qsize) \
 	defUNPACK_SkippingWrite(name, Regular, 0, qsize, u, SAVE_NO_REG); \
 	defUNPACK_SkippingWrite(name, Regular, 1, qsize, u, SAVE_NO_REG); \
-	defUNPACK_SkippingWrite(name, Regular, 2, qsize, u, SAVE_NO_REG); \
+	defUNPACK_SkippingWrite(name, Regular, 2, qsize, u, SAVE_ROW_REG_BASE); \
 	defUNPACK_SkippingWrite(name, Mask, 0, qsize, u, SAVE_NO_REG); \
 	defUNPACK_SkippingWrite(name, Mask, 1, qsize, u, SAVE_NO_REG); \
 	defUNPACK_SkippingWrite(name, Mask, 2, qsize, u, SAVE_ROW_REG_BASE); \
@@ -2114,7 +2114,7 @@ defUNPACK_SkippingWrite2(V4_5, 2);
 	defUNPACK_SkippingWrite(name, Mask, 0, qsize, s, SAVE_NO_REG); \
 	defUNPACK_SkippingWrite(name, Regular, 0, qsize, s, SAVE_NO_REG); \
 	defUNPACK_SkippingWrite(name, Regular, 1, qsize, s, SAVE_NO_REG); \
-	defUNPACK_SkippingWrite(name, Regular, 2, qsize, s, SAVE_NO_REG); \
+	defUNPACK_SkippingWrite(name, Regular, 2, qsize, s, SAVE_ROW_REG_BASE); \
 	defUNPACK_SkippingWrite(name, Mask, 1, qsize, s, SAVE_NO_REG); \
 	defUNPACK_SkippingWrite(name, Mask, 2, qsize, s, SAVE_ROW_REG_BASE); \
 	defUNPACK_SkippingWrite(name, WriteMask, 0, qsize, s, SAVE_NO_REG); \

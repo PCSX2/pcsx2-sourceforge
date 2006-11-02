@@ -1003,6 +1003,7 @@ void ClampUnordered(int regd, int t0reg, int dosign)
 // VU Flags
 // NOTE: flags don't compute under/over flows since it is highly unlikely
 // that games used them. Including them will lower performance.
+int g_VUSignedZero=0; // most games like =0, one game likes !=0
 void recUpdateFlags(VURegs * VU, int reg, int info)
 {
 	u32 flagmask;
@@ -1040,14 +1041,17 @@ void recUpdateFlags(VURegs * VU, int reg, int info)
 
 		XOR32RtoR(EAX, EAX);
 
-		SSE_ANDNPS_XMM_to_XMM(EEREC_TEMP, reg); // necessary!
+		if( !g_VUSignedZero ) {
+			SSE_ANDNPS_XMM_to_XMM(EEREC_TEMP, reg); // necessary!
+		}
 
 		AND32ItoR(x86newflag, 0x0f&flagmask);
 		pjmp = JZ8(0);
 		OR32ItoR(EAX, 1);
 		x86SetJ8(pjmp);
 
-		SSE_MOVMSKPS_XMM_to_R32(x86macflag, EEREC_TEMP); // sign
+		if( !g_VUSignedZero ) SSE_MOVMSKPS_XMM_to_R32(x86macflag, EEREC_TEMP); // sign
+		else SSE_MOVMSKPS_XMM_to_R32(x86macflag, reg); // sign
 
 		SHL32ItoR(x86newflag, 4);
 		AND32ItoR(x86macflag, 0x0f&flagmask);
@@ -1067,15 +1071,19 @@ void recUpdateFlags(VURegs * VU, int reg, int info)
 		
 		SSE_MOVMSKPS_XMM_to_R32(x86newflag, EEREC_TEMP); // zero
 
-		NOT32R(x86newflag);
-		AND32RtoR(x86macflag, x86newflag);
+		if( !g_VUSignedZero ) {
+			NOT32R(x86newflag);
+			AND32RtoR(x86macflag, x86newflag);
+		}
 
 		AND32ItoR(x86macflag, 0xf&flagmask);
 		pjmp = JZ8(0);
 		OR32ItoR(EAX, 2);
 		x86SetJ8(pjmp);
 
-		NOT32R(x86newflag);
+		if( !g_VUSignedZero ) {
+			NOT32R(x86newflag);
+		}
 
 		AND32ItoR(x86newflag, 0xf&flagmask);
 		pjmp = JZ8(0);

@@ -445,7 +445,10 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 
 	if (vifRegs->cycle.cl >= vifRegs->cycle.wl && size > 0 && vifRegs->num > 0) { // skipping write
 
+		static s_count=0;
+		u32* olddest = dest;
 		ft = &VIFfuncTable[ unpackType ];
+		s_count++;
 
 		if( !(v->addr&0xf) && cpucaps.hasStreamingSIMD2Extensions ) {
 			const UNPACKPARTFUNCTYPE* pfn;
@@ -485,7 +488,6 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 			// if size is left over, update the src,dst pointers
 			if( writemask > 0 ) {
 				int left;
-				ft = &VIFfuncTable[ unpackType ];
 				left = (size-writemask)/ft->gsize;
 				cdata += size-writemask;
 				dest = (u32*)((u8*)dest + ((left/vifRegs->cycle.wl)*vifRegs->cycle.cl + left%vifRegs->cycle.wl)*16);
@@ -494,11 +496,17 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 			vif->tag.addr += (size / (ft->gsize* vifRegs->cycle.wl)) * ((vifRegs->cycle.cl - vifRegs->cycle.wl)*16);
 			size = writemask;
 
+			_vifRegs->r0 = _vifRow[0];
+			_vifRegs->r1 = _vifRow[1];
+			_vifRegs->r2 = _vifRow[2];
+			_vifRegs->r3 = _vifRow[3];
 			//QueryPerformanceCounter(&lfinal);
 			//((LARGE_INTEGER*)g_nCounters)->QuadPart += lfinal.QuadPart - lbase.QuadPart;
 		}
-		else {
+		else
+		{
 			int incdest;
+
 			// Assigning the normal upack function, the part type is assigned later
 			func = vif->usn ? ft->funcU : ft->funcS;
 			funcP = vif->usn ? ft->funcUpart : ft->funcSpart;
@@ -514,6 +522,10 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 				cdata += ft->gsize;
 				size -= ft->gsize;
 				
+//				if( memcmp(olddest, dest, ft->qsize*4) != 0 ) {
+//					printf("yo\n");
+//				}
+
 				vifRegs->num--;
 				//SysPrintf("%d transferred, remaining %d, vifnum %d\n", ft->gsize, size, vifRegs->num);
 				++vif->cl;
@@ -524,18 +536,24 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 				else 
 				{					
 					dest += 4;
-					
 				}
 			}
+
+			// have to update
+			_vifRow[0] = _vifRegs->r0;
+			_vifRow[1] = _vifRegs->r1;
+			_vifRow[2] = _vifRegs->r2;
+			_vifRow[3] = _vifRegs->r3;
 		}
 
 		// used for debugging vif
 //		{
 //			int i, j;
-//			u32* curdest = (u32*)(VU->Mem + v->addr);
+//			u32* curdest = olddest;
 //			FILE* ftemp = fopen("temp.txt", "a+");
 //			fprintf(ftemp, "%x %x %x\n", vifRegs->code>>24, vifRegs->mode, *(u32*)&vifRegs->cycle);
-//
+//			fprintf(ftemp, "row: %x %x %x %x\n", _vifRow[0], _vifRow[1], _vifRow[2], _vifRow[3]);
+//			//fprintf(ftemp, "row2: %x %x %x %x\n", _vifRegs->r0, _vifRegs->r1, _vifRegs->r2, _vifRegs->r3);
 //			
 //			for(i = 0; i < memsize; ) {
 //				for(j = 0; j <= ((vifRegs->code>>26)&3); ++j) {

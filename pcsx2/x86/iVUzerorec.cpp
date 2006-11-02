@@ -2296,7 +2296,7 @@ void SuperVUFlush(int p, int wait)
 		}
 	}
 	else if( wait && s_pCurInst->info.cycle < recwait ) {
-		MOV32ItoM((u32)&s_TotalVUCycles, recwait);
+		ADD32ItoM((u32)&s_TotalVUCycles, recwait);
 	}
 
 	MOV32MtoR(EAX, SuperVUGetVIAddr(p?REG_P:REG_Q, 0));
