@@ -334,8 +334,8 @@ void patchFunc_roundmode( char * cmd, char * param )
 	int index;
 	char * pText;
 
-	u32 eetype;
-	u32 vutype;
+	u32 eetype=0x0000;
+	u32 vutype=0x6000;
 	
 	index = 0;
 	pText = strtok( NULL, ", " );
