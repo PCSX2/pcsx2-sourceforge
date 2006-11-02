@@ -152,8 +152,8 @@ int LoadGroup(TiXmlNode *group,int gParent)
 	TiXmlNode *roundmode=group->FirstChild("ROUNDMODE");
 	if(roundmode!=NULL)
 	{
-		int eetype;
-		int vutype;
+		int eetype=0x0000;
+		int vutype=0x6000;
 
 		TiXmlElement *rm=roundmode->ToElement();
 		if(rm!=NULL)
@@ -196,7 +196,9 @@ int LoadGroup(TiXmlNode *group,int gParent)
 		if(( eetype == 0xffff )||( vutype == 0xffff )) {
 			printf("XML Patch Loader: WARNING: Invalid value in ROUNDMODE.\n");
 		}
-		else SetRoundMode(eetype,vutype);
+		else {
+			SetRoundMode(eetype,vutype);
+		}
 	}
 
 	TiXmlNode *cpatch = group->FirstChild("PATCH");
