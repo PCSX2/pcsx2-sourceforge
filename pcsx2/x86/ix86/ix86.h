@@ -1281,6 +1281,7 @@ void SSE2_CVTDQ2PS_M128_to_XMM( x86SSERegType to, u32 from );
 void SSE2_CVTDQ2PS_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
 void SSE2_CVTPS2DQ_M128_to_XMM( x86SSERegType to, u32 from );
 void SSE2_CVTPS2DQ_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
+void SSE2_CVTTPS2DQ_XMM_to_XMM( x86SSERegType to, x86SSERegType from );
 
 void SSE_MAXPS_M128_to_XMM( x86SSERegType to, u32 from );
 void SSE_MAXPS_XMM_to_XMM( x86SSERegType to, x86SSERegType from );

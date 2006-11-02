@@ -740,6 +740,7 @@ void SSE2_CVTDQ2PS_XMM_to_XMM( x86SSERegType to, x86SSERegType from )   { SSERto
 void SSE2_CVTPS2DQ_M128_to_XMM( x86SSERegType to, u32 from )        { SSEMtoR66( 0x5b0f ); }
 void SSE2_CVTPS2DQ_XMM_to_XMM( x86SSERegType to, x86SSERegType from )   { SSERtoR66( 0x5b0f ); }
 
+void SSE2_CVTTPS2DQ_XMM_to_XMM( x86SSERegType to, x86SSERegType from ) { write8(0xf3); SSERtoR(0x5b0f); }
 /////////////////////////////////////////////////////////////////////////////////////
 //**********************************************************************************/
 //MINPS: Return Packed Single-Precision FP Minimum                                 *
