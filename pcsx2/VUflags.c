@@ -59,7 +59,6 @@ u32 name(VURegs * VU, float f) { \
 	\
 	switch(exp) { \
 		case 0: \
-			/* get rid of sign bit pauls3 */ \
 			VU->macflag = (VU->macflag&~(0x1000<<shift)) | (0x0101<<shift);  \
 			return s; \
 		case 255: \

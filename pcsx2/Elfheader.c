@@ -552,6 +552,8 @@ BOOL loadSectionHeaders( char * Exepath )
 }
 
 extern int LoadPatch(char *patchfile);
+extern void LoadGameSpecificSettings();
+
 int loadElfFile(char *filename) {
 	char str[256];
 	char str2[256];
@@ -633,6 +635,16 @@ int loadElfFile(char *filename) {
 
 	free(elfdata);
 
+	LoadGameSpecificSettings();
 	return 0;
+}
+
+extern int g_VUSignedZero;
+
+void LoadGameSpecificSettings()
+{
+	if( ElfCRC==0x0c414549 ) { // spacefisherman
+		g_VUSignedZero = 1;
+	}
 }
 
