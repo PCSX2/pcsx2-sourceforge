@@ -2857,12 +2857,12 @@ void recVUMI_FTOI0(VURegs *VU, int info)
 	if ( _Ft_ == 0 ) return; 
 
 	if (_X_Y_Z_W != 0xf) {
-		if(cpucaps.hasStreamingSIMD2Extensions) SSE2_CVTPS2DQ_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+		if(cpucaps.hasStreamingSIMD2Extensions) SSE2_CVTTPS2DQ_XMM_to_XMM(EEREC_TEMP, EEREC_S);
 		else SSE2EMU_CVTPS2DQ_XMM_to_XMM(EEREC_TEMP, EEREC_S);
 		VU_MERGE_REGS(EEREC_T, EEREC_TEMP);
 	}
 	else {
-		if(cpucaps.hasStreamingSIMD2Extensions) SSE2_CVTPS2DQ_XMM_to_XMM(EEREC_T, EEREC_S);
+		if(cpucaps.hasStreamingSIMD2Extensions) SSE2_CVTTPS2DQ_XMM_to_XMM(EEREC_T, EEREC_S);
 		else SSE2EMU_CVTPS2DQ_XMM_to_XMM(EEREC_T, EEREC_S);
 	}	
 }
@@ -2874,7 +2874,7 @@ void recVUMI_FTOIX(VURegs *VU, int addr, int info)
 	if (_X_Y_Z_W != 0xf) {
 		SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
 		SSE_MULPS_M128_to_XMM(EEREC_TEMP, addr);
-		if(cpucaps.hasStreamingSIMD2Extensions) SSE2_CVTPS2DQ_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
+		if(cpucaps.hasStreamingSIMD2Extensions) SSE2_CVTTPS2DQ_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
 		else SSE2EMU_CVTPS2DQ_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
 
 		VU_MERGE_REGS(EEREC_T, EEREC_TEMP);
@@ -2882,7 +2882,7 @@ void recVUMI_FTOIX(VURegs *VU, int addr, int info)
 	else {
 		if (EEREC_T != EEREC_S) SSE_MOVAPS_XMM_to_XMM(EEREC_T, EEREC_S);
 		SSE_MULPS_M128_to_XMM(EEREC_T, addr);
-		if(cpucaps.hasStreamingSIMD2Extensions) SSE2_CVTPS2DQ_XMM_to_XMM(EEREC_T, EEREC_T);
+		if(cpucaps.hasStreamingSIMD2Extensions) SSE2_CVTTPS2DQ_XMM_to_XMM(EEREC_T, EEREC_T);
 		else SSE2EMU_CVTPS2DQ_XMM_to_XMM(EEREC_T, EEREC_T);
 	}
 }

@@ -2545,6 +2545,8 @@ void recompileNextInstruction(int delayslot)
 
 //	_freeXMMregs();
 //	_freeMMXregs();
+//	_flushCachedRegs();
+//	g_cpuHasConstReg = 0;
 }
 
 //__declspec(naked) void iDummyBlock()
@@ -2664,10 +2666,6 @@ static void recRecompile( u32 startpc )
 	u32 usecop2;
 
 #ifdef _DEBUG
-//	if( cpuRegs.cycle == 0x2f67aa5 ) {
-//		dumplog |= 2;
-//	}
-
 	//dumplog |= 4;
 	if( dumplog & 4 )
 		iDumpRegisters(startpc, 0);	

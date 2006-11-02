@@ -2309,7 +2309,6 @@ PCSX2_ALIGNED16(int s_mask[4]) = {~0, 0, ~0, 0};
 
 void recPHMADH()
 {
-	SysPrintf("PHMADH email zero if abnormal behavior\n");
 CPU_SSE2_XMMCACHE_START((_Rd_?XMMINFO_WRITED:0)|XMMINFO_READS|XMMINFO_READT|XMMINFO_WRITELO|XMMINFO_WRITEHI)
 	int t0reg = _Rd_ ? EEREC_D : _allocTempXMMreg(XMMT_INT, -1);
 

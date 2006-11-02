@@ -1602,11 +1602,11 @@ void P_VSUB(char *buf){sprintf(buf, "vsub.%s %s, %s, %s", dest_string(),COP2_REG
 void P_VMSUB(char *buf){sprintf(buf, "vmsub.%s %s, %s, %s", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
 void P_VOPMSUB(char *buf){sprintf(buf, "vopmsub.xyz %s, %s, %s", COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
 void P_VMINI(char *buf){sprintf(buf, "vmini.%s %s, %s, %s", dest_string(),COP2_REG_FP[DECODE_FD], COP2_REG_FP[DECODE_FS],COP2_REG_FP[DECODE_FT]); }
-void P_VIADD(char *buf){strcpy(buf,"viadd");}
-void P_VISUB(char *buf){strcpy(buf,"visub");}
-void P_VIADDI(char *buf){strcpy(buf,"viaddi");}
-void P_VIAND(char *buf){strcpy(buf,"viand");}
-void P_VIOR(char *buf){strcpy(buf,"vior");}
+void P_VIADD(char *buf){sprintf(buf,"viadd %s, %s, %s", COP2_REG_CTL[DECODE_SA], COP2_REG_CTL[DECODE_FS], COP2_REG_CTL[DECODE_FT]);}
+void P_VISUB(char *buf){sprintf(buf,"visub %s, %s, %s", COP2_REG_CTL[DECODE_SA], COP2_REG_CTL[DECODE_FS], COP2_REG_CTL[DECODE_FT]);}
+void P_VIADDI(char *buf){sprintf(buf,"viaddi %s, %s, 0x%x", COP2_REG_CTL[DECODE_FT], COP2_REG_CTL[DECODE_FS], DECODE_SA);}
+void P_VIAND(char *buf){sprintf(buf,"viand %s, %s, %s", COP2_REG_CTL[DECODE_SA], COP2_REG_CTL[DECODE_FS], COP2_REG_CTL[DECODE_FT]);}
+void P_VIOR(char *buf){sprintf(buf,"vior %s, %s, %s", COP2_REG_CTL[DECODE_SA], COP2_REG_CTL[DECODE_FS], COP2_REG_CTL[DECODE_FT]);}
 void P_VCALLMS(char *buf){strcpy(buf,"vcallms");}
 void P_CALLMSR(char *buf){strcpy(buf,"callmsr");}
 //***********************************END OF SPECIAL1 VU0 TABLE*****************************
