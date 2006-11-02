@@ -2049,14 +2049,13 @@ void psxHwWrite32(u32 add, u32 value) {
 			
 			return;
 
-#ifdef PSXHW_LOG
 		case 0x1f8010c0:
 			PSXHW_LOG("DMA4 MADR 32bit write %lx\n", value);
+			SPU2WriteMemAddr(0,value);
 			HW_DMA4_MADR = value; return; // DMA4 madr
 		case 0x1f8010c4:
 			PSXHW_LOG("DMA4 BCR 32bit write %lx\n", value);
 			HW_DMA4_BCR  = value; return; // DMA4 bcr
-#endif
 		case 0x1f8010c8:
 #ifdef PSXHW_LOG
 			PSXHW_LOG("DMA4 CHCR 32bit write %lx\n", value);
@@ -2087,14 +2086,13 @@ void psxHwWrite32(u32 add, u32 value) {
 			DmaExec(6);
 			return;
 
-#ifdef PSXHW_LOG
 		case 0x1f801500:
 			PSXHW_LOG("DMA7 MADR 32bit write %lx\n", value);
+			SPU2WriteMemAddr(1,value);
 			HW_DMA7_MADR = value; return; // DMA7 madr
 		case 0x1f801504:
 			PSXHW_LOG("DMA7 BCR 32bit write %lx\n", value);
 			HW_DMA7_BCR  = value; return; // DMA7 bcr
-#endif
 		case 0x1f801508:
 #ifdef PSXHW_LOG
 			PSXHW_LOG("DMA7 CHCR 32bit write %lx\n", value);
@@ -2749,7 +2747,24 @@ void psxHwConstWrite32(u32 add, int mmreg)
 		case 0x1F808278: CONSTWRITE_CALL32(sio2_set8278);	return;
 		case 0x1F80827C: CONSTWRITE_CALL32(sio2_set827C);	return;
 		case 0x1F808280: CONSTWRITE_CALL32(sio2_setIntr);	return;
+		
+		case 0x1F8010C0:
+			_eeWriteConstMem32((u32)&psxH[(add) & 0xffff], mmreg);
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(0);
+			CALLFunc((u32)SPU2WriteMemAddr);
+			ADD32ItoR(ESP, 8);
+			return;
 
+		case 0x1F801500:
+			_eeWriteConstMem32((u32)&psxH[(add) & 0xffff], mmreg);
+			_recPushReg(mmreg);
+			iFlushCall(0);
+			PUSH32I(1);
+			CALLFunc((u32)SPU2WriteMemAddr);
+			ADD32ItoR(ESP, 8);
+			return;
 		default:
 			_eeWriteConstMem32((u32)&psxH[(add) & 0xffff], mmreg);
 			return;
@@ -2909,7 +2924,6 @@ void psxDmaInterrupt(int n) {
 		HW_DMA_ICR|= (1 << (24 + n));
 		psxRegs.CP0.n.Cause |= 1 << (9 + n);
 		psxHu32(0x1070) |= 8;
-		//hwIntcIrq(INTC_SBUS);
 		
 	}
 }
@@ -2925,6 +2939,5 @@ void psxDmaInterrupt2(int n) {
 		HW_DMA_ICR2|= (1 << (24 + n));
 		psxRegs.CP0.n.Cause |= 1 << (16 + n);
 		psxHu32(0x1070) |= 8;
-		//hwIntcIrq(INTC_SBUS);
 	}
 }

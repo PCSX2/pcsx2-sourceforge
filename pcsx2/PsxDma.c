@@ -62,7 +62,7 @@ void psxDma4(u32 madr, u32 bcr, u32 chcr) { // SPU
 int  psxDma4Interrupt() {
 		HW_DMA4_CHCR &= ~0x01000000;
 		psxDmaInterrupt(4);
-		//psxHu32(0x1070)|= 1<<9;
+		psxHu32(0x1070)|= 1<<9;
 		return 1;
 }
 
@@ -126,6 +126,7 @@ void psxDma7(u32 madr, u32 bcr, u32 chcr) {
 			SysPrintf("*** DMA 7 - SPU unknown *** %lx addr = %lx size = %lx\n", chcr, madr, bcr);
 			break;
 	}
+	HW_DMA7_CHCR &= ~0x01000000;
 	
 }
 
