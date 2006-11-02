@@ -1714,7 +1714,7 @@ int VIF1transfer(u32 *data, int size, int istag) {
 		--size;
 		++transferred;
 
-		if ((vif1.cmd & 0x80) && !(vif1Regs->err & 0x1) && (psHu32(DMAC_CTRL) & 0xC) == 0x0) { //i bit on vifcode and not masked by VIF1_ERR
+		if ((vif1.cmd & 0x80) && !(vif1Regs->err & 0x1) && (psHu32(DMAC_CTRL) & 0xC) == 0x0 && (vif1.cmd & 0x7f) != 0x7) { //i bit on vifcode and not masked by VIF1_ERR
 #ifdef VIF_LOG
 			VIF_LOG( "Interrupt on VIFcmd: %x (INTC_MASK = %x)\n", vif1.cmd, psHu32(INTC_MASK) );
 #endif
