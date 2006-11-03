@@ -1905,7 +1905,7 @@ int _vif1Interrupt() {
 		}
 		
 		vif1Regs->stat&= ~0x1F000000; // FQC=0
-		// check whiplash when editing
+		// One game doesnt like vif stalling at end, cant remember what.
 #ifdef PCSX2_DEVBUILD
 		if(vif1.done == 1 && vif1ch->qwc == 0) SysPrintf("Vif Stall, done + qwc = 1, tell ref\n");
 #endif
