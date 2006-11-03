@@ -395,8 +395,10 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 
 	// Unpacking
 	//vif->wl = 0; vif->cl = 0;
-	//memsize = size;
 	size*= 4;
+#ifdef _DEBUG
+	memsize = size;
+#endif
 
 
 	if (v->size != size/4)ProcessMemSkip(size, unpackType, VIFdmanum);
@@ -445,10 +447,11 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 
 	if (vifRegs->cycle.cl >= vifRegs->cycle.wl && size > 0 && vifRegs->num > 0) { // skipping write
 
+#ifdef _DEBUG
 		static s_count=0;
+#endif
 		u32* olddest = dest;
 		ft = &VIFfuncTable[ unpackType ];
-		s_count++;
 
 		if( !(v->addr&0xf) && cpucaps.hasStreamingSIMD2Extensions ) {
 			const UNPACKPARTFUNCTYPE* pfn;
@@ -479,6 +482,7 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 				vifRegs->cycle.cl = vifRegs->cycle.wl = 1;
 			}
 
+			size = min(size, vifRegs->num*ft->gsize);
 			pfn = vif->usn ? VIFfuncTableSSE[unpackType].funcU: VIFfuncTableSSE[unpackType].funcS;
 			writemask = VIFdmanum ? g_vif1HasMask3[min(vifRegs->cycle.wl,3)] : g_vif0HasMask3[min(vifRegs->cycle.wl,3)];
 			writemask = pfn[(((vifRegs->code & 0x10000000)>>28)<<writemask)*3+vifRegs->mode](dest, (u32*)cdata, size);
@@ -491,7 +495,9 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 				left = (size-writemask)/ft->gsize;
 				cdata += size-writemask;
 				dest = (u32*)((u8*)dest + ((left/vifRegs->cycle.wl)*vifRegs->cycle.cl + left%vifRegs->cycle.wl)*16);
+				vifRegs->num -= left;
 			}
+			else vifRegs->num -= size/ft->gsize;
 
 			vif->tag.addr += (size / (ft->gsize* vifRegs->cycle.wl)) * ((vifRegs->cycle.cl - vifRegs->cycle.wl)*16);
 			size = writemask;
@@ -551,6 +557,7 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 //			int i, j;
 //			u32* curdest = olddest;
 //			FILE* ftemp = fopen("temp.txt", "a+");
+//			fprintf(ftemp, "%x %x %x\n", s_count, size, vif->tag.addr);
 //			fprintf(ftemp, "%x %x %x\n", vifRegs->code>>24, vifRegs->mode, *(u32*)&vifRegs->cycle);
 //			fprintf(ftemp, "row: %x %x %x %x\n", _vifRow[0], _vifRow[1], _vifRow[2], _vifRow[3]);
 //			//fprintf(ftemp, "row2: %x %x %x %x\n", _vifRegs->r0, _vifRegs->r1, _vifRegs->r2, _vifRegs->r3);
@@ -561,10 +568,11 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 //				}
 //				fprintf(ftemp, "\n");
 //				curdest += 4*vifRegs->cycle.cl;
-//				i += j;
+//				i += j*ft->dsize;
 //			}
 //			fclose(ftemp);
 //		}
+//		s_count++;
 
 		if( size >= ft->dsize && vifRegs->num > 0) {
 	#ifdef VIF_LOG
@@ -1897,7 +1905,10 @@ int _vif1Interrupt() {
 		}
 		
 		vif1Regs->stat&= ~0x1F000000; // FQC=0
+		// check whiplash when editing
+#ifdef PCSX2_DEVBUILD
 		if(vif1.done == 1 && vif1ch->qwc == 0) SysPrintf("Vif Stall, done + qwc = 1, tell ref\n");
+#endif
 		return 1;
 	}
 	if (vif1ch->chcr & 0x4 && vif1.done == 0 && vif1.vifstalled == 0) {
