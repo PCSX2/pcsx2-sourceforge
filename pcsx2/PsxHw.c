@@ -2754,7 +2754,6 @@ void psxHwConstWrite32(u32 add, int mmreg)
 			iFlushCall(0);
 			PUSH32I(0);
 			CALLFunc((u32)SPU2WriteMemAddr);
-			ADD32ItoR(ESP, 8);
 			return;
 
 		case 0x1F801500:
@@ -2763,7 +2762,6 @@ void psxHwConstWrite32(u32 add, int mmreg)
 			iFlushCall(0);
 			PUSH32I(1);
 			CALLFunc((u32)SPU2WriteMemAddr);
-			ADD32ItoR(ESP, 8);
 			return;
 		default:
 			_eeWriteConstMem32((u32)&psxH[(add) & 0xffff], mmreg);
