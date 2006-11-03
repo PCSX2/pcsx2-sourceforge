@@ -338,7 +338,7 @@ void patchFunc_roundmode( char * cmd, char * param )
 	u32 vutype=0x6000;
 	
 	index = 0;
-	pText = strtok( NULL, ", " );
+	pText = strtok( param, ", " );
 	while(pText != NULL) {
 		u32 type = 0xffff;
 		if( stricmp(pText, "near") == 0 ) {
