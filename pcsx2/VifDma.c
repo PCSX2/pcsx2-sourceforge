@@ -528,10 +528,6 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 				cdata += ft->gsize;
 				size -= ft->gsize;
 				
-//				if( memcmp(olddest, dest, ft->qsize*4) != 0 ) {
-//					printf("yo\n");
-//				}
-
 				vifRegs->num--;
 				//SysPrintf("%d transferred, remaining %d, vifnum %d\n", ft->gsize, size, vifRegs->num);
 				++vif->cl;
