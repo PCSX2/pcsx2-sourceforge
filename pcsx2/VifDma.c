@@ -1897,7 +1897,8 @@ int _vif1Interrupt() {
 		}
 		
 		vif1Regs->stat&= ~0x1F000000; // FQC=0
-		if(vif1ch->qwc > 0)return 1;
+		if(vif1.done == 1 && vif1ch->qwc == 0) SysPrintf("Vif Stall, done + qwc = 1, tell ref\n");
+		return 1;
 	}
 	if (vif1ch->chcr & 0x4 && vif1.done == 0 && vif1.vifstalled == 0) {
 
