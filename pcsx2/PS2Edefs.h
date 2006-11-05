@@ -211,6 +211,7 @@ void CALLBACK GSmakeSnapshot2(char *pathname, int* snapdone, int savejpg);
 void CALLBACK GSirqCallback(void (*callback)());
 void CALLBACK GSprintf(int timeout, char *fmt, ...);
 void CALLBACK GSsetBaseMem(void*);
+void CALLBACK GSsetGameCRC(int);
 
 // controls frame skipping in the GS, if this routine isn't present, frame skipping won't be done
 void CALLBACK GSsetFrameSkip(int frameskip);
@@ -472,6 +473,7 @@ typedef void (CALLBACK* _GSchangeSaveState)(int, const char* filename);
 typedef void (CALLBACK* _GSirqCallback)(void (*callback)());
 typedef void (CALLBACK* _GSprintf)(int timeout, char *fmt, ...);
 typedef void (CALLBACK* _GSsetBaseMem)(void*);
+typedef void (CALLBACK* _GSsetGameCRC)(int);
 typedef void (CALLBACK* _GSsetFrameSkip)(int frameskip);
 typedef void (CALLBACK* _GSreset)();
 typedef void (CALLBACK* _GSwriteCSR)(u32 value);
@@ -644,6 +646,7 @@ _GSmakeSnapshot2   GSmakeSnapshot2;
 _GSirqCallback 	   GSirqCallback;
 _GSprintf      	   GSprintf;
 _GSsetBaseMem 	   GSsetBaseMem;
+_GSsetGameCRC		GSsetGameCRC;
 _GSsetFrameSkip	   GSsetFrameSkip;
 _GSreset		   GSreset;
 _GSwriteCSR		   GSwriteCSR;

@@ -47,8 +47,9 @@ BOOL CALLBACK CpuDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
             if(cpucaps.hasMultimediaExtensions) strcat(features,"MMX");
             if(cpucaps.hasStreamingSIMDExtensions) strcat(features,",SSE");
             if(cpucaps.hasStreamingSIMD2Extensions) strcat(features,",SSE2");
-            if(cpucaps.has3DNOWInstructionExtensions) strcat(features,",3DNOW");
-            if(cpucaps.has3DNOWInstructionExtensionsExt)strcat(features,",3DNOW+");
+			if(cpucaps.hasStreamingSIMD3Extensions) strcat(features,",SSE3");
+//            if(cpucaps.has3DNOWInstructionExtensions) strcat(features,",3DNOW");
+//            if(cpucaps.has3DNOWInstructionExtensionsExt)strcat(features,",3DNOW+");
 			if(cpucaps.hasAMD64BitArchitecture) strcat(features,",x86-64");
             SetDlgItemText(hW, IDC_FEATURESINPUT, features);
 			if(!cpucaps.hasStreamingSIMDExtensions) 

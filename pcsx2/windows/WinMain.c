@@ -123,6 +123,11 @@ void RunExecute(int run) {
 		efile=0;
 		needReset = 0;
 	}
+
+	// this needs to be called for every new game! (note: sometimes launching games through bios will give a crc of 0)
+	if( GSsetGameCRC != NULL )
+		GSsetGameCRC(ElfCRC);	
+
 	if (run) Cpu->Execute();
 }
 
@@ -621,8 +626,17 @@ void CALLBACK KeyEvent(keyEvent* ev) {
 				SysPrintf("Cannot make gsstates in MTGS mode\n");
 			}
 			else {
-				if( strgametitle[0] != 0 )
-					sprintf(Text, "sstates/gs_%s.%3.3d", strgametitle, StatesC);
+				if( strgametitle[0] != 0 ) {
+					// only take the first two words
+					char name[255], temptitle[255], *tok;
+					_snprintf(temptitle, 255, "%s", strgametitle);
+					tok = strtok(strgametitle, " ");
+					sprintf(name, "%s_", strlwr(tok));
+					tok = strtok(NULL, " ");
+					if( tok != NULL ) strcat(name, tok);
+
+					sprintf(Text, "sstates/gs_%s.%3.3d", name, StatesC);
+				}
 				else
 					sprintf(Text, "sstates/gs%8.8X.%3.3d", ElfCRC, StatesC);
 
