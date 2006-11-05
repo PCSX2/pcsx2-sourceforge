@@ -106,6 +106,7 @@ int LoadGSplugin(char *filename) {
 	LoadGSsym0(irqCallback,  "GSirqCallback");
 	LoadGSsym0(printf,       "GSprintf");
 	LoadGSsym1(setBaseMem,	"GSsetBaseMem");
+	LoadGSsymN(setGameCRC,	"GSsetGameCRC");
 	LoadGSsym1(reset,       "GSreset");
 	LoadGSsym1(writeCSR,       "GSwriteCSR");
 	LoadGSsymN(makeSnapshot2,"GSmakeSnapshot2");
