@@ -144,8 +144,10 @@ void recMFC0( void )
 			
 		MOV32RtoM( (u32)&cpuRegs.CP0.r[ _Rt_ ], EAX );
 		
+#ifdef PCSX2_DEVBUILD
 		SysPrintf("MFC0 PCCR = %x PCR0 = %x PCR1 = %x IMM= %x\n", 
 				cpuRegs.PERF.n.pccr, cpuRegs.PERF.n.pcr0, cpuRegs.PERF.n.pcr1, _Imm_ & 0x3F);
+#endif
 		return;
 	}
 

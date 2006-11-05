@@ -72,6 +72,7 @@ extern _GSmakeSnapshot2   GSmakeSnapshot2;
 extern _GSirqCallback 	   GSirqCallback;
 extern _GSprintf      	   GSprintf;
 extern _GSsetBaseMem 	   GSsetBaseMem;
+extern _GSsetGameCRC		GSsetGameCRC;
 extern _GSsetFrameSkip 	   GSsetFrameSkip;
 extern _GSreset		   GSreset;
 extern _GSwriteCSR		   GSwriteCSR;
@@ -1930,7 +1931,7 @@ void RunGSState(gzFile f)
 	list<GSStatePacket>::iterator it = packets.begin();
 	g_SaveGSStream = 3;
 
-	int skipfirst = 1;
+	int skipfirst = 0;
 
 	// first extract the data
 	while(1) {
@@ -1953,16 +1954,16 @@ void RunGSState(gzFile f)
 				GSvsync(newfield);
 				SysUpdate();
 
-				if( g_SaveGSStream != 3 )
-					return;
-
+//				if( g_SaveGSStream != 3 )
+//					return;
+//
 //				if( skipfirst ) {
 //					++it;
 //					it = packets.erase(packets.begin(), it);
 //					skipfirst = 0;
 //				}
 //				
-//				it = packets.begin();
+				it = packets.begin();
 				continue;
 				break;
 			default:

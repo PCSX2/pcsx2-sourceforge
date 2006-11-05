@@ -326,17 +326,18 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 		v->addr &= 0xfff;
 	} else {
 
-		if( Cpu->ExecuteVU1Block == DummyExecuteVU1Block ) {
-			// don't process since the frame is dummy
-			return;
-		}
-
 		VU = &VU1;
 		vif = &vif1;
 		vifRegs = vif1Regs;
 		memsize = 0x4000;
 		assert( v->addr < 0x4000 );
 		v->addr &= 0x3fff;
+
+		if( Cpu->ExecuteVU1Block == DummyExecuteVU1Block ) {
+			// don't process since the frame is dummy
+			vif->tag.addr += (size / (VIFfuncTable[ vif->cmd & 0xf ].gsize* vifRegs->cycle.wl)) * ((vifRegs->cycle.cl - vifRegs->cycle.wl)*16);
+			return;
+		}
 	}
 
 	dest = (u32*)(VU->Mem + v->addr);
@@ -482,7 +483,7 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 				vifRegs->cycle.cl = vifRegs->cycle.wl = 1;
 			}
 
-			size = min(size, vifRegs->num*ft->gsize);
+			size = min(size, (int)vifRegs->num*ft->gsize);
 			pfn = vif->usn ? VIFfuncTableSSE[unpackType].funcU: VIFfuncTableSSE[unpackType].funcS;
 			writemask = VIFdmanum ? g_vif1HasMask3[min(vifRegs->cycle.wl,3)] : g_vif0HasMask3[min(vifRegs->cycle.wl,3)];
 			writemask = pfn[(((vifRegs->code & 0x10000000)>>28)<<writemask)*3+vifRegs->mode](dest, (u32*)cdata, size);
@@ -2196,6 +2197,10 @@ void vif1Write32(u32 mem, u32 value) {
 			vif1.done = 1;
 			vif1Regs->stat&= ~0x1F000000; // FQC=0
 		}
+	}
+	 else
+	if (mem == 0x10003c50) { // MODE
+		vif1Regs->mode = value;
 	}
 	else {
 		SysPrintf("Unknown Vif1 write to %x\n", mem);
