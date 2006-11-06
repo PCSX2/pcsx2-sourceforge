@@ -88,6 +88,7 @@ HANDLE g_hVuGSThread = NULL;
 // GS Playback
 int g_SaveGSStream = 0; // save GS stream; 1 - prepare, 2 - save
 int g_nLeftGSFrames = 0; // when saving, number of frames left
+int g_FFXHack=0;
 gzFile g_fGSSave;
 
 // MTGS recording
@@ -1068,9 +1069,6 @@ static void GSRegHandlerLABEL(u32* data)
 typedef void (*GIFRegHandler)(u32* data);
 static GIFRegHandler s_GSHandlers[3] = { GSRegHandlerSIGNAL, GSRegHandlerFINISH, GSRegHandlerLABEL };
 
-// ffx pal, ntsc, jap
-#define GSHACK_FFX (ElfCRC==0xbb3d833a||ElfCRC==0xa39517ab||ElfCRC==0x6A4EFE60)
-
 // simulates a GIF tag
 u32 GSgifTransferDummy(int path, u32 *pMem, u32 size)
 {
@@ -1105,7 +1103,7 @@ u32 GSgifTransferDummy(int path, u32 *pMem, u32 size)
 						return size;
 
 					// ffx hack
-					if( GSHACK_FFX )
+					if( g_FFXHack )
 						continue;
 
 					return size;
