@@ -83,12 +83,13 @@ HANDLE g_hGsEvent = NULL, // set when path3 is ready to be processed
 HANDLE g_hGSOpen = NULL, g_hGSDone = NULL;
 HANDLE g_hVuGSThread = NULL;
 
+int g_FFXHack=0;
+
 #ifdef PCSX2_DEVBUILD
 
 // GS Playback
 int g_SaveGSStream = 0; // save GS stream; 1 - prepare, 2 - save
 int g_nLeftGSFrames = 0; // when saving, number of frames left
-int g_FFXHack=0;
 gzFile g_fGSSave;
 
 // MTGS recording
