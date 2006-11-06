@@ -83,6 +83,8 @@ HANDLE g_hGsEvent = NULL, // set when path3 is ready to be processed
 HANDLE g_hGSOpen = NULL, g_hGSDone = NULL;
 HANDLE g_hVuGSThread = NULL;
 
+int g_FFXHack=0;
+
 #ifdef PCSX2_DEVBUILD
 
 // GS Playback
@@ -1068,9 +1070,6 @@ static void GSRegHandlerLABEL(u32* data)
 typedef void (*GIFRegHandler)(u32* data);
 static GIFRegHandler s_GSHandlers[3] = { GSRegHandlerSIGNAL, GSRegHandlerFINISH, GSRegHandlerLABEL };
 
-// ffx pal, ntsc, jap
-#define GSHACK_FFX (ElfCRC==0xbb3d833a||ElfCRC==0xa39517ab||ElfCRC==0x6A4EFE60)
-
 // simulates a GIF tag
 u32 GSgifTransferDummy(int path, u32 *pMem, u32 size)
 {
@@ -1105,7 +1104,7 @@ u32 GSgifTransferDummy(int path, u32 *pMem, u32 size)
 						return size;
 
 					// ffx hack
-					if( GSHACK_FFX )
+					if( g_FFXHack )
 						continue;
 
 					return size;
