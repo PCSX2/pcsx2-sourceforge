@@ -63,7 +63,7 @@ typedef struct {
 _langs *langs = NULL;
 
 int firstRun=1;
-
+int RunExe = 0;
 void OpenConsole() {
 	COORD csize;
 	CONSOLE_SCREEN_BUFFER_INFO csbiInfo; 
@@ -115,11 +115,13 @@ void RunExecute(int run) {
 	}
 
 	if (needReset == 1) {
-		cpuExecuteBios();
-		if (efile == 2)
-			efile=GetPS2ElfName(filename);
-		if (efile)
-			loadElfFile(filename);
+		if(RunExe == 0)cpuExecuteBios();
+		//if (efile == 2)
+		efile=GetPS2ElfName(filename);
+		//if (efile)
+		loadElfFile(filename);
+		
+		RunExe = 0;
 		efile=0;
 		needReset = 0;
 	}
@@ -797,6 +799,7 @@ LRESULT WINAPI MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 				return TRUE;
 
 			case ID_RUN_EXECUTE:
+				if(needReset == 1) RunExe = 1;
 				RunExecute(1);
 				return TRUE;
 
