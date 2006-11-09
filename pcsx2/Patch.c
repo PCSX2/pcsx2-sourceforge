@@ -150,6 +150,8 @@ void patchFunc_gametitle( char * text1, char * text2 )
 #endif
 }
 
+extern int RunExe;
+
 void patchFunc_patch( char * cmd, char * param )
 {
    //patch=placetopatch,cpucore,address,type,data 
@@ -165,7 +167,8 @@ void patchFunc_patch( char * cmd, char * param )
    pText = param;
 //   inifile_trim( pText );
 
-   patch[ patchnumber ].placetopatch   = strtol( pText, (char **)NULL, 0 );
+   if(RunExe == 1) patch[ patchnumber ].placetopatch   = 1;
+   else patch[ patchnumber ].placetopatch   = strtol( pText, (char **)NULL, 0 );
 
    pText = strtok( NULL, "," );
    inifile_trim( pText );
@@ -315,7 +318,8 @@ int AddPatch(int Mode, int Place, int Address, int Size, u64 data)
 		return -1;
 	}
 
-	patch[patchnumber].placetopatch = Mode;
+	if(RunExe == 1) patch[patchnumber].placetopatch = 1;
+	else patch[patchnumber].placetopatch = Mode;
 	patch[patchnumber].cpu = Place;
 	patch[patchnumber].addr=Address;
 	patch[patchnumber].type=Size;
