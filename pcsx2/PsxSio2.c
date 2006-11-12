@@ -94,10 +94,10 @@ void sio2_setSend1(u32 index, u32 value){sio2.packet.sendArray1[index]=value;}	/
 u32 sio2_getSend1(u32 index){return sio2.packet.sendArray1[index];}				//0->3
 void sio2_setSend2(u32 index, u32 value){sio2.packet.sendArray2[index]=value;}	//0->3
 u32 sio2_getSend2(u32 index){return sio2.packet.sendArray2[index];}				//0->3
-void sio2_setSend3(u32 index, u32 value) {int i;
-/*	if (index == 0) {
-		printf("value: %x\n", value);
-	}*/
+
+void sio2_setSend3(u32 index, u32 value) 
+{
+	int i;
 	sio2.packet.sendArray3[index]=value;
 #ifdef PAD_LOG
 	if (index==15){
@@ -148,7 +148,7 @@ void sio2_fifoIn(u8 value){
 		
 		sio2.cmdlength=(sio2.packet.sendArray3[sio2.cmdport] >> 8) & 0x1FF;
 		ctrl &= ~0x2000;
-		ctrl |= (sio2.packet.sendArray3[sio2.cmdport] & 1) << 13;//it is correct this way:P; what did you want to do?
+		ctrl |= (sio2.packet.sendArray3[sio2.cmdport] & 1) << 13;
 		//sioWriteCtrl16(SIO_RESET);
 		sioWriteCtrl16(ctrl);
 #ifdef PSXDMA_LOG
@@ -170,14 +170,12 @@ void sio2_fifoIn(u8 value){
 }
 
 u8 sio2_fifoOut(){
-	u8 value=0;
-
 	if (sio2.recvIndex <= sio2.packet.sendSize){
-		value = sio2.buf[sio2.recvIndex++];
+		return sio2.buf[sio2.recvIndex++];
 	} else {
 		SysPrintf("*PCSX2*: buffer overrun\n");
 	}
-	return value;	//no data
+	return 0; // No Data
 }
 
 /////////////////////////////////////////////////
@@ -185,24 +183,20 @@ u8 sio2_fifoOut(){
 /////////////////////////////////////////////////
 
 void psxDma11(u32 madr, u32 bcr, u32 chcr) {
-	int wordsize, totalblocks;
 #ifdef PSXDMA_LOG
 	PSXDMA_LOG("*** DMA 11 - SIO2 in *** %lx addr = %lx size = %lx\n", chcr, madr, bcr);
 #endif
 
 	if (chcr != 0x01000201) return;
-	wordsize = (bcr & 0xffff);
-	totalblocks = (bcr >> 16);
-	bcr = (totalblocks * wordsize) * 4;	// 8 bits
-	PSX_INT(11,(bcr>>2));
+
+	bcr = ((bcr >> 16) * (bcr & 0xFFFF)) * 4;	// 8 bits
 	while (bcr > 0) {								
 		sio2_fifoIn(PSXMu8(madr));
 		bcr--; madr++;
 		if(sio2.packet.sendSize == BUFSIZE) break;
 	}
 	HW_DMA11_MADR = madr;
-	HW_DMA11_BCR = bcr;
-	
+	PSX_INT(11,(bcr>>2));	// Interrupts should always occur at the end
 }
 
 int psxDMA11Interrupt()
@@ -213,27 +207,23 @@ int psxDMA11Interrupt()
 }
 
 void psxDma12(u32 madr, u32 bcr, u32 chcr) {
-	int wordsize, totalblocks;
 #ifdef PSXDMA_LOG
 	PSXDMA_LOG("*** DMA 12 - SIO2 out *** %lx addr = %lx size = %lx\n", chcr, madr, bcr);
 #endif
 
 	if (chcr != 0x41000200) return;
 
-	wordsize = (bcr & 0xffff);
-	totalblocks = (bcr >> 16);
-	bcr = (totalblocks * wordsize) * 4;	// 8 bits
-	sio2.recvIndex = 0; // Set To start    asadr
-	PSX_INT(12,(bcr>>2));
+	sio2.recvIndex = 0; // Set To start;    saqib
+
+	bcr = ((bcr >> 16) * (bcr & 0xFFFF)) * 4;	// 8 bits
+
 	while (bcr > 0) {
 		PSXMu8(madr) = sio2_fifoOut();
 		bcr--; madr++;
 		if(sio2.recvIndex == sio2.packet.sendSize) break;
 	}
 	HW_DMA12_MADR = madr;
-	HW_DMA12_BCR = bcr;
-	PSX_INT(12,(bcr>>2));
-	
+	PSX_INT(12,(bcr>>2));	// Interrupts should always occur at the end
 }
 
 int psxDMA12Interrupt()
