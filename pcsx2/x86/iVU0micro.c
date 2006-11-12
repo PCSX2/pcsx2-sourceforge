@@ -79,8 +79,8 @@ void recExecuteVU0Block( void )
 //	__Log("VU: %x %x\n", VU0.VI[ REG_TPC ].UL, vuprogcount);
 //	iDumpVU0Registers();
 
-//	vudump |= 0x10;
-//	vudump |= 0x80;
+	//vudump |= 0x10;
+	//vudump |= 0x80;
 
 	if( (vudump&0x80) && !CHECK_VU0REC ) {
 		__Log("tVU: %x\n", VU0.VI[ REG_TPC ].UL);
