@@ -27,6 +27,8 @@
 #pragma warning(disable:4244)
 #endif
 
+FILE * MemoryCard1, * MemoryCard2;
+
 // *** FOR WORKS ON PADS AND MEMORY CARDS *****
 
 const unsigned char buf1[] = {0x25, 0x46, 0x01, 0x31, 0x00, 0xA2, 0x11, 0x01, 0xE1};//{0x64, 0x23, 0x2, 0x43, 0x0, 0xa2, 0x11, 0x1, 0xb4}; 
@@ -52,7 +54,7 @@ void _SaveMcd(char *data, u32 adr, int size) {
 	SaveMcd(sio.CtrlReg&0x2000?2:1, data, adr, size);
 }
 
-unsigned char _xor(unsigned char *buf, unsigned int length){
+unsigned char xor(unsigned char *buf, unsigned int length){
 	register unsigned char i, x;
 
 	for (x=0, i=0; i<length; i++)	x ^= buf[i];
@@ -61,13 +63,22 @@ unsigned char _xor(unsigned char *buf, unsigned int length){
 
 int sioInit() {
 	memset(&sio, 0, sizeof(sio));
+	
+	MemoryCard1 = LoadMcd(1);
+	MemoryCard2 = LoadMcd(2);
 
-// Transfer(?) Ready and the Buffer is Empty
+	// Transfer(?) Ready and the Buffer is Empty
 	sio.StatReg = TX_RDY | TX_EMPTY;
 	sio.packetsize = 0;
 	sio.terminator = 'Z';
 
 	return 0;
+}
+
+void psxSIOShutdown()
+{
+	if(MemoryCard1) fclose(MemoryCard1);
+	if(MemoryCard2) fclose(MemoryCard2);
 }
 
 unsigned char sioRead8() {
@@ -283,14 +294,14 @@ void sioWrite8(unsigned char value) {
 					sio.buf[sio.parp]=value;
 				} else
 				if (sio.parp==sio.bufcount-2) {
-					if (_xor(&sio.buf[3], sio.bufcount-5)==value) {
+					if (xor(&sio.buf[3], sio.bufcount-5)==value) {
                         _SaveMcd(&sio.buf[3], (512+16)*sio.sector+sio.k, sio.bufcount-5);
 						sio.buf[sio.bufcount-1]=value;
 						sio.k+=sio.bufcount-5;
 					}else {
 #ifdef MEMCARDS_LOG
 						MEMCARDS_LOG("MC(%d) write XOR value error 0x%02X != ^0x%02X\n",
-							((sio.CtrlReg&0x2000)>>13)+1, value, _xor(&sio.buf[3], sio.bufcount-5));
+							((sio.CtrlReg&0x2000)>>13)+1, value, xor(&sio.buf[3], sio.bufcount-5));
 #endif
 					}
 				}
@@ -306,7 +317,7 @@ void sioWrite8(unsigned char value) {
 							sio.buf[4+j] = ~sio.buf[4+j];
 					}
 					sio.k+=value;
-					sio.buf[sio.bufcount-1]=_xor(&sio.buf[4], value);
+					sio.buf[sio.bufcount-1]=xor(&sio.buf[4], value);
 					sio.buf[sio.bufcount]=sio.terminator;
 				}
 				break;
@@ -519,24 +530,37 @@ void SeekMcd(FILE *f, u32 adr) {
 }
 
 void ReadMcd(int mcd, char *data, u32 adr, int size) {
-	FILE *f = LoadMcd(mcd);
-	if (f == NULL) {
-		memset(data, 0, size);
-		return;
+	if(mcd == 1)
+	{
+		if (MemoryCard1 == NULL) {
+			memset(data, 0, size);
+			return;
+		}
+		SeekMcd(MemoryCard1, adr);
+		fread(data, 1, size, MemoryCard1);
 	}
-	SeekMcd(f, adr);
-	fread(data, 1, size, f);
-	fclose(f);
+	else
+	{
+		if (MemoryCard2 == NULL) {
+			memset(data, 0, size);
+			return;
+		}
+		SeekMcd(MemoryCard2, adr);
+		fread(data, 1, size, MemoryCard2);
+	}
 }
 
 void SaveMcd(int mcd, char *data, u32 adr, int size) {
-	FILE *f = LoadMcd(mcd);
-	if (f == NULL) {
-		return;
+	if(mcd == 1)
+	{
+		SeekMcd(MemoryCard1, adr);
+		fwrite(data, 1, size, MemoryCard1);
 	}
-	SeekMcd(f, adr);
-	fwrite(data, 1, size, f);
-	fclose(f);
+	else
+	{
+		SeekMcd(MemoryCard2, adr);
+		fwrite(data, 1, size, MemoryCard2);
+	}		
 }
 
 void CreateMcd(char *mcd) {

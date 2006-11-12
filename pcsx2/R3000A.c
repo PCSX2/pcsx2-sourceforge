@@ -22,6 +22,7 @@
 
 #include "PsxCommon.h"
 
+
 // used for constant propagation
 R3000Acpu *psxCpu;
 u32 g_psxConstRegs[32];
@@ -63,7 +64,7 @@ void psxReset() {
 void psxShutdown() {
 	psxMemShutdown();
 	psxBiosShutdown();
-
+	psxSIOShutdown();
 	psxCpu->Shutdown();
 }
 

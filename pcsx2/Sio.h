@@ -72,6 +72,7 @@ int Mcd1Size, Mcd2Size;
 
 int  sioInit();
 void sioShutdown();
+void psxSIOShutdown();
 unsigned char sioRead8();
 void sioWrite8(unsigned char value);
 void sioWriteCtrl16(unsigned short value);
@@ -100,7 +101,7 @@ struct mc_command_0x26_tag{
 	u16	sectorSize;	//+03 divide to it
 	u16 field_2C;	//+05 divide to it
 	u32	mc_size;	//+07
-	u8	_xor;		//+0b don't forget to recalculate it!!!
+	u8	xor;		//+0b don't forget to recalculate it!!!
 	u8	Z;			//+0c
 #ifdef __WIN32__
 };
