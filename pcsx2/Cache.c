@@ -23,7 +23,8 @@
 #include "Common.h"
 #include "Cache.h"
 
-/*_cacheS pCache[64];
+#ifndef WIN32_VIRTUAL_MEM
+_cacheS pCache[64];
 int getFreeCache(u32 mem, int mode, int * way) {
 	u8 * out;
 	u32 paddr;
@@ -47,7 +48,7 @@ int getFreeCache(u32 mem, int mode, int * way) {
 	}
 
 	number = ((pCache[i].tag[0]>>4) & 1) ^ ((pCache[i].tag[1]>>4) & 1);
-
+	
 	if(pCache[i].tag[number] & 0x60)	// Valid Dirty
 	{
 		t = (char *)(taddr[number]);
@@ -96,6 +97,7 @@ void writeCache8(u32 mem, u8 value) {
 	int i, number;
 
 	i = getFreeCache(mem,1,&number);
+//	CACHE_LOG("writeCache8 %8.8x adding to %d, way %d, value %x\n", mem, i,number,value);
 
 	pCache[i].data[number][(mem>>4) & 0x3].b8._8[(mem&0xf)] = value;
 }
@@ -104,6 +106,7 @@ void writeCache16(u32 mem, u16 value) {
 	int i, number;
  
 	i = getFreeCache(mem,1,&number);
+//	CACHE_LOG("writeCache16 %8.8x adding to %d, way %d, value %x\n", mem, i,number,value);
 
 	*(u16*)(&pCache[i].data[number][(mem>>4) & 0x3].b8._8[(mem&0xf)]) = value;
 }
@@ -112,6 +115,7 @@ void writeCache32(u32 mem, u32 value) {
 	int i, number;
 
 	i = getFreeCache(mem,1,&number);
+//	CACHE_LOG("writeCache32 %8.8x adding to %d, way %d, value %x\n", mem, i,number,value);
 	*(u32*)(&pCache[i].data[number][(mem>>4) & 0x3].b8._8[(mem&0xf)]) = value;
 }
 
@@ -119,7 +123,7 @@ void writeCache64(u32 mem, u64 value) {
 	int i, number;
 
 	i = getFreeCache(mem,1,&number);
-
+//	CACHE_LOG("writeCache64 %8.8x adding to %d, way %d, value %x\n", mem, i,number,value);
 	*(u64*)(&pCache[i].data[number][(mem>>4) & 0x3].b8._8[(mem&0xf)]) = value;
 }
 
@@ -127,6 +131,7 @@ void writeCache128(u32 mem, u64 *value) {
 	int i, number;
 
 	i = getFreeCache(mem,1,&number);
+//	CACHE_LOG("writeCache128 %8.8x adding to %d\n", mem, i);
 	((u64*)pCache[i].data[number][(mem>>4) & 0x3].b8._8)[0] = value[0];
 	((u64*)pCache[i].data[number][(mem>>4) & 0x3].b8._8)[1] = value[1];
 }
@@ -135,14 +140,16 @@ u8 *readCache(u32 mem) {
 	int i, number;
 
 	i = getFreeCache(mem,0,&number);
+//	CACHE_LOG("readCache %8.8x from %d, way %d\n", mem, i,number);
 
 	return pCache[i].data[number][(mem>>4) & 0x3].b8._8;
 }
 
+extern int Dcache;
 void CACHE() {
     u32 addr;
-
-	addr = cpuRegs.GPR.r[_Rs_].UL[0] + _Imm_;
+	//if(Dcache == 0) return;
+   addr = cpuRegs.GPR.r[_Rs_].UL[0] + _Imm_;
 	switch (_Rt_) {
 		case 0x1a:
 		{
@@ -166,8 +173,8 @@ void CACHE() {
 				return;
 			}
 
-#ifdef GTE_LOG
-	GTE_LOG("CACHE DHIN addr %x, index %d, way %d, Flags %x\n",addr,index,way,pCache[index].tag[way] & 0x78);
+#ifdef CACHE_LOG
+	CACHE_LOG("CACHE DHIN addr %x, index %d, way %d, Flags %x\n",addr,index,way,pCache[index].tag[way] & 0x78);
 #endif
 			pCache[index].tag[way] &= ~(0x6F);
 			((u64*)pCache[index].data[way][0].b8._8)[0] = 0;
@@ -203,13 +210,13 @@ void CACHE() {
 				return;
 			}
 
-#ifdef GTE_LOG
-	GTE_LOG("CACHE DHWBIN addr %x, index %d, way %d, Flags %x\n",addr,index,way,pCache[index].tag[way] & 0x78);
+#ifdef CACHE_LOG
+	CACHE_LOG("CACHE DHWBIN addr %x, index %d, way %d, Flags %x\n",addr,index,way,pCache[index].tag[way] & 0x78);
 #endif
 
 			if(pCache[index].tag[way] & 0x60)	// Valid Dirty
 			{
-				char * t = (char *)(taddr);
+				char * t = (char *)(taddr);//paddr[way]);
 				out = (u8*)(t + (addr & 0xFC0));
 				((u64*)out)[0] = ((u64*)pCache[index].data[way][0].b8._8)[0];
 				((u64*)out)[1] = ((u64*)pCache[index].data[way][0].b8._8)[1];
@@ -222,6 +229,15 @@ void CACHE() {
 			}
 
 			pCache[index].tag[way] &= ~(0x6F);
+			((u64*)pCache[index].data[way][0].b8._8)[0] = 0;
+			((u64*)pCache[index].data[way][0].b8._8)[1] = 0;
+			((u64*)pCache[index].data[way][1].b8._8)[0] = 0;
+			((u64*)pCache[index].data[way][1].b8._8)[1] = 0;
+			((u64*)pCache[index].data[way][2].b8._8)[0] = 0;
+			((u64*)pCache[index].data[way][2].b8._8)[1] = 0;
+			((u64*)pCache[index].data[way][3].b8._8)[0] = 0;
+			((u64*)pCache[index].data[way][3].b8._8)[1] = 0;
+
 			break;
 		}
 		case 0x1c:
@@ -246,8 +262,8 @@ void CACHE() {
 			{
 				return;
 			}
-#ifdef GTE_LOG
-	GTE_LOG("CACHE DHWOIN addr %x, index %d, way %d, Flags %x\n",addr,index,way,pCache[index].tag[way] & 0x78);
+#ifdef CACHE_LOG
+	CACHE_LOG("CACHE DHWOIN addr %x, index %d, way %d, Flags %x\n",addr,index,way,pCache[index].tag[way] & 0x78);
 #endif
 			if(pCache[index].tag[way] & 0x60)	// Valid Dirty
 			{
@@ -270,10 +286,20 @@ void CACHE() {
 		{
 			int index = (addr >> 6) & 0x3F;
 			int way = addr & 0x1;
-#ifdef GTE_LOG
-	GTE_LOG("CACHE DXIN addr %x, index %d, way %d, flag %x\n",addr,index,way,pCache[index].tag[way] & 0x78);
+			u8 * t, * out;
+#ifdef CACHE_LOG
+	CACHE_LOG("CACHE DXIN addr %x, index %d, way %d, flag %x\n",addr,index,way,pCache[index].tag[way] & 0x78);
 #endif
 			pCache[index].tag[way] &= ~(0x6F);
+
+		   ((u64*)pCache[index].data[way][0].b8._8)[0] = 0;
+		   ((u64*)pCache[index].data[way][0].b8._8)[1] = 0;
+		   ((u64*)pCache[index].data[way][1].b8._8)[0] = 0;
+		   ((u64*)pCache[index].data[way][1].b8._8)[1] = 0;
+		   ((u64*)pCache[index].data[way][2].b8._8)[0] = 0;
+		   ((u64*)pCache[index].data[way][2].b8._8)[1] = 0;
+		   ((u64*)pCache[index].data[way][3].b8._8)[0] = 0;
+		   ((u64*)pCache[index].data[way][3].b8._8)[1] = 0;
 			break;
 		}
 		case 0x11:
@@ -282,8 +308,8 @@ void CACHE() {
 			int way = addr & 0x1;
 			u8 * out = pCache[index].data[way][(addr>>4) & 0x3].b8._8;
 			cpuRegs.CP0.r[28] = *(u32 *)(out+(addr&0xf));
-#ifdef GTE_LOG
-	GTE_LOG("CACHE DXLDT addr %x, index %d, way %d, DATA %x\n",addr,index,way,cpuRegs.CP0.r[28]);
+#ifdef CACHE_LOG
+	CACHE_LOG("CACHE DXLDT addr %x, index %d, way %d, DATA %x\n",addr,index,way,cpuRegs.CP0.r[28]);
 #endif
 			break;
 		}
@@ -294,8 +320,8 @@ void CACHE() {
 			
 			cpuRegs.CP0.r[28] = 0;
 			cpuRegs.CP0.r[28] = pCache[index].tag[way];
-#ifdef GTE_LOG
-	GTE_LOG("CACHE DXLTG addr %x, index %d, way %d, DATA %x\n",addr,index,way,cpuRegs.CP0.r[28]);
+#ifdef CACHE_LOG
+	CACHE_LOG("CACHE DXLTG addr %x, index %d, way %d, DATA %x\n",addr,index,way,cpuRegs.CP0.r[28]);
 #endif		
 			break;
 		}
@@ -305,8 +331,8 @@ void CACHE() {
 			int way = addr & 0x1;
 			u8 * out = pCache[index].data[way][(addr>>4) & 0x3].b8._8;
 			*(u32*)(&pCache[index].data[way][(addr>>4) & 0x3].b8._8[(addr&0xf)]) = cpuRegs.CP0.r[28];
-#ifdef GTE_LOG
-	GTE_LOG("CACHE DXSDT addr %x, index %d, way %d, DATA %x\n",addr,index,way,cpuRegs.CP0.r[28]);
+#ifdef CACHE_LOG
+	CACHE_LOG("CACHE DXSDT addr %x, index %d, way %d, DATA %x\n",addr,index,way,cpuRegs.CP0.r[28]);
 #endif
 			break;
 		}
@@ -315,8 +341,8 @@ void CACHE() {
 			int index = (addr >> 6) & 0x3F;
 			int way = addr & 0x1;
 			pCache[index].tag[way] = cpuRegs.CP0.r[28];
-#ifdef GTE_LOG
-	GTE_LOG("CACHE DXSTG addr %x, index %d, way %d, DATA %x\n",addr,index,way,cpuRegs.CP0.r[28] & 0x6F);
+#ifdef CACHE_LOG
+	CACHE_LOG("CACHE DXSTG addr %x, index %d, way %d, DATA %x\n",addr,index,way,cpuRegs.CP0.r[28] & 0x6F);
 #endif
 			break;
 		}
@@ -327,14 +353,14 @@ void CACHE() {
 			int index = (addr >> 6) & 0x3F;
 			int way = addr & 0x1;
 
-#ifdef GTE_LOG
-	GTE_LOG("CACHE DXWBIN addr %x, index %d, way %d, Flags %x\n",addr,index,way,pCache[index].tag[way] & 0x78);
+#ifdef CACHE_LOG
+	CACHE_LOG("CACHE DXWBIN addr %x, index %d, way %d, Flags %x\n",addr,index,way,pCache[index].tag[way] & 0x78);
 #endif
 			if(pCache[index].tag[way] & 0x60)	// Dirty
 			{
 				u32 paddr = memLUTW[pCache[index].tag[way] >> 12];
 				char * t = (char *)(paddr);
-				out = (u8*)(t + (addr & 0xFC0)); 
+				out = (u8*)(t + (addr & 0xFC0));
 				((u64*)out)[0] = ((u64*)pCache[index].data[way][0].b8._8)[0];
 				((u64*)out)[1] = ((u64*)pCache[index].data[way][0].b8._8)[1];
 				((u64*)out)[2] = ((u64*)pCache[index].data[way][1].b8._8)[0];
@@ -346,10 +372,21 @@ void CACHE() {
 			}
 
 			pCache[index].tag[way] &= ~(0x6F);
+			((u64*)pCache[index].data[way][0].b8._8)[0] = 0;
+			((u64*)pCache[index].data[way][0].b8._8)[1] = 0;
+			((u64*)pCache[index].data[way][1].b8._8)[0] = 0;
+			((u64*)pCache[index].data[way][1].b8._8)[1] = 0;
+			((u64*)pCache[index].data[way][2].b8._8)[0] = 0;
+			((u64*)pCache[index].data[way][2].b8._8)[1] = 0;
+			((u64*)pCache[index].data[way][3].b8._8)[0] = 0;
+			((u64*)pCache[index].data[way][3].b8._8)[1] = 0;
 			break;
 		}
 	}
-}*/
+}
+#else
 
 void CACHE() {
 }
+
+#endif
