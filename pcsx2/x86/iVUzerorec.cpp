@@ -297,6 +297,7 @@ static vector<_x86regs> s_vecRegArray(128);
 static VURegs* VU = NULL;
 static list<VuBaseBlock*> s_listBlocks;
 static u32 s_vu = 0;
+static u32 s_UnconditionalDelay = 0; // 1 if there are two sequential branches and the last is unconditional
 
 // Global functions
 static void* SuperVUGetProgram(u32 startpc, int vuindex);
@@ -454,7 +455,7 @@ u32 SuperVUGetVIAddr(int reg, int read)
 		}
 		case REG_MAC_FLAG:
 		{
-			return read ? s_MACRead : s_pCurInst->pMACWrite;
+			return (read==2) ? s_PrevMACWrite : (read ? s_MACRead : s_pCurInst->pMACWrite);
 		}
 		case REG_CLIP_FLAG:
 		{
@@ -934,7 +935,7 @@ static VuBaseBlock* SuperVUBuildBlocks(VuBaseBlock* parent, u32 startpc, const V
 		pblock->blocks.push_back(pnewblock);
 		pblock->endpc = startpc;
 		pblock->cycles = cycleoff;
-		pblock->type &= BLOCKTYPE_MACFLAGS;;
+		pblock->type &= BLOCKTYPE_MACFLAGS;
 		//pblock->insts.push_back(SuperVUFlushInst()); //don't need
 
 		return pnewblock;
@@ -1122,8 +1123,10 @@ static VuBaseBlock* SuperVUBuildBlocks(VuBaseBlock* parent, u32 startpc, const V
 		}
 
 		// make sure there is always a branch
-		if( (s_vu==1 && i >= 0x798) || (s_vu==0 && i >= 0x198) ) {
+        // sensible soccer overflows on vu0, so increase the limit...
+		if( (s_vu==1 && i >= 0x799) || (s_vu==0 && i >= 0x201) ) {
 			SysPrintf("VuRec base block doesn't terminate!\n");
+            assert(0);
 			break;
 		}
 
@@ -1206,7 +1209,8 @@ static VuBaseBlock* SuperVUBuildBlocks(VuBaseBlock* parent, u32 startpc, const V
 		}
 	}
 
-	switch(vucode>>25) {
+    u32 firstbranch = vucode>>25;
+	switch(firstbranch) {
 		case 0x24: // jr
 			pblock->type |= BLOCKTYPE_EOP; // jump out of procedure, since not returning, set EOP
 			pblock->insts.push_back(SuperVUFlushInst());
@@ -1262,7 +1266,8 @@ static VuBaseBlock* SuperVUBuildBlocks(VuBaseBlock* parent, u32 startpc, const V
 			pblock->blocks.push_back(pbranchblock);
 
 			// if has a second branch that is B or BAL, skip this
-			if( !hasSecondBranch || (((*(u32*)(VU->Micro+lastpc-8))>>25) != 0x21 && ((*(u32*)(VU->Micro+lastpc-8))>>25) != 0x20) ) {
+            u32 secondbranch = (*(u32*)(VU->Micro+lastpc-8))>>25;
+			if( !hasSecondBranch || (secondbranch != 0x21 && secondbranch != 0x20) ) {
 				pbranchblock = SuperVUBuildBlocks(pblock, lastpc, newpipes);
 
 				pblock = recVUBlocks[s_vu][lastpc/8-2].pblock;
@@ -1297,7 +1302,7 @@ static VuBaseBlock* SuperVUBuildBlocks(VuBaseBlock* parent, u32 startpc, const V
 			}
 			case 0x20: // B
 			{
-				VuBaseBlock* pbranchblock = SuperVUBuildBlocks(pblock, bpc, newpipes);
+                VuBaseBlock* pbranchblock = SuperVUBuildBlocks(pblock, bpc, newpipes);
 
 				// update pblock since could have changed
 				pblock = recVUBlocks[s_vu][lastpc/8-2].pblock;
@@ -1307,7 +1312,7 @@ static VuBaseBlock* SuperVUBuildBlocks(VuBaseBlock* parent, u32 startpc, const V
 			}
 			case 0x21: // BAL
 			{
-				VuBaseBlock* pbranchblock = SuperVUBuildBlocks(pblock, bpc, newpipes);
+                VuBaseBlock* pbranchblock = SuperVUBuildBlocks(pblock, bpc, newpipes);
 
 				// replace instead of pushing a new block
 				pblock = recVUBlocks[s_vu][lastpc/8-2].pblock;
@@ -1327,10 +1332,13 @@ static VuBaseBlock* SuperVUBuildBlocks(VuBaseBlock* parent, u32 startpc, const V
 				pblock = recVUBlocks[s_vu][lastpc/8-2].pblock;
 				pblock->blocks.push_back(pbranchblock);
 
-				pbranchblock = SuperVUBuildBlocks(pblock, lastpc+8, newpipes);
+                // only add the block if the previous branch doesn't include the next instruction (ie, if a direct jump)
+                if( firstbranch == 0x24 || firstbranch == 0x25 || firstbranch == 0x20 || firstbranch == 0x21 ) {
+				    pbranchblock = SuperVUBuildBlocks(pblock, lastpc, newpipes);
 
-				pblock = recVUBlocks[s_vu][lastpc/8-2].pblock;
-				pblock->blocks.push_back(pbranchblock);
+				    pblock = recVUBlocks[s_vu][lastpc/8-2].pblock;
+				    pblock->blocks.push_back(pbranchblock);
+                }
 
 				break;
 			}
@@ -2409,7 +2417,7 @@ __declspec(naked) static void svudispfn()
 //		if( (VU1.VF[i].UL[0]&0x7f800000) == 0x7f800000 ) VU1.VF[i].UL[0] &= 0xff7fffff;
 //	}
 
-	if( ((vudump&8) && curvu) || ((vudump&0x80) && !curvu) ) { //&& lastrec != g_vu1last ) {
+    if( ((vudump&8) && curvu) || ((vudump&0x80) && !curvu) ) { //&& lastrec != g_vu1last ) {
 
 		if( skipparent != lastrec ) {
 			for(i = 0; i < ARRAYSIZE(badaddrs); ++i) {
@@ -2419,6 +2427,8 @@ __declspec(naked) static void svudispfn()
 			
 			if( i == ARRAYSIZE(badaddrs) )
 			{
+                static int curesp;
+                __asm mov curesp, esp
 				__Log("tVU: %x\n", s_svulast, s_vucount);
 				if( curvu ) iDumpVU1Registers();
 				else iDumpVU0Registers();
@@ -2567,6 +2577,7 @@ void VuBaseBlock::Recompile()
 	s_MACRead = s_PrevMACWrite = (u32)&VU->VI[REG_MAC_FLAG];
 	s_PrevIWrite = (u32)&VU->VI[REG_I];
 	s_JumpX86 = 0;
+    s_UnconditionalDelay = 0;
 
 	memcpy(xmmregs, startregs, sizeof(xmmregs));
 #ifdef SUPERVU_X86CACHING
@@ -2733,7 +2744,7 @@ void VuBaseBlock::Recompile()
 				pChildJumps[0] = (u32*)0xffffffff;
 				// fall through
 
-			case 2: // jump, esi has new vupc
+			case 0x10: // jump, esi has new vupc
 			{
 				_freeXMMregs();
 				_freeX86regs();
@@ -2747,9 +2758,19 @@ void VuBaseBlock::Recompile()
 
 				break;
 			}
+            
+            case 0x13: // jr with uncon branch, uncond branch takes precendence (dropship)
+            {
+//                s32 delta = (s32)(VU->code & 0x400 ? 0xfffffc00 | (VU->code & 0x3ff) : VU->code & 0x3ff) << 3;
+//                ADD32ItoRmOffset(ESP, delta, 0);
+                ADD32ItoR(ESP, 8); // restore
+                pChildJumps[0] = (u32*)((u32)JMP32(0)|0x80000000);
+
+				break;
+            }
 			case 0:
-			case 3: // uncond branch
-				pChildJumps[0] = (u32*)((u32)JMP32(0)|0x80000000);
+            case 3: // unconditional branch
+                pChildJumps[s_UnconditionalDelay] = (u32*)((u32)JMP32(0)|0x80000000);
 				break;
 
 			default:
@@ -2933,10 +2954,13 @@ void VuInstruction::Recompile(list<VuInstruction>::const_iterator& itinst, u32 v
 	assert( !(type & (INST_CLIP_WRITE|INST_STATUS_WRITE|INST_MAC_WRITE)) );
 	pc += 8;
 
+    list<VuInstruction>::const_iterator itinst2;
+
 	if( (regs[0].VIwrite|regs[1].VIwrite) & ((1<<REG_MAC_FLAG)|(1<<REG_STATUS_FLAG)) ) {
 		if( s_pCurBlock->type & BLOCKTYPE_MACFLAGS ) {
-			if( pMACWrite == NULL )
-				pMACWrite = (u32)SuperVUStaticAlloc(4);
+            if( pMACWrite == NULL ) {
+                pMACWrite = (u32)SuperVUStaticAlloc(4);
+            }
 			if( pStatusWrite == NULL )
 				pStatusWrite = (u32)SuperVUStaticAlloc(4);
 		}
@@ -2950,8 +2974,6 @@ void VuInstruction::Recompile(list<VuInstruction>::const_iterator& itinst, u32 v
 
 	if( pClipWrite == NULL && ((regs[0].VIwrite|regs[1].VIwrite) & (1<<REG_CLIP_FLAG)) )
 		pClipWrite = (u32)SuperVUStaticAlloc(4);
-
-	list<VuInstruction>::const_iterator itinst2;
 
 #ifdef SUPERVU_X86CACHING
 	// redo the counters so that the proper regs are released
@@ -3265,7 +3287,7 @@ void recSVUMI_BranchHandle()
 	int curjump = 0;
 
 	if( s_pCurInst->type & INST_BRANCH_DELAY ) {
-		assert( (branch&7)!=2 && (branch&7)!=4 ); // no jump handlig for now
+		assert( (branch&0x17)!=0x10 && (branch&0x17)!=4 ); // no jump handlig for now
 
 		if( (branch & 0x7) == 3 ) {
 			// previous was a direct jump
@@ -3434,7 +3456,8 @@ void recSVUMI_B()
 	if( s_pCurBlock->blocks.size() > 1 ) {
 		s_JumpX86 = _allocX86reg(-1, X86TYPE_VUJUMP, 0, MODE_WRITE);
 		MOV32ItoR(s_JumpX86, 0);
-		s_pCurBlock->pChildJumps[0] = (u32*)x86Ptr-1;
+        s_pCurBlock->pChildJumps[(s_pCurInst->type & INST_BRANCH_DELAY)?1:0] = (u32*)x86Ptr-1;
+        s_UnconditionalDelay = 1;
 	}
 
 	branch |= 3;
@@ -3458,7 +3481,8 @@ void recSVUMI_BAL()
 	if( s_pCurBlock->blocks.size() > 1 ) {
 		s_JumpX86 = _allocX86reg(-1, X86TYPE_VUJUMP, 0, MODE_WRITE);
 		MOV32ItoR(s_JumpX86, 0);
-		s_pCurBlock->pChildJumps[0] = (u32*)x86Ptr-1;
+        s_pCurBlock->pChildJumps[(s_pCurInst->type & INST_BRANCH_DELAY)?1:0] = (u32*)x86Ptr-1;
+        s_UnconditionalDelay = 1;
 	}
 
 	branch |= 3;
@@ -3476,7 +3500,7 @@ void recSVUMI_JR()
 		PUSH32I(s_vu);
 		PUSH32R(EAX);
 	}
-	branch |= 2;
+	branch |= 0x10; // 0x08 is reserved
 }
 
 void recSVUMI_JALR()
@@ -3521,6 +3545,8 @@ void vu1xgkick(u32* pMem, u32 addr)
 	assert( addr < 0x4000 );
 #ifdef _DEBUG
 	static int scount = 0;
+    static int curesp;
+    __asm mov curesp, esp
 	scount++;
 	if( vudump & 8 ) {
 		__Log("xgkick 0x%x (%d)\n", addr, scount);

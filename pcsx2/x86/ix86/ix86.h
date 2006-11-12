@@ -402,6 +402,8 @@ void ADD64MtoR( x86IntRegType to, u32 from );
 void ADD32ItoR( x86IntRegType to, u32 from );
 // add imm32 to m32 
 void ADD32ItoM( u32 to, u32 from );
+// add imm32 to [r32+off]
+void ADD32ItoRmOffset( x86IntRegType to, u32 from, u32 offset);
 // add r32 to r32 
 void ADD32RtoR( x86IntRegType to, x86IntRegType from );
 // add r32 to m32 

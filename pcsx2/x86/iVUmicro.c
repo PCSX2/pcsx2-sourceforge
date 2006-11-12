@@ -1000,6 +1000,11 @@ void ClampUnordered(int regd, int t0reg, int dosign)
 	SSE_ORPS_XMM_to_XMM(regd, t0reg);
 }
 
+//__declspec(naked) void temp()
+//{
+//    __asm ret
+//}
+
 // VU Flags
 // NOTE: flags don't compute under/over flows since it is highly unlikely
 // that games used them. Including them will lower performance.
@@ -1100,9 +1105,18 @@ void recUpdateFlags(VURegs * VU, int reg, int info)
 	//MOV16RmSOffsettoR(x86newflag, x86macflag, (u32)g_MACFlagTransform, 1);
 	MOV32RtoR(x86macflag, x86oldflag);
 	SHL32ItoR(x86macflag, 6);
-	if( macaddr != 0 )
-		MOV8RtoM(macaddr, x86newflag);
-	OR32RtoR(x86oldflag, x86macflag);
+    OR32RtoR(x86oldflag, x86macflag);
+    
+    if( macaddr != 0 ) {
+
+        MOV8RtoM(macaddr, x86newflag);
+
+        if( flagmask != 0xf ) {
+            MOV8MtoR(x86newflag, VU_VI_ADDR(REG_MAC_FLAG, 2)); // get previous written
+            AND8ItoR(x86newflag, ~g_MACFlagTransform[(flagmask|(flagmask<<4))]);
+            OR8RtoM(macaddr, x86newflag);
+        }	    
+    }
 
 	AND32ItoR(x86oldflag, 0x0c0);
 	OR32RtoR(x86oldflag, EAX);
@@ -1572,8 +1586,8 @@ void recVUMI_SUB_xyzw(VURegs *VU, int xyzw, int info)
 
 	if( _X_Y_Z_W == 8 ) {
 		if( EEREC_D == EEREC_TEMP ) {
-			_unpackVFSS_xyzw(EEREC_TEMP, EEREC_T, xyzw);
-			SSE_SUBSS_XMM_to_XMM(EEREC_D, EEREC_S);
+			_unpackVFSS_xyzw(EEREC_TEMP, EEREC_S, xyzw);
+			SSE_SUBSS_XMM_to_XMM(EEREC_D, EEREC_T);
 
 			// have to flip over EEREC_D if computing flags!
 			if( (info & PROCESS_VU_UPDATEFLAGS) )
