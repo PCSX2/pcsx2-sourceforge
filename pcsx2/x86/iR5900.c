@@ -1475,6 +1475,8 @@ void SetCPUState()
 
 extern BOOL install_my_handler();
 
+#define REC_CACHEMEM 0x01000000
+
 int recInit( void ) 
 {
 	int i;
@@ -1482,7 +1484,7 @@ int recInit( void )
 
 	recLUT = (uptr*) _aligned_malloc( 0x010000 * sizeof(uptr), 16 );
 	memset( recLUT, 0, 0x010000 * sizeof(uptr) );
-	recMem = (char*)SysMmap(0, 0x00c00000);
+	recMem = (char*)SysMmap(0, REC_CACHEMEM);
 	
 	// 32 alignment necessary
 	recRAM = (BASEBLOCK*) _aligned_malloc( sizeof(BASEBLOCK)/4*0x02000000 , 4*sizeof(BASEBLOCK));
@@ -1523,7 +1525,7 @@ int recInit( void )
 	memcpy( recLUT + 0x8000, recLUT, 0x2000 * sizeof(uptr) );
 	memcpy( recLUT + 0xa000, recLUT, 0x2000 * sizeof(uptr) );
 	
-	memset(recMem, 0xcd, 0x00c00000);
+	memset(recMem, 0xcd, REC_CACHEMEM);
 	memset(recStack, 0, RECSTACK_SIZE);
 
 	// SSE3 detection, manually create the code
@@ -1603,7 +1605,7 @@ void recReset( void ) {
 
 #ifdef _DEBUG
 	// don't clear since save states won't work
-	//memset(recMem, 0xcd, 0x00c00000);
+	//memset(recMem, 0xcd, REC_CACHEMEM);
 #endif
 
 	recPtr = recMem;
@@ -1621,7 +1623,7 @@ void recShutdown( void )
 	}
 
 	_aligned_free( recLUT );
-	SysMunmap((uptr)recMem, 0x00800000); recMem = NULL;
+	SysMunmap((uptr)recMem, REC_CACHEMEM); recMem = NULL;
 	_aligned_free( recRAM ); recRAM = NULL;
 	_aligned_free( recROM ); recROM = NULL;
 	_aligned_free( recROM1 ); recROM1 = NULL;
@@ -2673,7 +2675,7 @@ static void recRecompile( u32 startpc )
 	assert( startpc );
 
 	// if recPtr reached the mem limit reset whole mem
-	if ( ( (uptr)recPtr - (uptr)recMem ) >= 0xb92000 || dumplog == 0xffffffff) {
+	if ( ( (uptr)recPtr - (uptr)recMem ) >= REC_CACHEMEM-0x40000 || dumplog == 0xffffffff) {
 		recReset();
 	}
 	if ( ( (uptr)recStackPtr - (uptr)recStack ) >= RECSTACK_SIZE-0x100 ) {
@@ -3139,7 +3141,7 @@ StartRecomp:
 	}
 
 	assert( x86Ptr >= (s8*)s_pCurBlock->pFnptr + EE_MIN_BLOCK_BYTES );
-	assert( x86Ptr < recMem+0x00c00000 );
+	assert( x86Ptr < recMem+REC_CACHEMEM );
 	assert( recStackPtr < recStack+RECSTACK_SIZE );
 	assert( x86FpuState == 0 );
 
