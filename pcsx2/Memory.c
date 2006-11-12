@@ -59,7 +59,8 @@ BIOS
 #include "R3000A.h"
 #include "PsxHw.h"
 #include "VUmicro.h"
-#include "GS.h"
+#include "gs.h"
+#include "Cache.h"
 
 #include <assert.h>
 
@@ -2084,7 +2085,7 @@ void memWrite32(u32 mem, u32 value)
 
 		default:
 			*(u32*)(PS2MEM_BASE+mem) = value;
-
+	
 			if (CHECK_EEREC) {
 				REC_CLEARM(mem);
 			}
@@ -2274,6 +2275,8 @@ int memInit() {
 
 	memSetKernelMode();
 
+	memset(pCache,0,sizeof(_cacheS)*64);
+
 	return 0;
 }
 
@@ -2318,6 +2321,12 @@ int  memRead8 (u32 mem, u8  *out)  {
 
 	p = (char *)(memLUTR[mem >> 12]);
 	if ((int)p > 0x10) {
+				if ((mem & 0x20000000) == 0 &&
+			(cpuRegs.CP0.r[16] & 0x10000) && !(cpuRegs.CP0.n.Status.val & 0x4)) {
+			u8 *tmp = readCache(mem);
+			*out = *(u8 *)(tmp+(mem&0xf));
+			return 0;
+		}
 		*out = *(u8 *)(p + (mem & 0xfff));
 		return 0;
 	}
@@ -2351,8 +2360,9 @@ int  memRead8RS (u32 mem, u64 *out)  {
 	p = (char *)(memLUTR[mem >> 12]);
 	if ((int)p > 0x10) {
 #ifdef ENABLECACHE
-		if ((mem & 0x20000000) == 0) {
-			u8 *tmp = readCache(mem);
+				if ((mem & 0x20000000) == 0 &&
+			(cpuRegs.CP0.r[16] & 0x10000) && !(cpuRegs.CP0.n.Status.val & 0x4)) {
+			char *tmp = (char*)readCache(mem);
 			*out = *(s8 *)(tmp+(mem&0xf));
 			return 0;
 		}
@@ -2390,8 +2400,9 @@ int  memRead8RU (u32 mem, u64 *out)  {
 	p = (char *)(memLUTR[mem >> 12]);
 	if ((int)p > 0x10) {
 #ifdef ENABLECACHE
-		if ((mem & 0x20000000) == 0) {
-			u8 *tmp = readCache(mem);
+				if ((mem & 0x20000000) == 0 &&
+			(cpuRegs.CP0.r[16] & 0x10000) && !(cpuRegs.CP0.n.Status.val & 0x4)) {
+			char *tmp = (char*)readCache(mem);
 			*out = *(u8 *)(tmp+(mem&0xf));
 			return 0;
 		}
@@ -2428,6 +2439,12 @@ int  memRead16(u32 mem, u16 *out)  {
 
 	p = (char *)(memLUTR[mem >> 12]);
 	if ((int)p > 0x10) {
+				if ((mem & 0x20000000) == 0 &&
+			(cpuRegs.CP0.r[16] & 0x10000) && !(cpuRegs.CP0.n.Status.val & 0x4)) {
+			u8 *tmp = readCache(mem);
+			*out = *(u16 *)(tmp+(mem&0xf));
+			return 0;
+		}
 		*out = *(u16*)(p + (mem & 0xfff));
 		return 0;
 	}
@@ -2468,8 +2485,9 @@ int  memRead16RS(u32 mem, u64 *out)  {
 	p = (char *)(memLUTR[mem >> 12]);
 	if ((int)p > 0x10) {
 #ifdef ENABLECACHE
-		if ((mem & 0x20000000) == 0) {
-			u8 *tmp = readCache(mem);
+				if ((mem & 0x20000000) == 0 &&
+			(cpuRegs.CP0.r[16] & 0x10000) && !(cpuRegs.CP0.n.Status.val & 0x4)) {
+			char *tmp = (char*)readCache(mem);
 			*out = *(s16*)(tmp+(mem&0xf));
 			return 0;
 		}
@@ -2514,8 +2532,9 @@ int  memRead16RU(u32 mem, u64 *out)  {
 	p = (char *)(memLUTR[mem >> 12]);
 	if ((int)p > 0x10) {
 #ifdef ENABLECACHE
-		if ((mem & 0x20000000) == 0) {
-			u8 *tmp = readCache(mem);
+				if ((mem & 0x20000000) == 0 &&
+			(cpuRegs.CP0.r[16] & 0x10000) && !(cpuRegs.CP0.n.Status.val & 0x4)) {
+			char *tmp = (char*)readCache(mem);
 			*out = *(u16*)(tmp+(mem&0xf));
 			return 0;
 		}
@@ -2559,6 +2578,12 @@ int memRead32(u32 mem, u32 *out)  {
 
 	p = (char *)(memLUTR[mem >> 12]);
 	if ((int)p > 0x10) {
+				if ((mem & 0x20000000) == 0 &&
+			(cpuRegs.CP0.r[16] & 0x10000) && !(cpuRegs.CP0.n.Status.val & 0x4)) {
+			u8 *tmp = readCache(mem);
+			*out = *(u32 *)(tmp+(mem&0xf));
+			return 0;
+		}
 		*out = *(u32*)(p + (mem & 0xfff));
 		return 0;
 	}
@@ -2591,8 +2616,9 @@ int  memRead32RS(u32 mem, u64 *out)  {
 	p = (char *)(memLUTR[mem >> 12]);
 	if ((int)p > 0x10) {
 #ifdef ENABLECACHE
-		if ((mem & 0x20000000) == 0) {
-			u8 *tmp = readCache(mem);
+				if ((mem & 0x20000000) == 0 &&
+			(cpuRegs.CP0.r[16] & 0x10000) && !(cpuRegs.CP0.n.Status.val & 0x4)) {
+			char *tmp = (char*)readCache(mem);
 			*out = *(s32*)(tmp+(mem&0xf));
 			return 0;
 		}
@@ -2628,8 +2654,9 @@ int  memRead32RU(u32 mem, u64 *out)  {
 	p = (char *)(memLUTR[mem >> 12]);
 	if ((int)p > 0x10) {
 #ifdef ENABLECACHE
-		if ((mem & 0x20000000) == 0) {
-			u8 *tmp = readCache(mem);
+				if ((mem & 0x20000000) == 0 &&
+			(cpuRegs.CP0.r[16] & 0x10000) && !(cpuRegs.CP0.n.Status.val & 0x4)) {
+			char *tmp = (char*)readCache(mem);
 			*out = *(u32*)(tmp+(mem&0xf));
 			return 0;
 		}
@@ -2665,7 +2692,8 @@ int  memRead64(u32 mem, u64 *out)  {
 	p = (char *)(memLUTR[mem >> 12]);
 	if ((int)p > 0x10) {
 #ifdef ENABLECACHE
-		if ((mem & 0x20000000) == 0) {
+				if ((mem & 0x20000000) == 0 &&
+			(cpuRegs.CP0.r[16] & 0x10000) && !(cpuRegs.CP0.n.Status.val & 0x4)) {
 			u8 *tmp = readCache(mem);
 			*out = *(u64*)(tmp+(mem&0xf));
 			return 0;
@@ -2696,7 +2724,8 @@ int  memRead128(u32 mem, u64 *out)  {
 	p = (char *)(memLUTR[mem >> 12]);
 	if ((int)p > 0x10) {
 #ifdef ENABLECACHE
-		if ((mem & 0x20000000) == 0) {
+				if ((mem & 0x20000000) == 0 &&
+			(cpuRegs.CP0.r[16] & 0x10000) && !(cpuRegs.CP0.n.Status.val & 0x4)) {
 			u64 *tmp = (u64*)readCache(mem);
 			out[0] = tmp[0];
 			out[1] = tmp[1];
@@ -2731,7 +2760,7 @@ void memWrite8 (u32 mem, u8  value)   {
 	p = (char *)(memLUTW[mem >> 12]);
 	if ((int)p > 0x10) {
 #ifdef ENABLECACHE
-		if ((mem & 0x20000000) == 0) {
+		if ((mem & 0x20000000) == 0 && (cpuRegs.CP0.r[16] & 0x10000)) {
 			writeCache8(mem, value);
 			return;
 		}
@@ -2772,7 +2801,7 @@ void memWrite16(u32 mem, u16 value) {
 	p = (char *)(memLUTW[mem >> 12]);
 	if ((int)p > 0x10) {
 #ifdef ENABLECACHE
-		if ((mem & 0x20000000) == 0) {
+		if ((mem & 0x20000000) == 0 && (cpuRegs.CP0.r[16] & 0x10000)) {
 			writeCache16(mem, value);
 			return;
 		}
@@ -2818,7 +2847,8 @@ void memWrite32(u32 mem, u32 value)
 	p = (char *)(memLUTW[mem >> 12]);
 	if ((int)p > 0x10) {
 #ifdef ENABLECACHE
-		if ((mem & 0x20000000) == 0) {
+		if ((mem & 0x20000000) == 0 && (cpuRegs.CP0.r[16] & 0x10000)) 
+		{
 			writeCache32(mem, value);
 			return;
 		}
@@ -2856,7 +2886,7 @@ void memWrite64(u32 mem, u64 value)   {
 	p = (char *)(memLUTW[mem >> 12]);
 	if ((int)p > 0x10) {
 	#ifdef ENABLECACHE
-		if ((mem & 0x20000000) == 0) {
+		if ((mem & 0x20000000) == 0 && (cpuRegs.CP0.r[16] & 0x10000)) {
 			writeCache64(mem, value);
 			return;
 		}
@@ -2896,9 +2926,9 @@ void memWrite128(u32 mem, u64 *value) {
 	p = (char *)(memLUTW[mem >> 12]);
 	if ((int)p > 0x10) {
 #ifdef ENABLECACHE
-		if ((mem & 0x20000000) == 0) {
+		if ((mem & 0x20000000) == 0 && (cpuRegs.CP0.r[16] & 0x10000)) {
 			writeCache128(mem, value);
-			return;
+				return;
 		}
 #endif
 		p+= mem & 0xfff;

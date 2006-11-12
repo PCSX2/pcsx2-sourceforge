@@ -23,7 +23,7 @@
 #ifndef __MEMORY_H__
 #define __MEMORY_H__
 
-//#define ENABLECACHE
+#define ENABLECACHE
 
 #ifdef WIN32_VIRTUAL_MEM
 
