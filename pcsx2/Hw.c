@@ -370,7 +370,7 @@ void hwRead128(u32 mem, u64 *out) {
 }
 
 char sio_buffer[1024];
-static int sio_count;
+int sio_count;
 
 void hwWrite8(u32 mem, u8 value) {
 

@@ -22,6 +22,9 @@
 #include "PsxCommon.h"
 #include "iR5900.h"
 
+extern int g_pbufi;
+extern s8 g_pbuf[1024];
+
 #define CONSTREAD8_CALL(name) { \
 	iFlushCall(0); \
 	CALLFunc((u32)name); \
@@ -523,11 +526,11 @@ int psxHwConstRead32(u32 x86reg, u32 add) {
 void Write8PrintBuffer(u8 value)
 {
 	if (value == '\r') return;
-	if (value == '\n' || pbufi >= 1023) {
-		pbuf[pbufi++] = 0; pbufi = 0;
-		SysPrintf("%s\n", pbuf); return;
+	if (value == '\n' || g_pbufi >= 1023) {
+		g_pbuf[g_pbufi++] = 0; g_pbufi = 0;
+		SysPrintf("%s\n", g_pbuf); return;
 	}
-	pbuf[pbufi++] = value;
+	g_pbuf[g_pbufi++] = value;
 }
 
 void psxHwConstWrite8(u32 add, int mmreg)

@@ -790,7 +790,7 @@
 					>
 				</File>
 				<File
-					RelativePath="..\..\tinyxml\xmlpatchloader.cpp"
+					RelativePath="..\xmlpatchloader.cpp"
 					>
 				</File>
 			</Filter>
@@ -836,10 +836,6 @@
 		<Filter
 			Name="VU"
 			>
-			<File
-				RelativePath="..\..\x86\ivu1zerorec.h"
-				>
-			</File>
 			<File
 				RelativePath="..\..\VU.h"
 				>
@@ -1197,6 +1193,10 @@
 			Name="x86"
 			>
 			<File
+				RelativePath="..\..\x86\iCOP2.c"
+				>
+			</File>
+			<File
 				RelativePath="..\..\x86\iCore.cpp"
 				>
 			</File>
@@ -1225,11 +1225,23 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\x86\iHw.c"
+				>
+			</File>
+			<File
 				RelativePath="..\..\x86\iMMI.c"
 				>
 			</File>
 			<File
 				RelativePath="..\..\x86\iMMI.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\x86\iPsxHw.c"
+				>
+			</File>
+			<File
+				RelativePath="..\..\x86\iPsxMem.c"
 				>
 			</File>
 			<File
@@ -1294,10 +1306,6 @@
 			</File>
 			<File
 				RelativePath="..\..\x86\iVUzerorec.h"
-				>
-			</File>
-			<File
-				RelativePath="..\..\x86\recCOP2.c"
 				>
 			</File>
 			<Filter

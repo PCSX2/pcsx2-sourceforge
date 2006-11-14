@@ -807,8 +807,8 @@ u32 psxHwRead32(u32 add) {
 	return hard;
 }
 
-static int pbufi;
-static s8 pbuf[1024];
+int g_pbufi;
+s8 g_pbuf[1024];
 
 #define DmaExec(n) { \
 	if (HW_DMA##n##_CHCR & 0x01000000 && \
@@ -863,11 +863,11 @@ void psxHwWrite8(u32 add, u8 value) {
 
 		case 0x1f80380c:
 			if (value == '\r') break;
-			if (value == '\n' || pbufi >= 1023) {
-				pbuf[pbufi++] = 0; pbufi = 0;
-				SysPrintf("%s\n", pbuf); break;
+			if (value == '\n' || g_pbufi >= 1023) {
+				g_pbuf[g_pbufi++] = 0; g_pbufi = 0;
+				SysPrintf("%s\n", g_pbuf); break;
 			}
-			pbuf[pbufi++] = value;
+			g_pbuf[g_pbufi++] = value;
 			break;
 
 		case 0x1F808260:
