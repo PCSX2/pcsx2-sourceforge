@@ -199,7 +199,7 @@ int DvdRead(u32 lsn, u32 sectors, void *buf, CdRMode *mode){
 //			case CdSecS2064:
 				((u32*)buf)[0] = i + 0x30000;
 				memcpy((u8*)buf+12, buff, 2048); 
-				buf+= 2064; break;
+				buf = (char*)buf + 2064; break;
 //			default:
 //				return 0;
 //		}
