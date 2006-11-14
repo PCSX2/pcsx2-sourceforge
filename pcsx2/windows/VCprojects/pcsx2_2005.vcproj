@@ -278,7 +278,7 @@
 				Name="VCLinkerTool"
 				AdditionalOptions="/MACHINE:I386"
 				AdditionalDependencies="odbc32.lib odbccp32.lib comctl32.lib ../libs/gnu_gettext.lib ws2_32.lib winmm.lib ../libs/pthreadVC2.lib"
-				OutputFile="F:\coses\emulation\ps2\Pcsx2\pcsx2td.exe"
+				OutputFile="..\..\pcsx2exe\pcsx2td.exe"
 				LinkIncremental="1"
 				SuppressStartupBanner="true"
 				AdditionalLibraryDirectories="..\"
@@ -1218,6 +1218,10 @@
 			</File>
 			<File
 				RelativePath="..\..\x86\iFPU.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\x86\iGS.cpp"
 				>
 			</File>
 			<File

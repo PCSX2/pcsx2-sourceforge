@@ -9,6 +9,7 @@
 
 using namespace std;
 
+extern "C" {
 #include "PS2Etypes.h"
 #include "zlib.h"
 #include "Elfheader.h"
@@ -26,6 +27,19 @@ using namespace std;
 
 #include "Counters.h"
 #include "GS.h"
+
+extern u32 CSRw;
+
+}
+
+void CSRwrite(u32 value);
+
+#ifdef WIN32_VIRTUAL_MEM
+#define PS2GS_BASE(mem) ((PS2MEM_BASE+0x12000000)+(mem&0x13ff))
+#else
+extern u8 g_RealGSMem[0x2000];
+#define PS2GS_BASE(mem) (g_RealGSMem+(mem&0x13ff))
+#endif
 
 void gsConstWrite8(u32 mem, int mmreg)
 {
