@@ -1,5 +1,6 @@
 #include <string.h>
 #include <malloc.h>
+#include <assert.h>
 
 #include "Common.h"
 #include "iR5900.h"
@@ -7,8 +8,6 @@
 #include "PsxMem.h"
 #include "IPU/IPU.h"
 #include "GS.h"
-
-#include <assert.h>
 
 #ifndef WIN32_VIRTUAL_MEM
 extern u8  *psH; // hw mem
@@ -20,6 +19,8 @@ extern u64 *psHD;
 extern int b440;
 extern BOOL bExecBIOS;
 extern int b440table[];
+extern char sio_buffer[1024];
+extern int sio_count;
 
 int hwConstRead8(u32 x86reg, u32 mem, u32 sign)
 {

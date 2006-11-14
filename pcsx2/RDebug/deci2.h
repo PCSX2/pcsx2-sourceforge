@@ -57,7 +57,7 @@ extern DECI2_DBGP_BRK	ebrk[32], ibrk[32];
 extern int				ebrk_count, ibrk_count;
 extern int				runStatus, runCode, runCount;
 
-#ifdef __WIN32
+#ifdef _WIN32
 extern HANDLE			runEvent;					//i don't like this;
 #endif
 

@@ -44,7 +44,7 @@ extern "C" {
 #include "Vif.h"
 #include "VU.h"
 
-#include "memory.h"
+#include "Memory.h"
 #include "Hw.h"
 #include "GS.h"
 
