@@ -29,7 +29,7 @@
 #include "VUmicro.h"
 #include "VUops.h"
 #include "VUflags.h"
-#include "ivu1micro.h"
+#include "iVU1micro.h"
 
 #include "iVUzerorec.h"
 

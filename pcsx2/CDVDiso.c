@@ -199,7 +199,7 @@ int DvdRead(u32 lsn, u32 sectors, void *buf, CdRMode *mode){
 //			case CdSecS2064:
 				((u32*)buf)[0] = i + 0x30000;
 				memcpy((u8*)buf+12, buff, 2048); 
-				(u8*)buf+= 2064; break;
+				buf+= 2064; break;
 //			default:
 //				return 0;
 //		}
@@ -301,13 +301,13 @@ int CDVD_findfile(char* fname, struct TocEntry* tocEntry){
 	//CdSync(0x00);
 
 	// point the tocEntryPointer at the first real toc entry
-	(char*)tocEntryPointer = toc;
+	tocEntryPointer = (struct dirTocEntry*)toc;
 
 	num_dir_sectors = (tocEntryPointer->fileSize+2047) >> 11;	//round up fix
 	current_sector = tocEntryPointer->fileLBA;
 
-	(char*)tocEntryPointer += tocEntryPointer->length;
-	(char*)tocEntryPointer += tocEntryPointer->length;
+	tocEntryPointer = (struct dirTocEntry*)((char*)tocEntryPointer + tocEntryPointer->length);
+	tocEntryPointer = (struct dirTocEntry*)((char*)tocEntryPointer + tocEntryPointer->length);
 
 
 	localTocEntry.fileLBA = CDVolDesc.rootToc.tocLBA;
@@ -361,7 +361,7 @@ int CDVD_findfile(char* fname, struct TocEntry* tocEntry){
 					}
 //					CdSync(0x00);
 
-					(char*)tocEntryPointer = toc;
+					tocEntryPointer = (struct dirTocEntry*)toc;
 				}
 				else
 				{
@@ -386,7 +386,7 @@ int CDVD_findfile(char* fname, struct TocEntry* tocEntry){
 			}
 
 			// point to the next entry
-			(char*)tocEntryPointer += tocEntryPointer->length;
+			tocEntryPointer = (struct dirTocEntry*)((char*)tocEntryPointer + tocEntryPointer->length);
 		}
 
 		// If we havent found the directory name we wanted then fail
@@ -411,23 +411,23 @@ int CDVD_findfile(char* fname, struct TocEntry* tocEntry){
 		current_sector = localTocEntry.fileLBA;
 
 		// and point the tocEntryPointer at the first real toc entry
-		(char*)tocEntryPointer = toc;
-		(char*)tocEntryPointer += tocEntryPointer->length;
-		(char*)tocEntryPointer += tocEntryPointer->length;
+		tocEntryPointer = (struct dirTocEntry*)toc;
+		tocEntryPointer = (struct dirTocEntry*)((char*)tocEntryPointer + tocEntryPointer->length);
+		tocEntryPointer = (struct dirTocEntry*)((char*)tocEntryPointer + tocEntryPointer->length);
 	}
 
 #ifdef DEBUG
 	printf("CDVD_findfile: found dir, now looking for file\n");
 #endif
 
-	(char*)tocEntryPointer = toc;
+	tocEntryPointer = (struct dirTocEntry*)toc;
 
 	num_dir_sectors = (tocEntryPointer->fileSize+2047) >> 11;	//round up fix
 	dir_lba = tocEntryPointer->fileLBA;
 
-	(char*)tocEntryPointer = toc;
-	(char*)tocEntryPointer += tocEntryPointer->length;
-	(char*)tocEntryPointer += tocEntryPointer->length;
+	tocEntryPointer = (struct dirTocEntry*)toc;
+	tocEntryPointer = (struct dirTocEntry*)((char*)tocEntryPointer + tocEntryPointer->length);
+	tocEntryPointer = (struct dirTocEntry*)((char*)tocEntryPointer + tocEntryPointer->length);
 
 	while (num_dir_sectors > 0)
 	{
@@ -456,7 +456,7 @@ int CDVD_findfile(char* fname, struct TocEntry* tocEntry){
 				return TRUE;
 			}
 
-			(char*)tocEntryPointer += tocEntryPointer->length;
+			tocEntryPointer = (struct dirTocEntry*)((char*)tocEntryPointer + tocEntryPointer->length);
 		}
 
 		num_dir_sectors--;
@@ -471,7 +471,7 @@ int CDVD_findfile(char* fname, struct TocEntry* tocEntry){
 			}
 //			CdSync(0x00);
 
-			(char*)tocEntryPointer = toc;
+			tocEntryPointer = (struct dirTocEntry*)toc;
 		}
 	}
 
@@ -522,13 +522,13 @@ int CDVD_GetDir_RPC_request(char* pathname, char* extensions, unsigned int inc_d
 	//CdSync(0x00);
 
 	// point the tocEntryPointer at the first real toc entry
-	(char*)tocEntryPointer = toc;
+	tocEntryPointer = (struct dirTocEntry*)toc;
 
 	num_dir_sectors = (tocEntryPointer->fileSize+2047) >> 11;
 	current_sector = tocEntryPointer->fileLBA;
 
-	(char*)tocEntryPointer += tocEntryPointer->length;
-	(char*)tocEntryPointer += tocEntryPointer->length;
+	tocEntryPointer = (struct dirTocEntry*)((char*)tocEntryPointer + tocEntryPointer->length);
+	tocEntryPointer = (struct dirTocEntry*)((char*)tocEntryPointer + tocEntryPointer->length);
 
 	// use strtok to get the next dir name
 
@@ -564,7 +564,7 @@ int CDVD_GetDir_RPC_request(char* pathname, char* extensions, unsigned int inc_d
 					}
 					//CdSync(0x00);
 
-					(char*)tocEntryPointer = toc;
+					tocEntryPointer = (struct dirTocEntry*)toc;
 				}
 				else{
 					// Couldnt find the directory, and got to end of directory
@@ -589,7 +589,7 @@ int CDVD_GetDir_RPC_request(char* pathname, char* extensions, unsigned int inc_d
 			}
 
 			// point to the next entry
-			(char*)tocEntryPointer += tocEntryPointer->length;
+			tocEntryPointer = (struct dirTocEntry*)((char*)tocEntryPointer + tocEntryPointer->length);
 		}
 
 		// If we havent found the directory name we wanted then fail
@@ -612,9 +612,9 @@ int CDVD_GetDir_RPC_request(char* pathname, char* extensions, unsigned int inc_d
 		current_sector = localTocEntry.fileLBA;
 
 		// and point the tocEntryPointer at the first real toc entry
-		(char*)tocEntryPointer = toc;
-		(char*)tocEntryPointer += tocEntryPointer->length;
-		(char*)tocEntryPointer += tocEntryPointer->length;
+		tocEntryPointer = (struct dirTocEntry*)toc;
+		tocEntryPointer = (struct dirTocEntry*)((char*)tocEntryPointer + tocEntryPointer->length);
+		tocEntryPointer = (struct dirTocEntry*)((char*)tocEntryPointer + tocEntryPointer->length);
 	}
 
 	// We know how much data we need to read in from the DirTocHeader
@@ -626,7 +626,7 @@ int CDVD_GetDir_RPC_request(char* pathname, char* extensions, unsigned int inc_d
 	// This is a bit of a waste of reads since we're not actually copying the data out yet,
 	// but we dont know how big this TOC might be, so we cant allocate a specific size
 
-	(char*)tocEntryPointer = toc;
+	tocEntryPointer = (struct dirTocEntry*)toc;
 
 	// Need to STORE the start LBA and number of Sectors, for use by the retrieve func.
 	getDirTocData.start_LBA = localTocEntry.fileLBA;
@@ -638,9 +638,9 @@ int CDVD_GetDir_RPC_request(char* pathname, char* extensions, unsigned int inc_d
 
 	num_dir_sectors = getDirTocData.num_sectors;
 
-	(char*)tocEntryPointer = toc;
-	(char*)tocEntryPointer += tocEntryPointer->length;
-	(char*)tocEntryPointer += tocEntryPointer->length;
+	tocEntryPointer = (struct dirTocEntry*)toc;
+	tocEntryPointer = (struct dirTocEntry*)((char*)tocEntryPointer + tocEntryPointer->length);
+	tocEntryPointer = (struct dirTocEntry*)((char*)tocEntryPointer + tocEntryPointer->length);
 
 	toc_entry_num=0;
 
@@ -662,7 +662,7 @@ int CDVD_GetDir_RPC_request(char* pathname, char* extensions, unsigned int inc_d
 				}
 				//CdSync(0x00);
 
-				(char*)tocEntryPointer = toc;
+				tocEntryPointer = (struct dirTocEntry*)toc;
 
 //				continue;
 			}
@@ -695,8 +695,7 @@ int CDVD_GetDir_RPC_request(char* pathname, char* extensions, unsigned int inc_d
 			}
 		}
 
-		(char*)tocEntryPointer += tocEntryPointer->length;
-
+		tocEntryPointer = (struct dirTocEntry*)((char*)tocEntryPointer + tocEntryPointer->length);
 	}
 
 
@@ -732,14 +731,15 @@ int CDVD_GetDir_RPC_get_entries(struct TocEntry tocEntry[], int req_entries){
 
 	if (getDirTocData.current_entry == 0){
 		// if this is the first read then make sure we point to the first real entry
-		(char*)tocEntryPointer = toc;
-		(char*)tocEntryPointer += tocEntryPointer->length;
-		(char*)tocEntryPointer += tocEntryPointer->length;
+		tocEntryPointer = (struct dirTocEntry*)toc;
+		tocEntryPointer = (struct dirTocEntry*)((char*)tocEntryPointer + tocEntryPointer->length);
+		tocEntryPointer = (struct dirTocEntry*)((char*)tocEntryPointer + tocEntryPointer->length);
+
 
 		getDirTocData.current_sector_offset = (char*)tocEntryPointer - toc;
 	}
 	else{
-		(char*)tocEntryPointer = toc + getDirTocData.current_sector_offset;
+		tocEntryPointer = (struct dirTocEntry*)(toc + getDirTocData.current_sector_offset);
 	}
 
 	if (req_entries > 128)
@@ -764,7 +764,7 @@ int CDVD_GetDir_RPC_get_entries(struct TocEntry tocEntry[], int req_entries){
 				//CdSync(0x00);
 
 				getDirTocData.current_sector_offset = 0;
-				(char*)tocEntryPointer = toc + getDirTocData.current_sector_offset;
+				tocEntryPointer = (struct dirTocEntry*)(toc + getDirTocData.current_sector_offset);
 
 //				continue;
 			}
@@ -790,7 +790,7 @@ int CDVD_GetDir_RPC_get_entries(struct TocEntry tocEntry[], int req_entries){
 			}
 
 			getDirTocData.current_sector_offset += tocEntryPointer->length;
-			(char*)tocEntryPointer = toc + getDirTocData.current_sector_offset;
+			tocEntryPointer = (struct dirTocEntry*)(toc + getDirTocData.current_sector_offset);
 		}
 		else{
 			if (strlen(getDirTocData.extension_list) > 0){
@@ -800,13 +800,13 @@ int CDVD_GetDir_RPC_get_entries(struct TocEntry tocEntry[], int req_entries){
 				}
 
 				getDirTocData.current_sector_offset += tocEntryPointer->length;
-				(char*)tocEntryPointer = toc + getDirTocData.current_sector_offset;
+				tocEntryPointer = (struct dirTocEntry*)(toc + getDirTocData.current_sector_offset);
 
 			}
 			else{
 				toc_entry_num++;
 				getDirTocData.current_sector_offset += tocEntryPointer->length;
-				(char*)tocEntryPointer = toc + getDirTocData.current_sector_offset;
+				tocEntryPointer = (struct dirTocEntry*)(toc + getDirTocData.current_sector_offset);
 			}
 		}
 /*

@@ -50,8 +50,10 @@ int main()
 {
 int a = 0;
 int*pa = &a;
-asm("mov %%rax, %0\n"
+asm(".intel_syntax\n"
+	"mov %%rax, %0\n"
     "mov %%eax, [%%rax]\n"
+    ".att_syntax\n"
     : : "r"(pa) : "%rax");
 return 0;
 }

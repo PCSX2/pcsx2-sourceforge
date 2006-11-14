@@ -178,4 +178,5 @@ _StopPerfCounter:
 	pop %ebx
 	pop %eax
 	ret
+		
 	
