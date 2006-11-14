@@ -60,7 +60,10 @@ BIOS
 #include "PsxHw.h"
 #include "VUmicro.h"
 #include "GS.h"
+
+#ifdef ENABLECACHE
 #include "Cache.h"
+#endif
 
 #include <assert.h>
 
@@ -134,16 +137,6 @@ PSMEMORYMAP initMemoryMap(ULONG_PTR* aPFNs, ULONG_PTR* aVFNs)
 static int XmmExtendedRegOffset = 160;
 
 // virtual memory blocks
-
-//#ifdef WIN32_FILE_MAPPING
-//HANDLE s_psM, s_psHw, s_psS, s_psxM, s_psVuMem;
-//#define PHYSICAL_ALLOC(ptr, size, block) { \
-//	block = CreateFileMapping(NULL, NULL, PAGE_READWRITE, 0, bufSize, #block);
-////MapViewOfFileEx
-//}
-//
-//#else
-
 PSMEMORYBLOCK s_psM = {0}, s_psHw = {0}, s_psS = {0}, s_psxM = {0}, s_psVuMem = {0};
 PSMEMORYMAP *memLUT = NULL;
 
@@ -153,8 +146,6 @@ PSMEMORYMAP *memLUT = NULL;
 	if(SysVirtualPhyAlloc((void*)ptr, size, &block) == -1) \
 		goto eCleanupAndExit; \
 } \
-
-//#endif
 
 #define VIRTUAL_ALLOC(base, size, Protection) { \
 	LPVOID lpMemReserved = VirtualAlloc( base, size, MEM_RESERVE|MEM_COMMIT, Protection ); \

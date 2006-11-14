@@ -1568,8 +1568,8 @@ void RunGSState(gzFile f)
 //					skipfirst = 0;
 //				}
 //				
-				it = packets.begin();
-				continue;
+//				it = packets.begin();
+//				continue;
 				break;
 			default:
 				assert(0);
