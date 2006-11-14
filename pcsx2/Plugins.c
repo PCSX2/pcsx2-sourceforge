@@ -499,7 +499,13 @@ static pluginsopened = 0;
 extern void spu2DMA4Irq();
 extern void spu2DMA7Irq();
 extern void spu2Irq();
+
+#ifdef _WIN32
 extern HANDLE g_hGSOpen, g_hGSDone;
+#else
+extern pthread_cond_t g_condGSOpen, g_condGSDone;
+#endif
+
 int OpenPlugins() {
 	GSdriverInfo info;
 	int ret;
@@ -518,8 +524,13 @@ int OpenPlugins() {
 	// make sure only call open once per instance
 	if( !pluginsopened ) {
 		if( CHECK_MULTIGS ) {
+#ifdef _WIN32
 			SetEvent(g_hGSOpen);
 			WaitForSingleObject(g_hGSDone, INFINITE);
+#else
+			pthread_cond_signal(&g_condGSOpen);
+			pthread_cond_wait(&g_condGSDone, NULL);
+#endif
 		}
 		else {
 			ret = GSopen((void *)&pDsp, "PCSX2", 0);

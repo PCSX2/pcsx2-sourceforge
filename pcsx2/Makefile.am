@@ -9,8 +9,8 @@ CDVD.c        Elfheader.c    Memory.c        PsxCounters.c     R5900.c   VU0.h \
 CDVD.h        Elfheader.h    Memory.h        PsxCounters.h     R5900.h   VU0micro.c \
 CDVDiso.c     FiFo.c         Misc.c          PsxDma.c          Sif.c     VU1micro.c \
 CDVDisodrv.c  FPU2.cpp       Misc.h          PsxDma.h          Sifcmd.h  VUflags.c \
-CDVDisodrv.h  FPU.c          MMI.c           PsxGPU.c          Sif.h     VUflags.h \
-CDVDiso.h     GS.cpp         Patch.c         PsxGPU.h          Sio.c     VU.h \
+CDVDisodrv.h  FPU.c          MMI.c           Sif.h     VUflags.h \
+CDVDiso.h     GS.cpp         Patch.c         Sio.c     VU.h \
 CDVDlib.h     GS.h           Patch.h         PsxHw.c           Sio.h     VUmicro.h \
 Common.h      Hw.c           Plugins.c       PsxHw.h           SPR.c     VUops.c \
 COP0.c        Hw.h           Plugins.h       PsxInterpreter.c  SPR.h     VUops.h \
@@ -20,4 +20,4 @@ Counters.h    InterTables.h  PsxBios2.h      PsxSio2.c         VifDma.c \
 Decode_XA.c   Mdec.c         PsxBios.c       PsxSio2.h         VifDma.h
 
 
-SUBDIRS = . DebugTools IPU pcl RDebug zlib tinyxml x86 Linux 
+SUBDIRS = . DebugTools IPU pcl RDebug zlib tinyxml Linux 

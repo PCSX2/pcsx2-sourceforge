@@ -362,7 +362,9 @@ void D2_DBGP(char *inbuffer, char *outbuffer, char *message, char *eepc, char *i
 				Sleep(100);//first get the run thread to Wait state
 				runCount=in->count;
 				runCode=in->code;
+#ifdef _WIN32
 				SetEvent(runEvent);//kick it
+#endif
 			}
 			break;
 		case 0x18://ok [without argc/argv stuff]
@@ -379,7 +381,9 @@ void D2_DBGP(char *inbuffer, char *outbuffer, char *message, char *eepc, char *i
 			Sleep(1000);//first get the run thread to Wait state
 			runCount=0;
 			runCode=0xFF;
+#ifdef _WIN32
 			SetEvent(runEvent);//awake it
+#endif
 			out->h.length=sizeof(DECI2_DBGP_HEADER);
 			break;
 		default:

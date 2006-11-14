@@ -5,7 +5,7 @@
 #include <string>
 using namespace std;
 
-#include "tinyxml.h"
+#include "tinyxml/tinyxml.h"
 
 extern "C" {
 #	include "../ps2etypes.h"

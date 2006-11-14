@@ -352,7 +352,6 @@ static int co_set_context(co_ctx_t *ctx, void *func, char *stkbase, long stksiz)
 	ctx->cc[0].__jmpbuf[JB_LR] = (int) func;
 	ctx->cc[0].__jmpbuf[JB_GPR1] = (int) stack;
 #else
-
     // automatically assume windows/x86 (cygwin)
 typedef struct __JUMP_BUFFER {
     unsigned long Ebp;
