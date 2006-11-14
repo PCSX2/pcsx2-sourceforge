@@ -35,22 +35,22 @@ extern "C" {
 #define PLUGINtypedefs // for GSgifTransfer1
 
 #include "PS2Etypes.h"
-#include "PS2EDefs.h"
+#include "PS2Edefs.h"
 #include "zlib.h"
-#include "ElfHeader.h"
+#include "Elfheader.h"
 #include "Misc.h"
 #include "System.h"
 #include "R5900.h"
 #include "Vif.h"
 #include "VU.h"
-#include "vifdma.h"
-#include "memory.h"
+#include "VifDma.h"
+#include "Memory.h"
 #include "Hw.h"
 
 #include "ix86/ix86.h"
 #include "iR5900.h"
 
-#include "counters.h"
+#include "Counters.h"
 #include "GS.h"
 
 extern _GSinit            GSinit;
@@ -77,11 +77,19 @@ extern _GSsetFrameSkip 	   GSsetFrameSkip;
 extern _GSreset		   GSreset;
 extern _GSwriteCSR		   GSwriteCSR;
 
+#ifdef _WIN32
 // could convert to pthreads easily, just don't have the time	
 HANDLE g_hGsEvent = NULL, // set when path3 is ready to be processed
 	g_hVuGSExit = NULL;		// set when thread needs to exit
 HANDLE g_hGSOpen = NULL, g_hGSDone = NULL;
 HANDLE g_hVuGSThread = NULL;
+#else
+pthread_cond_t g_condGsEvent = PTHREAD_COND_INITIALIZER,
+	g_condVuGSExit = PTHREAD_COND_INITIALIZER,
+	g_condGSOpen = PTHREAD_COND_INITIALIZER,
+	g_condGSDone = PTHREAD_COND_INITIALIZER;
+pthread_t g_VuGSThread;
+#endif
 
 int g_FFXHack=0;
 
@@ -135,11 +143,7 @@ typedef struct
 } GIFTAG;
 
 static GIFTAG g_path[3];
-static PCSX2_ALIGNED16(BYTE s_byRegs[3][16]);
-
-HANDLE g_hAllGsReady[3] = {NULL};
-
-DWORD WINAPI GSThreadProc(LPVOID lpParam);
+static PCSX2_ALIGNED16(u8 s_byRegs[3][16]);
 
 // g_pGSRingPos == g_pGSWritePos => fifo is empty
 u8* g_pGSRingPos = NULL, // cur pos ring is at
@@ -149,8 +153,13 @@ extern int g_nCounters[];
 
 extern void * memcpy_amd(void *dest, const void *src, size_t n);
 
+#ifdef _WIN32
+DWORD WINAPI GSThreadProc(LPVOID lpParam);
+#endif
+
 void gsInit()
 {
+#ifdef _WIN32
 	if( CHECK_MULTIGS ) {
 		g_hGsEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 
@@ -180,16 +189,23 @@ void gsInit()
 		InterlockedExchangePointer(&g_pGSWritePos, GS_RINGBUFFERBASE);
 		g_hVuGSThread = CreateThread(NULL, 0, GSThreadProc, NULL, 0, NULL);
 	}
+#endif
 }
 
 void gsWaitGS()
 {
-	while( g_pGSRingPos != g_pGSWritePos )
+	while( g_pGSRingPos != g_pGSWritePos ) {
+#ifdef _WIN32
 		Sleep(1);
+#else
+		usleep(500);
+#endif
+	}
 }
 
 void gsShutdown()
 {
+#ifdef _WIN32
 	if( CHECK_MULTIGS ) {
 
 		SetEvent(g_hVuGSExit);
@@ -214,7 +230,9 @@ void gsShutdown()
 		}
 #endif
 	}
-	else GSclose();
+	else
+#endif
+		GSclose();
 }
 
 typedef u8* PU8;
@@ -235,8 +253,13 @@ u8* GSRingBufCopy(void* mem, u32 size, u32 type)
 		// skip to beginning
 		while( writepos < tempbuf || tempbuf == GS_RINGBUFFERBASE ) {
 			if( !CHECK_DUALCORE ) {
+#ifdef _WIN32
 				SetEvent(g_hGsEvent);
 				Sleep(1);
+#else
+				pthread_cond_signal(&g_condGsEvent);
+				usleep(500);
+#endif
 			}
 			tempbuf = *(volatile PU8*)&g_pGSRingPos;
 
@@ -255,8 +278,13 @@ u8* GSRingBufCopy(void* mem, u32 size, u32 type)
 
 	while( writepos < tempbuf && (writepos+size >= tempbuf || (writepos+size == GS_RINGBUFFEREND && tempbuf == GS_RINGBUFFERBASE)) ) {
 		if( !CHECK_DUALCORE ) {
+#ifdef _WIN32
 			SetEvent(g_hGsEvent);
 			Sleep(1);
+#else
+			pthread_cond_signal(&g_condGsEvent);
+			usleep(500);
+#endif
 		}
 		tempbuf = *(volatile PU8*)&g_pGSRingPos;
 
@@ -281,8 +309,13 @@ void GSRingBufSimplePacket(int type, int data0, int data1, int data2)
 		
 		do {
 			if( !CHECK_DUALCORE ) {
+#ifdef _WIN32
 				SetEvent(g_hGsEvent);
 				Sleep(1);
+#else
+				pthread_cond_signal(&g_condGsEvent);
+				usleep(500);
+#endif
 			}
 			tempbuf = *(volatile PU8*)&g_pGSRingPos;
 
@@ -300,8 +333,13 @@ void GSRingBufSimplePacket(int type, int data0, int data1, int data2)
 	if( writepos == GS_RINGBUFFEREND ) writepos = GS_RINGBUFFERBASE;
 	InterlockedExchangePointer(&g_pGSWritePos, writepos);
 
-	if( !CHECK_DUALCORE )
+	if( !CHECK_DUALCORE ) {
+#ifdef _WIN32
 		SetEvent(g_hGsEvent);
+#else
+		pthread_cond_signal(&g_condGsEvent);
+#endif
+	}
 }
 
 void gsReset()
@@ -312,8 +350,10 @@ void gsReset()
 	//if( GSreset ) GSreset();
 
 	if( CHECK_MULTIGS ) {
+#ifdef _WIN32
 		ResetEvent(g_hGsEvent);
 		ResetEvent(g_hVuGSExit);
+#endif
 
 		g_pGSRingPos = g_pGSWritePos;
 	}
@@ -417,37 +457,6 @@ void gsWrite8(u32 mem, u8 value) {
 #endif
 }
 
-void gsConstWrite8(u32 mem, int mmreg)
-{
-	switch (mem&~3) {
-		case 0x12001000: // GS_CSR
-			_eeMoveMMREGtoR(EAX, mmreg);
-			iFlushCall(0);
-			MOV32MtoR(ECX, (u32)&CSRw);
-			AND32ItoR(EAX, 0xff<<(mem&3)*8);
-			AND32ItoR(ECX, ~(0xff<<(mem&3)*8));
-			OR32ItoR(EAX, ECX);
-			PUSH32R(EAX);
-			CALLFunc((u32)CSRwrite);
-			ADD32ItoR(ESP, 4);
-			break;
-		default:
-			_eeWriteConstMem8( (u32)PS2GS_BASE(mem), mmreg );
-
-			if( CHECK_MULTIGS ) {
-				_recPushReg(mmreg);
-
-				iFlushCall(0);
-
-				PUSH32I(mem&0x13ff);
-				PUSH32I(GS_RINGTYPE_MEMWRITE8);
-				CALLFunc((u32)GSRingBufSimplePacket);
-				ADD32ItoR(ESP, 12);
-			}
-			break;
-	}
-}
-
 extern void UpdateVSyncRate();
 
 void gsWrite16(u32 mem, u16 value) {
@@ -500,119 +509,6 @@ void gsWrite16(u32 mem, u16 value) {
 #endif
 }
 
-void recSetSMODE1()
-{
-	iFlushCall(0);
-	AND32ItoR(EAX, 0x6000);
-	CMP32ItoR(EAX, 0x6000);
-	j8Ptr[5] = JNE8(0);
-
-	// PAL
-	OR32ItoM( (u32)&Config.PsxType, 1);
-	j8Ptr[6] = JMP8(0);
-
-	x86SetJ8( j8Ptr[5] );
-
-	// NTSC
-	AND32ItoM( (u32)&Config.PsxType, ~1 );
-
-	x86SetJ8( j8Ptr[6] );
-	CALLFunc((u32)UpdateVSyncRate);
-}
-
-void recSetSMODE2()
-{
-	TEST32ItoR(EAX, 1);
-	j8Ptr[5] = JZ8(0);
-
-	// Interlaced
-	OR32ItoM( (u32)&Config.PsxType, 2);
-	j8Ptr[6] = JMP8(0);
-
-	x86SetJ8( j8Ptr[5] );
-
-	// Non-Interlaced
-	AND32ItoM( (u32)&Config.PsxType, ~2 );
-
-	x86SetJ8( j8Ptr[6] );
-}
-
-void gsConstWrite16(u32 mem, int mmreg)
-{	
-	switch (mem&~3) {
-		case 0x12000010: // GS_SMODE1
-			assert( !(mem&3));
-			_eeMoveMMREGtoR(EAX, mmreg);
-			_eeWriteConstMem16( (u32)PS2GS_BASE(mem), mmreg );
-
-			if( CHECK_MULTIGS ) PUSH32R(EAX);
-
-			recSetSMODE1();
-
-			if( CHECK_MULTIGS ) {
-				iFlushCall(0);
-
-				PUSH32I(mem&0x13ff);
-				PUSH32I(GS_RINGTYPE_MEMWRITE16);
-				CALLFunc((u32)GSRingBufSimplePacket);
-				ADD32ItoR(ESP, 12);
-			}
-
-			break;
-			
-		case 0x12000020: // GS_SMODE2
-			assert( !(mem&3));
-			_eeMoveMMREGtoR(EAX, mmreg);
-			_eeWriteConstMem16( (u32)PS2GS_BASE(mem), mmreg );
-
-			if( CHECK_MULTIGS ) PUSH32R(EAX);
-
-			recSetSMODE2();
-
-			if( CHECK_MULTIGS ) {
-				iFlushCall(0);
-
-				PUSH32I(mem&0x13ff);
-				PUSH32I(GS_RINGTYPE_MEMWRITE16);
-				CALLFunc((u32)GSRingBufSimplePacket);
-				ADD32ItoR(ESP, 12);
-			}
-
-			break;
-			
-		case 0x12001000: // GS_CSR
-
-			assert( !(mem&2) );
-			_eeMoveMMREGtoR(EAX, mmreg);
-			iFlushCall(0);
-
-			MOV32MtoR(ECX, (u32)&CSRw);
-			AND32ItoR(EAX, 0xffff<<(mem&2)*8);
-			AND32ItoR(ECX, ~(0xffff<<(mem&2)*8));
-			OR32ItoR(EAX, ECX);
-			PUSH32R(EAX);
-			CALLFunc((u32)CSRwrite);
-			ADD32ItoR(ESP, 4);
-			break;
-
-		default:
-			_eeWriteConstMem16( (u32)PS2GS_BASE(mem), mmreg );
-
-			if( CHECK_MULTIGS ) {
-				_recPushReg(mmreg);
-
-				iFlushCall(0);
-
-				PUSH32I(mem&0x13ff);
-				PUSH32I(GS_RINGTYPE_MEMWRITE16);
-				CALLFunc((u32)GSRingBufSimplePacket);
-				ADD32ItoR(ESP, 12);
-			}
-
-			break;
-	}
-}
-
 void gsWrite32(u32 mem, u32 value)
 {
 	assert( !(mem&3));
@@ -657,103 +553,6 @@ void gsWrite32(u32 mem, u32 value)
 #ifdef GIF_LOG
 	GIF_LOG("GS write 32 at %8.8lx with data %8.8lx\n", mem, value);
 #endif
-}
-
-// (value&0x1f00)|0x6000
-void gsConstWriteIMR(int mmreg)
-{
-	const u32 mem = 0x12001010;
-	if( mmreg & MEM_XMMTAG ) {
-		SSE2_MOVD_XMM_to_M32((u32)PS2GS_BASE(mem), mmreg&0xf);
-		AND32ItoM((u32)PS2GS_BASE(mem), 0x1f00);
-		OR32ItoM((u32)PS2GS_BASE(mem), 0x6000);
-	}
-	else if( mmreg & MEM_MMXTAG ) {
-		SetMMXstate();
-		MOVDMMXtoM((u32)PS2GS_BASE(mem), mmreg&0xf);
-		AND32ItoM((u32)PS2GS_BASE(mem), 0x1f00);
-		OR32ItoM((u32)PS2GS_BASE(mem), 0x6000);
-	}
-	else if( mmreg & MEM_EECONSTTAG ) {
-		MOV32ItoM( (u32)PS2GS_BASE(mem), (g_cpuConstRegs[(mmreg>>16)&0x1f].UL[0]&0x1f00)|0x6000);
-	}
-	else {
-		AND32ItoR(mmreg, 0x1f00);
-		OR32ItoR(mmreg, 0x6000);
-		MOV32RtoM( (u32)PS2GS_BASE(mem), mmreg );
-	}
-
-	// IMR doesn't need to be updated in MTGS mode
-}
-
-void gsConstWrite32(u32 mem, int mmreg) {
-
-	switch (mem) {
-
-		case 0x12000010: // GS_SMODE1
-			_eeMoveMMREGtoR(EAX, mmreg);
-			_eeWriteConstMem32( (u32)PS2GS_BASE(mem), mmreg );
-
-			if( CHECK_MULTIGS ) PUSH32R(EAX);
-
-			recSetSMODE1();
-
-			if( CHECK_MULTIGS ) {
-				iFlushCall(0);
-
-				PUSH32I(mem&0x13ff);
-				PUSH32I(GS_RINGTYPE_MEMWRITE32);
-				CALLFunc((u32)GSRingBufSimplePacket);
-				ADD32ItoR(ESP, 12);
-			}
-
-			break;
-
-		case 0x12000020: // GS_SMODE2
-			_eeMoveMMREGtoR(EAX, mmreg);
-			_eeWriteConstMem32( (u32)PS2GS_BASE(mem), mmreg );
-
-			if( CHECK_MULTIGS ) PUSH32R(EAX);
-
-			recSetSMODE2();
-
-			if( CHECK_MULTIGS ) {
-				iFlushCall(0);
-
-				PUSH32I(mem&0x13ff);
-				PUSH32I(GS_RINGTYPE_MEMWRITE32);
-				CALLFunc((u32)GSRingBufSimplePacket);
-				ADD32ItoR(ESP, 12);
-			}
-
-			break;
-			
-		case 0x12001000: // GS_CSR
-			_recPushReg(mmreg);
-			iFlushCall(0);
-			CALLFunc((u32)CSRwrite);
-			ADD32ItoR(ESP, 4);
-			break;
-
-		case 0x12001010: // GS_IMR
-			gsConstWriteIMR(mmreg);
-			break;
-		default:
-			_eeWriteConstMem32( (u32)PS2GS_BASE(mem), mmreg );
-
-			if( CHECK_MULTIGS ) {
-				_recPushReg(mmreg);
-
-				iFlushCall(0);
-
-				PUSH32I(mem&0x13ff);
-				PUSH32I(GS_RINGTYPE_MEMWRITE32);
-				CALLFunc((u32)GSRingBufSimplePacket);
-				ADD32ItoR(ESP, 12);
-			}
-
-			break;
-	}
 }
 
 void gsWrite64(u32 mem, u64 value) {
@@ -802,154 +601,6 @@ void gsWrite64(u32 mem, u64 value) {
 #endif
 }
 
-void gsConstWrite64(u32 mem, int mmreg)
-{
-	switch (mem) {
-		case 0x12000010: // GS_SMODE1
-			_eeMoveMMREGtoR(EAX, mmreg);
-			_eeWriteConstMem64((u32)PS2GS_BASE(mem), mmreg);
-
-			if( CHECK_MULTIGS ) PUSH32R(EAX);
-
-			recSetSMODE1();
-
-			if( CHECK_MULTIGS ) {
-				iFlushCall(0);
-
-				PUSH32I(mem&0x13ff);
-				PUSH32I(GS_RINGTYPE_MEMWRITE32);
-				CALLFunc((u32)GSRingBufSimplePacket);
-				ADD32ItoR(ESP, 12);
-			}
-
-			break;
-
-		case 0x12000020: // GS_SMODE2
-			_eeMoveMMREGtoR(EAX, mmreg);
-			_eeWriteConstMem64((u32)PS2GS_BASE(mem), mmreg);
-
-			if( CHECK_MULTIGS ) PUSH32R(EAX);
-
-			recSetSMODE2();
-
-			if( CHECK_MULTIGS ) {
-				iFlushCall(0);
-
-				PUSH32I(mem&0x13ff);
-				PUSH32I(GS_RINGTYPE_MEMWRITE32);
-				CALLFunc((u32)GSRingBufSimplePacket);
-				ADD32ItoR(ESP, 12);
-			}
-
-			break;
-
-		case 0x12001000: // GS_CSR
-			_recPushReg(mmreg);
-			iFlushCall(0);
-			CALLFunc((u32)CSRwrite);
-			ADD32ItoR(ESP, 4);
-			break;
-
-		case 0x12001010: // GS_IMR
-			gsConstWriteIMR(mmreg);
-			break;
-
-		default:
-			_eeWriteConstMem64((u32)PS2GS_BASE(mem), mmreg);
-
-			if( CHECK_MULTIGS ) {
-				iFlushCall(0);
-
-				PUSH32M((u32)PS2GS_BASE(mem)+4);
-				PUSH32M((u32)PS2GS_BASE(mem));
-				PUSH32I(mem&0x13ff);
-				PUSH32I(GS_RINGTYPE_MEMWRITE64);
-				CALLFunc((u32)GSRingBufSimplePacket);
-				ADD32ItoR(ESP, 16);
-			}
-
-			break;
-	}
-}
-
-void gsConstWrite128(u32 mem, int mmreg)
-{
-	switch (mem) {
-		case 0x12000010: // GS_SMODE1
-			_eeMoveMMREGtoR(EAX, mmreg);
-			_eeWriteConstMem128( (u32)PS2GS_BASE(mem), mmreg);
-
-			if( CHECK_MULTIGS ) PUSH32R(EAX);
-
-			recSetSMODE1();
-
-			if( CHECK_MULTIGS ) {
-				iFlushCall(0);
-
-				PUSH32I(mem&0x13ff);
-				PUSH32I(GS_RINGTYPE_MEMWRITE32);
-				CALLFunc((u32)GSRingBufSimplePacket);
-				ADD32ItoR(ESP, 12);
-			}
-
-			break;
-
-		case 0x12000020: // GS_SMODE2
-			_eeMoveMMREGtoR(EAX, mmreg);
-			_eeWriteConstMem128( (u32)PS2GS_BASE(mem), mmreg);
-
-			if( CHECK_MULTIGS ) PUSH32R(EAX);
-
-			recSetSMODE2();
-
-			if( CHECK_MULTIGS ) {
-				iFlushCall(0);
-
-				PUSH32I(mem&0x13ff);
-				PUSH32I(GS_RINGTYPE_MEMWRITE32);
-				CALLFunc((u32)GSRingBufSimplePacket);
-				ADD32ItoR(ESP, 12);
-			}
-
-			break;
-
-		case 0x12001000: // GS_CSR
-			_recPushReg(mmreg);
-			iFlushCall(0);
-			CALLFunc((u32)CSRwrite);
-			ADD32ItoR(ESP, 4);
-			break;
-
-		case 0x12001010: // GS_IMR
-			// (value&0x1f00)|0x6000
-			gsConstWriteIMR(mmreg);
-			break;
-
-		default:
-			_eeWriteConstMem128( (u32)PS2GS_BASE(mem), mmreg);
-
-			if( CHECK_MULTIGS ) {
-				iFlushCall(0);
-
-				PUSH32M((u32)PS2GS_BASE(mem)+4);
-				PUSH32M((u32)PS2GS_BASE(mem));
-				PUSH32I(mem&0x13ff);
-				PUSH32I(GS_RINGTYPE_MEMWRITE64);
-				CALLFunc((u32)GSRingBufSimplePacket);
-				ADD32ItoR(ESP, 16);
-
-				PUSH32M((u32)PS2GS_BASE(mem)+12);
-				PUSH32M((u32)PS2GS_BASE(mem)+8);
-				PUSH32I(mem&0x13ff);
-				PUSH32I(GS_RINGTYPE_MEMWRITE64);
-				CALLFunc((u32)GSRingBufSimplePacket);
-				ADD32ItoR(ESP, 16);
-			}
-
-			break;
-	}
-}
-
 u8 gsRead8(u32 mem)
 {
 #ifdef GIF_LOG
@@ -957,15 +608,6 @@ u8 gsRead8(u32 mem)
 #endif
 
 	return *(u8*)PS2GS_BASE(mem);
-}
-
-int gsConstRead8(u32 x86reg, u32 mem, u32 sign)
-{
-#ifdef GIF_LOG
-	GIF_LOG("GS read 8 %8.8lx (%8.8x), at %8.8lx\n", (u32)PS2GS_BASE(mem), mem);
-#endif
-	_eeReadConstMem8(x86reg, (u32)PS2GS_BASE(mem), sign);
-	return 0;
 }
 
 u16 gsRead16(u32 mem)
@@ -977,30 +619,12 @@ u16 gsRead16(u32 mem)
 	return *(u16*)PS2GS_BASE(mem);
 }
 
-int gsConstRead16(u32 x86reg, u32 mem, u32 sign)
-{
-#ifdef GIF_LOG
-	GIF_LOG("GS read 16 %8.8lx (%8.8x), at %8.8lx\n", (u32)PS2GS_BASE(mem), mem);
-#endif
-	_eeReadConstMem16(x86reg, (u32)PS2GS_BASE(mem), sign);
-	return 0;
-}
-
 u32 gsRead32(u32 mem) {
 
 #ifdef GIF_LOG
 	GIF_LOG("GS read 32 %8.8lx, at %8.8lx\n", *(u32*)(PS2MEM_BASE+(mem&~0xc00)), mem);
 #endif
 	return *(u32*)PS2GS_BASE(mem);
-}
-
-int gsConstRead32(u32 x86reg, u32 mem)
-{
-#ifdef GIF_LOG
-	GIF_LOG("GS read 32 %8.8lx (%8.8x), at %8.8lx\n", (u32)PS2GS_BASE(mem), mem);
-#endif
-	_eeReadConstMem32(x86reg, (u32)PS2GS_BASE(mem));
-	return 0;
 }
 
 u64 gsRead64(u32 mem)
@@ -1010,27 +634,6 @@ u64 gsRead64(u32 mem)
 #endif
 	return *(u64*)PS2GS_BASE(mem);
 }
-
-void gsConstRead64(u32 mem, int mmreg)
-{
-#ifdef GIF_LOG
-	GIF_LOG("GS read 64 %8.8lx (%8.8x), at %8.8lx\n", (u32)PS2GS_BASE(mem), mem);
-#endif
-	if( IS_XMMREG(mmreg) ) SSE_MOVLPS_M64_to_XMM(mmreg&0xff, (u32)PS2GS_BASE(mem));
-	else {
-		MOVQMtoR(mmreg, (u32)PS2GS_BASE(mem));
-		SetMMXstate();
-	}
-}
-
-void gsConstRead128(u32 mem, int xmmreg)
-{
-#ifdef GIF_LOG
-	GIF_LOG("GS read 128 %8.8lx (%8.8x), at %8.8lx\n", (u32)PS2GS_BASE(mem), mem);
-#endif
-	_eeReadConstMem128( xmmreg, (u32)PS2GS_BASE(mem));
-}
-
 
 void gsIrq() {
 	hwIntcIrq(0);
@@ -1978,3 +1581,4 @@ void RunGSState(gzFile f)
 #endif
 
 #undef GIFchain
+

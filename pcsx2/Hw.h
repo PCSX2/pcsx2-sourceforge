@@ -309,6 +309,7 @@ typedef struct {
 #define dmaGetAddrBase(addr) (((addr) & 0x80000000) ? (void*)&PS2MEM_SCRATCH[(addr) & 0x3ff0] : (void*)(PS2MEM_BASE+TRANSFORM_ADDR(addr)))
 
 extern PSMEMORYMAP *memLUT;
+
 __forceinline u8* dmaGetAddr(u32 mem)
 {
 	u8* p, *pbase;
@@ -336,6 +337,9 @@ __forceinline u8* dmaGetAddr(u32 mem)
 }
 
 #else
+
+extern u8  *psS; //0.015 mb, scratch pad
+extern uptr *memLUTR;
 
 __forceinline void *dmaGetAddr(u32 addr) {
 	u8 *ptr;

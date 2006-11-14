@@ -16,17 +16,6 @@
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-//well that might need a recheck :P
-//(shadow bug0r work :P)
-
-//plz, change this file according to FIFO defs in hw.h
-/*	u64 VIF0[0x1000];
-	u64 VIF1[0x1000];
-	u64 GIF[0x1000];
-	u64 IPU_out_FIFO[0x160];	// 128bit
-	u64 IPU_in_FIFO[0x160];	// 128bit
-*/
-
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
@@ -97,7 +86,11 @@ void ConstReadFIFO(u32 mem)
 	// not done
 }
 
+#ifdef _WIN32
 extern HANDLE g_hGsEvent;
+#else
+extern pthread_cond_t s_condGsEvent;
+#endif
 
 void WriteFIFO(u32 mem, u64 *value) {
 	int ret;
@@ -149,8 +142,13 @@ void WriteFIFO(u32 mem, u64 *value) {
 			GSgifTransferDummy(2, (u32*)data, 1);
 			GSRINGBUF_DONECOPY(data, 16);
 
-			if( !CHECK_DUALCORE )
+			if( !CHECK_DUALCORE ) {
+#ifdef _WIN32
 				SetEvent(g_hGsEvent);
+#else
+				pthread_cond_signal(&s_condGsEvent);
+#endif
+			}
 		}
 		else {
 			FreezeXMMRegs(1);

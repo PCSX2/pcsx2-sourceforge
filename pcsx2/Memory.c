@@ -59,7 +59,7 @@ BIOS
 #include "R3000A.h"
 #include "PsxHw.h"
 #include "VUmicro.h"
-#include "gs.h"
+#include "GS.h"
 #include "Cache.h"
 
 #include <assert.h>
@@ -3084,3 +3084,4 @@ void memSetUserMode() {
 	MemMode = 2;
 #endif
 }
+

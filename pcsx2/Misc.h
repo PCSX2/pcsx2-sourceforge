@@ -154,7 +154,7 @@ void injectIRX(char *filename);
 inline void* pcsx2_aligned_malloc(size_t size, size_t align)
 {
 	char* p = (char*)malloc(size+align+1);
-	int off = 1+align - ((int)(p+1) % align);
+	int off = 1+align - ((int)(long long)(p+1) % align);
 
 	p += off;
 	p[-1] = off;
@@ -208,3 +208,4 @@ LONG  __cdecl _InterlockedAnd(LPLONG volatile Addend, LONG Value);
 #endif
 
 #endif /* __MISC_H__ */
+
