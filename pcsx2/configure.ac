@@ -41,6 +41,16 @@ then
 fi
 AC_MSG_RESULT($devbuild)
 
+dnl Check for recompilation
+AC_MSG_CHECKING(for disabling recopmilation build)
+AC_ARG_ENABLE(norecbuild, AC_HELP_STRING([--disable-recbuild], [Disable all architecture dependent recompilers]),
+ norecbuild=$enableval,norecbuild=no)
+if test "x$norecbuild" == xyes
+then
+ AC_DEFINE(PCSX2_RECBUILD,1,[PCSX2_NORECBUILD])
+fi
+AC_MSG_RESULT($norecbuild)
+
 dnl Check for 64bit CPU
 AC_MSG_CHECKING(for a x86-64 CPU)
 dnl if test "$build_os" == "target_os"
