@@ -1137,6 +1137,10 @@ int _vif0Interrupt() {
 			--vif0.irq;			
 		}
 		vif0Regs->stat&= ~0xF000000; // FQC=0
+		if(vif0.done == 1 && vif0ch->qwc == 0 && vif0.irqoffset == 0) {
+			//SysPrintf("Vif0 Stall, done = 1  qwc = 0 irqoffset = %x, tell ref\n", vif0.irqoffset);
+			vif0.vifstalled = 0;
+		} else
 		return 1;
 	}
 	if (vif0ch->chcr & 0x4 && vif0.done == 0 && vif0.vifstalled == 0) {
@@ -1903,9 +1907,10 @@ int _vif1Interrupt() {
 		
 		vif1Regs->stat&= ~0x1F000000; // FQC=0
 		// One game doesnt like vif stalling at end, cant remember what.
-#ifdef PCSX2_DEVBUILD
-		if(vif1.done == 1 && vif1ch->qwc == 0) SysPrintf("Vif Stall, done + qwc = 1, tell ref\n");
-#endif
+		if(vif1.done == 1 && vif1ch->qwc == 0 && vif1.irqoffset == 0) {
+			//SysPrintf("Vif1 Stall, done = 1  qwc = 0 irqoffset = %x, tell ref\n", vif1.irqoffset);
+			vif1.vifstalled = 0;
+		} else
 		return 1;
 	}
 	if (vif1ch->chcr & 0x4 && vif1.done == 0 && vif1.vifstalled == 0) {
