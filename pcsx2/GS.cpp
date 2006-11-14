@@ -77,18 +77,24 @@ extern _GSsetFrameSkip 	   GSsetFrameSkip;
 extern _GSreset		   GSreset;
 extern _GSwriteCSR		   GSwriteCSR;
 
+// could convert to pthreads only easily, just don't have the time	
 #ifdef _WIN32
-// could convert to pthreads easily, just don't have the time	
 HANDLE g_hGsEvent = NULL, // set when path3 is ready to be processed
 	g_hVuGSExit = NULL;		// set when thread needs to exit
 HANDLE g_hGSOpen = NULL, g_hGSDone = NULL;
 HANDLE g_hVuGSThread = NULL;
+
+DWORD WINAPI GSThreadProc(LPVOID lpParam);
+
 #else
 pthread_cond_t g_condGsEvent = PTHREAD_COND_INITIALIZER,
 	g_condVuGSExit = PTHREAD_COND_INITIALIZER,
 	g_condGSOpen = PTHREAD_COND_INITIALIZER,
 	g_condGSDone = PTHREAD_COND_INITIALIZER;
 pthread_t g_VuGSThread;
+
+void* GSThreadProc(void* idp);
+
 #endif
 
 int g_FFXHack=0;
@@ -152,10 +158,6 @@ u8* g_pGSRingPos = NULL, // cur pos ring is at
 extern int g_nCounters[];
 
 extern void * memcpy_amd(void *dest, const void *src, size_t n);
-
-#ifdef _WIN32
-DWORD WINAPI GSThreadProc(LPVOID lpParam);
-#endif
 
 void gsInit()
 {
@@ -243,7 +245,7 @@ u8* GSRingBufCopy(void* mem, u32 size, u32 type)
 	u8* tempbuf;
 	assert( size < GS_RINGBUFFERSIZE );
 	assert( writepos < GS_RINGBUFFEREND );
-	assert( ((u32)writepos & 15) == 0 );
+	assert( ((uptr)writepos & 15) == 0 );
 	assert( (size&15) == 0);
 
 	size += 16;
@@ -253,11 +255,10 @@ u8* GSRingBufCopy(void* mem, u32 size, u32 type)
 		// skip to beginning
 		while( writepos < tempbuf || tempbuf == GS_RINGBUFFERBASE ) {
 			if( !CHECK_DUALCORE ) {
+				GS_SETEVENT();
 #ifdef _WIN32
-				SetEvent(g_hGsEvent);
 				Sleep(1);
 #else
-				pthread_cond_signal(&g_condGsEvent);
 				usleep(500);
 #endif
 			}
@@ -269,20 +270,19 @@ u8* GSRingBufCopy(void* mem, u32 size, u32 type)
 
 		// notify GS
 		if( writepos != GS_RINGBUFFEREND ) {
-			InterlockedExchangePointer(writepos, GS_RINGTYPE_RESTART);
+			InterlockedExchangePointer((void**)writepos, GS_RINGTYPE_RESTART);
 		}
 
-		InterlockedExchangePointer(&g_pGSWritePos, GS_RINGBUFFERBASE);
+		InterlockedExchangePointer((void**)&g_pGSWritePos, GS_RINGBUFFERBASE);
 		writepos = GS_RINGBUFFERBASE;
 	}
 
 	while( writepos < tempbuf && (writepos+size >= tempbuf || (writepos+size == GS_RINGBUFFEREND && tempbuf == GS_RINGBUFFERBASE)) ) {
 		if( !CHECK_DUALCORE ) {
+			GS_SETEVENT();
 #ifdef _WIN32
-			SetEvent(g_hGsEvent);
 			Sleep(1);
 #else
-			pthread_cond_signal(&g_condGsEvent);
 			usleep(500);
 #endif
 		}
@@ -309,11 +309,10 @@ void GSRingBufSimplePacket(int type, int data0, int data1, int data2)
 		
 		do {
 			if( !CHECK_DUALCORE ) {
+				GS_SETEVENT();
 #ifdef _WIN32
-				SetEvent(g_hGsEvent);
 				Sleep(1);
 #else
-				pthread_cond_signal(&g_condGsEvent);
 				usleep(500);
 #endif
 			}
@@ -331,14 +330,10 @@ void GSRingBufSimplePacket(int type, int data0, int data1, int data2)
 
 	writepos += 16;
 	if( writepos == GS_RINGBUFFEREND ) writepos = GS_RINGBUFFERBASE;
-	InterlockedExchangePointer(&g_pGSWritePos, writepos);
+	InterlockedExchangePointer((void**)&g_pGSWritePos, writepos);
 
 	if( !CHECK_DUALCORE ) {
-#ifdef _WIN32
-		SetEvent(g_hGsEvent);
-#else
-		pthread_cond_signal(&g_condGsEvent);
-#endif
+		GS_SETEVENT();
 	}
 }
 
@@ -881,7 +876,7 @@ int gsInterrupt() {
 			GSgifTransferDummy(2, pMem, qwc); \
 		} \
 		\
-		if( !CHECK_DUALCORE ) SetEvent(g_hGsEvent); \
+		if( !CHECK_DUALCORE ) GS_SETEVENT(); \
 	} \
 	else { \
 		FreezeMMXRegs(1); \
@@ -1318,7 +1313,11 @@ int gifMFIFOInterrupt()
 	return 1;
 }
 
+#ifdef _WIN32
 DWORD WINAPI GSThreadProc(LPVOID lpParam)
+//#else
+//void* GSThreadProc(void* idp)
+//#endif
 {
 	HANDLE handles[2] = { g_hGsEvent, g_hVuGSExit };
 	//SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_ABOVE_NORMAL);
@@ -1488,6 +1487,10 @@ ExitGS:
 
 	return 0;
 }
+
+#else
+void* GSThreadProc(void* idp) { return 0; }
+#endif
 
 int gsFreeze(gzFile f, int Mode) {
 

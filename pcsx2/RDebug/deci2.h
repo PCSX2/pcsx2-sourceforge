@@ -56,7 +56,11 @@ typedef struct tag_DECI2_DBGP_BRK{
 extern DECI2_DBGP_BRK	ebrk[32], ibrk[32];
 extern int				ebrk_count, ibrk_count;
 extern int				runStatus, runCode, runCount;
+
+#ifdef __WIN32
 extern HANDLE			runEvent;					//i don't like this;
+#endif
+
 extern int		connected;
 													//when add linux code this might change
 

@@ -24,9 +24,11 @@
 
 #include "PsxCommon.h"
 
+#ifdef _WIN32
 #include "windows/cheats/cheats.h"
+#endif
 
-#include "patch.h"
+#include "Patch.h"
 
 //
 // Variables

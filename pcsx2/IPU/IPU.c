@@ -254,6 +254,50 @@ u32 ipuRead32(u32 mem)
 	return *(u32*)(((u8*)ipuRegs)+(mem&0xff)); // ipu repeats every 0x100
 }
 
+u64 ipuRead64(u32 mem)
+{
+	IPUProcessInterrupt();
+
+#ifdef PCSX2_DEVBUILD
+	if( mem == 0x10002010 ) {
+		SysPrintf("reading 64bit IPU ctrl\n");
+	}
+	if( mem == 0x10002020 ) {
+		SysPrintf("reading 64bit IPU top\n");
+	}
+#endif
+
+	switch (mem){
+		case 0x10002000: // IPU_CMD
+#ifdef IPU_LOG
+			//if(!ipuRegs->cmd.BUSY){
+			if( ipuRegs->cmd.DATA&0xffffff ) {
+				IPU_LOG("Ipu read64: IPU_CMD=BUSY=%x, DATA=%08X\n", ipuRegs->cmd.BUSY?1:0,ipuRegs->cmd.DATA);
+			}
+#endif
+			//return *(u64*)&ipuRegs->cmd;
+			break;
+
+		case 0x10002030: // IPU_TOP
+#ifdef IPU_LOG
+			IPU_LOG("Ipu read64: IPU_TOP=%x,  bp = %d\n",ipuRegs->top,g_BP.BP);
+#endif
+
+			//return *(u64*)&ipuRegs->top;
+			break;
+
+		default:
+#ifdef IPU_LOG
+			IPU_LOG("Ipu read64: Unknown=%x\n", mem);
+#endif
+			break;
+
+	}
+	return *(u64*)(((u8*)ipuRegs)+(mem&0xff));
+}
+
+#ifndef __x86_64__
+
 int ipuConstRead32(u32 x86reg, u32 mem)
 {
 	int workingreg, tempreg, tempreg2;
@@ -344,48 +388,6 @@ int ipuConstRead32(u32 x86reg, u32 mem)
 	return 0;
 }
 
-u64 ipuRead64(u32 mem)
-{
-	IPUProcessInterrupt();
-
-#ifdef PCSX2_DEVBUILD
-	if( mem == 0x10002010 ) {
-		SysPrintf("reading 64bit IPU ctrl\n");
-	}
-	if( mem == 0x10002020 ) {
-		SysPrintf("reading 64bit IPU top\n");
-	}
-#endif
-
-	switch (mem){
-		case 0x10002000: // IPU_CMD
-#ifdef IPU_LOG
-			//if(!ipuRegs->cmd.BUSY){
-			if( ipuRegs->cmd.DATA&0xffffff ) {
-				IPU_LOG("Ipu read64: IPU_CMD=BUSY=%x, DATA=%08X\n", ipuRegs->cmd.BUSY?1:0,ipuRegs->cmd.DATA);
-			}
-#endif
-			//return *(u64*)&ipuRegs->cmd;
-			break;
-
-		case 0x10002030: // IPU_TOP
-#ifdef IPU_LOG
-			IPU_LOG("Ipu read64: IPU_TOP=%x,  bp = %d\n",ipuRegs->top,g_BP.BP);
-#endif
-
-			//return *(u64*)&ipuRegs->top;
-			break;
-
-		default:
-#ifdef IPU_LOG
-			IPU_LOG("Ipu read64: Unknown=%x\n", mem);
-#endif
-			break;
-
-	}
-	return *(u64*)(((u8*)ipuRegs)+(mem&0xff));
-}
-
 void ipuConstRead64(u32 mem, int mmreg)
 {
 	iFlushCall(0);
@@ -397,6 +399,21 @@ void ipuConstRead64(u32 mem, int mmreg)
 		SetMMXstate();
 	}
 }
+
+#else
+
+int ipuConstRead32(u32 x86reg, u32 mem)
+{
+	assert(0);
+}
+
+void ipuConstRead64(u32 mem, int mmreg)
+{
+	assert(0);
+}
+
+#endif
+
 
 void ipuSoftReset()
 {
@@ -460,6 +477,29 @@ void ipuWrite32(u32 mem,u32 value)
 	}
 }
 
+void ipuWrite64(u32 mem, u64 value)
+{
+	IPUProcessInterrupt();
+
+	switch (mem){
+		case 0x10002000:
+#ifdef IPU_LOG
+	        IPU_LOG("Ipu write64: IPU_CMD=0x%08X\n",value);
+#endif
+			IPUCMD_WRITE((u32)value);
+			break;
+
+		default:
+#ifdef IPU_LOG
+			IPU_LOG("Ipu write64: Unknown=%x\n", mem);
+#endif
+			*(u64*)((u8*)ipuRegs + (mem&0xfff)) = value;
+			break;
+	}
+}
+
+#ifndef __x86_64__
+
 void ipuConstWrite32(u32 mem, int mmreg)
 {
 	iFlushCall(0);
@@ -512,27 +552,6 @@ void ipuConstWrite32(u32 mem, int mmreg)
 	}
 }
 
-void ipuWrite64(u32 mem, u64 value)
-{
-	IPUProcessInterrupt();
-
-	switch (mem){
-		case 0x10002000:
-#ifdef IPU_LOG
-	        IPU_LOG("Ipu write64: IPU_CMD=0x%08X\n",value);
-#endif
-			IPUCMD_WRITE((u32)value);
-			break;
-
-		default:
-#ifdef IPU_LOG
-			IPU_LOG("Ipu write64: Unknown=%x\n", mem);
-#endif
-			*(u64*)((u8*)ipuRegs + (mem&0xfff)) = value;
-			break;
-	}
-}
-
 void ipuConstWrite64(u32 mem, int mmreg)
 {
 	iFlushCall(0);
@@ -550,6 +569,20 @@ void ipuConstWrite64(u32 mem, int mmreg)
 			break;
 	}
 }
+
+#else
+
+void ipuConstWrite32(u32 mem, int mmreg)
+{
+	assert(0);
+}
+
+void ipuConstWrite64(u32 mem, int mmreg)
+{
+	assert(0);
+}
+
+#endif
 
 ///////////////////////////////////////////
 // IPU Commands (exec on worker thread only)
@@ -1828,7 +1861,7 @@ void FIFOfrom_read(void *value,int size)
 		((u32*)value)[1] = fifo_output[FOreadpos+1]; fifo_output[FOreadpos+1] = 0;
 		((u32*)value)[2] = fifo_output[FOreadpos+2]; fifo_output[FOreadpos+2] = 0;
 		((u32*)value)[3] = fifo_output[FOreadpos+3]; fifo_output[FOreadpos+3] = 0;
-		(u32*)value += 4;
+		value = (u32*)value + 4;
 		FOreadpos = (FOreadpos + 4) & 31;
 		size--;
 	}

@@ -185,11 +185,20 @@ PVOID __cdecl _InterlockedExchangePointer(PVOID volatile* Target, PVOID Value);
 LONG  __cdecl _InterlockedExchangeAdd(LPLONG volatile Addend, LONG Value);
 LONG  __cdecl _InterlockedAnd(LPLONG volatile Addend, LONG Value);
 
+#else
+
+void* _InterlockedExchangePointer(void** Target, void* Value);
+
+#endif
+
 #pragma intrinsic (_InterlockedCompareExchange)
 #define InterlockedCompareExchange _InterlockedCompareExchange
 
 #pragma intrinsic (_InterlockedExchange)
 #define InterlockedExchange _InterlockedExchange 
+
+#pragma intrinsic (_InterlockedExchangePointer)
+#define InterlockedExchangePointer _InterlockedExchangePointer
 
 #pragma intrinsic (_InterlockedExchangeAdd)
 #define InterlockedExchangeAdd _InterlockedExchangeAdd
@@ -203,9 +212,9 @@ LONG  __cdecl _InterlockedAnd(LPLONG volatile Addend, LONG Value);
 #pragma intrinsic (_InterlockedAnd)
 #define InterlockedAnd _InterlockedAnd
 
-#elif defined(__LINUX__)
+//#elif defined(__LINUX__)
 
-#endif
+//#endif
 
 #endif /* __MISC_H__ */
 

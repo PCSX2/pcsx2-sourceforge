@@ -49,8 +49,13 @@ static const unsigned int VIF1intc = 5;
 static const unsigned int VIF0dmanum = 0;
 static const unsigned int VIF1dmanum = 1;
 
-int g_vifCycles = 0;
+#ifdef _WIN32
 extern HANDLE g_hGsEvent;
+#else
+extern pthread_cond_t g_condGsEvent;
+#endif
+
+int g_vifCycles = 0;
 extern void * memcpy_amd(void *dest, const void *src, size_t n);
 
 typedef void (*UNPACKFUNCTYPE)( u32 *dest, u32 *data );
@@ -469,6 +474,7 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 //			memset(dest, 0xcd, 64*4);
 //			VIFfuncTableSSE[1].funcS[6](dest, (u32*)tempdata, 8);
 
+#ifdef _MSC_VER
 			if( VIFdmanum ) {
 				__asm movaps XMM_ROW, qword ptr [g_vifRow1]
 				__asm movaps XMM_COL, qword ptr [g_vifCol1]
@@ -477,6 +483,20 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 				__asm movaps XMM_ROW, qword ptr [g_vifRow0]
 				__asm movaps XMM_COL, qword ptr [g_vifCol0]
 			}
+#else
+			if( VIFdmanum ) {
+				__asm__(".intel_syntax\n"
+						"movaps %%xmm6, qword ptr [%0]\n"
+						"movaps %%xmm7, qword ptr [%1]\n"
+						".att_syntax\n" : :"i"(g_vifRow1), "i"(g_vifCol1) );
+			}
+			else {
+				__asm__(".intel_syntax\n"
+						"movaps %%xmm6, qword ptr [%0]\n"
+						"movaps %%xmm7, qword ptr [%1]\n"
+						".att_syntax\n" : : "i"(g_vifRow0), "i"(g_vifCol0) );
+			}
+#endif
 
 			if( vifRegs->cycle.cl == 0 || vifRegs->cycle.wl == 0 || (vifRegs->cycle.cl == vifRegs->cycle.wl && !(vifRegs->code&0x10000000)) ) {
 				oldcycle = *(u32*)&vifRegs->cycle;
@@ -1521,8 +1541,7 @@ int vif1transferData(u32 *data, int size) {
 						GSgifTransferDummy(1, data, ret>>2);
 					}
 
-					if( !CHECK_DUALCORE  )
-						SetEvent(g_hGsEvent);
+					if( !CHECK_DUALCORE  ) GS_SETEVENT();
 				}
 				else {
 					FreezeMMXRegs(1);
@@ -2041,7 +2060,7 @@ void _dmaVIF1() {
 				GSRINGBUF_DONECOPY(pMem, 0);
 				
 				if( !CHECK_DUALCORE  )
-					SetEvent(g_hGsEvent);
+					GS_SETEVENT();
 
 				// wait is, the safest option
 			}
