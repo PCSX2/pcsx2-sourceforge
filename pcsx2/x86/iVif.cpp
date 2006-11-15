@@ -853,8 +853,10 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 		UNPACK_Write##TOTALCL##_##MaskType##(XMM_R1, CL+1, 16, movdqa); \
 	} \
 	{ \
+        /* midnight club 2 crashes because reading a qw at +36 is out of bounds */ \
+        __asm MOVDQA XMM_R3, qword ptr [VIF_SRC+32] \
 		__asm movdqu XMM_R2, qword ptr [VIF_SRC+24] \
-		__asm movdqu XMM_R3, qword ptr [VIF_SRC+36] \
+		__asm psrldq XMM_R3, 4 \
 	} \
 	{ \
 		UNPACK_Setup_##MaskType##_SSE_##ModeType##_##TOTALCL##(CL+2); \

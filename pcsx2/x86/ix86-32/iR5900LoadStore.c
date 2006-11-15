@@ -1234,6 +1234,7 @@ void recLQ( void )
 	_flushConstReg(_Rs_);
 #else
 	if( cpucaps.hasStreamingSIMDExtensions && GPR_IS_CONST1( _Rs_ ) ) {
+        // malice hits this
 		assert( (g_cpuConstRegs[_Rs_].UL[0]+_Imm_) % 16 == 0 );
 
 		if( _Rt_ ) {
@@ -1255,7 +1256,7 @@ void recLQ( void )
 			mmreg = _allocTempXMMreg(XMMT_INT, -1);
 		}
 
-		recMemConstRead128(g_cpuConstRegs[_Rs_].UL[0]+_Imm_, mmreg);
+		recMemConstRead128((g_cpuConstRegs[_Rs_].UL[0]+_Imm_)&~15, mmreg);
 
 		if( !_Rt_ ) _freeXMMreg(mmreg);
 		if( IS_MMXREG(mmreg) ) {
@@ -3428,7 +3429,7 @@ void recLQC2( void )
 
 		if( _Ft_ ) mmreg = _allocVFtoXMMreg(&VU0, -1, _Ft_, MODE_WRITE);
 		else mmreg = _allocTempXMMreg(XMMT_FPS, -1);
-		recMemConstRead128(g_cpuConstRegs[_Rs_].UL[0]+_Imm_, mmreg);
+		recMemConstRead128((g_cpuConstRegs[_Rs_].UL[0]+_Imm_)&~15, mmreg);
 
 		if( !_Ft_ ) _freeXMMreg(mmreg);
 	}
@@ -3503,11 +3504,11 @@ void recLQC2_co( void )
 
 		if( _Ft_ ) mmreg1 = _allocVFtoXMMreg(&VU0, -1, _Ft_, MODE_WRITE);
 		else t0reg = _allocTempXMMreg(XMMT_FPS, -1);
-		recMemConstRead128(g_cpuConstRegs[_Rs_].UL[0]+_Imm_, mmreg1 >= 0 ? mmreg1 : t0reg);
+		recMemConstRead128((g_cpuConstRegs[_Rs_].UL[0]+_Imm_)&~15, mmreg1 >= 0 ? mmreg1 : t0reg);
 
 		if( nextrt ) mmreg2 = _allocVFtoXMMreg(&VU0, -1, nextrt, MODE_WRITE);
 		else if( t0reg < 0 ) t0reg = _allocTempXMMreg(XMMT_FPS, -1);
-		recMemConstRead128(g_cpuConstRegs[_Rs_].UL[0]+_Imm_co_, mmreg2 >= 0 ? mmreg2 : t0reg);
+		recMemConstRead128((g_cpuConstRegs[_Rs_].UL[0]+_Imm_co_)&~15, mmreg2 >= 0 ? mmreg2 : t0reg);
 
 		if( t0reg >= 0 ) _freeXMMreg(t0reg);
 	}
@@ -3572,7 +3573,7 @@ void recSQC2( void )
 		assert( (g_cpuConstRegs[_Rs_].UL[0]+_Imm_)%16 == 0 );
 
 		mmreg = _allocVFtoXMMreg(&VU0, -1, _Ft_, MODE_READ)|MEM_XMMTAG;
-		recMemConstWrite128(g_cpuConstRegs[_Rs_].UL[0]+_Imm_, mmreg);
+		recMemConstWrite128((g_cpuConstRegs[_Rs_].UL[0]+_Imm_)&~15, mmreg);
 	}
 	else
 #endif
@@ -3658,8 +3659,8 @@ void recSQC2_co( void )
 
 		mmreg1 = _allocVFtoXMMreg(&VU0, -1, _Ft_, MODE_READ)|MEM_XMMTAG;
 		mmreg2 = _allocVFtoXMMreg(&VU0, -1, nextrt, MODE_READ)|MEM_XMMTAG;
-		recMemConstWrite128(g_cpuConstRegs[_Rs_].UL[0]+_Imm_, mmreg1);
-		recMemConstWrite128(g_cpuConstRegs[_Rs_].UL[0]+_Imm_co_, mmreg2);
+		recMemConstWrite128((g_cpuConstRegs[_Rs_].UL[0]+_Imm_)&~15, mmreg1);
+		recMemConstWrite128((g_cpuConstRegs[_Rs_].UL[0]+_Imm_co_)&~15, mmreg2);
 	}
 	else
 #endif

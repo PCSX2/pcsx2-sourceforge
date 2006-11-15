@@ -752,7 +752,10 @@ u32 GSgifTransferDummy(int path, u32 *pMem, u32 size)
 
 				if( nloop > 0 ) {
 					assert(size == 0);
-					g_path[path] = *ptag;
+                    // midnight madness cares because the tag is 5 dwords
+                    int* psrc = (int*)ptag;
+                    int* pdst = (int*)&g_path[path];
+                    pdst[0] = psrc[0]; pdst[1] = psrc[1]; pdst[2] = psrc[2]; pdst[3] = psrc[3];
 					g_path[path].nloop = nloop;
 					g_path[path].curreg = curreg;
 					return 0;
@@ -793,7 +796,10 @@ u32 GSgifTransferDummy(int path, u32 *pMem, u32 size)
 
 				if( nloop > 0 ) {
 					assert(size == 0);
-					g_path[path] = *ptag;
+                    // midnight madness cares because the tag is 5 dwords
+                    int* psrc = (int*)ptag;
+                    int* pdst = (int*)&g_path[path];
+                    pdst[0] = psrc[0]; pdst[1] = psrc[1]; pdst[2] = psrc[2]; pdst[3] = psrc[3];
 					g_path[path].nloop = nloop;
 					g_path[path].curreg = curreg;
 					return 0;
@@ -806,7 +812,10 @@ u32 GSgifTransferDummy(int path, u32 *pMem, u32 size)
 			{
 				// simulate
 				if( (int)size < nloop ) {
-					g_path[path] = *ptag;
+                    // midnight madness cares because the tag is 5 dwords
+                    int* psrc = (int*)ptag;
+                    int* pdst = (int*)&g_path[path];
+                    pdst[0] = psrc[0]; pdst[1] = psrc[1]; pdst[2] = psrc[2]; pdst[3] = psrc[3];
 					g_path[path].nloop = nloop-size;
 					return 0;
 				}
