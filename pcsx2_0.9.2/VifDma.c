@@ -1635,7 +1635,7 @@ static int Vif1TransDirectHL(u32 *data, int size){
 			GSgifTransferDummy(1, data, ret>>2);
 		}
 
-		if( !CHECK_DUALCORE  ) GS_SETEVENT();
+		if( !CHECK_DUALCORE  ) SetEvent(g_hGsEvent);//GS_SETEVENT();
 	}
 	else {
 		FreezeMMXRegs(1);
@@ -2145,7 +2145,7 @@ void _dmaVIF1() {
 				GSRINGBUF_DONECOPY(pMem, 0);
 				
 				if( !CHECK_DUALCORE  )
-					GS_SETEVENT();
+					SetEvent(g_hGsEvent);//GS_SETEVENT();
 
 				// wait is, the safest option
 			}
