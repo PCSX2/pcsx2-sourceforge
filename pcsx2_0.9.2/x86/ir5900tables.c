@@ -127,10 +127,11 @@ REC_SYS(TNEI);
 //REC_SYS(MTSAB);
 ////////////////////////////////////////////////////
 //REC_SYS(MTSAH);
-
+////////////////////////////////////////////////////
+REC_SYS(CACHE);
 
 ////////////////////////////////////////////////////
-static void recCACHE( void ) {
+//static void recCACHE( void ) {
 //	MOV32ItoM( (u32)&cpuRegs.code, cpuRegs.code );
 //	MOV32ItoM( (u32)&cpuRegs.pc, pc );
 //	iFlushCall(FLUSH_EVERYTHING);
@@ -141,7 +142,7 @@ static void recCACHE( void ) {
 //	j8Ptr[0] = JE8(0);
 //	RET();
 //	x86SetJ8(j8Ptr[0]);
-}
+//}
 
 
 static void recPREF( void ) 
