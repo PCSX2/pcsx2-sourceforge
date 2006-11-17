@@ -33,7 +33,7 @@
 
 #include "GS.h"
 
-DWORD dwSaveVersion = 0x7a30000e;
+u32 dwSaveVersion = 0x7a30000e;
 extern u32 s_iLastCOP0Cycle;
 extern u32 s_iLastPERFCycle[2];
 extern int g_psxWriteOk;
@@ -585,8 +585,8 @@ int LoadState(char *file) {
 	gzFile f;
 	freezeData fP;
 	int i;
-	DWORD OldProtect;
-	DWORD dwVer;
+	u32 OldProtect;
+	u32 dwVer;
 
 #ifdef _DEBUG
 	s_vucount = 0;
@@ -603,7 +603,7 @@ int LoadState(char *file) {
 
 		if( dwVer != 0x7a30000d ) {
 			gzclose(f);
-			MessageBox(NULL, "Save state wrong version", "Error", MB_OK);
+			SysPrintf("Save state wrong version\n");
 			return 0;
 		}
 	}
@@ -735,7 +735,7 @@ int LoadGSState(char *file)
 		// try prefixing with sstates
 		f = gzopen(strfile, "rb");
 		if( f == NULL ) {
-			MessageBox(NULL, "Failed to find gs state\n", "Error", MB_OK);
+			SysPrintf("Failed to find gs state\n");
 			return -1;
 		}
 

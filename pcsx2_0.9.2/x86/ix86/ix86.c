@@ -1067,6 +1067,45 @@ void ADD32ItoM( u32 to, u32 from )
 	write32( from );
 }
 
+// add imm32 to [r32+off]
+void ADD32ItoRmOffset( x86IntRegType to, u32 from, u32 offset)
+{
+    write8( 0x81 );
+
+	if( to == ESP ) {
+
+		if( offset == 0 ) {
+			ModRM( 0, 0, 4 );
+			ModRM( 0, ESP, 4 );
+		}
+		else if( offset < 128 ) {
+			ModRM( 1, 0, 4 );
+			ModRM( 0, ESP, 4 );
+			write8(offset);
+		}
+		else {
+			ModRM( 2, 0, 4 );
+			ModRM( 0, ESP, 4 );
+			write32(offset);
+		}
+	}
+	else {
+		if( offset == 0 ) {
+			ModRM( 0, 0, to );
+		}
+		else if( offset < 128 ) {
+			ModRM( 1, 0, to );
+			write8(offset);
+		}
+		else {
+			ModRM( 2, 0, to );
+			write32(offset);
+		}
+	}
+
+	write32(from);
+}
+
 /* add r32 to r32 */
 void ADD32RtoR( x86IntRegType to, x86IntRegType from ) 
 {

@@ -40,11 +40,11 @@ R5900cpu *Cpu;
 int EEsCycle;
 u32 EEoCycle, IOPoCycle;
 
+extern u32 dwSaveVersion;
 
 int cpuInit()
 {
 	int ret;
-	extern DWORD dwSaveVersion;
 
 	SysPrintf("PCSX2 v" PCSX2_VERSION " save ver: %x\n", dwSaveVersion);
 	SysPrintf("Color Legend: White - PCSX2 message\n");
