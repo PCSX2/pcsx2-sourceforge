@@ -641,6 +641,7 @@ int loadElfFile(char *filename) {
 
 extern int g_VUSignedZero;
 extern int g_FFXHack;
+extern int g_VUExtraFlags;
 void LoadGameSpecificSettings()
 {
 	if( ElfCRC==0x0c414549 ) { // spacefisherman
