@@ -1009,6 +1009,7 @@ void ClampUnordered(int regd, int t0reg, int dosign)
 // NOTE: flags don't compute under/over flows since it is highly unlikely
 // that games used them. Including them will lower performance.
 int g_VUSignedZero=0; // most games like =0, one game likes !=0
+int g_VUExtraFlags=0;
 void recUpdateFlags(VURegs * VU, int reg, int info)
 {
 	u32 flagmask;
@@ -1111,7 +1112,8 @@ void recUpdateFlags(VURegs * VU, int reg, int info)
 
         MOV8RtoM(macaddr, x86newflag);
 
-        if( flagmask != 0xf ) {
+        // vampire night breaks with g_VUExtraFlags, crazi taxi needs it
+        if( g_VUExtraFlags && flagmask != 0xf ) {
             MOV8MtoR(x86newflag, VU_VI_ADDR(REG_MAC_FLAG, 2)); // get previous written
             AND8ItoR(x86newflag, ~g_MACFlagTransform[(flagmask|(flagmask<<4))]);
             OR8RtoM(macaddr, x86newflag);
@@ -4644,18 +4646,31 @@ void recVUMI_ERSQRT( VURegs *VU, int info )
 {
 	assert( VU == &VU1 );
 
+    // need to explicitly check for 0 (naruto ultimate ninja)
 	if( _Fsf_ ) {
 		if( xmmregs[EEREC_S].mode & MODE_WRITE ) {
 			_unpackVF_xyzw(EEREC_TEMP, EEREC_S, _Fsf_);
+            //SSE_XORPS_XMM_to_XMM(EEREC_D, EEREC_D);
+            //SSE_CMPNESS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
 			SSE_RSQRTSS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
+            //SSE_ANDPS_XMM_to_XMM(EEREC_TEMP, EEREC_D);
 		}
 		else {
+            //SSE_XORPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
+            //CMP32ItoM((u32)&VU->VF[_Fs_].UL[_Fsf_], 0);
+            //j8Ptr[0] = JE8(0);
 			SSE_RSQRTSS_M32_to_XMM(EEREC_TEMP, (u32)&VU->VF[_Fs_].UL[_Fsf_]);
+            //x86SetJ8(j8Ptr[0]);
 		}
 	}
-	else SSE_RSQRTSS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+    else {
+        SSE_RSQRTSS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+        //SSE_XORPS_XMM_to_XMM(EEREC_D, EEREC_D);
+        //SSE_CMPNESS_XMM_to_XMM(EEREC_D, EEREC_S);
+        //SSE_ANDPS_XMM_to_XMM(EEREC_TEMP, EEREC_D);
+    }
 
-	SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(REG_P, 0), EEREC_TEMP);
+    SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(REG_P, 0), EEREC_TEMP);
 }
 
 void recVUMI_ESIN( VURegs *VU, int info )

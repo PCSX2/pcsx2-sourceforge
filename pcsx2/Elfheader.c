@@ -646,10 +646,14 @@ void LoadGameSpecificSettings()
 	if( ElfCRC==0x0c414549 ) { // spacefisherman
 		g_VUSignedZero = 1;
 	}
+    if( ElfCRC == 0x4C9EE7DF || ElfCRC == 0xC9C145BF ) { // crazy taxi
+        g_VUExtraFlags = 1;
+    }
+
 	// ffx, ffx2, harvest moon
 	if(ElfCRC==0xbb3d833a||ElfCRC==0xa39517ab||ElfCRC==0x6A4EFE60||ElfCRC==0x48FE0C71||ElfCRC==0x9aac530d||
-		ElfCRC==0x9AAC5309||ElfCRC==0x8A6D7F14||ElfCRC==0x304C115C||ElfCRC==0xF0A6D880) {
+		ElfCRC==0x9AAC5309||ElfCRC==0x8A6D7F14||ElfCRC==0x304C115C||ElfCRC==0xF0A6D880||ElfCRC==0xa39517ae||
+        ElfCRC==0xa39517a9||ElfCRC==0x941bb7d9||ElfCRC==0x9AAC530B||ElfCRC==0x658597e2) {
 		g_FFXHack = 1;
 	}
 }
-
