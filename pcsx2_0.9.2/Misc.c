@@ -810,6 +810,7 @@ LangDef sLangs[] = {
 	{ "ru_RU", N_("Russian") },
 	{ "es_ES", N_("Spanish") },
 	{ "sh_SH" , N_("S-Chinese") },
+    { "sw_SW", N_("Swedish") },
 	{ "tc_TC", N_("T-Chinese") },
 	{ "tr_TR", N_("Turkish") },
 	{ "", "" },
