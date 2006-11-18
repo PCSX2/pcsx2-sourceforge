@@ -60,7 +60,7 @@ uptr *recLUT;
 #define X86
 #define RECSTACK_SIZE 0x00010000
 
-#define EE_NUMBLOCKS (1<<14)
+#define EE_NUMBLOCKS (1<<15)
 
 static char *recMem = NULL;			// the recompiled blocks will be here
 static char* recStack = NULL;			// stack mem
