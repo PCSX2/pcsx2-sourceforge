@@ -1004,6 +1004,7 @@ void ClampUnordered(int regd, int t0reg, int dosign)
 // NOTE: flags don't compute under/over flows since it is highly unlikely
 // that games used them. Including them will lower performance.
 int g_VUSignedZero=0; // most games like =0, one game likes !=0
+int g_VUExtraFlags=0;
 void recUpdateFlags(VURegs * VU, int reg, int info)
 {
 	u32 flagmask;
@@ -1106,7 +1107,7 @@ void recUpdateFlags(VURegs * VU, int reg, int info)
 
         MOV8RtoM(macaddr, x86newflag);
 
-        if( flagmask != 0xf ) {
+        if( g_VUExtraFlags && flagmask != 0xf ) {
             MOV8MtoR(x86newflag, VU_VI_ADDR(REG_MAC_FLAG, 2)); // get previous written
             AND8ItoR(x86newflag, ~g_MACFlagTransform[(flagmask|(flagmask<<4))]);
             OR8RtoM(macaddr, x86newflag);
