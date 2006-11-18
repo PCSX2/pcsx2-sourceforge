@@ -67,15 +67,15 @@ BOOL CALLBACK CpuDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 			CheckDlgButton(hW, IDC_CPU_EEREC, !!CHECK_EEREC);
 
-#ifdef PCSX2_DEVBUILD
+//#ifdef PCSX2_DEVBUILD
 			CheckDlgButton(hW, IDC_CPU_VU0REC, !!CHECK_VU0REC);
 			CheckDlgButton(hW, IDC_CPU_VU1REC, !!CHECK_VU1REC);
-#else
-			// don't show
-			ShowWindow(GetDlgItem(hW, IDC_CPU_VUGROUP), SW_HIDE);
-			ShowWindow(GetDlgItem(hW, IDC_CPU_VU0REC), SW_HIDE);
-			ShowWindow(GetDlgItem(hW, IDC_CPU_VU1REC), SW_HIDE);
-#endif
+//#else
+//			// don't show
+//			ShowWindow(GetDlgItem(hW, IDC_CPU_VUGROUP), SW_HIDE);
+//			ShowWindow(GetDlgItem(hW, IDC_CPU_VU0REC), SW_HIDE);
+//			ShowWindow(GetDlgItem(hW, IDC_CPU_VU1REC), SW_HIDE);
+//#endif
 
 			CheckDlgButton(hW, IDC_CPU_GSMULTI, !!CHECK_MULTIGS);
 			CheckDlgButton(hW, IDC_CPU_MULTI, !!CHECK_DUALCORE);
