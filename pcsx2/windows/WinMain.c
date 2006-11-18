@@ -62,6 +62,7 @@ typedef struct {
 } _langs;
 _langs *langs = NULL;
 
+int nDisableSC = 0; // screensaver
 int firstRun=1;
 int RunExe = 0;
 void OpenConsole() {
@@ -100,6 +101,7 @@ BOOL APIENTRY CmdlineProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 void RunExecute(int run) {
 	SetThreadPriority(GetCurrentThread(), Config.ThPriority);
 	SetPriorityClass(GetCurrentProcess(), Config.ThPriority == THREAD_PRIORITY_HIGHEST ? ABOVE_NORMAL_PRIORITY_CLASS : NORMAL_PRIORITY_CLASS);
+    nDisableSC = 1;
 
 	if (needReset == 1) {
 		SysReset();
@@ -664,6 +666,7 @@ void CALLBACK KeyEvent(keyEvent* ev) {
 			ClosePlugins();
 			CreateMainWindow(SW_SHOWNORMAL);
 			RunGui();
+            nDisableSC = 0;
 			break;
 		default:
 			GSkeyEvent(ev);
@@ -1001,6 +1004,14 @@ LRESULT WINAPI MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 			} else AccBreak = 0;
 		    return TRUE;
 
+        case WM_SYSCOMMAND:
+            if( nDisableSC && (wParam== SC_SCREENSAVE || wParam == SC_MONITORPOWER) ) {
+               return FALSE;
+            }
+            else
+                return DefWindowProc(hWnd, msg, wParam, lParam);
+            break;
+        
 		case WM_QUIT:
 			if (Config.PsxOut) CloseConsole();
 			exit(0);
