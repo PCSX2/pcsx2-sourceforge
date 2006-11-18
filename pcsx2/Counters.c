@@ -142,7 +142,7 @@ void FrameLimiter()
 
 	// do over 4 frames instead of 1
 	if( (iFrame&3) == 0 ) {
-		u32 frames = (Config.PsxType&1) ? (4000 / 50 - 1) : (4000 / 60 - 1);
+		u32 frames = (Config.PsxType&1) ? (4000 / 50 - 4) : (4000 / 60 - 4);
 		dwEndTime = timeGetTime();
 
 		if( dwEndTime < dwStartTime + frames ) {
