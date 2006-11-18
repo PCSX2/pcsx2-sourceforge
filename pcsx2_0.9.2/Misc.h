@@ -51,15 +51,15 @@
 
 #define CHECK_FRAMELIMIT (Config.Options&PCSX2_FRAMELIMIT_MASK)
 
-#ifdef PCSX2_DEVBUILD
+//#ifdef PCSX2_DEVBUILD
 #define CHECK_VU0REC (Config.Options&PCSX2_VU0REC)
 #define CHECK_VU1REC (Config.Options&PCSX2_VU1REC)
-#else
-// force to VU recs all the time
-#define CHECK_VU0REC 1
-#define CHECK_VU1REC 1
-
-#endif
+//#else
+//// force to VU recs all the time
+//#define CHECK_VU0REC 1
+//#define CHECK_VU1REC 1
+//
+//#endif
 
 typedef struct {
 	char Bios[256];
