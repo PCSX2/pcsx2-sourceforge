@@ -622,7 +622,7 @@ size<<= 2;
 		
 	}
 	else if (vifRegs->cycle.cl < vifRegs->cycle.wl) { /* filling write */
-		u32 dummy[8];
+		u32 dummy[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 #ifdef VIF_LOG
 		VIF_LOG("*PCSX2*: filling write\n");
 #endif
@@ -637,20 +637,24 @@ size<<= 2;
 				vif->cl = 0;
 			}
 			//
+		//	SysPrintf("Num = %d size = %x\n", vifRegs->num, size);
 			if (vif->cl < vifRegs->cycle.cl) { /* unpack one qword */
 				funcP( dest, (u32*)cdata, ft->qsize);
-				cdata += ft->gsize;
-				size -= ft->gsize;
+				if(size >= ft->gsize){
+					cdata += ft->gsize;
+					size -= ft->gsize;
+				}
 				vif->cl++;
 				vifRegs->num--;
+				vif->tag.addr += 16;
 				if (vif->cl == vifRegs->cycle.wl) {
 	   	      		vif->cl = 0;
 				}
 			} 
 			else
 			{
-				funcP( dest, (u32*)dummy, ft->qsize);
-				//cdata += ft->gsize;
+				funcP( dest, (u32*)cdata, ft->qsize); // Syphon Filter seems to want to use the last data position, 
+				//cdata += ft->gsize;				  //else the graphics bork
 				//size -= ft->gsize;
 				vif->tag.addr += 16;
 				vifRegs->num--;
@@ -659,6 +663,7 @@ size<<= 2;
 			}
 			dest += 4;
 			//++vif->wl;
+			if(vifRegs->num == 0) break;
 		}
 	} 
 
