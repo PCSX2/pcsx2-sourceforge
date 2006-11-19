@@ -203,7 +203,7 @@ void ListPatches (HWND hW) {
 		totalSize += filesize;
 		fseek(fp, 0, SEEK_SET);
 
-		fileData = (char *) malloc(filesize);
+		fileData = (char *) malloc(filesize+1024);
 		sprintf(fileData,"");
 
 		//read file
