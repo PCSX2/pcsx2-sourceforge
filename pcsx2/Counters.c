@@ -146,8 +146,8 @@ void FrameLimiter()
 		dwEndTime = timeGetTime();
 
 		if( dwEndTime < dwStartTime + frames ) {
-			if( dwEndTime < dwStartTime + frames - 2 )
-				Sleep(frames-(dwEndTime-dwStartTime)-2);
+			if( dwEndTime < dwStartTime + frames - 3 )
+				Sleep(frames-(dwEndTime-dwStartTime)-3);
 
 			while(dwEndTime < dwStartTime + frames) dwEndTime = timeGetTime();
 		}
