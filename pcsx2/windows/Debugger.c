@@ -45,8 +45,6 @@ void RefreshDebugAll()//refresh disasm and register window
   RefreshDebugger();
   RefreshIOPDebugger();
   UpdateRegs();
-
-
 }
 
 void MakeDebugOpcode(void)
@@ -313,7 +311,6 @@ LRESULT CALLBACK IOP_DISASM(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
      case WM_VSCROLL:
 		   switch ((int) LOWORD(wParam))
            {
-
               case SB_LINEDOWN: DebuggerIOPPC += 0x00000004; RefreshIOPDebugger(); break;
               case SB_LINEUP:   DebuggerIOPPC -= 0x00000004; RefreshIOPDebugger(); break;
               case SB_PAGEDOWN: DebuggerIOPPC += 0x00000029; RefreshIOPDebugger(); break;
@@ -323,13 +320,12 @@ LRESULT CALLBACK IOP_DISASM(HWND hDlg, UINT message, WPARAM wParam, LPARAM lPara
 		break;
 	case WM_COMMAND:
  
-			switch(LOWORD(wParam))
+		switch(LOWORD(wParam))
 		{
 		case (IDOK || IDCANCEL):
 			EndDialog(hDlg,TRUE);
 			return(TRUE);
 			break;
-	
 		}
 		break;
 	}
@@ -360,12 +356,39 @@ int CreatePropertySheet2(HWND hwndOwner)
 	psh.nPages = sizeof(psp) / sizeof(PROPSHEETPAGE);
 	psh.ppsp = (LPCPROPSHEETPAGE) &psp;
    
-      return (PropertySheet(&psh)); 
+	return (PropertySheet(&psh)); 
+}
+
+/** non-zero if the dialog is currently executing instructions. */
+static int isRunning = 0;
+
+/** non-zero if the user has requested a break in the execution of instructions. */
+static int breakRequested = 0;
+
+static
+void EnterRunningState(HWND hDlg)
+{
+	isRunning = 1;
+	breakRequested = 0;
+	EnableWindow(GetDlgItem(hDlg, IDC_DEBUG_STEP_OVER), FALSE);
+	EnableWindow(GetDlgItem(hDlg, IDC_DEBUG_STEP_EE), FALSE);
+	EnableWindow(GetDlgItem(hDlg, IDC_DEBUG_STEP), FALSE);
+	EnableWindow(GetDlgItem(hDlg, IDC_DEBUG_SKIP), FALSE);
+}
+
+static
+void EnterHaltedState(HWND hDlg)
+{
+	isRunning = 0;
+	breakRequested = 0;
+	EnableWindow(GetDlgItem(hDlg, IDC_DEBUG_STEP_OVER), TRUE);
+	EnableWindow(GetDlgItem(hDlg, IDC_DEBUG_STEP_EE), TRUE);
+	EnableWindow(GetDlgItem(hDlg, IDC_DEBUG_STEP), TRUE);
+	EnableWindow(GetDlgItem(hDlg, IDC_DEBUG_SKIP), TRUE);
 }
 
 BOOL APIENTRY DebuggerProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
-	
     FARPROC jmpproc, dumpproc;
     FARPROC bpexecproc, bpcntproc;
 	u32 oldpc = 0;
@@ -373,9 +396,9 @@ BOOL APIENTRY DebuggerProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam
     switch (message)
     {
         case WM_INITDIALOG:
-		//	if (OpenPlugins() == -1) return TRUE;//moved to WinMain.c
-
 			ShowCursor(TRUE);
+			isRunning = 0;
+			breakRequested = 0;
 
 			SetWindowText(hDlg, "R5900 Debugger");
             debughWnd=hDlg;
@@ -393,29 +416,21 @@ BOOL APIENTRY DebuggerProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam
             hRegDlg = (HWND)CreatePropertySheet(hDlg);
 			hIopDlg = (HWND)CreatePropertySheet2(hDlg);
 	        UpdateRegs();   
-            SetWindowPos(hRegDlg, NULL, 425, 0, 600, 515,0 );
+            SetWindowPos(hRegDlg, NULL, 525, 0, 600, 515,0 );
 			SetWindowPos(hIopDlg, NULL, 0  ,515,600,230,0);
             RefreshDebugger();
-			
-
-			
 			RefreshIOPDebugger();
             return TRUE;
 
         case WM_VSCROLL:
 				
-                  switch ((int) LOWORD(wParam))
-                 {
-
-                 case SB_LINEDOWN: DebuggerPC += 0x00000004; RefreshDebugAll(); break;
-                 case SB_LINEUP:   DebuggerPC -= 0x00000004; RefreshDebugAll(); break;
-                 case SB_PAGEDOWN: DebuggerPC += 0x00000074; RefreshDebugAll(); break;
-                 case SB_PAGEUP:   DebuggerPC -= 0x00000074; RefreshDebugAll(); break;
-				 }
-	
-
-
-
+             switch ((int) LOWORD(wParam))
+             {
+				 case SB_LINEDOWN: DebuggerPC += 0x00000004; RefreshDebugAll(); break;
+				 case SB_LINEUP:   DebuggerPC -= 0x00000004; RefreshDebugAll(); break;
+				 case SB_PAGEDOWN: DebuggerPC += 0x00000074; RefreshDebugAll(); break;
+				 case SB_PAGEUP:   DebuggerPC -= 0x00000074; RefreshDebugAll(); break;
+			 }
             return TRUE;
 	
 
@@ -424,29 +439,119 @@ BOOL APIENTRY DebuggerProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam
             {
                 case IDC_DEBUG_STEP:
 					oldpc = psxRegs.pc;
+					EnterRunningState(hDlg);
                     Cpu->Step();
 					while(oldpc == psxRegs.pc) Cpu->Step();
                     DebuggerPC = 0;
+					DebuggerIOPPC=0;
+					EnterHaltedState(hDlg);
                     RefreshDebugAll();
                     return TRUE;
 
+                case IDC_DEBUG_STEP_EE:
+					EnterRunningState(hDlg);
+                    Cpu->Step();
+					EnterHaltedState(hDlg);
+                    DebuggerPC = 0;
+					DebuggerIOPPC=0;
+                    RefreshDebugAll();
+                    return TRUE;
+
+				case IDC_DEBUG_STEP_OVER:
+					/* Step over a subroutine call. */
+					/* Note that this may take some time to execute and
+					 * because Cpu->Step() pumps the message loop, we need
+					 * to guard against re-entry. We do that by disabling the step buttons.
+					 */
+					EnterRunningState(hDlg);
+
+					if (memRead32(cpuRegs.pc, &cpuRegs.code) != -1){
+						u32 target_pc = 0;
+						if (3 == (cpuRegs.code >> 26)){
+							/* it's a JAL instruction. */
+							target_pc = cpuRegs.pc + 8;
+						} else if (0x0c == (cpuRegs.code & 0xFF)){
+							/* it's a syscall. */
+							target_pc = cpuRegs.pc + 4;
+						}
+						if (0 != target_pc){
+							while(target_pc != cpuRegs.pc && !breakRequested) { 		
+								Cpu->Step();
+							}
+						} else {
+							Cpu->Step();
+						}
+					}
+                    DebuggerPC = 0;
+					DebuggerIOPPC=0;
+					EnterHaltedState(hDlg);
+                    RefreshDebugAll();
+
+                    return TRUE;
+					
                 case IDC_DEBUG_SKIP:
 					cpuRegs.pc+= 4;
                     DebuggerPC = 0;
                     RefreshDebugAll();
                     return TRUE;
 
+				case IDC_DEBUG_BREAK:
+					breakRequested = 1;
+					return TRUE;
+
                 case IDC_DEBUG_GO:
+					EnterRunningState(hDlg);
 					for (;;) {
-						if (HasBreakpoint()) {
+						if (breakRequested || HasBreakpoint()) {
 							Cpu->Step();
 							break;
 						}
 						Cpu->Step();
 					}
                     DebuggerPC = 0;
+					DebuggerIOPPC=0;
+					EnterHaltedState(hDlg);
                     RefreshDebugAll();
                     return TRUE;
+
+                case IDC_DEBUG_RUN_TO_CURSOR:
+					{
+					/* Run to the cursor without checking for breakpoints. */
+					int sel = SendMessage(hWnd_debugdisasm, LB_GETCURSEL,0,0);  
+					if (sel != LB_ERR){
+						const u32 target_pc = DebuggerPC + sel*4;
+						EnterRunningState(hDlg);
+						while(target_pc != cpuRegs.pc && !breakRequested) {
+							Cpu->Step();
+						}
+						DebuggerPC = 0;
+						DebuggerIOPPC=0;
+						EnterHaltedState(hDlg);
+						RefreshDebugAll();
+					}
+					return TRUE;					
+					}
+
+                case IDC_DEBUG_STEP_TO_CURSOR:
+					{
+					int sel = SendMessage(hWnd_debugdisasm, LB_GETCURSEL,0,0);  
+					if (sel != LB_ERR){
+						const u32 target_pc = DebuggerPC + sel*4;
+						EnterRunningState(hDlg);
+						while(target_pc != cpuRegs.pc && !breakRequested) {
+							if (HasBreakpoint()) {
+								Cpu->Step();
+								break;
+							}
+							Cpu->Step();
+						}
+						DebuggerPC = 0;
+						DebuggerIOPPC=0;
+						EnterHaltedState(hDlg);
+						RefreshDebugAll();
+					}
+					return TRUE;					
+					}
 
                 case IDC_DEBUG_LOG:
 #ifdef PCSX2_DEVBUILD
@@ -456,6 +561,7 @@ BOOL APIENTRY DebuggerProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam
 
                 case IDC_DEBUG_RESETTOPC:
                     DebuggerPC = 0;
+					DebuggerIOPPC=0;
                     RefreshDebugAll();
                     return TRUE;
 
@@ -466,8 +572,8 @@ BOOL APIENTRY DebuggerProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam
                     
                     RefreshDebugAll();
                     return TRUE;
+
 				case IDC_CPUOP:
-			
                     UpdateR5900op();
 					return TRUE;
 
@@ -475,7 +581,6 @@ BOOL APIENTRY DebuggerProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam
                     bpexecproc = MakeProcInstance((FARPROC)BpexecProc, MainhInst);
                     DialogBox(gApp.hInstance, MAKEINTRESOURCE(IDD_BPEXEC), debughWnd, (DLGPROC)bpexecproc);
                     FreeProcInstance(bpexecproc);
-                    
                     return TRUE;
 
 				case IDC_DEBUG_BP_COUNT:
@@ -505,8 +610,9 @@ BOOL APIENTRY DebuggerProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam
 					EndDialog(hIopDlg,TRUE);
 
                     ClosePlugins();
-
+					isRunning = 0;
                     return TRUE;
+
             }
             break;
     }
@@ -514,12 +620,13 @@ BOOL APIENTRY DebuggerProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam
     return FALSE;
 }
 
+/* this lives in interpreter.c */
+extern char* bios[];
+
 void RefreshDebugger(void)
 {
     unsigned long t;
     int cnt;
-    
-
     
     if (DebuggerPC == 0) 
        DebuggerPC = cpuRegs.pc; //- 0x00000038;
@@ -528,6 +635,7 @@ void RefreshDebugger(void)
 
     for (t = DebuggerPC, cnt = 0; t < (DebuggerPC + 0x00000074); t += 0x00000004, cnt++)
     {
+		char syscall_str[128];
 		// Make the opcode.
 		u32 *mem = (u32*)PSM(t);
 		char *str;
@@ -535,11 +643,18 @@ void RefreshDebugger(void)
 			char nullAddr[256];
 			sprintf(nullAddr, "%8.8lx 00000000: NULL MEMORY", t); str = nullAddr;
 		} else {
-			str = disR5900Fasm(*mem, t);
+			/* special procesing for syscall. This should probably be moved into the disR5900Fasm() call in the future. */
+			if (0x0c == *mem && 0x24030000 == (*(mem-1) & 0xFFFFFF00)){
+				/* it's a syscall preceeded by a li v1,$data instruction. */
+				u8 bios_call = *(mem-1) & 0xFF;
+				sprintf(syscall_str, "%08X:\tsyscall\t%s", t, bios[bios_call]);
+				str = syscall_str;
+			} else {
+				str = disR5900Fasm(*mem, t);
+			}
 		}
         SendMessage(hWnd_debugdisasm, LB_ADDSTRING, 0, (LPARAM)str);
 	}
-    
 }
 
 void RefreshIOPDebugger(void)
@@ -547,8 +662,9 @@ void RefreshIOPDebugger(void)
     unsigned long t;
     int cnt;
 	
-    DebuggerIOPPC = psxRegs.pc; //- 0x00000038;
-
+	if (DebuggerIOPPC == 0){
+		DebuggerIOPPC = psxRegs.pc; //- 0x00000038;
+	}
     SendMessage(hWnd_IOP_debugdisasm, LB_RESETCONTENT, 0, 0);
 
     for (t = DebuggerIOPPC, cnt = 0; t < (DebuggerIOPPC + 0x00000029); t += 0x00000004, cnt++)
