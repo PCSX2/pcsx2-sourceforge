@@ -1,0 +1,10 @@
+gametitle= Shox [SLES 51144] (E)
+comment=patches by nachbrenner
+//fix IPU DMA
+patch=0,EE,0022d754,word,00000000
+//Skip MPC Movies
+//patch=0,EE,00150724,word,00000000
+//patch=0,EE,002b0d68,word,03E00008
+//patch=0,EE,002b0d6c,word,00000000
+//patch=0,EE,002b07e8,word,03E00008
+//patch=0,EE,002b07ec,word,00000000

@@ -1,0 +1,12 @@
+gametitle=Air Blade [SCES 50246] (E)
+comment=patches by nachbrenner
+//Skip Videos 
+//patch=0,EE,00107f28,word,24020001
+//patch=0,EE,0016f4c0,word,03e00008
+//patch=0,EE,0016f4c4,word,00000000
+//obsolete:
+//VU0 fix: TsCollisionLineTriTest
+//patch=0,EE,0017ecc4,word,00000000
+//VU0 fix: Skip RpHAnimHierarchyUpdateMatrices
+//patch=0,EE,001ffac0,word,03e00008
+//patch=0,EE,001ffac4,word,00000000
