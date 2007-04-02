@@ -1209,7 +1209,9 @@ void OnDebug_Go(GtkButton *button, gpointer user_data) {
 }
 
 void OnDebug_Log(GtkButton *button, gpointer user_data) {
+#ifdef PCSX2_DEVBUILD
 	Log = 1 - Log;
+#endif
 }
 
 void OnDebug_EEMode(GtkToggleButton *togglebutton, gpointer user_data) {
@@ -1297,6 +1299,7 @@ void OnLogging_Ok(GtkButton *button, gpointer user_data) {
 	char str[32];
 	int i, ret;
 
+#ifdef PCSX2_DEVBUILD
 	for (i=0; i<17; i++) {
 		sprintf(str, "Log%d", i);
 		Btn = lookup_widget(LogDlg, str);
@@ -1324,7 +1327,8 @@ void OnLogging_Ok(GtkButton *button, gpointer user_data) {
 	Btn = lookup_widget(LogDlg, "Log");
 	Log = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(Btn));
 
-	SaveConfig();
+    SaveConfig();
+#endif
 
 	gtk_widget_destroy(LogDlg);
 	gtk_widget_set_sensitive(Window, TRUE);
