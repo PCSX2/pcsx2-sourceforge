@@ -860,12 +860,11 @@ void GIFtag(pathInfo *path, u32 *data) {
 //			path->tag.eop, path->tag.nloop, tagflg, path->tag.nreg, tagpre);
 #endif
 
-    path->mode = tagflg+1;
-
-	switch (tagflg) {
+    switch (tagflg) {
 		case 0x0:
 			path->regs = *(u64 *)(data+2);
 			path->regn = 0;
+			path->mode = 1;
 			if (tagpre)
 				GIFRegHandlerPRIM((u32*)&tagprim);
 
@@ -874,7 +873,26 @@ void GIFtag(pathInfo *path, u32 *data) {
 		case 0x1:
 			path->regs = *(u64 *)(data+2);
 			path->regn = 0;
+			path->mode = 2;
 
+			break;
+
+		case 0x3:
+		case 0x2:
+//			if (gs.dstbuf.bw == 0) printf("gs.dstbuf == 0!!!\n");
+			if (gs.imageTransfer == 0x2) {
+/*#ifdef GS_LOG
+				GS_LOG("moveImage %dx%d %dx%d %dx%d (dir=%d)\n",
+					   gs.trxpos.sx, gs.trxpos.sy, gs.trxpos.dx, gs.trxpos.dy, gs.imageW, gs.imageH, gs.trxpos.dir);
+#endif
+				ZeroGS::TransferLocalLocal();*/
+				break;
+			}
+			path->mode = 3;
+#ifdef GS_LOG
+			//GS_LOG("imageTransfer size %lx, %dx%d %dx%d (psm=%x, bp=%x)\n",
+			//	   path->tag.nloop, gs.trxpos.dx, gs.trxpos.dy, gs.imageW, gs.imageH, gs.dstbuf.psm, gs.dstbuf.bp);
+#endif
 			break;
 	}
 }
@@ -940,12 +958,12 @@ void _GSgifTransfer(pathInfo *path, u32 *pMem, u32 size)
 
 					return;
 				}
-				
+
 				if( !path->tag.eop ) {
 					//printf("contuing from eop\n");
 					continue;
 				}
-				
+
 				break;
 			}
 //			else {
@@ -1034,7 +1052,7 @@ void _GSgifTransfer(pathInfo *path, u32 *pMem, u32 size)
 			}
 
 			break;
-		}	
+		}
         default:
 			GS_LOG("*** WARNING **** Unexpected GIFTag flag\n");
 			assert(0);
