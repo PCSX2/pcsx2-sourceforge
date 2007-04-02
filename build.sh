@@ -3,7 +3,7 @@
 # Usage: sh build.sh [option]
 # option can be all (rebuilds everything), clean, or nothing (incremental build)
 # Modify the individual build.sh for specific program options like debug symbols
-export PCSX2OPTIONS="--enable-debug --enable-devbuild --enable-sse2 --prefix `pwd`"
+export PCSX2OPTIONS="--enable-devbuild --enable-sse2 --prefix `pwd`"
 export PCSX2PLUGINS="`pwd`/bin/plugins"
 curdir=`pwd`
 
