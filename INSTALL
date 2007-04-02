@@ -61,6 +61,7 @@ PCSX2_VIRTUAL_MEM - switches the way pcsx2 handles memory. VM enabled builds are
 
 PCSX2_NORECBUILD - ignore all recompiler code so that Pcsx2 can be built for different architectures. Note that there are a couple of places that use asm code even in interpreter (coroutines in IPU).
 
-_DEBUG - build with debug information
+_DEBUG - build with extra debug information
+NDEBUG - build without absolutely no debug information
 
 ZEROGS_SSE2 - controls sse2 usage in zerogs
