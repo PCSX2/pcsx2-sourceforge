@@ -206,6 +206,7 @@ int main(int argc, char *argv[]) {
 		strcpy(Config.BiosDir,    "bios/");
 		strcpy(Config.PluginsDir, "plugins/");
 		Config.Patch = 1;
+        Config.Options = PCSX2_EEREC|PCSX2_VU0REC|PCSX2_VU1REC|PCSX2_COP2REC;
 
 		SysMessage(_("Pcsx2 needs to be configured"));
 		Pcsx2Configure();
