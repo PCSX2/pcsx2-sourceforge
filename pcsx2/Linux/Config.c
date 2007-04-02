@@ -91,7 +91,10 @@ int LoadConfig() {
 	GetValuel("SafeCnts", Config.SafeCnts);
 
 	GetValuel("Patch",      Config.Patch);
+
+#ifdef PCSX2_DEVBUILD
 	GetValuel("varLog", varLog);
+#endif
 	
 	free(data);
 
@@ -138,7 +141,11 @@ void SaveConfig() {
 	SetValuel("SafeCnts", Config.SafeCnts);
 	// misc
 	SetValuel("Patch",      Config.Patch);
+
+#ifdef PCSX2_DEVBUILD
 	SetValuel("varLog", varLog);
+#endif
+
 
 	fclose(f);
 
