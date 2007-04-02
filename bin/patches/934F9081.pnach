@@ -1,0 +1,4 @@
+gametitle= Neopets - The Darkest Faerie [SCUS 97367] (U) 
+comment=
+//ZeroGS Patch - GAME_RESOLVEPROMOTED|GAME_VSSHACK|GAME_FULL16BITRES|GAME_NODEPTHRESOLVE
+zerogs=0003C000
