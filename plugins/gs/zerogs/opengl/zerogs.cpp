@@ -1392,7 +1392,8 @@ bool ZeroGS::Create(int _width, int _height)
     assert( glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT) == GL_FRAMEBUFFER_COMPLETE_EXT );
     glBindFramebufferEXT( GL_FRAMEBUFFER_EXT, s_uFramebuffer );
 
-    glDrawBuffers(1, s_drawbuffers);
+    if( glDrawBuffers != NULL )
+        glDrawBuffers(1, s_drawbuffers);
     GL_REPORT_ERROR();
     if( err != GL_NO_ERROR ) bSuccess = false;
 
