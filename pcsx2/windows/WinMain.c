@@ -561,13 +561,14 @@ void RunGui() {
 
 void CALLBACK KeyEvent(keyEvent* ev)
 {
+	int shift;
 	if (ev == NULL) return;
 	if (ev->event == KEYRELEASE) {
 		GSkeyEvent(ev); return;
 	}
 	if (ev->event != KEYPRESS) return;
 
-    int shift = !!(GetKeyState(VK_SHIFT)&0x8000);
+    shift = !(GetKeyState(VK_SHIFT)&0x8000);
     
 	switch (ev->key) {
 		case VK_F1: ProcessFKeys(1, shift); break;
