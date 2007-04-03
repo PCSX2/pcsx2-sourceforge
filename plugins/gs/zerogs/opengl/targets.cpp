@@ -939,7 +939,8 @@ void ZeroGS::CDepthTarget::Update(int context, ZeroGS::CRenderTarget* prndr)
     SetDepthStencilSurface();
 	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT1_EXT, GL_TEXTURE_RECTANGLE_NV, 0, 0 );
     GLenum buffer = GL_COLOR_ATTACHMENT0_EXT;
-    glDrawBuffers(1, &buffer);
+    if( glDrawBuffers != NULL )
+        glDrawBuffers(1, &buffer);
     int stat = glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT);
     assert( glCheckFramebufferStatusEXT(GL_FRAMEBUFFER_EXT) == GL_FRAMEBUFFER_COMPLETE_EXT );
 
