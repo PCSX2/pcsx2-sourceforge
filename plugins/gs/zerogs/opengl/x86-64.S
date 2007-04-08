@@ -661,8 +661,8 @@ SwizzleBlock8u_sse2_1:
 	movdqu		%xmm2, [%rsi+%rdx]
 	lea			%rsi, [%rsi+%rdx*2]
 
-	pshufd		%xmm1, [%rsi], 0xb1
-	pshufd		%xmm3, [%rsi+%rdx], 0xb1
+	pshufd		%xmm1, %xmm0, 0xb1
+	pshufd		%xmm3, %xmm2, 0xb1
 	lea			%rsi, [%rsi+%rdx*2]
 
 	punpck(bw, 0, 2, 1, 3, 4, 6)
@@ -676,8 +676,10 @@ SwizzleBlock8u_sse2_1:
 
 	// col 1, 3
 
-	pshufd		%xmm0, [%rsi], 0xb1
-	pshufd		%xmm2, [%rsi+%rdx], 0xb1
+	movdqu		%xmm0, [%rsi]
+	movdqu		%xmm2, [%rsi+%rdx]
+	pshufd		%xmm0, %xmm0, 0xb1
+	pshufd		%xmm2, %xmm2, 0xb1
 	lea			%rsi, [%rsi+%rdx*2]
 
 	movdqu		%xmm1, [%rsi]
