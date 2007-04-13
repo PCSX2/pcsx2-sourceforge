@@ -23,6 +23,7 @@
 .extern _vifRow
         
 #ifdef __x86_64__
+#define VIF_ESP %rsp
 #define VIF_SRC	%rsi
 #define VIF_INC	%rcx
 #define VIF_DST %rdi
@@ -30,7 +31,8 @@
 #define VIF_TMPADDR %rax
 #define VIF_SAVEEBX %r8
 #define VIF_SAVEEBXd %r8d
-#else 
+#else
+#define VIF_ESP %esp
 #define VIF_SRC	%esi
 #define VIF_INC	%ecx
 #define VIF_DST %edi
@@ -1524,7 +1526,7 @@ name##_##sign##_##MaskType##_##ModeType##_C4_UnpackX: \
 	sub VIF_INC, 1; \
 	jmp name##_##sign##_##MaskType##_##ModeType##_C4_UnpackX; \
 name##_##sign##_##MaskType##_##ModeType##_C4_DoneLoop: \
-	add VIF_DST, [%esp]; /* take into account wl */ \
+	add VIF_DST, [VIF_ESP]; /* take into account wl */ \
 	cmp VIF_SIZE, qsize; \
 	jl name##_##sign##_##MaskType##_##ModeType##_C4_Done; \
 	jmp name##_##sign##_##MaskType##_##ModeType##_C4_Unpack; /* unpack next */ \
