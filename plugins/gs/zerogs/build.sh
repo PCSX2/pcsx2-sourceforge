@@ -14,6 +14,7 @@ then
 aclocal
 automake
 autoconf
+chmod +x configure
 ./configure --enable-sse2 --prefix=${PCSX2PLUGINS}
 make clean
 make install
