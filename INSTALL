@@ -3,7 +3,15 @@
 Linux Users
 -----------
 
-Make sure you have these libraries: gtk2, OpenGL, Cg (for the GS plugins)
+Make sure you have these packages:
+gtk2
+opengl
+libbz2
+libjpeg
+libxxf86vm
+x11proto-xf86vidmode
+automake and autoconf (verion >= 1.9)
+Nvidia Cg-Toolkit (http://developer.nvidia.com/object/cg_toolkit.html)
 
 When first building, the Pcsx2 programs need to configure the Makefiles for your specific OS. type:
 
@@ -33,7 +41,7 @@ For plugin authors: Your Makefile should support the 'install' option.
 Windows Users
 -------------
 
-Make sure you have: Cg (for ZeroGS)
+Make sure you have: Nvidia Cg-Toolkit (for ZeroGS)
 
 Open the corresponding Visual Studio sln files for all projects, compile, and move the executables appropriately. Pcsx2 and some plugins require masm to assemble (ml for win32, ml64 for win64).
 

@@ -10,6 +10,7 @@ then
 aclocal
 automake
 autoconf
+chmod +x configure
 ./configure ${PCSX2OPTIONS}
 make clean
 make install

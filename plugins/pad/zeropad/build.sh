@@ -12,6 +12,7 @@ then
 aclocal
 automake -a
 autoconf
+chmod +x configure
 ./configure --prefix=${PCSX2PLUGINS}
 make clean
 make install
