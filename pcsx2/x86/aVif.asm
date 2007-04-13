@@ -41,6 +41,7 @@ extern s_TempDecompress:abs
 
 
 %ifdef __x86_64__
+%define VIF_ESP rsp
 %define VIF_SRC	rdx
 %define VIF_INC	rdi
 %define VIF_DST rcx
@@ -49,6 +50,7 @@ extern s_TempDecompress:abs
 %define VIF_SAVEEBX r9
 %define VIF_SAVEEBXd r9d
 %else
+%define VIF_ESP esp
 %define VIF_SRC esi
 %define VIF_INC	ecx
 %define VIF_DST edi
@@ -1818,7 +1820,7 @@ defUNPACK_SkippingWrite macro name, MaskType, ModeType, qsize, sign, SAVE_ROW_RE
 	sub VIF_INC, 1
 	jmp @CatStr(name, _, sign, _, MaskType, _, ModeType, _C4_UnpackX)
 @CatStr(name, _, sign, _, MaskType, _, ModeType, _C4_DoneLoop): 
-	add VIF_DST, [esp]
+	add VIF_DST, [VIF_ESP]
 	cmp VIF_SIZE, qsize
 	jl @CatStr(name, _, sign, _, MaskType, _, ModeType, _C4_Done)
 	jmp @CatStr(name, _, sign, _, MaskType, _, ModeType, _C4_Unpack)

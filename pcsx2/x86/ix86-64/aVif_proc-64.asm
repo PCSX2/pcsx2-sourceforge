@@ -1712,7 +1712,7 @@ defUNPACK_SkippingWrite macro name, MaskType, ModeType, qsize, sign, SAVE_ROW_RE
  sub rdi, 1
  jmp @CatStr(name, _, sign, _, MaskType, _, ModeType, _C4_UnpackX)
 @CatStr(name, _, sign, _, MaskType, _, ModeType, _C4_DoneLoop):
- add rcx, [esp]
+ add rcx, [rsp]
  cmp r8d, qsize
  jl @CatStr(name, _, sign, _, MaskType, _, ModeType, _C4_Done)
  jmp @CatStr(name, _, sign, _, MaskType, _, ModeType, _C4_Unpack)
