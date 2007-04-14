@@ -1501,7 +1501,7 @@ INIT_ARGS macro
  endm
 
 INC_STACK macro reg
- add esp, 8
+ add rsp, 8
  endm
 
 
