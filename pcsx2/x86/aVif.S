@@ -1300,7 +1300,7 @@
 
 #define POP_REGS()
 
-#define INC_STACK(reg) add %esp, 8;
+#define INC_STACK(reg) add %rsp, 8;
 
 #else
 
