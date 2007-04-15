@@ -193,7 +193,7 @@ unsigned long SoundGetBytesBuffered(void)
 // FEED SOUND DATA
 ////////////////////////////////////////////////////////////////////////
 
-void SoundFeedStreamData(unsigned char* pSound,long lBytes)
+void SoundFeedVoiceData(unsigned char* pSound,long lBytes)
 {
  if(handle == NULL) return;
 
