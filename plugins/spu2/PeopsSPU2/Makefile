@@ -9,7 +9,7 @@ all: spu2PeopsOSS
 install: all
 
 # Set to TRUE to build the ALSA support
-USEALSA = FALSE
+USEALSA = TRUE
 # Set to TRUE to disable the thread library support - helpful for some Linux distros
 NOTHREADLIB = FALSE
 
