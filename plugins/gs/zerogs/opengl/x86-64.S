@@ -776,15 +776,15 @@ SwizzleBlock4u_sse2_1:
 	ret
 
 
+               	.align 16
 s_clut16mask:
-      	.align 16
         .long 0xffff1000
         .long 0xffff0000
         .long 0xffff0000
         .long 0xffff0000
 
+                .align 16
 s_clut16mask2:
-        .align 16
         .long 0x0000ffff
         .long 0x0000ffff
         .long 0x0000ffff
