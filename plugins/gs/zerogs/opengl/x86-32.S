@@ -805,27 +805,27 @@ SwizzleBlock4u_sse2_1:
 	ret			4
 
 
-s_clut16mask:
       	.align 16
-        .long 0xffff1000
+s_clut16mask:
+        .long 0xffff0000
         .long 0xffff0000
         .long 0xffff0000
         .long 0xffff0000
 
-s_clut16mask2:
         .align 16
+s_clut16mask2:
         .long 0x0000ffff
         .long 0x0000ffff
         .long 0x0000ffff
         .long 0x0000ffff
-        
+
 .globl WriteCLUT_T16_I4_CSM1_sse2
         .type WriteCLUT_T16_I4_CSM1_sse2, @function
 WriteCLUT_T16_I4_CSM1_sse2:
-		movdqa %xmm0, qword ptr [%edx]
-		movdqa %xmm1, qword ptr [%edx+16]
-		movdqa %xmm2, qword ptr [%edx+32]
-		movdqa %xmm3, qword ptr [%edx+48]
+		movdqa %xmm0, qword ptr [%ecx]
+		movdqa %xmm1, qword ptr [%ecx+16]
+		movdqa %xmm2, qword ptr [%ecx+32]
+		movdqa %xmm3, qword ptr [%ecx+48]
 
 		// rearrange
 		pshuflw %xmm0, %xmm0, 0x88
@@ -845,14 +845,14 @@ WriteCLUT_T16_I4_CSM1_sse2:
 
 		pxor %xmm6, %xmm6
 
-		test %ecx, 15
+		test %edx, 15
 		jnz WriteUnaligned
 
 		movdqa %xmm7, [s_clut16mask] // saves upper 16 bits
 
 		// have to save interlaced with the old data
-		movdqa %xmm4, [%ecx]
-		movdqa %xmm5, [%ecx+32]
+		movdqa %xmm4, [%edx]
+		movdqa %xmm5, [%edx+32]
 		movhlps %xmm1, %xmm0
 		movlhps %xmm0, %xmm2 // lower 8 colors
 
@@ -871,29 +871,29 @@ WriteCLUT_T16_I4_CSM1_sse2:
 		punpckhwd %xmm2, %xmm6
 		punpckhwd %xmm3, %xmm6
 
-		movdqa [%ecx], %xmm0
-		movdqa [%ecx+32], %xmm1
+		movdqa [%edx], %xmm0
+		movdqa [%edx+32], %xmm1
 
 		movdqa %xmm5, %xmm7
-		pand %xmm7, [%ecx+16]
-		pand %xmm5, [%ecx+48]
+		pand %xmm7, [%edx+16]
+		pand %xmm5, [%edx+48]
 
 		por %xmm2, %xmm7
 		por %xmm3, %xmm5
 
-		movdqa [%ecx+16], %xmm2
-		movdqa [%ecx+48], %xmm3
+		movdqa [%edx+16], %xmm2
+		movdqa [%edx+48], %xmm3
 		jmp WriteCLUT_T16_I4_CSM1_End
 
 WriteUnaligned:
-		// %ecx is offset by 2
-		sub %ecx, 2
+		// %edx is offset by 2
+		sub %edx, 2
 
 		movdqa %xmm7, [s_clut16mask2] // saves lower 16 bits
 
 		// have to save interlaced with the old data
-		movdqa %xmm4, [%ecx]
-		movdqa %xmm5, [%ecx+32]
+		movdqa %xmm4, [%edx]
+		movdqa %xmm5, [%edx+32]
 		movhlps %xmm1, %xmm0
 		movlhps %xmm0, %xmm2 // lower 8 colors
 
@@ -916,18 +916,18 @@ WriteUnaligned:
 		pslld %xmm2, 16
 		pslld %xmm3, 16
 
-		movdqa [%ecx], %xmm0
-		movdqa [%ecx+32], %xmm1
+		movdqa [%edx], %xmm0
+		movdqa [%edx+32], %xmm1
 
 		movdqa %xmm5, %xmm7
-		pand %xmm7, [%ecx+16]
-		pand %xmm5, [%ecx+48]
+		pand %xmm7, [%edx+16]
+		pand %xmm5, [%edx+48]
 
 		por %xmm2, %xmm7
 		por %xmm3, %xmm5
 
-		movdqa [%ecx+16], %xmm2
-		movdqa [%ecx+48], %xmm3
+		movdqa [%edx+16], %xmm2
+		movdqa [%edx+48], %xmm3
 WriteCLUT_T16_I4_CSM1_End:
         ret
 

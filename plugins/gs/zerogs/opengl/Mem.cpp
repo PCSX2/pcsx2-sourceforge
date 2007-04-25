@@ -421,7 +421,9 @@ End: \
 	\
 	for(int by = 0; by < 8; ++by, pblock += 8, pnewsrc += pitch-24) { \
 		for(int bx = 0; bx < 8; ++bx, pnewsrc += 3) { \
-			pblock[bx] = *(u32*)pnewsrc; \
+            /* copy 3 bytes instead of 4 or else it might crash */ \
+			*(u16*)(pblock+bx) = *(u16*)pnewsrc; \
+            *((u8*)(pblock+bx)+2) = pnewsrc[2]; \
 		} \
 	} \
 	SwizzleBlock32((u8*)dst, (u8*)tempblock, 32, 0x00ffffff); \
