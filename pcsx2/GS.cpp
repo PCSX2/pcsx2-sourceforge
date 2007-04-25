@@ -254,7 +254,7 @@ void gsShutdown()
 #ifdef _WIN32
 		VirtualFree(GS_RINGBUFFERBASE, GS_RINGBUFFERSIZE, MEM_DECOMMIT|MEM_RELEASE);
 #else
-        SysMunmap(GS_RINGBUFFERBASE, GS_RINGBUFFERSIZE);
+        SysMunmap((uptr)GS_RINGBUFFERBASE, GS_RINGBUFFERSIZE);
 #endif
 
 #ifdef _DEBUG
