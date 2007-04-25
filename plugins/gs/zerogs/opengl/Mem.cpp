@@ -419,12 +419,20 @@ End: \
 	u8* pnewsrc = src; \
 	u32* pblock = tempblock; \
 	\
-	for(int by = 0; by < 8; ++by, pblock += 8, pnewsrc += pitch-24) { \
+	for(int by = 0; by < 7; ++by, pblock += 8, pnewsrc += pitch-24) { \
 		for(int bx = 0; bx < 8; ++bx, pnewsrc += 3) { \
             /* might be 1 byte out of bounds of GS memory */ \
             pblock[bx] = *(u32*)pnewsrc; \
 		} \
 	} \
+    for(int bx = 0; bx < 7; ++bx, pnewsrc += 3) { \
+        /* might be 1 byte out of bounds of GS memory */ \
+        pblock[bx] = *(u32*)pnewsrc; \
+    } \
+    /* do 3 bytes for the last copy */ \
+    *((u8*)pblock+0) = pnewsrc[0]; \
+    *((u8*)pblock+1) = pnewsrc[1]; \
+    *((u8*)pblock+2) = pnewsrc[2]; \
 	SwizzleBlock32((u8*)dst, (u8*)tempblock, 32, 0x00ffffff); \
 } \
 
