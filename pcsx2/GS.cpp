@@ -164,11 +164,13 @@ void gsInit()
 {
 	if( CHECK_MULTIGS ) {
 
+        // pad the buffer to make sure that reads (due to errors) outside of the valid area
+        // don't result in fatal errors
 #ifdef _WIN32
-        g_pGSRingPos = (u8*)VirtualAlloc(GS_RINGBUFFERBASE, GS_RINGBUFFERSIZE, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
+        g_pGSRingPos = (u8*)VirtualAlloc(GS_RINGBUFFERBASE, GS_RINGBUFFERSIZE+4096, MEM_RESERVE|MEM_COMMIT, PAGE_READWRITE);
 #else
-        // setup linux vm
-        g_pGSRingPos = (u8*)SysMmap((uptr)GS_RINGBUFFERBASE, GS_RINGBUFFERSIZE);
+        // setup linux mtgs
+        g_pGSRingPos = (u8*)SysMmap((uptr)GS_RINGBUFFERBASE, GS_RINGBUFFERSIZE+4096);
 #endif
         if( g_pGSRingPos != GS_RINGBUFFERBASE ) {
 			SysMessage("Cannot alloc GS ring buffer\n");
@@ -250,7 +252,7 @@ void gsShutdown()
 #endif
 
 #ifdef _WIN32
-		VirtualFree(GS_RINGBUFFERBASE, GS_RINGBUFFERSIZE, MEM_DECOMMIT|MEM_RELEASE);
+		VirtualFree(GS_RINGBUFFERBASE, GS_RINGBUFFERSIZE+4096, MEM_DECOMMIT|MEM_RELEASE);
 #endif
 
 #ifdef _DEBUG
