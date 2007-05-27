@@ -3214,17 +3214,16 @@ void LEA16RRtoR(x86IntRegType to, x86IntRegType from0, x86IntRegType from1)
 }
 
 void LEA32RRtoR(x86IntRegType to, x86IntRegType from0, x86IntRegType from1)
-{
+{ 
     RexRXB(0, to, from0, from1);
 	write8(0x8d);
-	if( (from0&7) == EBP || (from1&7) == EBP ) {
 
-		if( (from0&7) == EBP ) SWAP(from0, from1);
-		ModRM(1, to, 4);
+    if( (from1&7) == EBP ) {
+        ModRM(1, to, 4);
 		ModRM(0, from0, from1);
 		write8(0);
-	}
-	else {
+    }
+    else {
 		ModRM(0, to, 4);
 		ModRM(0, from0, from1);
 	}
