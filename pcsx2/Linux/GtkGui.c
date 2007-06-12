@@ -88,11 +88,6 @@ void StartGui() {
     gtk_window_set_title(GTK_WINDOW(Window), "PCSX2 "PCSX2_VERSION" Watermoose");
 #endif
 
-#ifndef NEW_LOGGING
-	Item = lookup_widget(Window, "GtkMenuItem_Logging");
-	gtk_widget_set_sensitive(Item, FALSE);
-#endif
-
     // status bar
     pStatusBar = gtk_statusbar_new ();
     gtk_box_pack_start (GTK_BOX(lookup_widget(Window, "status_box")), pStatusBar, TRUE, TRUE, 0);
@@ -927,6 +922,7 @@ void OnConf_Conf(GtkMenuItem *menuitem, gpointer user_data) {
 
 GtkWidget *CmdLine;
 GtkWidget *ListDV;
+GtkListStore *ListDVModel;
 GtkWidget *SetPCDlg, *SetPCEntry;
 GtkWidget *SetBPADlg, *SetBPAEntry;
 GtkWidget *SetBPCDlg, *SetBPCEntry;
@@ -944,30 +940,26 @@ int DebugMode; // 0 - EE | 1 - IOP
 #include "PsxMem.h"
 
 void UpdateDebugger() {
-	GtkWidget *item;
 	char *str;
 	int i;
-	GList *list = NULL;
-	u32 pc;
 
 	DebugAdj->value = (gfloat)dPC/4;
 
-	gtk_list_clear_items(GTK_LIST(ListDV), 0, 23);
+	gtk_list_store_clear(ListDVModel);
 
 	for (i=0; i<23; i++) {
+		GtkTreeIter iter;
 		u32 *mem;
-		pc = dPC + i*4;
+		u32 pc = dPC + i*4;
 		if (DebugMode) {
 			mem = (u32*)PSXM(pc);
 		} else
 			mem = PSM(pc);
 		if (mem == NULL) { sprintf(nullAddr, "%8.8lX:\tNULL MEMORY", pc); str = nullAddr; }
 		else str = disR5900Fasm(*mem, pc);
-		item = gtk_list_item_new_with_label(str);
-		gtk_widget_show(item);
-		list = g_list_append(list, item);
+		gtk_list_store_append(ListDVModel, &iter);
+		gtk_list_store_set(ListDVModel, &iter, 0, str, -1);
 	}
-	gtk_list_append_items(GTK_LIST(ListDV), list);
 }
 
 void OnDebug_Close(GtkButton *button, gpointer user_data) {
@@ -1259,6 +1251,8 @@ void OnDebug_memWrite32(GtkButton *button, gpointer user_data) {
 
 void OnDebug_Debugger(GtkMenuItem *menuitem, gpointer user_data) {
 	GtkWidget *scroll;
+	GtkCellRenderer *renderer;
+	GtkTreeViewColumn *column;
 
 	if (OpenPlugins(NULL) == -1) return;
 	if (needReset) { SysReset(); needReset = 0; }
@@ -1273,7 +1267,15 @@ void OnDebug_Debugger(GtkMenuItem *menuitem, gpointer user_data) {
 
 	DebugWnd = create_DebugWnd();
 
+	ListDVModel = gtk_list_store_new (1, G_TYPE_STRING);
 	ListDV = lookup_widget(DebugWnd, "GtkList_DisView");
+	gtk_tree_view_set_model(GTK_TREE_VIEW(ListDV), GTK_TREE_MODEL(ListDVModel));
+	renderer = gtk_cell_renderer_text_new ();
+	column = gtk_tree_view_column_new_with_attributes ("heading", renderer,
+	                                                   "text", 0,
+	                                                   NULL);
+	gtk_tree_view_append_column (GTK_TREE_VIEW (ListDV), column);
+
 	scroll = lookup_widget(DebugWnd, "GtkVScrollbar_VList");
 
 	DebugAdj = GTK_RANGE(scroll)->adjustment;
@@ -1520,7 +1522,7 @@ void FindPlugins() {
 		if (!IsBIOS(ent->d_name, description)) continue;//2002-09-28 (Florin)
 
 		BiosConfS.plugins+=2;
-		sprintf(description, "%s (%s)", description, ent->d_name);
+		snprintf(description, 49, "%s (%s)", description, ent->d_name);
 		strcpy(BiosConfS.plist[BiosConfS.plugins-1], description);//2002-09-28 (Florin) modified
 		strcpy(BiosConfS.plist[BiosConfS.plugins-2], ent->d_name);
 		BiosConfS.glist = g_list_append(BiosConfS.glist, BiosConfS.plist[BiosConfS.plugins-1]);
