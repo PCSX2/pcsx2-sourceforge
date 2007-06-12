@@ -1554,7 +1554,7 @@ create_DebugWnd (void)
 
   hbox16 = gtk_hbox_new (FALSE, 5);
   gtk_widget_show (hbox16);
-  gtk_box_pack_start (GTK_BOX (vbox16), hbox16, TRUE, TRUE, 0);
+  gtk_box_pack_start (GTK_BOX (vbox16), hbox16, FALSE, TRUE, 0);
 
   GtkRadioButton_EE = gtk_radio_button_new_with_mnemonic (NULL, _("EE Debug Mode"));
   gtk_widget_show (GtkRadioButton_EE);
@@ -1591,18 +1591,19 @@ create_DebugWnd (void)
   gtk_widget_show (GtkList_DisView);
   gtk_container_add (GTK_CONTAINER (viewport1), GtkList_DisView);
   GTK_WIDGET_UNSET_FLAGS (GtkList_DisView, GTK_CAN_FOCUS);
+  gtk_tree_view_set_headers_visible (GTK_TREE_VIEW (GtkList_DisView), FALSE);
 
   GtkVScrollbar_VList = gtk_vscrollbar_new (GTK_ADJUSTMENT (gtk_adjustment_new (0, 0, 412, 1, 20, 2)));
   gtk_widget_show (GtkVScrollbar_VList);
-  gtk_box_pack_start (GTK_BOX (hbox7), GtkVScrollbar_VList, TRUE, TRUE, 0);
+  gtk_box_pack_start (GTK_BOX (hbox7), GtkVScrollbar_VList, FALSE, TRUE, 0);
 
   vbox22 = gtk_vbox_new (FALSE, 0);
   gtk_widget_show (vbox22);
-  gtk_box_pack_start (GTK_BOX (hbox6), vbox22, TRUE, TRUE, 0);
+  gtk_box_pack_start (GTK_BOX (hbox6), vbox22, FALSE, TRUE, 0);
 
   vbuttonbox2 = gtk_vbutton_box_new ();
   gtk_widget_show (vbuttonbox2);
-  gtk_box_pack_start (GTK_BOX (vbox22), vbuttonbox2, TRUE, TRUE, 0);
+  gtk_box_pack_start (GTK_BOX (vbox22), vbuttonbox2, FALSE, TRUE, 0);
 
   button52 = gtk_button_new_with_mnemonic (_("Step"));
   gtk_widget_show (button52);
@@ -1626,7 +1627,7 @@ create_DebugWnd (void)
 
   vbuttonbox3 = gtk_vbutton_box_new ();
   gtk_widget_show (vbuttonbox3);
-  gtk_box_pack_start (GTK_BOX (vbox22), vbuttonbox3, TRUE, TRUE, 0);
+  gtk_box_pack_start (GTK_BOX (vbox22), vbuttonbox3, FALSE, TRUE, 0);
 
   button58 = gtk_button_new_with_mnemonic (_("Set PC"));
   gtk_widget_show (button58);
@@ -1650,7 +1651,7 @@ create_DebugWnd (void)
 
   vbuttonbox1 = gtk_vbutton_box_new ();
   gtk_widget_show (vbuttonbox1);
-  gtk_box_pack_start (GTK_BOX (vbox22), vbuttonbox1, TRUE, TRUE, 0);
+  gtk_box_pack_start (GTK_BOX (vbox22), vbuttonbox1, FALSE, TRUE, 0);
 
   button39 = gtk_button_new_with_mnemonic (_("Dump code"));
   gtk_widget_show (button39);
@@ -1669,7 +1670,7 @@ create_DebugWnd (void)
 
   vbuttonbox4 = gtk_vbutton_box_new ();
   gtk_widget_show (vbuttonbox4);
-  gtk_box_pack_start (GTK_BOX (hbox6), vbuttonbox4, TRUE, TRUE, 0);
+  gtk_box_pack_start (GTK_BOX (hbox6), vbuttonbox4, FALSE, TRUE, 0);
   gtk_box_set_spacing (GTK_BOX (vbuttonbox4), 10);
 
   button68 = gtk_button_new_with_mnemonic (_("memWrite32"));
