@@ -1,0 +1,4 @@
+gametitle=Katamari Damacy [SLUS 21008] (U) [FA7E3081]
+comment=Skips Video (sceMpegIsEnd)
+//Skip Videos
+patch=0,EE,0018e9e8,word,24020001
