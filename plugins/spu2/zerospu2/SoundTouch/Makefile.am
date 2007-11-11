@@ -27,6 +27,9 @@ noinst_LIBRARIES = libSoundTouch.a
 if X86_64
 libSoundTouch_a_CXXFLAGS = -fPIC
 libSoundTouch_a_CFLAGS = -fPIC
+else
+libSoundTouch_a_CXXFLAGS = -msse -mmmx
+libSoundTouch_a_CFLAGS = -msse -mmmx
 endif
 
 #lib_LTLIBRARIES=libSoundTouch.la
