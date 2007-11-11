@@ -111,10 +111,10 @@ u32 dumplog = 0;
 u32 pc;			         // recompiler pc
 int branch;		         // set for branch
 
-#ifdef PCSX2_DEVBUILD
+//#ifdef PCSX2_DEVBUILD
 LARGE_INTEGER lbase = {0}, lfinal = {0};
 static u32 s_startcount = 0;
-#endif
+//#endif
 
 char *txt0 = "EAX = %x : ECX = %x : EDX = %x\n";
 char *txt0RC = "EAX = %x : EBX = %x : ECX = %x : EDX = %x : ESI = %x : EDI = %x\n";
