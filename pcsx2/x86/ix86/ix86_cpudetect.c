@@ -119,7 +119,7 @@ static s32 iCpuId( u32 cmd, u32 *regs )
        return -1;
 
    cpuid(cmd, regs[0], regs[1], regs[2], regs[3]);
-
+   return 0;
 #endif // _MSC_VER
 }
 
