@@ -1927,6 +1927,27 @@ extern void _StopPerfCounter();
 
 #endif
 
+#ifdef PCSX2_DEVBUILD
+void StartPerfCounter()
+{
+#ifdef PCSX2_DEVBUILD
+	if( s_startcount ) {
+		CALLFunc((u32)_StartPerfCounter);
+	}
+#endif
+}
+
+void StopPerfCounter()
+{
+#ifdef PCSX2_DEVBUILD
+	if( s_startcount ) {
+		MOV32ItoM((u32)&s_pCurBlock_ltime, (u32)&s_pCurBlockEx->ltime);
+		CALLFunc((u32)_StopPerfCounter);
+	}
+#endif
+}
+#endif
+
 ////////////////////////////////////////////////////
 void recClear64(BASEBLOCK* p)
 {
@@ -2187,25 +2208,6 @@ void iFlushCall(int flushtype)
 		else EMMS();
 		x86FpuState=FPU_STATE;
 	}
-}
-
-void StartPerfCounter()
-{
-#ifdef PCSX2_DEVBUILD
-	if( s_startcount ) {
-		CALLFunc((u32)_StartPerfCounter);
-	}
-#endif
-}
-
-void StopPerfCounter()
-{
-#ifdef PCSX2_DEVBUILD
-	if( s_startcount ) {
-		MOV32ItoM((u32)&s_pCurBlock_ltime, (u32)&s_pCurBlockEx->ltime);
-		CALLFunc((u32)_StopPerfCounter);
-	}
-#endif
 }
 
 #define USE_FAST_BRANCHES 0
