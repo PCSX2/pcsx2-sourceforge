@@ -1294,9 +1294,11 @@ extern "C" void cpudetectSSE3(void* pfnCallSSE3)
 #endif
 	}
 #else // linux
-    // exception handling doesn't work, so disable for x86 builds of linux
 
-#ifndef __x86_64__
+#ifdef PCSX2_FORCESSE3
+    cpucaps.hasStreamingSIMD3Extensions = 1;
+#else
+    // exception handling doesn't work, so disable for x86 builds of linux
     cpucaps.hasStreamingSIMD3Extensions = 0;
 #endif
 //    try {

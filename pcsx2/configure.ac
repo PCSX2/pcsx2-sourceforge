@@ -50,6 +50,15 @@ then
 fi
 AC_MSG_RESULT($devbuild)
 
+AC_MSG_CHECKING(force sse3 instructions)
+AC_ARG_ENABLE(sse3, AC_HELP_STRING([--enable-sse3], [Forces sse3 detection on CPUs]),
+ sse3=$enableval,sse3=no)
+if test "x$sse3" == xyes
+then
+ AC_DEFINE(PCSX2_FORCESSE3,1,[PCSX2_DEVBUILD])
+fi
+AC_MSG_RESULT(sse3)
+
 dnl Check for virtual memory build
 AC_MSG_CHECKING(for virtual memory build)
 AC_ARG_ENABLE(vmbuild, AC_HELP_STRING([--enable-vmbuild], [Adds low level virtual memory support to run pcsx2 faster]),
@@ -131,5 +140,6 @@ echo "  Target system type:    $target"
 echo "  x86-64 build?	       $cpu64"
 echo "  Debug build?	       $debug"
 echo "  Dev build?	           $devbuild"
+echo "  Force sse3?	           $sse3"
 echo "  Recompilers enabled?   $recbuild"
 echo "  Virtual memory build?  $vmbuild"

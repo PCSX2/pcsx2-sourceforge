@@ -37,6 +37,7 @@ Special Options (modify PCSX2OPTIONS in build.sh)
 --enable-devbuild {Build with extra tests}
 --disable-recbuild {Disables all architecture dependent recompilation code}
 --enable-sse2 {Enables x86 SSE2 extensions}
+--enable-sse3 {Force enables x86 SSE3 extensions}
 
 For plugin authors: Your Makefile should support the 'install' option.
 
