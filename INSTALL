@@ -8,10 +8,12 @@ gtk2
 opengl
 libbz2
 libjpeg
-libxxf86vm
+glew-dev
+libxxf86vm-dev
 x11proto-xf86vidmode
 automake and autoconf (verion >= 1.9)
 Nvidia Cg-Toolkit (http://developer.nvidia.com/object/cg_toolkit.html)
+libasound-dev
 
 When first building, the Pcsx2 programs need to configure the Makefiles for your specific OS. type:
 
@@ -37,6 +39,12 @@ Special Options (modify PCSX2OPTIONS in build.sh)
 --enable-sse2 {Enables x86 SSE2 extensions}
 
 For plugin authors: Your Makefile should support the 'install' option.
+
+When debugging, make sure to add
+
+handle SIGSEGV noprint ignore pass
+
+to .gdbinit
 
 Windows Users
 -------------
