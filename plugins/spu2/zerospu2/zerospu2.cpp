@@ -372,7 +372,7 @@ void CALLBACK SPU2async(u32 cycle)
 //            while(SPUWorkerCycles < timeGetTime()) {
 //                SPU2Worker();
 //                SPUWorkerCycles++;
-//                if( iter++ > 0 )
+//                if( iter++ > 1 )
 //                    break;
 //                //if( SPUTargetCycle[0] >= CYCLES_PER_MS ) SPUTargetCycle[0] -= CYCLES_PER_MS;
 //                //if( SPUTargetCycle[1] >= CYCLES_PER_MS ) SPUTargetCycle[1] -= CYCLES_PER_MS;
@@ -932,6 +932,13 @@ void* SPU2ThreadProc(void* lpParam)
                 Sleep(1);
             }
         }
+        else {
+            while(s_nQueuedBuffers< 1 && !s_bThreadExit) {
+                //printf("sleeping!!!!\n");
+                Sleep(1);
+            }
+        }
+
 
         int ps2delay = timeGetTime() - s_pAudioBuffers[nReadBuf].timestamp;
         int NewSamples = s_pAudioBuffers[nReadBuf].avgtime;
