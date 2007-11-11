@@ -954,8 +954,8 @@ HRESULT ZeroGS::Create(LONG _width, LONG _height)
 	SETRS(D3DRS_LIGHTING, FALSE);
     SETRS(D3DRS_SPECULARENABLE, FALSE);
 
-	V_RETURN( D3DXCreateFont( pd3dDevice, 15, 0, FW_BOLD, 1, FALSE, DEFAULT_CHARSET, 
-                              OUT_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE, 
+	V_RETURN( D3DXCreateFont( pd3dDevice, 15, 0, FW_BOLD, 1, FALSE, DEFAULT_CHARSET,
+                              OUT_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH | FF_DONTCARE,
                               "Arial", &pFont ) );
 
 	// create the vertex decl
@@ -984,8 +984,6 @@ HRESULT ZeroGS::Create(LONG _width, LONG _height)
 		g_nPixelShaderVer = SHADER_30;
 	else
 		g_nPixelShaderVer = SHADER_20a;
-
-    g_nPixelShaderVer = SHADER_20;
 
 #ifdef RELEASE_TO_PUBLIC
 	// create a sample shader
