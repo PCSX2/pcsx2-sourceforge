@@ -1,4 +1,4 @@
-/*  Cpudetection lib 
+/*  Cpudetection lib
  *  Copyright (C) 2002-2003  Pcsx2 Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -41,7 +41,7 @@ CPUINFO cpuinfo;
   __asm__ __volatile__("xchgl %%ebx, %1; cpuid; xchgl %%ebx, %1" \
 		: "=a" (a), "=r" (b), "=c" (c), "=d" (d)  : "0" (cmd))
 
-static s32 iCpuId( u32 cmd, u32 *regs ) 
+static s32 iCpuId( u32 cmd, u32 *regs )
 {
    int flag=1;
 
@@ -51,12 +51,12 @@ static s32 iCpuId( u32 cmd, u32 *regs )
 
    return 0;
 
-#elif defined (_MSC_VER) 
+#elif defined (_MSC_VER)
 
 #ifdef __x86_64__
    assert(0);
 #else // __x86_64__
-   __asm 
+   __asm
    {
       push ebx;
       push edi;
@@ -77,7 +77,7 @@ static s32 iCpuId( u32 cmd, u32 *regs )
       return -1;
    }
 
-   __asm 
+   __asm
    {
       mov eax, cmd;
       cpuid;
@@ -113,8 +113,9 @@ static s32 iCpuId( u32 cmd, u32 *regs )
 	  "add $0x18, %%esp\n"
       : "=r"(flag) :
    );
+   return 0;
 #endif
-   
+
    if ( !flag )
        return -1;
 
@@ -123,7 +124,7 @@ static s32 iCpuId( u32 cmd, u32 *regs )
 #endif // _MSC_VER
 }
 
-u64 GetCPUTick( void ) 
+u64 GetCPUTick( void )
 {
 #if defined (_MSC_VER) && _MSC_VER >= 1400
 
