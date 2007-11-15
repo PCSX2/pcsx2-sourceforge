@@ -1224,7 +1224,15 @@ bool ZeroGS::Create(int _width, int _height)
     }
 
     s_nFullscreen = (conf.options & GSOPTION_FULLSCREEN) ? 1 : 0;
-    conf.mrtdepth = 0; // for now 
+    conf.mrtdepth = 0; // for now
+
+#ifndef _WIN32
+    int const glew_ok = glewInit();
+	if( glew_ok != GLEW_OK ) {
+        ERROR_LOG("glewInit() is not ok!\n");
+        return false;
+	}
+#endif
 
     if( !IsGLExt("GL_EXT_framebuffer_object") ) {
         ERROR_LOG("*********\nZeroGS: ERROR: Need GL_EXT_framebufer_object for multiple render targets\nZeroGS: *********\n");
@@ -1382,14 +1390,6 @@ bool ZeroGS::Create(int _width, int _height)
     GL_LOADFN(glFramebufferRenderbufferEXT);
     GL_LOADFN(glGetFramebufferAttachmentParameterivEXT);
     GL_LOADFN(glGenerateMipmapEXT);
-
-#ifndef _WIN32
-    int const glew_ok = glewInit();
-	if( glew_ok != GLEW_OK ) {
-        ERROR_LOG("glewInit() is not ok!\n");
-        return false;
-	}
-#endif
 
     if( IsGLExt("GL_ARB_draw_buffers") )
         glDrawBuffers = (PFNGLDRAWBUFFERSPROC)wglGetProcAddress("glDrawBuffers");
