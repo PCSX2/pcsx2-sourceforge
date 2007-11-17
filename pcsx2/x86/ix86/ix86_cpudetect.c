@@ -41,7 +41,7 @@ CPUINFO cpuinfo;
   __asm__ __volatile__("xchgl %%ebx, %1; cpuid; xchgl %%ebx, %1" \
 		: "=a" (a), "=r" (b), "=c" (c), "=d" (d)  : "0" (cmd))
 
-static s32 iCpuId( u32 cmd, u32 *regs )
+extern s32 iCpuId( u32 cmd, u32 *regs )
 {
    int flag=1;
 
@@ -111,14 +111,19 @@ static s32 iCpuId( u32 cmd, u32 *regs )
       "xor %%edx, %%eax\n"
       "mov %%eax, %0\n"
 	  "add $0x18, %%esp\n"
+      "cmpl $0x0,%%eax\n"
+      "jne 1f\n"
+      "mov $0xffffffff, %%eax\n"
+      "leave\n"
+      "ret\n"
+      "1:\n"
       : "=r"(flag) :
    );
 #endif
 
-   if ( !flag )
-       return -1;
-
    cpuid(cmd, regs[0], regs[1], regs[2], regs[3]);
+   return 0;
+
 #endif // _MSC_VER
 }
 
