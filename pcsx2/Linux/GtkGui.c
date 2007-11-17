@@ -611,8 +611,10 @@ void OnCpu_Cancel(GtkButton *button, gpointer user_data) {
 }
 
 
-void OnConf_Cpu(GtkMenuItem *menuitem, gpointer user_data) {
+void OnConf_Cpu(GtkMenuItem *menuitem, gpointer user_data)
+{
 	GtkWidget *Btn;
+    char str[512];
 
 	CpuDlg = create_CpuDlg();
 	gtk_window_set_title(GTK_WINDOW(CpuDlg), _("Configuration"));
@@ -633,7 +635,26 @@ void OnConf_Cpu(GtkMenuItem *menuitem, gpointer user_data) {
     gtk_toggle_button_set_state(GTK_TOGGLE_BUTTON(lookup_widget(CpuDlg, "GtkRadioButton_LimitLimit")), CHECK_FRAMELIMIT==PCSX2_FRAMELIMIT_LIMIT);
     gtk_toggle_button_set_state(GTK_TOGGLE_BUTTON(lookup_widget(CpuDlg, "GtkRadioButton_LimitFS")), CHECK_FRAMELIMIT==PCSX2_FRAMELIMIT_SKIP);
     gtk_toggle_button_set_state(GTK_TOGGLE_BUTTON(lookup_widget(CpuDlg, "GtkRadioButton_VUSkip")), CHECK_FRAMELIMIT==PCSX2_FRAMELIMIT_VUSKIP);
+    
+    sprintf(str, "Cpu Vendor:     %s", cpuinfo.x86ID);
+    gtk_label_set_text(GTK_LABEL(lookup_widget(CpuDlg, "GtkLabel_CpuVendor")), str);
+    sprintf(str, "Familly:   %s", cpuinfo.x86Fam);
+    gtk_label_set_text(GTK_LABEL(lookup_widget(CpuDlg, "GtkLabel_Family")), str);
+    sprintf(str, "Cpu Speed:   %d MHZ", cpuinfo.cpuspeed);
+    gtk_label_set_text(GTK_LABEL(lookup_widget(CpuDlg, "GtkLabel_CpuSpeed")), str);
 
+    strcpy(str,"Features:    ");
+    if(cpucaps.hasMultimediaExtensions) strcat(str,"MMX");
+    if(cpucaps.hasStreamingSIMDExtensions) strcat(str,",SSE");
+    if(cpucaps.hasStreamingSIMD2Extensions) strcat(str,",SSE2");
+    if(cpucaps.hasStreamingSIMD3Extensions) strcat(str,",SSE3");
+    if(cpucaps.hasAMD64BitArchitecture) strcat(str,",x86-64");
+    gtk_label_set_text(GTK_LABEL(lookup_widget(CpuDlg, "GtkLabel_Features")), str);
+
+    //GtkLabel_CpuVendor
+    //GtkLabel_Family
+    //GtkLabel_CpuSpeed
+    //GtkLabel_Features
 	gtk_widget_show_all(CpuDlg);
 	if (Window) gtk_widget_set_sensitive(Window, FALSE);
 	gtk_main();
