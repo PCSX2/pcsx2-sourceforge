@@ -64,7 +64,7 @@ extern u32 g_nGenVars, g_nTexVars, g_nAlphaVars, g_nResolve;
 extern char *libraryName;
 extern int g_nFrame, g_nRealFrame;
 extern float fFPS;
-extern unsigned char revision, build, minor;
+extern unsigned char zgsrevision, zgsbuild, zgsminor;
 
 BOOL g_bDisplayMsg = 1;
 
@@ -3943,7 +3943,7 @@ void ZeroGS::RenderCRTC(int interlace)
         if( g_bMakeSnapshot ) {
             char str[64];
             int left = 200, top = 15;
-            sprintf(str, "ZeroGS %d.%d.%d - %.1f fps %s", revision, build, minor, fFPS, s_frameskipping?" - frameskipping":"");
+            sprintf(str, "ZeroGS %d.%d.%d - %.1f fps %s", zgsrevision, zgsbuild, zgsminor, fFPS, s_frameskipping?" - frameskipping":"");
 
             DrawText(str, left+1, top+1, 0xff000000);
             DrawText(str, left, top, 0xffc0ffff);

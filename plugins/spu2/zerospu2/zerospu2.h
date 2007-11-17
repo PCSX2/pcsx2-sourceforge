@@ -87,8 +87,8 @@ extern FILE *spu2Log;
 #endif
 
 #define  SPU2_VERSION  PS2E_SPU2_VERSION
-#define REVISION 0
-#define  BUILD    4    // increase that with each version
+#define SPU2_REVISION 0
+#define  SPU2_BUILD    4    // increase that with each version
 #define SPU2_MINOR 4
 
 #define OPTION_TIMESTRETCH 1 // stretches samples without changing pitch to reduce cracking

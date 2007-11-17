@@ -376,7 +376,7 @@ namespace ZeroGS {
 	
         // notify VB that nVerts need to be written to pbuf
         inline void NotifyWrite(int nVerts) {
-            assert( pBufferData != NULL && nCount < nNumVertices && nVerts > 0 );
+            assert( pBufferData != NULL && nCount <= nNumVertices && nVerts > 0 );
 
             if( nCount + nVerts > nNumVertices ) {
                 // recreate except with a bigger count

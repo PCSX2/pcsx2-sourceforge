@@ -323,7 +323,7 @@ extern char* libraryName;
 extern string s_strIniPath;
 
 void CALLBACK SPU2about() {
-	SysMessage("%s %d.%d\ndeveloper: zerofrog", libraryName, SPU2_VERSION, BUILD);
+	SysMessage("%s %d.%d\ndeveloper: zerofrog", libraryName, SPU2_VERSION, SPU2_BUILD);
 }
 
 void SaveConfig() {
