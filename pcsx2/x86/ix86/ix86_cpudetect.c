@@ -113,7 +113,6 @@ static s32 iCpuId( u32 cmd, u32 *regs )
 	  "add $0x18, %%esp\n"
       : "=r"(flag) :
    );
-   return 0;
 #endif
 
    if ( !flag )
