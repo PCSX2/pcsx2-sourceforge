@@ -168,7 +168,7 @@ char* CALLBACK PS2EgetLibName() {
 }
 
 u32 CALLBACK PS2EgetLibVersion2(u32 type) {
-	return (SPU2_MINOR<<24)|(SPU2_VERSION<<16)|(REVISION<<8)|BUILD;
+	return (SPU2_MINOR<<24)|(SPU2_VERSION<<16)|(SPU2_REVISION<<8)|SPU2_BUILD;
 }
 
 void __Log(char *fmt, ...) {
@@ -187,7 +187,7 @@ s32 CALLBACK SPU2init()
 {
 	spu2Log = fopen("logs/spu2.txt", "w");
 	if (spu2Log) setvbuf(spu2Log, NULL,  _IONBF, 0);
-	SPU2_LOG("Spu2 null version %d,%d\n",REVISION,BUILD);  
+	SPU2_LOG("Spu2 null version %d,%d\n",SPU2_REVISION,SPU2_BUILD);  
 	SPU2_LOG("SPU2init\n");
     
 #ifdef _WIN32

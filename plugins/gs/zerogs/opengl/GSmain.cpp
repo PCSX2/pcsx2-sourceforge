@@ -63,10 +63,10 @@ int g_GameSettings = 0;
 u32 g_nGenVars = 0, g_nTexVars = 0, g_nAlphaVars = 0, g_nResolve = 0;
 
 #define VER 96
-const unsigned char version  = PS2E_GS_VERSION;
-unsigned char revision = 0; // revision and build gives plugin version
-unsigned char build    = VER;
-unsigned char minor = 7;
+const unsigned char zgsversion  = PS2E_GS_VERSION;
+unsigned char zgsrevision = 0; // revision and build gives plugin version
+unsigned char zgsbuild    = VER;
+unsigned char zgsminor = 7;
 
 #ifdef _DEBUG
 char *libraryName     = "ZeroGS OpenGL (Debug) ";
@@ -102,7 +102,7 @@ char* CALLBACK PS2EgetLibName() {
 }
 
 u32 CALLBACK PS2EgetLibVersion2(u32 type) {
-    return (version<<16) | (revision<<8) | build | (minor << 24);
+    return (zgsversion<<16) | (zgsrevision<<8) | zgsbuild | (zgsminor << 24);
 }
 
 static u64 luPerfFreq;
@@ -791,7 +791,7 @@ void CALLBACK GSvsync(int interlace)
 #ifdef RELEASE_TO_PUBLIC
         const char* g_pShaders[4] = { "full", "reduced", "accurate", "accurate-reduced" };
 
-        sprintf(strtitle, "ZeroGS KOSMOS 0.%d.%d %.1f fps | %s%s%s%s %s (%.1f)", build, minor, fFPS,
+        sprintf(strtitle, "ZeroGS KOSMOS 0.%d.%d %.1f fps | %s%s%s%s %s (%.1f)", zgsbuild, zgsminor, fFPS,
             (conf.interlace < 2) ? "interlace | " : "",
             conf.bilinear ? (conf.bilinear==2?"forced bilinear | ":"bilinear | ") : "",
             conf.aa ? s_aa[conf.aa] : "",
