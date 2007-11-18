@@ -28,23 +28,20 @@
 #define IDC_CONF_WIN960W                1030
 #define IDC_CONF_WIN1280W               1031
 #define IDC_CONF_WIN1920W               1032
-
+#define IDC_CONFOPT_00002000            1033
 #define IDC_CONFIG_CAPTUREAVI3          1034
 #define IDC_CONFIG_WIREFRAME            1034
+#define IDC_CONFOPT_00001000            1035
 #define IDC_CONFIG_CAPTUREAVI4          1036
 #define IDC_CONFIG_CACHEFBP             1036
 #define IDC_CONFIG_SHOWFPS              1036
 #define IDC_CONFOPT_00100000            1036
-#define IDC_CONFOPT_00080000            1041
-#define IDC_CONFOPT_00002000            1033
-
-#define IDC_CONFOPT_00001000            1035
-
 #define IDC_CONFOPT_00000200            1037
 #define IDC_CONFOPT_00000080            1038
 #define IDC_CONFOPT_201                 1039
 #define IDC_CONFOPT_00000040            1039
 #define IDC_CONFOPT_00000020            1040
+#define IDC_CONFOPT_00080000            1041
 #define IDC_CONF_WIN1283                1041
 #define IDC_CONFOPT_00000001            1042
 #define IDC_CONFOPT_00000004            1044
@@ -61,6 +58,8 @@
 #define IDC_CONFOPT_00000002            1055
 #define IDC_CONFOPT_20001               1056
 #define IDC_CONFOPT_01000000            1056
+#define IDC_CONFOPT_16961               1057
+#define IDC_CONFOPT_08000000            1057
 #define IDC_CONFOPT_00000008            1058
 #define IDC_CONFOPT_00000400            1060
 #define IDC_CONFOPT_00000800            1061
@@ -82,7 +81,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        113
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         1049
+#define _APS_NEXT_CONTROL_VALUE         1052
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

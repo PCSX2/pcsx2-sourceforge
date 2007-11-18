@@ -2437,10 +2437,13 @@ void ZeroGS::Flush(int context)
 		if( curtest.ztst > 1 ) g_nDepthUsed = 2;
         if( (curtest.ztst == 2) ^ (g_nDepthBias != 0) ) {
             g_nDepthBias = curtest.ztst == 2;
-            SETRS(D3DRS_DEPTHBIAS, g_nDepthBias?FtoDW(0.0003f):FtoDW(0.000015f));
+            if( g_GameSettings & GAME_RELAXEDDEPTH )
+                SETRS(D3DRS_DEPTHBIAS, g_nDepthBias?FtoDW(0.00003f):FtoDW(0.0001f));
+            else
+                SETRS(D3DRS_DEPTHBIAS, g_nDepthBias?FtoDW(0.0003f):FtoDW(0.000015f));
         }
 
-		SETRS(D3DRS_ZFUNC, g_dwZCmp[curtest.ztst]);
+        SETRS(D3DRS_ZFUNC, g_dwZCmp[curtest.ztst]);
 
 //		if( curtest.ztst == 3 ) {
 //			// gequal
