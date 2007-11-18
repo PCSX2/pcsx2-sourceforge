@@ -156,7 +156,7 @@
 				OmitFramePointers="TRUE"
 				OptimizeForProcessor="3"
 				AdditionalIncludeDirectories=".\;..\;..\x86\;..\..\ZeroGSShaders\"
-				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;__WIN32__;__MSCW32__;__i386__;_RELEASE;_M_IX86_FP=2;RELEASE_TO_PUBLIC"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS;_USRDLL;__WIN32__;__MSCW32__;__i386__;_RELEASE;_M_IX86_FP=2;RELEASE_TO_PUBLIC;ZEROGS_SSE2"
 				StringPooling="TRUE"
 				RuntimeLibrary="4"
 				PrecompiledHeaderFile=""
