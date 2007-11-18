@@ -851,14 +851,15 @@ void recDIV_S_xmm(int info)
 {
     int t0reg = _allocTempXMMreg(XMMT_FPS, -1);				
     int regd = recNonCommutativeOp(info, EEREC_D, 1);
-//	SSE_MAXSS_M32_to_XMM(regd, (uptr)&g_minvals[0]);
-//	SSE_MINSS_M32_to_XMM(regd, (uptr)&g_maxvals[0]);
+
 
     // katamari needs this
     SSE_XORPS_XMM_to_XMM(t0reg, t0reg);
 	SSE_CMPORDSS_XMM_to_XMM(t0reg, regd);
 	SSE_ANDPS_XMM_to_XMM(regd, t0reg);
-
+	//FFX needs this, doesnt seem to hurt Katamari
+	SSE_MAXSS_M32_to_XMM(regd, (uptr)&g_minvals[0]);
+	SSE_MINSS_M32_to_XMM(regd, (uptr)&g_maxvals[0]);
     _freeXMMreg(t0reg);
 	
 //	_freeXMMreg(EEREC_D);
