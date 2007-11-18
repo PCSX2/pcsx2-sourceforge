@@ -71,7 +71,7 @@ u32 g_nGenVars = 0, g_nTexVars = 0, g_nAlphaVars = 0, g_nResolve = 0;
 const unsigned char version  = PS2E_GS_VERSION;
 unsigned char revision = 0;	// revision and build gives plugin version
 unsigned char build    = VER;
-unsigned char minor = 0;
+unsigned char minor = 1;
 
 #ifdef _DEBUG
 char *libraryName     = "ZeroGS (Debug) ";

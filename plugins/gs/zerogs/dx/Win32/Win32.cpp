@@ -109,6 +109,7 @@ void OnInitDialog(HWND hW)
     PUT_CONF(01000000);
     PUT_CONF(02000000);
     PUT_CONF(04000000);
+    PUT_CONF(08000000);
 
     for(map<int, int>::iterator it = mapConfOpts.begin(); it != mapConfOpts.end(); ++it) {
         CheckDlgButton(hW, it->first, (conf.gamesettings&it->second)?1:0);

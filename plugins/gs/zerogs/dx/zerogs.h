@@ -149,6 +149,7 @@ extern float g_fiGPU_TEXWIDTH;
 #define GAME_XENOSPECHACK 0x01000000 // xenosaga specularity hack (ignore any zmask=1 draws)
 #define GAME_PARTIALPOINTERS 0x02000000 // whenver the texture or render target are small, tries to look for bigger ones to read from
 #define GAME_PARTIALDEPTH 0x04000000 // tries to save depth targets as much as possible across height changes
+#define GAME_RELAXEDDEPTH 0x08000000 // tries to save depth targets as much as possible across height changes
                                     
 #define USEALPHABLENDING 1//(!(g_GameSettings&GAME_NOALPHABLEND))
 #define USEALPHATESTING (!(g_GameSettings&GAME_NOALPHATEST))
