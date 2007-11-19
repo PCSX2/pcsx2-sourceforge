@@ -1548,8 +1548,9 @@ void FindPlugins() {
 		if (!IsBIOS(ent->d_name, description)) continue;//2002-09-28 (Florin)
 
 		BiosConfS.plugins+=2;
-        snprintf(description, 49, "%s (%s)", description, ent->d_name);
-		strcpy(BiosConfS.plist[BiosConfS.plugins-1], description);//2002-09-28 (Florin) modified
+        snprintf(BiosConfS.plist[BiosConfS.plugins-1], sizeof(BiosConfS.plist[0]), "%s (", description);
+        strncat(BiosConfS.plist[BiosConfS.plugins-1], ent->d_name, min(sizeof(BiosConfS.plist[0]-2), strlen(ent->d_name)));
+        strcat(BiosConfS.plist[BiosConfS.plugins-1], ")");
 		strcpy(BiosConfS.plist[BiosConfS.plugins-2], ent->d_name);
 		BiosConfS.glist = g_list_append(BiosConfS.glist, BiosConfS.plist[BiosConfS.plugins-1]);
 	}
