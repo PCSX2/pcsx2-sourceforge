@@ -2755,35 +2755,6 @@ static void printfn()
 	assert( !g_globalMMXSaved );
 	assert( !g_globalXMMSaved );
 
-#ifdef _DEBUG
-	//__asm stmxcsr i
-	//assert( i = g_sseMXCSR );
-#endif
-
-    // mgs3
-//    if( g_lastpc == 0x121b30 ) {
-//        __Log("found %x %x\n", cpuRegs.cycle, *(int*)0x1523d744);
-//    }
-    if( cpuRegs.cycle == 0x12c6e925 || cpuRegs.cycle == 0x115fc589) {//0x12c6e9ee) {//12c6b084 ) {
-//        FILE* tempf = fopen("temp260000.txt", "wb");
-//        fwrite((void*)0x15260000, 0x100000, 1, tempf);
-//        fclose(tempf);
-//        dumplog |= 2;
-    }
-//    if( cpuRegs.cycle >= 0x88ae0000 ) {
-////        FILE* tempf = fopen("tempbios.txt", "wb");
-////        fwrite(PSM(0), 0x80000, 1, tempf);
-////        fclose(tempf);
-//        varLog |= 0x7fffffff;
-//        dumplog |= 2;
-//        psxdump |= 2;
-//    }
-
-    // mgs3
-//    if( cpuRegs.cycle == 0x979b27e6 ) {//0x95ea2bee ) {
-//        dumplog |= 2;
-//    }
-
     if( (dumplog&2) && g_lastpc != 0x81fc0 ) {//&& lastrec != g_lastpc ) {
 		curcount++;
 
