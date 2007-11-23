@@ -2289,7 +2289,7 @@ void recStore_co(int bit, int align)
 				}
 
 				if( GPR_IS_CONST1(nextrt) ) doclear |= recMemConstWrite32(coaddr, MEM_EECONSTTAG|(nextrt<<16));
-				if( (mmreg = _checkXMMreg(XMMTYPE_GPRREG, nextrt, MODE_READ)) >= 0 ) {
+				else if( (mmreg = _checkXMMreg(XMMTYPE_GPRREG, nextrt, MODE_READ)) >= 0 ) {
 					doclear |= recMemConstWrite32(coaddr, mmreg|MEM_XMMTAG|(nextrt<<16));
 				}
 				else if( (mmreg = _checkMMXreg(MMX_GPR+nextrt, MODE_READ)) >= 0 ) {

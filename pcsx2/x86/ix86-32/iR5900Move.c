@@ -40,7 +40,7 @@
 *********************************************************/
 #ifndef MOVE_RECOMPILE
 
-REC_FUNC(LUI,0);
+REC_FUNC(LUI,_Rt_);
 REC_FUNC(MFLO,0);
 REC_FUNC(MFHI,0);
 REC_FUNC(MTLO,0);
