@@ -740,7 +740,18 @@ static void (*recComOpXMM_to_XMM[] )(x86SSERegType, x86SSERegType) = {
 static void (*recComOpM32_to_XMM[] )(x86SSERegType, uptr) = {
 	SSE_ADDSS_M32_to_XMM, SSE_MULSS_M32_to_XMM, SSE_MAXSS_M32_to_XMM, SSE_MINSS_M32_to_XMM };
 
-void recCommutativeOp(int info, int regd, int op) {
+void ClampValues(regd){ 
+	int t5reg = _allocTempXMMreg(XMMT_FPS, -1);
+
+    SSE_XORPS_XMM_to_XMM(t5reg, t5reg); 
+	SSE_CMPORDSS_XMM_to_XMM(t5reg, regd); 
+	SSE_ANDPS_XMM_to_XMM(regd, t5reg); 
+	SSE_MAXSS_M32_to_XMM(regd, (uptr)&g_minvals[0]); 
+	SSE_MINSS_M32_to_XMM(regd, (uptr)&g_maxvals[0]); 
+    _freeXMMreg(t5reg); 
+	}
+
+int recCommutativeOp(int info, int regd, int op) {
 	switch(info & (PROCESS_EE_S|PROCESS_EE_T) ) {
 		case PROCESS_EE_S:
 			if (regd == EEREC_S) recComOpM32_to_XMM[op](regd, (uptr)&fpuRegs.fpr[_Ft_]);
@@ -769,6 +780,7 @@ void recCommutativeOp(int info, int regd, int op) {
 			}
 			break;
 	}
+	return regd;
 }
 
 static void (*recNonComOpXMM_to_XMM[] )(x86SSERegType, x86SSERegType) = {
@@ -825,7 +837,10 @@ int recNonCommutativeOp(int info, int regd, int op)
 }
 
 void recADD_S_xmm(int info) {
-	recCommutativeOp(info, EEREC_D, 0);
+			
+   ClampValues(recCommutativeOp(info, EEREC_D, 0));
+
+	
 }
 
 FPURECOMPILE_CONSTCODE(ADD_S, XMMINFO_WRITED|XMMINFO_READS|XMMINFO_READT);
@@ -833,42 +848,25 @@ FPURECOMPILE_CONSTCODE(ADD_S, XMMINFO_WRITED|XMMINFO_READS|XMMINFO_READT);
 ////////////////////////////////////////////////////
 void recSUB_S_xmm(int info)
 {
-	recNonCommutativeOp(info, EEREC_D, 0);
+		
+   ClampValues(recNonCommutativeOp(info, EEREC_D, 0));
+	
 }
 
 FPURECOMPILE_CONSTCODE(SUB_S, XMMINFO_WRITED|XMMINFO_READS|XMMINFO_READT);
 
 ////////////////////////////////////////////////////
 void recMUL_S_xmm(int info)
-{
-	recCommutativeOp(info, EEREC_D, 1);
+{			
+    ClampValues(recCommutativeOp(info, EEREC_D, 1)); 
 }
 
 FPURECOMPILE_CONSTCODE(MUL_S, XMMINFO_WRITED|XMMINFO_READS|XMMINFO_READT);
 
 ////////////////////////////////////////////////////
 void recDIV_S_xmm(int info)
-{
-    int t0reg = _allocTempXMMreg(XMMT_FPS, -1);				
-    int regd = recNonCommutativeOp(info, EEREC_D, 1);
-
-
-    // katamari needs this
-    SSE_XORPS_XMM_to_XMM(t0reg, t0reg);
-	SSE_CMPORDSS_XMM_to_XMM(t0reg, regd);
-	SSE_ANDPS_XMM_to_XMM(regd, t0reg);
-	//FFX needs this, doesnt seem to hurt Katamari
-	SSE_MAXSS_M32_to_XMM(regd, (uptr)&g_minvals[0]);
-	SSE_MINSS_M32_to_XMM(regd, (uptr)&g_maxvals[0]);
-    _freeXMMreg(t0reg);
-	
-//	_freeXMMreg(EEREC_D);
-//	MOV32MtoR(EAX, (uptr)&fpuRegs.fpr[_Fd_]);
-//	AND32ItoR(EAX, 0x7f800000);
-//	CMP32ItoR(EAX, 0x7f800000);
-//	j8Ptr[0] = JNE8(0);
-//	MOV32ItoM((uptr)&fpuRegs.fpr[_Fd_], 0);
-//	x86SetJ8(j8Ptr[0]);
+{				
+    ClampValues(recNonCommutativeOp(info, EEREC_D, 1));
 }
 
 FPURECOMPILE_CONSTCODE(DIV_S, XMMINFO_WRITED|XMMINFO_READS|XMMINFO_READT);
@@ -877,7 +875,8 @@ static u32 PCSX2_ALIGNED16(s_neg[4]) = { 0x80000000, 0, 0, 0 };
 static u32 PCSX2_ALIGNED16(s_pos[4]) = { 0x7fffffff, 0, 0, 0 };
 
 void recSQRT_S_xmm(int info)
-{
+{	
+	int t0reg = _allocTempXMMreg(XMMT_FPS, -1);	
 	if( info & PROCESS_EE_T ) {
 		if( CHECK_FORCEABS ) {
 			if( EEREC_D == EEREC_T ) SSE_ANDPS_M128_to_XMM(EEREC_D, (uptr)&s_pos[0]);
@@ -903,12 +902,13 @@ void recSQRT_S_xmm(int info)
 			SSE_SQRTSS_M32_to_XMM(EEREC_D, (uptr)&fpuRegs.fpr[_Ft_]);
 		}
 	}
+	ClampValues(EEREC_D);
 }
 
 FPURECOMPILE_CONSTCODE(SQRT_S, XMMINFO_WRITED|XMMINFO_READT);
 
 void recABS_S_xmm(int info)
-{
+{	
 	if( info & PROCESS_EE_S ) {
 		if( EEREC_D != EEREC_S ) SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_S);
 		SSE_ANDPS_M128_to_XMM(EEREC_D, (uptr)&s_pos[0]);
@@ -924,6 +924,7 @@ void recABS_S_xmm(int info)
 			SSE_ANDPS_M128_to_XMM(EEREC_D, (uptr)&s_pos[0]);
 		}
 	}
+	ClampValues(EEREC_D);
 }
 
 FPURECOMPILE_CONSTCODE(ABS_S, XMMINFO_WRITED|XMMINFO_READS);
@@ -949,12 +950,13 @@ void recNEG_S_xmm(int info) {
 	}
 
 	SSE_XORPS_M128_to_XMM(EEREC_D, (uptr)&s_neg[0]);
+	ClampValues(EEREC_D);
 }
 
 FPURECOMPILE_CONSTCODE(NEG_S, XMMINFO_WRITED|XMMINFO_READS);
 
 void recRSQRT_S_xmm(int info)
-{
+{	
 	switch(info & (PROCESS_EE_S|PROCESS_EE_T) ) {
 		case PROCESS_EE_S:
 			if( EEREC_D == EEREC_S ) {
@@ -994,28 +996,30 @@ void recRSQRT_S_xmm(int info)
 			}
 			break;
 	}
-
-	SSE_MAXSS_M32_to_XMM(EEREC_D, (uptr)&g_minvals[0]);
-	SSE_MINSS_M32_to_XMM(EEREC_D, (uptr)&g_maxvals[0]);
+	ClampValues(EEREC_D);
 }
 
 FPURECOMPILE_CONSTCODE(RSQRT_S, XMMINFO_WRITED|XMMINFO_READS|XMMINFO_READT);
 
 void recADDA_S_xmm(int info)
 {
-	recCommutativeOp(info, EEREC_ACC, 0);
+	
+    ClampValues(recCommutativeOp(info, EEREC_ACC, 0));
+	
 }
 
 FPURECOMPILE_CONSTCODE(ADDA_S, XMMINFO_WRITEACC|XMMINFO_READS|XMMINFO_READT);
 
-void recSUBA_S_xmm(int info) {
-	recNonCommutativeOp(info, EEREC_ACC, 0);
+void recSUBA_S_xmm(int info) {				
+    ClampValues(recNonCommutativeOp(info, EEREC_ACC, 0));
+
+   
 }
 
 FPURECOMPILE_CONSTCODE(SUBA_S, XMMINFO_WRITEACC|XMMINFO_READS|XMMINFO_READT);
 
-void recMULA_S_xmm(int info) {
-	recCommutativeOp(info, EEREC_ACC, 1);
+void recMULA_S_xmm(int info) {			
+     ClampValues(recCommutativeOp(info, EEREC_ACC, 1));
 }
 
 FPURECOMPILE_CONSTCODE(MULA_S, XMMINFO_WRITEACC|XMMINFO_READS|XMMINFO_READT);
@@ -1023,7 +1027,7 @@ FPURECOMPILE_CONSTCODE(MULA_S, XMMINFO_WRITEACC|XMMINFO_READS|XMMINFO_READT);
 void recMADDtemp(int info, int regd)
 {
 	int vreg;
-	u32 mreg;
+	u32 mreg;	
 
 	switch(info & (PROCESS_EE_S|PROCESS_EE_T) ) {
 		case PROCESS_EE_S:
@@ -1115,6 +1119,9 @@ void recMADDtemp(int info, int regd)
 			}
 			break;
 	}
+	
+
+     ClampValues(regd);
 }
 
 void recMADD_S_xmm(int info)
@@ -1134,7 +1141,7 @@ FPURECOMPILE_CONSTCODE(MADDA_S, XMMINFO_WRITEACC|XMMINFO_READACC|XMMINFO_READS|X
 void recMSUBtemp(int info, int regd)
 {
 	int vreg;
-	u32 mreg;
+	u32 mreg;	
 
 	if( !(info&PROCESS_EE_ACC)) {
 		int regacc = _allocFPACCtoXMMreg(-1, MODE_WRITE|MODE_READ);
@@ -1243,6 +1250,9 @@ void recMSUBtemp(int info, int regd)
 			}
 			break;
 	}
+	ClampValues(regd);
+	ClampValues(EEREC_ACC);
+    
 }
 
 void recMSUB_S_xmm(int info)
@@ -1299,7 +1309,6 @@ void recCVT_W()
 			SSE_CVTTSS2SI_XMM_to_R32(EAX, regs);
 		}
 		else SSE_CVTTSS2SI_M32_to_R32(EAX, (uptr)&fpuRegs.fpr[ _Fs_ ]);
-
 		_deleteFPtoXMMreg(_Fd_, 2);
 
 		CMP32ItoR(EAX, 0x80000000);
@@ -1336,14 +1345,14 @@ void recCVT_W()
 
 void recMAX_S_xmm(int info)
 {
-	recCommutativeOp(info, EEREC_D, 2);
+	ClampValues(recCommutativeOp(info, EEREC_D, 2));
 }
 
 FPURECOMPILE_CONSTCODE(MAX_S, XMMINFO_WRITED|XMMINFO_READS|XMMINFO_READT);
 
 void recMIN_S_xmm(int info)
 {
-	recCommutativeOp(info, EEREC_D, 3);
+	ClampValues(recCommutativeOp(info, EEREC_D, 3));
 }
 
 FPURECOMPILE_CONSTCODE(MIN_S, XMMINFO_WRITED|XMMINFO_READS|XMMINFO_READT);
