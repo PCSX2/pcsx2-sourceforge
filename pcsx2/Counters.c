@@ -172,7 +172,7 @@ u64 GetCPUTicks()
 
 void FrameLimiter()
 {
-	static unsigned __int64 iStart=0, iEnd=0;
+	static u64 iStart=0, iEnd=0;
 
 	if(iStart==0)
 		iStart = GetCPUTicks();
@@ -188,16 +188,16 @@ void FrameLimiter()
 
 		iEnd = GetCPUTicks();
 
-		if(iEnd>iExpectedEnd)
-		{
+		if(iEnd>iExpectedEnd) {
 			u64 diff = iEnd-iExpectedEnd;
 			if((diff>>3)>iTicks) iExpectedEnd=iEnd;
 		}
 
-		do {
+        while(iEnd+iTicks/2<iExpectedEnd) { // only should sleep when necessary, so add an offset
 			Sleep(1);
 			iEnd = GetCPUTicks();
-		} while(iEnd<iExpectedEnd);
+        }
+
 		iStart = iExpectedEnd; //remember the expected value frame. improves smoothness
 	}
 }
