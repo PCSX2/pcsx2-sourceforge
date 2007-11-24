@@ -181,6 +181,8 @@ void FrameLimiter()
 		u64 iTicks,iExpectedEnd;
 		u32 vsyncs = (Config.PsxType&1) ? 50:60;
 
+		if(Config.CustomFps>0) vsyncs = Config.CustomFps;
+
 		iTicks=GetTickFrequency()/vsyncs;
 		iExpectedEnd = iStart + iTicks;
 
