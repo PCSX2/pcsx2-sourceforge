@@ -148,12 +148,21 @@ static int iFrame = 0;
 #include <sys/time.h>
 #endif
 
-u64 GetMicroTime()
+u64 GetTickFrequency()
+{
+#ifdef _WIN32
+	return lfreq.QuadPart;
+#else
+    return 1000000;
+#endif
+}
+
+u64 GetCPUTicks()
 {
 #ifdef _WIN32
     LARGE_INTEGER count;
     QueryPerformanceCounter(&count);
-    return count.QuadPart * 1000000 / lfreq.QuadPart;
+    return count.QuadPart;
 #else
     struct timeval t;
     gettimeofday(&t, NULL);
@@ -161,25 +170,33 @@ u64 GetMicroTime()
 #endif
 }
 
-
 void FrameLimiter()
 {
-	static u32 dwStartTime = 0, dwEndTime = 0;
+	static unsigned __int64 iStart=0, iEnd=0;
 
-	// do over 4 frames instead of 1
-	if( (iFrame&3) == 0 ) {
-		u32 frames = (Config.PsxType&1) ? (4000000 / 50 - 1500) : (4000000 / 60 - 1500);
-		dwEndTime = (u32)GetMicroTime();//timeGetTime();
+	if(iStart==0)
+		iStart = GetCPUTicks();
+	else
+	{
+		u64 iTicks,iExpectedEnd;
+		u32 vsyncs = (Config.PsxType&1) ? 50:60;
 
-		if( dwEndTime-dwStartTime < frames ) {
-			if( dwEndTime-dwStartTime < frames - 4000 )
-				Sleep((frames-(dwEndTime-dwStartTime)-4000)/1000);
+		iTicks=GetTickFrequency()/vsyncs;
+		iExpectedEnd = iStart + iTicks;
 
-			while(dwEndTime-dwStartTime < frames)
-                dwEndTime = (u32)GetMicroTime();//timeGetTime();
+		iEnd = GetCPUTicks();
+
+		if(iEnd>iExpectedEnd)
+		{
+			u64 diff = iEnd-iExpectedEnd;
+			if((diff>>3)>iTicks) iExpectedEnd=iEnd;
 		}
 
-		dwStartTime = (u32)GetMicroTime();//timeGetTime();
+		do {
+			Sleep(1);
+			iEnd = GetCPUTicks();
+		} while(iEnd<iExpectedEnd);
+		iStart = iExpectedEnd; //remember the expected value frame. improves smoothness
 	}
 }
 
