@@ -88,6 +88,7 @@ typedef struct {
 	int Mdec;
 	int Patch;
 	int ThPriority;
+	int CustomFps;
 } PcsxConfig;
 
 extern PcsxConfig Config;

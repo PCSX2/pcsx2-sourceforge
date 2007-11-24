@@ -66,6 +66,7 @@ int LoadConfig() {
     strcpy(Conf->Mcd1, szValue);
 	GetPrivateProfileString("Interface", "Mcd2", NULL, szValue, 256, szIniFile);
     strcpy(Conf->Mcd2, szValue); 
+	Config.CustomFps=GetPrivateProfileInt("Interface", "CustomFps", 0, szIniFile);
     //plugins
 	GetPrivateProfileString("Plugins", "GS", NULL, szValue, 256, szIniFile);
     strcpy(Conf->GS, szValue); 
@@ -138,6 +139,8 @@ void SaveConfig() {
     WritePrivateProfileString("Interface","Mcd1",szValue,szIniFile);
     sprintf(szValue,"%s",Conf->Mcd2);
     WritePrivateProfileString("Interface","Mcd2",szValue,szIniFile);
+    sprintf(szValue,"%d",Conf->CustomFps);
+	WritePrivateProfileString("Interface", "CustomFps", szValue, szIniFile);
     //plugins
 	sprintf(szValue,"%s",Conf->GS);
     WritePrivateProfileString("Plugins","GS",szValue,szIniFile);

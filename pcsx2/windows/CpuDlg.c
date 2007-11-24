@@ -34,6 +34,7 @@ BOOL CALLBACK CpuDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
 	char cpuspeedc[20];
 	char features[256];
+	char cfps[20];
 	u32 newopts;
 
 	switch(uMsg) {
@@ -58,8 +59,11 @@ BOOL CALLBACK CpuDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			Static_SetText(GetDlgItem(hW, IDC_CPU_FL_LIMIT), _("Limit - Force frames to normal speeds if too fast."));
 			Static_SetText(GetDlgItem(hW, IDC_CPU_FL_SKIP), _("Frame Skip - In order to achieve normal speeds,\nsome frames are skipped (fast).\nFps displayed counts skipped frames too."));
 			Static_SetText(GetDlgItem(hW, IDC_CPU_FL_SKIPVU), _("VU Skip - Same as 'Frame Skip', but tries to skip more.\nArtifacts might be present, but will be faster."));
+			Static_SetText(GetDlgItem(hW, IDC_CUSTOM_FPS), _("Custom FPS (0=auto)"));
+
 			Button_SetText(GetDlgItem(hW, IDOK), _("OK"));
 			Button_SetText(GetDlgItem(hW, IDCANCEL), _("Cancel"));
+
 			//features[0]=':';
 			//strcat(features,"");
 			strcpy(features,"");
@@ -101,6 +105,9 @@ BOOL CALLBACK CpuDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 
 			CheckRadioButton(hW,IDC_CPU_FL_NORMAL, IDC_CPU_FL_NORMAL+3, IDC_CPU_FL_NORMAL+(CHECK_FRAMELIMIT>>10));
 			
+			sprintf(cfps,"%d",Config.CustomFps);
+			SetDlgItemText(hW, IDC_CUSTOMFPS, cfps);
+
 			return TRUE;
 
 		case WM_COMMAND:
@@ -144,6 +151,9 @@ BOOL CALLBACK CpuDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 					if( newopts & PCSX2_EEREC ) newopts |= PCSX2_COP2REC;
 
 					Config.Options = newopts;
+
+					GetDlgItemText(hW, IDC_CUSTOMFPS, cfps, 20);
+					Config.CustomFps = atoi(cfps);
 
 					UpdateVSyncRate();
 					SaveConfig();

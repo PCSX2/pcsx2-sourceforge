@@ -540,7 +540,9 @@
 #define IDC_PATCHES                     1273
 #define IDC_DEBUG_STEP_EE               1274
 #define IDC_DEBUG_STEP_OVER             1275
+#define IDC_CUSTOMFPS                   1275
 #define IDC_DEBUG_RUN_TO_CURSOR         1276
+#define IDC_CUSTOM_FPS                  1276
 #define IDC_DEBUG_STEP_TO_CURSOR        1277
 #define IDC_DEBUG_BREAK                 1278
 #define IDC_LOG                         1500
@@ -675,7 +677,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        134
 #define _APS_NEXT_COMMAND_VALUE         40018
-#define _APS_NEXT_CONTROL_VALUE         1275
+#define _APS_NEXT_CONTROL_VALUE         1277
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif
