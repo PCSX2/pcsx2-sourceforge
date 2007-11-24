@@ -43,7 +43,7 @@ create_Config (void)
   GtkWidget *label9;
   GtkWidget *checkWireframe;
   GtkWidget *checkAVI;
-  GtkWidget *checkBMP;
+  GtkWidget *checkTGA;
   GtkWidget *checkbutton6;
   GtkWidget *frame5;
   GtkWidget *alignment2;
@@ -54,6 +54,11 @@ create_Config (void)
   GtkWidget *radioSize1024;
   GtkWidget *radioSize1280;
   GtkWidget *label10;
+  GtkWidget *frame6;
+  GtkWidget *alignment3;
+  GtkWidget *scrolledwindow1;
+  GtkWidget *treeview1;
+  GtkWidget *label12;
   GtkWidget *label11;
   GtkWidget *hbuttonbox1;
   GtkWidget *button1;
@@ -120,9 +125,9 @@ create_Config (void)
   gtk_widget_show (checkAVI);
   gtk_box_pack_start (GTK_BOX (vbox4), checkAVI, FALSE, FALSE, 0);
 
-  checkBMP = gtk_check_button_new_with_mnemonic (_("Save Snapshots as BMPs (default is JPG)"));
-  gtk_widget_show (checkBMP);
-  gtk_box_pack_start (GTK_BOX (vbox4), checkBMP, FALSE, FALSE, 0);
+  checkTGA = gtk_check_button_new_with_mnemonic (_("Save Snapshots as TGAs (default is JPG)"));
+  gtk_widget_show (checkTGA);
+  gtk_box_pack_start (GTK_BOX (vbox4), checkTGA, FALSE, FALSE, 0);
 
   checkbutton6 = gtk_check_button_new_with_mnemonic (_("Fullscreen (Alt+Enter)\n   to get out press Alt+Enter again (or ESC)"));
   gtk_widget_show (checkbutton6);
@@ -171,6 +176,30 @@ create_Config (void)
   gtk_frame_set_label_widget (GTK_FRAME (frame5), label10);
   gtk_label_set_use_markup (GTK_LABEL (label10), TRUE);
 
+  frame6 = gtk_frame_new (NULL);
+  gtk_widget_show (frame6);
+  gtk_box_pack_start (GTK_BOX (vbox4), frame6, TRUE, TRUE, 0);
+
+  alignment3 = gtk_alignment_new (0.5, 0.5, 1, 1);
+  gtk_widget_show (alignment3);
+  gtk_container_add (GTK_CONTAINER (frame6), alignment3);
+  gtk_alignment_set_padding (GTK_ALIGNMENT (alignment3), 0, 0, 12, 0);
+
+  scrolledwindow1 = gtk_scrolled_window_new (NULL, NULL);
+  gtk_widget_show (scrolledwindow1);
+  gtk_container_add (GTK_CONTAINER (alignment3), scrolledwindow1);
+  gtk_scrolled_window_set_policy (GTK_SCROLLED_WINDOW (scrolledwindow1), GTK_POLICY_AUTOMATIC, GTK_POLICY_ALWAYS);
+  gtk_scrolled_window_set_shadow_type (GTK_SCROLLED_WINDOW (scrolledwindow1), GTK_SHADOW_IN);
+
+  treeview1 = gtk_tree_view_new ();
+  gtk_widget_show (treeview1);
+  gtk_container_add (GTK_CONTAINER (scrolledwindow1), treeview1);
+
+  label12 = gtk_label_new (_("<b>Advanced Options</b>"));
+  gtk_widget_show (label12);
+  gtk_frame_set_label_widget (GTK_FRAME (frame6), label12);
+  gtk_label_set_use_markup (GTK_LABEL (label12), TRUE);
+
   label11 = gtk_label_new (_("Show Frames Per Second (Shift+F7)\n   (value is the average over 4-16 PS2 frames)"));
   gtk_widget_show (label11);
   gtk_box_pack_start (GTK_BOX (vbox4), label11, FALSE, FALSE, 0);
@@ -212,7 +241,7 @@ create_Config (void)
   GLADE_HOOKUP_OBJECT (Config, label9, "label9");
   GLADE_HOOKUP_OBJECT (Config, checkWireframe, "checkWireframe");
   GLADE_HOOKUP_OBJECT (Config, checkAVI, "checkAVI");
-  GLADE_HOOKUP_OBJECT (Config, checkBMP, "checkTGA");
+  GLADE_HOOKUP_OBJECT (Config, checkTGA, "checkTGA");
   GLADE_HOOKUP_OBJECT (Config, checkbutton6, "checkbutton6");
   GLADE_HOOKUP_OBJECT (Config, frame5, "frame5");
   GLADE_HOOKUP_OBJECT (Config, alignment2, "alignment2");
@@ -222,6 +251,11 @@ create_Config (void)
   GLADE_HOOKUP_OBJECT (Config, radioSize1024, "radioSize1024");
   GLADE_HOOKUP_OBJECT (Config, radioSize1280, "radioSize1280");
   GLADE_HOOKUP_OBJECT (Config, label10, "label10");
+  GLADE_HOOKUP_OBJECT (Config, frame6, "frame6");
+  GLADE_HOOKUP_OBJECT (Config, alignment3, "alignment3");
+  GLADE_HOOKUP_OBJECT (Config, scrolledwindow1, "scrolledwindow1");
+  GLADE_HOOKUP_OBJECT (Config, treeview1, "treeview1");
+  GLADE_HOOKUP_OBJECT (Config, label12, "label12");
   GLADE_HOOKUP_OBJECT (Config, label11, "label11");
   GLADE_HOOKUP_OBJECT (Config, hbuttonbox1, "hbuttonbox1");
   GLADE_HOOKUP_OBJECT (Config, button1, "button1");

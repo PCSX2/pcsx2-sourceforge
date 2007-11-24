@@ -1,4 +1,4 @@
-/*  GSsoft
+/*
  *  Copyright (C) 2002-2004  GSsoft Team
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -18,7 +18,6 @@
 
 #ifndef __LINUX_H__
 #define __LINUX_H__
-
-
-
 #endif
+
+void OnToggle_advopts(GtkCellRendererToggle *cell, gchar *path, gpointer user_data);
