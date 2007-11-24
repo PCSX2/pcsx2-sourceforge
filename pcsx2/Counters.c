@@ -120,25 +120,6 @@ void rcntInit() {
 	s_prevExecuteVU1Block = Cpu->ExecuteVU1Block;
 }
 
-void UpdateVSyncRate() {
-	if (Config.PsxType & 1) {
-		SysPrintf("PAL\n");
-		counters[4].rate = PS2HBLANK_PAL;
-		if(Config.PsxType & 2)counters[5].rate = PS2VBLANK_PAL_INT;
-		else counters[5].rate = PS2VBLANK_PAL;
-	} else {
-		SysPrintf("NTSC\n");
-		counters[4].rate = PS2HBLANK_NTSC;
-		if(Config.PsxType & 2)counters[5].rate = PS2VBLANK_NTSC_INT;
-		else counters[5].rate = PS2VBLANK_NTSC;
-	}	
-	counters[4].CycleT  = PS2HBLANKEND;
-	counters[4].Cycle  = counters[4].rate-PS2HBLANKEND;
-	
-	counters[5].CycleT  = PS2VBLANKEND;
-	counters[5].Cycle  = counters[5].rate-PS2VBLANKEND;
-}
-
 // debug code, used for stats
 int g_nCounters[4];
 extern u32 s_lastvsync[2];
@@ -147,6 +128,8 @@ static int iFrame = 0;
 #ifndef _WIN32
 #include <sys/time.h>
 #endif
+
+u64 iTicks=0;
 
 u64 GetTickFrequency()
 {
@@ -170,36 +153,52 @@ u64 GetCPUTicks()
 #endif
 }
 
+void UpdateVSyncRate() {
+	if (Config.PsxType & 1) {
+		SysPrintf("PAL\n");
+		counters[4].rate = PS2HBLANK_PAL;
+		if(Config.PsxType & 2)counters[5].rate = PS2VBLANK_PAL_INT;
+		else counters[5].rate = PS2VBLANK_PAL;
+	} else {
+		SysPrintf("NTSC\n");
+		counters[4].rate = PS2HBLANK_NTSC;
+		if(Config.PsxType & 2)counters[5].rate = PS2VBLANK_NTSC_INT;
+		else counters[5].rate = PS2VBLANK_NTSC;
+	}	
+	counters[4].CycleT  = PS2HBLANKEND;
+	counters[4].Cycle  = counters[4].rate-PS2HBLANKEND;
+	
+	counters[5].CycleT  = PS2VBLANKEND;
+	counters[5].Cycle  = counters[5].rate-PS2VBLANKEND;
+
+	{
+		u32 vsyncs = (Config.PsxType&1) ? 50:60;
+		if(Config.CustomFps>0) vsyncs = Config.CustomFps;
+		iTicks = GetTickFrequency()/vsyncs;
+		SysPrintf("Framelimiter rate updated (UpdateVSyncRate): %d fps\n",vsyncs);
+	}
+
+}
+
 void FrameLimiter()
 {
-	static u64 iStart=0, iEnd=0;
+	static u64 iStart=0, iEnd=0, iExpectedEnd=0;
 
-	if(iStart==0)
-		iStart = GetCPUTicks();
-	else
+	if(iStart==0) iStart = GetCPUTicks();
+
+	iExpectedEnd = iStart + iTicks;
+	iEnd = GetCPUTicks();
+
+	if(iEnd>=iExpectedEnd)
 	{
-		u64 iTicks,iExpectedEnd;
-		u32 vsyncs = (Config.PsxType&1) ? 50:60;
-
-		if(Config.CustomFps>0) vsyncs = Config.CustomFps;
-
-		iTicks=GetTickFrequency()/vsyncs;
-		iExpectedEnd = iStart + iTicks;
-
-		iEnd = GetCPUTicks();
-
-		if(iEnd>iExpectedEnd) {
-			u64 diff = iEnd-iExpectedEnd;
-			if((diff>>3)>iTicks) iExpectedEnd=iEnd;
-		}
-
-        while(iEnd+iTicks/2<iExpectedEnd) { // only should sleep when necessary, so add an offset
-			Sleep(1);
-			iEnd = GetCPUTicks();
-        }
-
-		iStart = iExpectedEnd; //remember the expected value frame. improves smoothness
+		u64 diff = iEnd-iExpectedEnd;
+		if((diff>>3)>iTicks) iExpectedEnd=iEnd;
 	}
+	else do {
+		Sleep(1);
+		iEnd = GetCPUTicks();
+	} while(iEnd<iExpectedEnd);
+	iStart = iExpectedEnd; //remember the expected value frame. improves smoothness
 }
 
 extern u32 CSRw;

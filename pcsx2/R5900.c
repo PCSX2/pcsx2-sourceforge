@@ -525,6 +525,15 @@ void cpuExecuteBios()
 		case PCSX2_FRAMELIMIT_VUSKIP: SysPrintf("VU Skip\n"); break;
 	}
 
+	//? if(CHECK_FRAMELIMIT==PCSX2_FRAMELIMIT_LIMIT)
+	{
+		extern u64 GetTickFrequency();
+		extern u64 iTicks;
+		u32 vsyncs = (Config.PsxType&1) ? 50:60;
+		if(Config.CustomFps>0) vsyncs = Config.CustomFps;
+		iTicks = GetTickFrequency()/vsyncs;
+		SysPrintf("Framelimiter rate updated (cpuExecuteBios): %d fps\n",vsyncs);
+	}
 
 	SysPrintf("* PCSX2 *: ExecuteBios\n");
 
