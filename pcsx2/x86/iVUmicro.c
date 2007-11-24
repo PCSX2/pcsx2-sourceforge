@@ -956,12 +956,15 @@ static PCSX2_ALIGNED16(float s_fones[]) = { 1.0f, 1.0f, 1.0f, 1.0f, -1.0f, -1.0f
 static PCSX2_ALIGNED16(u32 s_mask[]) = {0x7fffff, 0x7fffff, 0x7fffff, 0x7fffff };
 static PCSX2_ALIGNED16(u32 s_expmask[]) = {0x7f800000, 0x7f800000, 0x7f800000, 0x7f800000};
 
+static PCSX2_ALIGNED16(u32 s_overflowmask[]) = {0xf0000000, 0xf0000000, 0xf0000000, 0xf0000000};
+
 void CheckForOverflowSS_(int fdreg, int t0reg)
 {
 	assert( t0reg != fdreg );
-	SSE_XORPS_XMM_to_XMM(t0reg, t0reg);
-	SSE_CMPORDSS_XMM_to_XMM(t0reg, fdreg);
-	SSE_ANDPS_XMM_to_XMM(fdreg, t0reg);
+    SSE_XORPS_XMM_to_XMM(t0reg, t0reg);
+    SSE_CMPORDSS_XMM_to_XMM(t0reg, fdreg);
+    SSE_ORPS_M128_to_XMM(t0reg, (uptr)s_overflowmask);
+    SSE_ANDPS_XMM_to_XMM(fdreg, t0reg);
 
 //	SSE_MOVSS_M32_to_XMM(t0reg, (u32)s_expmask);
 //	SSE_ANDPS_XMM_to_XMM(t0reg, fdreg);
@@ -974,12 +977,14 @@ void CheckForOverflow_(int fdreg, int t0reg, int keepxyzw)
 //	SSE_MAXPS_M128_to_XMM(fdreg, (u32)g_minvals);
 //	SSE_MINPS_M128_to_XMM(fdreg, (u32)g_maxvals);
 
-	SSE_XORPS_XMM_to_XMM(t0reg, t0reg);
-	SSE_CMPORDPS_XMM_to_XMM(t0reg, fdreg);
-	// for partial masks, sometimes regs can be integers
-	if( keepxyzw != 15 )
-		SSE_ORPS_M128_to_XMM(t0reg, (uptr)&SSEmovMask[15-keepxyzw][0]);
-	SSE_ANDPS_XMM_to_XMM(fdreg, t0reg);
+    SSE_XORPS_XMM_to_XMM(t0reg, t0reg);
+    SSE_CMPORDPS_XMM_to_XMM(t0reg, fdreg);
+    SSE_ORPS_M128_to_XMM(t0reg, (uptr)s_overflowmask);
+
+    // for partial masks, sometimes regs can be integers
+    if( keepxyzw != 15 )
+	    SSE_ORPS_M128_to_XMM(t0reg, (uptr)&SSEmovMask[15-keepxyzw][0]);
+    SSE_ANDPS_XMM_to_XMM(fdreg, t0reg);
 
 //	SSE_MOVAPS_M128_to_XMM(t0reg, (u32)s_expmask);
 //	SSE_ANDPS_XMM_to_XMM(t0reg, fdreg);
