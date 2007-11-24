@@ -35,7 +35,12 @@ extern "C" {
 #include <map>
 
 static int prevbilinearfilter;
-static map<string, int> mapConfOpts;
+//static map<string, int> mapConfOpts;
+struct confOptsStruct{
+	int value;
+	char *desc;
+}confOpts;
+static map<string, confOptsStruct> mapConfOpts;
 
 extern void OnKeyboardF5(int);
 extern void OnKeyboardF6(int);
@@ -99,6 +104,11 @@ GList *filtersl;
 void OnConf_Ok(GtkButton       *button, gpointer         user_data)
 {
 	GtkWidget *Btn;
+	GtkWidget *treeview;
+	GtkTreeModel *treemodel;
+	GtkTreeIter treeiter;
+	gboolean treeoptval;
+	gchar *gbuf;
 	char *str;
 	int i;
 
@@ -128,13 +138,24 @@ void OnConf_Ok(GtkButton       *button, gpointer         user_data)
 	conf.options |= gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(lookup_widget(Conf, "checkbutton6"))) ? GSOPTION_FULLSCREEN : 0;
 	conf.options |= gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(lookup_widget(Conf, "checkTGA"))) ? GSOPTION_TGASNAP : 0;
 
-    conf.gamesettings = 0;
-    for(map<string, int>::iterator it = mapConfOpts.begin(); it != mapConfOpts.end(); ++it) {
-        GtkWidget* widget = lookup_widget(Conf, it->first.c_str());
-        if( widget != NULL && gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(widget)) )
-            conf.gamesettings |= it->second;
-    }
-    GSsetGameCRC(0, conf.gamesettings);
+	//------- get advanced options from the treeview model -------//
+	treeview = lookup_widget(Conf,"treeview1");
+	treemodel = gtk_tree_view_get_model(GTK_TREE_VIEW(treeview));
+	gtk_tree_model_get_iter_first(treemodel, &treeiter);
+
+	conf.gamesettings = 0;
+	for(map<string, confOptsStruct>::iterator it = mapConfOpts.begin(); it != mapConfOpts.end(); ++it) {
+		treeoptval = FALSE;
+		gtk_tree_model_get(treemodel, &treeiter,
+			0, &treeoptval,
+			-1);
+		if(treeoptval){
+			conf.gamesettings |= it->second.value;
+		}
+		gtk_tree_model_iter_next(treemodel,&treeiter);		
+	}
+	GSsetGameCRC(0, conf.gamesettings);
+	//---------- done getting advanced options ---------//
 
     if( gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(lookup_widget(Conf, "radioSize640"))) )
         conf.options |= GSOPTION_WIN640;
@@ -156,19 +177,23 @@ void OnConf_Cancel(GtkButton       *button, gpointer         user_data) {
 	gtk_main_quit();
 }
 
-#define PUT_CONF(id) mapConfOpts["Opt"#id] = 0x##id
-
 void CALLBACK GSconfigure()
 {
 	char name[32];
+	char descbuf[255];
 	int nmodes, i;
+	bool itval;
+	GtkWidget *treeview;
+	GtkCellRenderer *treerend;
+	GtkListStore *treestore;//Gets typecast as GtkTreeModel as needed.
+	GtkTreeIter treeiter;
+	GtkTreeViewColumn *treecol;
 
     if( !(conf.options & GSOPTION_LOADED) )
 		LoadConfig();
 
 	Conf = create_Config();
     
-	gtk_toggle_button_set_state(GTK_TOGGLE_BUTTON(lookup_widget(Conf, "checkInterlace")), conf.interlace);
     gtk_toggle_button_set_state(GTK_TOGGLE_BUTTON(lookup_widget(Conf, "checkBilinear")), !!conf.bilinear);
     //gtk_toggle_button_set_state(GTK_TOGGLE_BUTTON(lookup_widget(Conf, "checkbutton6")), conf.mrtdepth);
     gtk_toggle_button_set_state(GTK_TOGGLE_BUTTON(lookup_widget(Conf, "radioAANone")), conf.aa==0);
@@ -186,38 +211,133 @@ void CALLBACK GSconfigure()
 
     prevbilinearfilter = conf.bilinear;
 
-    mapConfOpts.clear();
-    PUT_CONF(00000001);
-    PUT_CONF(00000002);
-    PUT_CONF(00000004);
-    PUT_CONF(00000008);
-    PUT_CONF(00000010);
-    PUT_CONF(00000020);
-    PUT_CONF(00000040);
-    PUT_CONF(00000080);
-    PUT_CONF(00000200);
-    PUT_CONF(00000400);
-    PUT_CONF(00000800);
-    PUT_CONF(00001000);
-    PUT_CONF(00002000);
-    PUT_CONF(00004000);
-    PUT_CONF(00008000);
-    PUT_CONF(00010000);
-    PUT_CONF(00020000);
-    PUT_CONF(00040000);
-    PUT_CONF(00080000);
-    PUT_CONF(00100000);
-    PUT_CONF(00200000);
+	//--------- Let's build a treeview for our advanced options! --------//
+	treeview = lookup_widget(Conf,"treeview1");
+	treestore = gtk_list_store_new(2,G_TYPE_BOOLEAN, G_TYPE_STRING);
 
-    for(map<string, int>::iterator it = mapConfOpts.begin(); it != mapConfOpts.end(); ++it) {
-        GtkWidget* widget = lookup_widget(Conf, it->first.c_str());
-        if( widget != NULL )
-            gtk_toggle_button_set_state(GTK_TOGGLE_BUTTON(widget), (conf.gamesettings&it->second)?1:0);   
-    }
+	//setup columns in treeview
+	//COLUMN 0 is the checkboxes
+	treecol = gtk_tree_view_column_new();
+	gtk_tree_view_column_set_title(treecol, "Select");
+	gtk_tree_view_append_column(GTK_TREE_VIEW(treeview), treecol);
+	treerend = gtk_cell_renderer_toggle_new();
+	gtk_tree_view_column_pack_start(treecol, treerend, TRUE);
+	gtk_tree_view_column_add_attribute(treecol, treerend, "active", 0);//link 'active' attrib to first column of model
+	g_object_set(treerend, "activatable", TRUE, NULL);//set 'activatable' attrib true by default for all rows regardless of model.
+	g_signal_connect(treerend, "toggled", (GCallback) OnToggle_advopts, treestore);//set a global callback, we also pass a reference to our treestore.
+	
+	//COLUMN 1 is the text descriptions
+	treecol = gtk_tree_view_column_new();
+	gtk_tree_view_column_set_title(treecol, "Description");
+	gtk_tree_view_append_column(GTK_TREE_VIEW(treeview), treecol);
+	treerend = gtk_cell_renderer_text_new();
+	gtk_tree_view_column_pack_start(treecol, treerend, TRUE);
+	gtk_tree_view_column_add_attribute(treecol, treerend, "text", 1);//link 'text' attrib to second column of model
 
+	//setup the model with all our rows of option data
+	mapConfOpts.clear();
+	confOpts.value = 0x00000001;
+	confOpts.desc = "Tex Target checking - 00000001\nLego Racers";
+	mapConfOpts["00000001"] = confOpts;
+	confOpts.value = 0x00000002;
+	confOpts.desc = "Auto reset targs - 00000002\nShadow Hearts, Samurai Warriors.  Use when game is slow and toggling AA fixes it.";
+	mapConfOpts["00000002"] = confOpts;
+	confOpts.value = 0x00000004;
+	confOpts.desc = "Interlace 2X - 00000004\nFixes 2x bigger screen (Gradius 3).";
+	mapConfOpts["00000004"] = confOpts;
+	confOpts.value = 0x00000008;
+	confOpts.desc = "Text Alpha hack - 00000008\nNightmare Before Christmas.";
+	mapConfOpts["00000008"] = confOpts;
+	confOpts.value = 0x00000010;
+	confOpts.desc = "No target resolves - 00000010\nStops all resolving of targets.  Try this first for really slow games.";
+	mapConfOpts["00000010"] = confOpts;
+	confOpts.value = 0x00000020;
+	confOpts.desc = "Exact color testing - 00000020\nFixes overbright or shadow/black artifacts (Crash 'n Burn).";
+	mapConfOpts["00000020"] = confOpts;
+	confOpts.value = 0x00000040;
+	confOpts.desc = "No color clamping - 00000040\nSpeeds up games, but might be too bright or too dim.";
+	mapConfOpts["00000040"] = confOpts;
+	confOpts.value = 0x00000080;
+	confOpts.desc = "FFX hack - 00000080\nShows missing geometry.";
+	mapConfOpts["00000080"] = confOpts;
+	confOpts.value = 0x00000200;
+	confOpts.desc = "Disable depth updates - 00000200";
+	mapConfOpts["00000200"] = confOpts;
+	confOpts.value = 0x00000400;
+	confOpts.desc = "Resolve Hack #1 - 00000400\nKingdom Hearts.  Speeds some games.";
+	mapConfOpts["00000400"] = confOpts;
+	confOpts.value = 0x00000800;
+	confOpts.desc = "Resolve Hack #2 - 00000800\nShadow Hearts, Urbz.";
+	mapConfOpts["00000800"] = confOpts;
+	confOpts.value = 0x00001000;
+	confOpts.desc = "No target CLUT - 00001000\nResident Evil 4, or foggy scenes.";
+	mapConfOpts["00001000"] = confOpts;
+	confOpts.value = 0x00002000;
+	confOpts.desc = "Disable stencil buffer - 00002000\nUsually safe to do for simple scenes.";
+	mapConfOpts["00002000"] = confOpts;
+	confOpts.value = 0x00004000;
+	confOpts.desc = "No vertical stripes - 00004000\nTry when there's a lot of garbage on screen.";
+	mapConfOpts["00004000"] = confOpts;
+	confOpts.value = 0x00008000;
+	confOpts.desc = "No depth resolve - 00008000\nMight give z buffer artifacts.";
+	mapConfOpts["00008000"] = confOpts;
+	confOpts.value = 0x00010000;
+	confOpts.desc = "Full 16 bit resolution - 00010000\nUse when half the screen is missing.";
+	mapConfOpts["00010000"] = confOpts;
+	confOpts.value = 0x00020000;
+	confOpts.desc = "Resolve Hack #3 - 00020000\nNeopets";
+	mapConfOpts["00020000"] = confOpts;
+	confOpts.value = 0x00040000;
+	confOpts.desc = "Fast Update - 00040000\nOkami.  Speeds some games.";
+	mapConfOpts["00040000"] = confOpts;
+	confOpts.value = 0x00080000;
+	confOpts.desc = "Disable alpha testing - 00080000";
+	mapConfOpts["00080000"] = confOpts;
+	confOpts.value = 0x00100000;
+	confOpts.desc = "Disable Multiple RTs - 00100000";
+	mapConfOpts["00100000"] = confOpts;
+	confOpts.value = 0x00200000;
+	confOpts.desc = "32 bit render targets - 00200000";
+	mapConfOpts["00200000"] = confOpts;
+
+	for(map<string, confOptsStruct>::iterator it = mapConfOpts.begin(); it != mapConfOpts.end(); ++it) {
+		gtk_list_store_append(treestore, &treeiter);//new row
+		itval = (conf.gamesettings&it->second.value)?TRUE:FALSE;
+		snprintf(descbuf, 254, "%s", it->second.desc);
+		gtk_list_store_set(treestore, &treeiter,
+			0, itval,
+			1, descbuf,
+			-1);
+	}
+
+	gtk_tree_view_set_model(GTK_TREE_VIEW(treeview), GTK_TREE_MODEL(treestore));//NB: store is cast as tree model.
+	g_object_unref(treestore);//allow model to be destroyed when the tree is destroyed.
+	
+	//don't select/highlight rows
+	gtk_tree_selection_set_mode(gtk_tree_view_get_selection(GTK_TREE_VIEW(treeview)), GTK_SELECTION_NONE);
+	//------treeview done -------//
+
+	//Let's do it!
 	gtk_widget_show_all(Conf);
 	gtk_main();
 }
+
+void OnToggle_advopts(GtkCellRendererToggle *cell, gchar *path, gpointer user_data){
+	GtkTreeIter treeiter;
+	gboolean val;
+
+	gtk_tree_model_get_iter_from_string(GTK_TREE_MODEL(user_data), &treeiter, path);
+	gtk_tree_model_get(GTK_TREE_MODEL(user_data), &treeiter,
+		0, &val,
+		-1);
+	val = !val;
+	gtk_list_store_set(GTK_LIST_STORE(user_data), &treeiter,
+		0, val,
+		-1);
+	
+}
+
+
 
 GtkWidget *About;
 

@@ -982,7 +982,9 @@ HRESULT ZeroGS::Create(LONG _width, LONG _height)
 	g_bDisplayMsg = 0;
 	if( caps.VertexShaderVersion >= D3DVS_VERSION(3,0) && caps.PixelShaderVersion >= D3DPS_VERSION(2,0) )
 		g_nPixelShaderVer = SHADER_30;
-	else
+	else if( caps.PixelShaderVersion == D3DPS_VERSION(2,0) )
+        g_nPixelShaderVer = SHADER_20;
+    else
 		g_nPixelShaderVer = SHADER_20a;
 
 #ifdef RELEASE_TO_PUBLIC

@@ -67,7 +67,7 @@ void LoadConfig() {
 	fscanf(f, "aliasing = %x\n", &conf.aa);
 	fscanf(f, "bilinear = %x\n", &conf.bilinear);
 	fscanf(f, "options = %x\n", &conf.options);
-    fprintf(f, "gamesettings = %x\n", &conf.gamesettings);
+    fscanf(f, "gamesettings = %x\n", &conf.gamesettings);
     fclose(f);
 
     // filter bad files
@@ -91,7 +91,7 @@ void LoadConfig() {
 			conf.height = 960;
 			break;
 	}
-	
+
 	// turn off all hacks by defaultof
 	conf.options &= ~(GSOPTION_FULLSCREEN|GSOPTION_WIREFRAME|GSOPTION_CAPTUREAVI);
 	conf.options |= GSOPTION_LOADED;
