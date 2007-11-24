@@ -875,8 +875,7 @@ static u32 PCSX2_ALIGNED16(s_neg[4]) = { 0x80000000, 0, 0, 0 };
 static u32 PCSX2_ALIGNED16(s_pos[4]) = { 0x7fffffff, 0, 0, 0 };
 
 void recSQRT_S_xmm(int info)
-{	
-	int t0reg = _allocTempXMMreg(XMMT_FPS, -1);	
+{
 	if( info & PROCESS_EE_T ) {
 		if( CHECK_FORCEABS ) {
 			if( EEREC_D == EEREC_T ) SSE_ANDPS_M128_to_XMM(EEREC_D, (uptr)&s_pos[0]);
@@ -1161,6 +1160,7 @@ void recMSUBtemp(int info, int regd)
 				SSE_SUBSS_XMM_to_XMM(EEREC_ACC, regd);
 				xmmregs[EEREC_ACC] = xmmregs[regd];
 				xmmregs[regd].inuse = 0;
+                ClampValues(EEREC_ACC);
 			}
 			else if( regd == EEREC_ACC ) {
 				int t0reg;
@@ -1182,6 +1182,7 @@ void recMSUBtemp(int info, int regd)
 				}
 
 				SSE_SUBSS_XMM_to_XMM(regd, t0reg);
+                ClampValues(regd);
 			}
 			else {
 				if( regd != EEREC_ACC ) {
@@ -1192,6 +1193,7 @@ void recMSUBtemp(int info, int regd)
 				SSE_MOVSS_M32_to_XMM(regd, mreg);
 				SSE_MULSS_XMM_to_XMM(regd, vreg);
 				SSE_SUBSS_XMM_to_XMM(EEREC_ACC, regd);
+                ClampValues(EEREC_ACC);
 			}
 
 			break;
@@ -1203,6 +1205,7 @@ void recMSUBtemp(int info, int regd)
 				SSE_SUBSS_XMM_to_XMM(EEREC_ACC, regd);
 				xmmregs[EEREC_ACC] = xmmregs[regd];
 				xmmregs[regd].inuse = 0;
+                ClampValues(EEREC_ACC);
 			}
 			else if (regd == EEREC_T) {
 				assert( regd != EEREC_ACC );
@@ -1211,6 +1214,7 @@ void recMSUBtemp(int info, int regd)
 				SSE_SUBSS_XMM_to_XMM(EEREC_ACC, regd);
 				xmmregs[EEREC_ACC] = xmmregs[regd];
 				xmmregs[regd].inuse = 0;
+                ClampValues(EEREC_ACC);
 			}
 			else if( regd == EEREC_ACC ) {
 				int t0reg ;
@@ -1237,6 +1241,7 @@ void recMSUBtemp(int info, int regd)
 				}
 
 				SSE_SUBSS_XMM_to_XMM(regd, t0reg);
+                ClampValues(regd);
 			}
 			else {
 				if( regd != EEREC_ACC ) {
@@ -1247,11 +1252,10 @@ void recMSUBtemp(int info, int regd)
 				SSE_MOVSS_XMM_to_XMM(regd, EEREC_S);
 				SSE_MULSS_XMM_to_XMM(regd, EEREC_T);
 				SSE_SUBSS_XMM_to_XMM(EEREC_ACC, regd);
+                ClampValues(EEREC_ACC);
 			}
 			break;
 	}
-	ClampValues(regd);
-	ClampValues(EEREC_ACC);
     
 }
 
