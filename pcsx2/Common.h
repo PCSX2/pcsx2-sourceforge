@@ -222,7 +222,7 @@ int cdCaseopen;
 extern void __Log(char *fmt, ...);
 extern u16 logProtocol;
 extern u8  logSource;
-#define PCSX2_VERSION "0.9.4"
+#define PCSX2_VERSION "0.9.5"
 
 // C++ code for sqrtf
 void InitFPUOps();
