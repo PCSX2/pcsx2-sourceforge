@@ -241,11 +241,11 @@ void psxDma11(u32 madr, u32 bcr, u32 chcr) {
 	PSX_INT(11,(size>>2));	// Interrupts should always occur at the end
 }
 
-int psxDMA11Interrupt()
+void psxDMA11Interrupt()
 {
 	HW_DMA11_CHCR &= ~0x01000000;
 	psxDmaInterrupt2(4);
-	return 1;
+	psxRegs.interrupt&= ~(1 << 11);
 }
 
 void psxDma12(u32 madr, u32 bcr, u32 chcr) {
@@ -269,11 +269,11 @@ void psxDma12(u32 madr, u32 bcr, u32 chcr) {
 	PSX_INT(12,(size>>2));	// Interrupts should always occur at the end
 }
 
-int psxDMA12Interrupt()
+void psxDMA12Interrupt()
 {
 	HW_DMA12_CHCR &= ~0x01000000;
 	psxDmaInterrupt2(5);
-	return 1;
+	psxRegs.interrupt&= ~(1 << 16);
 }
 
 int  sio2Freeze(gzFile f, int Mode) {

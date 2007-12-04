@@ -20,7 +20,7 @@
 #define __PSXCOUNTERS_H__
 
 typedef struct {
-	u32 count, mode, target;
+	u64 count, mode, target;
 	u32 rate, interrupt, otarget;
 	u32 sCycle, Cycle;
 	u32 sCycleT, CycleT;

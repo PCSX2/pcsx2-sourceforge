@@ -167,14 +167,14 @@ void AddIrqQueue(u8 irq, unsigned long ecycle) {
 	}
 }
 
-int  cdrInterrupt() {
+void  cdrInterrupt() {
 	cdvdTD trackInfo;
 	int i;
 	u8 Irq = cdr.Irq;
 
 	if (cdr.Stat) {
 		CDR_INT(0x800);
-		return 0;
+		return;
 	}
 
 	cdr.Irq = 0xff;
@@ -507,7 +507,10 @@ int  cdrInterrupt() {
 			break;
 
 		case READ_ACK:
-			if (!cdr.Reading) return 1;
+			if (!cdr.Reading) {
+				psxRegs.interrupt&= ~(1 << 17);
+				return;
+				}
 
 			SetResultSize(1);
 			cdr.StatP|= 0x2;
@@ -545,7 +548,8 @@ int  cdrInterrupt() {
 */			break;
 
 		case 0xff:
-			return 1;
+			psxRegs.interrupt&= ~(1 << 17);
+			return;
 
 		default:
 			cdr.Stat = Complete;
@@ -557,17 +561,20 @@ int  cdrInterrupt() {
 #ifdef CDR_LOG
 	CDR_LOG("Cdr Interrupt %x\n", Irq);
 #endif
-	return 1;
+	psxRegs.interrupt&= ~(1 << 17);
 }
 
-int  cdrReadInterrupt() {
+void  cdrReadInterrupt() {
 	u8 *buf;
 
-	if (!cdr.Reading) return 1;
+	if (!cdr.Reading) {
+		psxRegs.interrupt&= ~(1 << 18);
+		return;
+		}
 
 	if (cdr.Stat) {
 		CDREAD_INT(0x800);
-		return 0;
+		return;
 	}
 
 #ifdef CDR_LOG
@@ -592,7 +599,7 @@ int  cdrReadInterrupt() {
 		cdr.Result[0]|= 0x01;
 		ReadTrack();
 		CDREAD_INT((cdr.Mode & 0x80) ? (cdReadTime / 2) : cdReadTime);
-		return 0;
+		return;
 	}
 
 	memcpy_fast(cdr.Transfer, buf+12, 2340);
@@ -641,7 +648,7 @@ int  cdrReadInterrupt() {
 	}
 
 	psxHu32(0x1070)|=0x4;
-	return 0;
+	return;
 }
 
 /*

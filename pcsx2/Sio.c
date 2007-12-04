@@ -539,13 +539,13 @@ void sioWriteCtrl16(unsigned short value) {
 	}
 }
 
-int  sioInterrupt() {
+void  sioInterrupt() {
 #ifdef PAD_LOG
 	PAD_LOG("Sio Interrupt\n");
 #endif
 	sio.StatReg|= IRQ;
 	psxHu32(0x1070)|=0x80;
-	return 1;
+	psxRegs.interrupt&= ~(1 << 16);
 }
 
 extern u32 dwCurSaveStateVer;

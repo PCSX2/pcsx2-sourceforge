@@ -29,7 +29,7 @@ u8 psxcntmask = 0;
 
 static void psxRcntUpd16(u32 index) {
 	//psxCounters[index].sCycle  = psxRegs.cycle;
-	psxCounters[index].sCycleT = psxRegs.cycle - (psxRegs.cycle % psxCounters[index].rate);
+	psxCounters[index].sCycleT = psxRegs.cycle;
 
 	//psxCounters[index].Cycle  = (0xffff - psxCounters[index].count) * psxCounters[index].rate;
 	//psxCounters[index].CycleT = (psxCounters[index].target - psxCounters[index].count) * psxCounters[index].rate;
@@ -37,7 +37,7 @@ static void psxRcntUpd16(u32 index) {
 
 static void psxRcntUpd32(u32 index) {
 	//psxCounters[index].sCycle  = psxRegs.cycle;
-	psxCounters[index].sCycleT = psxRegs.cycle - (psxRegs.cycle % psxCounters[index].rate);
+	psxCounters[index].sCycleT = psxRegs.cycle;
 
 	//psxCounters[index].Cycle  = (0xfffee000 - psxCounters[index].count) * psxCounters[index].rate;
 	//psxCounters[index].CycleT = (psxCounters[index].target - psxCounters[index].count) * psxCounters[index].rate;
@@ -69,21 +69,24 @@ static void psxRcntSet() {
 		if (c < psxNextCounter) {
 			psxNextCounter = c;
 		}
-		//if(psxCounters[i].mode & 0x0800) continue;
-		 c = (u32)(psxCounters[i].target - psxRcntCycles(i)) * psxCounters[i].rate;
-		if (c < psxNextCounter) {
-			psxNextCounter = c;
+		if((psxCounters[i].mode & 0x0020)) {			
+			 c = (u32)(psxCounters[i].target - psxRcntCycles(i)) * psxCounters[i].rate;
+			if (c < psxNextCounter) {
+				psxNextCounter = c;
+			}
+			//SysPrintf("Setting delay for counter %x time %x mode %I64x newtarget %x\n", i, psxNextCounter, psxCounters[i].mode, newtarget[i]);
 		}
 	}
 	for (i=3; i<6; i++) {
-		c = (u32)(0xfffee000 - psxRcntCycles(i)) * psxCounters[i].rate;
+		c = (u32)(0xffffffff - psxRcntCycles(i)) * psxCounters[i].rate;
 		if (c < psxNextCounter) {
 			psxNextCounter = c;
 		}
-		//if(psxCounters[i].mode & 0x0800) continue;
-		c = (u32)(psxCounters[i].target - psxRcntCycles(i)) * psxCounters[i].rate;
-		if (c < psxNextCounter) {
-			psxNextCounter = c;
+		if((psxCounters[i].mode & 0x0020)) {
+			 c = (u32)(psxCounters[i].target - psxRcntCycles(i)) * psxCounters[i].rate;
+			if (c < psxNextCounter) {
+				psxNextCounter = c;
+			}
 		}
 	}
 
@@ -261,10 +264,11 @@ void psxCheckStartGate(int counter) {  //Check Gate events when Vsync Starts
 void _testRcnt16target(int i) {
 
 #ifdef PSXCNT_LOG
-	PSXCNT_LOG("[%d] target 0x%x >= 0x%x (CycleT); count=0x%x, target=0x%x\n", i, (psxRegs.cycle - psxCounters[i].sCycleT), psxCounters[i].CycleT, psxRcntRcount16(i), psxCounters[i].target);
+	PSXCNT_LOG("[%d] target %x >= %x (CycleT); count=%I64x, target=%I64x, mode=%I64x\n", i, (psxRegs.cycle - psxCounters[i].sCycleT), psxCounters[i].CycleT, psxCounters[i].count, psxCounters[i].target,  psxCounters[i].mode);
 #endif
 
 	psxCounters[i].mode|= 0x0800; // Target flag
+	//newtarget[i] = 0;
 	if(psxCounters[i].mode & 0x80)
 		if (psxCounters[i].mode & 0x10)psxCounters[i].mode&= ~0x0400; // Interrupt flag
 	
@@ -272,13 +276,13 @@ void _testRcnt16target(int i) {
 		psxHu32(0x1070)|= psxCounters[i].interrupt;	
 		
 		
-	if (psxCounters[i].mode & 0x08) { // Reset on target
-		psxCounters[i].count = 0;
+	/*if (psxCounters[i].mode & 0x08) { // Reset on target
+		psxCounters[i].count -= psxCounters[i].target;
 		psxRcntUpd16(i);
 		return;
-	}
-	if(!(psxCounters[i].mode & 0x40))psxcntmask |= (1<<i);
-	else psxcntmask &= ~(1<<i);
+	}*/
+	/*if(!(psxCounters[i].mode & 0x40))psxcntmask |= (1<<i);
+	else psxcntmask &= ~(1<<i);*/
 }
 
 void _testRcnt16overflow(int i) {
@@ -293,18 +297,19 @@ void _testRcnt16overflow(int i) {
 		if(psxCounters[i].mode & 0x80)
 			psxCounters[i].mode&= ~0x0400; // Interrupt flag
 	}
-	psxCounters[i].count = 0;
-	psxcntmask &= ~(1<<i);
+	psxCounters[i].count -= 0xffff;
+	//psxcntmask &= ~(1<<i);
 	psxRcntUpd16(i);
 }
 
 void _testRcnt32target(int i) {
 	
 #ifdef PSXCNT_LOG
-	PSXCNT_LOG("[%d] target 0x%x >= 0x%x (CycleT); count=0x%x, target=0x%x\n", i, (psxRegs.cycle - psxCounters[i].sCycleT), psxCounters[i].CycleT, psxRcntRcount32(i), psxCounters[i].target);
+	PSXCNT_LOG("[%d] target %x >= %x (CycleT); count=%I64x, target=%I64x, mode=%I64x\n", i, (psxRegs.cycle - psxCounters[i].sCycleT), psxCounters[i].CycleT, psxCounters[i].count, psxCounters[i].target,  psxCounters[i].mode);
 #endif
 
 	psxCounters[i].mode|= 0x0800; // Target flag
+//	newtarget[i] = 0;
 	if(psxCounters[i].mode & 0x80)
 		if (psxCounters[i].mode & 0x10)psxCounters[i].mode&= ~0x0400; // Interrupt flag
 			
@@ -313,13 +318,13 @@ void _testRcnt32target(int i) {
 		psxHu32(0x1070)|= psxCounters[i].interrupt;	
 		
 	
-	if (psxCounters[i].mode & 0x8) { // Reset on target
-		psxCounters[i].count = 0;
+	/*if (psxCounters[i].mode & 0x8) { // Reset on target
+		psxCounters[i].count -= psxCounters[i].target;
 		psxRcntUpd32(i);
 		return;
-	} 	 
-	if(!(psxCounters[i].mode & 0x40))psxcntmask |= (1<<i);
-	else psxcntmask &= ~(1<<i);
+	} */	 
+	/*if(!(psxCounters[i].mode & 0x40))psxcntmask |= (1<<i);
+	else psxcntmask &= ~(1<<i);*/
 }
 
 void _testRcnt32overflow(int i) {
@@ -334,38 +339,42 @@ void _testRcnt32overflow(int i) {
 		if(psxCounters[i].mode & 0x80)
 			psxCounters[i].mode&= ~0x0400; // Interrupt flag
 	}
-	psxCounters[i].count = 0;
-	psxcntmask &= ~(1<<i);
+	psxCounters[i].count -= 0xffffffff;
+	//psxcntmask &= ~(1<<i);
 	psxRcntUpd32(i);
+	psxRcntSet();
 }
 
 
 void _testRcnt16(int i) {
 
-	if(!(psxHu32(0x1070) & psxCounters[i].interrupt)) {
-		psxCounters[i].mode &= ~0x1800;
-		psxCounters[i].mode |= 0x400;
-	}
-	if (!(psxcntmask & (1<<i)) && psxCounters[i].count >= psxCounters[i].target){
+	/*if(!(psxHu32(0x1070) & psxCounters[i].interrupt)) {
+		
+	}*/
+	
+
+	if (psxCounters[i].count >= 0xffff)
+		_testRcnt16overflow(i);
+
+	if (/*!(psxcntmask & (1<<i))&&*/ (s64)(psxCounters[i].target - psxCounters[i].count) <= 0){
 		_testRcnt16target(i);
 	}
-
-	if ((u32)psxRcntCycles(i) >= 0xffff)
-		_testRcnt16overflow(i);
 }
 
 void _testRcnt32(int i) {
 
-	if(!(psxHu32(0x1070) & psxCounters[i].interrupt)) {
+	/*if(!(psxHu32(0x1070) & psxCounters[i].interrupt)) {
 		psxCounters[i].mode &= ~0x1800;
 		psxCounters[i].mode |= 0x400;
-	}
-	if (!(psxcntmask & (1<<i)) && psxCounters[i].count >= psxCounters[i].target){
+	}*/
+	if (psxCounters[i].count >= 0xffffffff)
+		_testRcnt32overflow(i);
+
+	if (/*!(psxcntmask & (1<<i)) &&*/ (s64)(psxCounters[i].target - psxCounters[i].count) <= 0){
 		_testRcnt32target(i);
 	}
 	
-	if (psxRcntCycles(i) >= 0xfffee000)
-		_testRcnt32overflow(i);
+	
 }
 
 void psxRcntUpdate() {
@@ -373,7 +382,7 @@ void psxRcntUpdate() {
 	int q=6;
 	for (i=0; i<=5; i++) {
 		psxCounters[i].count += (psxRegs.cycle - psxCounters[i].sCycleT) / psxCounters[i].rate;
-		psxCounters[i].sCycleT = psxRegs.cycle - (psxRegs.cycle % psxCounters[i].rate);
+		psxCounters[i].sCycleT = psxRegs.cycle;
 	}
 
 	_testRcnt16(0);
@@ -435,7 +444,7 @@ void psxRcnt0Wmode(u32 value)  {
 	psxCounters[0].mode = value;
 	psxCounters[0].mode|= 0x0400;
 	psxCounters[0].rate = 1;
-    psxcntmask &= ~(1);
+    //psxcntmask &= ~(1);
 	if(value & 0x100) psxCounters[0].rate = PSXPIXEL;
 	
 	if(psxCounters[0].mode & 0x1){
@@ -462,7 +471,7 @@ void psxRcnt1Wmode(u32 value)  {
 	psxCounters[1].mode = value;
 	psxCounters[1].mode|= 0x0400;
 	psxCounters[1].rate = 1;
-	psxcntmask &= ~(1<<1);
+	//psxcntmask &= ~(1<<1);
 	if(value & 0x100)psxCounters[1].rate = PSXHBLANK;
 
 	if(psxCounters[1].mode & 0x1){
@@ -486,7 +495,7 @@ void psxRcnt2Wmode(u32 value)  {
 		SysPrintf("Counter 2 Value write %x\n", value & 0x1c00);
 	}
 
-	psxcntmask &= ~(1<<2);
+	//psxcntmask &= ~(1<<2);
 	psxCounters[2].mode = value;
 	psxCounters[2].mode|= 0x0400;
 
@@ -517,7 +526,7 @@ void psxRcnt3Wmode(u32 value)  {
 		SysPrintf("Counter 3 Value write %x\n", value & 0x1c00);
 	}
 
-	psxcntmask &= ~(1<<3);
+	//psxcntmask &= ~(1<<3);
 	psxCounters[3].mode = value;
 	psxCounters[3].rate = 1;
 	psxCounters[3].mode|= 0x0400;
@@ -545,7 +554,7 @@ void psxRcnt4Wmode(u32 value)  {
 		SysPrintf("Counter 4 Value write %x\n", value & 0x1c00);
 	}
 
-	psxcntmask &= ~(1<<4);
+	//psxcntmask &= ~(1<<4);
 	psxCounters[4].mode = value;
 	psxCounters[4].mode|= 0x0400;
 
@@ -580,7 +589,7 @@ void psxRcnt5Wmode(u32 value)  {
 	if (value & 0x1c00) {
 		SysPrintf("Counter 5 Value write %x\n", value & 0x1c00);
 	}
-	psxcntmask &= ~(1<<5);
+	//psxcntmask &= ~(1<<5);
 	psxCounters[5].mode = value;
 	psxCounters[5].mode|= 0x0400;
 
@@ -614,34 +623,47 @@ void psxRcntWtarget16(int index, u32 value) {
 	PSXCNT_LOG("writeCtarget16[%ld] = %lx\n", index, value);
 #endif
 	psxCounters[index].target = value & 0xffff;
+	//newtarget[index] = 1;
+	if (psxCounters[index].mode & 0x8) { // Reset on target
+		psxCounters[index].count = 0;
+		psxRcntUpd32(index);
+		//return;
+	} 	 
 	psxRcntSet();
 }
 
 void psxRcntWtarget32(int index, u32 value) {
 	//if(psxCounters[index].sCycleT > psxRegs.cycle) ReSyncTarget(index);
 	psxCounters[index].target = value;
-
+	//newtarget[index] = 1;
 #ifdef PSXCNT_LOG
-	PSXCNT_LOG("writeCtarget32[%ld] = %lx (count=%lx) ; sCycleT: %x CycleT: %x\n",
-			   index, value, psxRcntRcount32(index), psxCounters[index].sCycleT, psxCounters[index].CycleT);
+		PSXCNT_LOG("writeCtarget32[%ld] = %lx (count=%lx) ; sCycleT: %x CycleT: %x psxRegscycle %x\n",
+			   index, value, psxCounters[index].count, psxCounters[index].sCycleT, psxCounters[index].CycleT, psxRegs.cycle);
+		
 #endif
+
 	//if(index == 5) SysPrintf("Counter 5 tar set CT %x, Tar %x, mode %x, psx.cycle %x\n", psxCounters[index].CycleT + psxCounters[index].sCycleT, psxCounters[index].target, psxCounters[index].mode, psxRegs.cycle);
+	if (psxCounters[index].mode & 0x8) { // Reset on target
+		psxCounters[index].count = 0;
+		psxRcntUpd32(index);
+		//return;
+	} 	 
 	psxRcntSet();
 }
 
 u16 psxRcntRcount16(int index) {
 	if(psxCounters[index].mode & 0x1000000) return psxCounters[index].count;
-	return (u16)(psxCounters[index].count + (psxRegs.cycle - psxCounters[index].sCycleT) / psxCounters[index].rate);
+	return (u16)(psxCounters[index].count + (u32)((psxRegs.cycle - psxCounters[index].sCycleT) / psxCounters[index].rate));
 }
 
 u32 psxRcntRcount32(int index) {
 	if(psxCounters[index].mode & 0x1000000) return psxCounters[index].count;
-	return (u32)(psxCounters[index].count + (psxRegs.cycle - psxCounters[index].sCycleT) / psxCounters[index].rate);
+	return (u32)(psxCounters[index].count + (u32)((psxRegs.cycle - psxCounters[index].sCycleT) / psxCounters[index].rate));
 }
 
 u64 psxRcntCycles(int index) {
 	if(psxCounters[index].mode & 0x1000000) return psxCounters[index].count;
-	return (u64)(psxCounters[index].count + (psxRegs.cycle - psxCounters[index].sCycleT) / psxCounters[index].rate);
+	return (u64)(psxCounters[index].count + (u32)((psxRegs.cycle - psxCounters[index].sCycleT) / psxCounters[index].rate));
 }
 
 int psxRcntFreeze(gzFile f, int Mode) {

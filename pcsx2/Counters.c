@@ -457,8 +457,19 @@ void rcntUpdate()
 	for (i=0; i<=3; i++) {
 		if (!(counters[i].mode & 0x80)) continue; // Stopped
 
+			if (counters[i].count >= 0xffff) {
+			//eecntmask &= ~(1 << i);
+			
+				if (counters[i].mode & 0x0200 && !(counters[i].mode & 0x800)) { // Overflow interrupt
+					counters[i].mode|= 0x0800; // Overflow flag
+					hwIntcIrq(counters[i].interrupt);
+	//				SysPrintf("counter[%d] overflow interrupt (%x)\n", i, cpuRegs.cycle);
+				}
+				counters[i].count -= 0xffff;
+				rcntUpd(i);
+			} 
 		
-			if ((counters[i].count & ~0x3) == (counters[i].target & ~0x3)) { // Target interrupt
+			if ((s64)(counters[i].target - counters[i].count) <= 0) { // Target interrupt
 				/*if (rcntCycle(i) != counters[i].target){
 					SysPrintf("rcntcycle = %d, target = %d, cyclet = %d\n", rcntCycle(i), counters[i].target, counters[i].sCycleT);
 					counters[i].sCycleT += (rcntCycle(i) - counters[i].target) * counters[i].rate;
@@ -471,28 +482,19 @@ void rcntUpdate()
 					hwIntcIrq(counters[i].interrupt);
 					
 				}
+				if (counters[i].mode & 0x40) { // Reset on target
+					counters[i].count -= counters[i].target;
+					//eecntmask &= ~(1 << i);
+					rcntUpd(i);
+				}
 				//eecntmask |= (1 << i);
 				//}
-				if (counters[i].mode & 0x40) { // Reset on target
-					counters[i].count = 0;
-					eecntmask &= ~(1 << i);
-					//rcntUpd(i);
-				}
+				
 			
 		}
 		
 		
-		if (counters[i].count >= 0xffff) {
-			eecntmask &= ~(1 << i);
-			
-			if (counters[i].mode & 0x0200 && !(counters[i].mode & 0x800)) { // Overflow interrupt
-				counters[i].mode|= 0x0800; // Overflow flag
-				hwIntcIrq(counters[i].interrupt);
-//				SysPrintf("counter[%d] overflow interrupt (%x)\n", i, cpuRegs.cycle);
-			}
-			counters[i].count = 0;
-			//rcntUpd(i);
-		} 
+		
 	//	rcntUpd(i);
 	}
 	

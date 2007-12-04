@@ -326,9 +326,7 @@ void cpuTestMissingHwInts() {
 #define TESTINT(n, callback) { \
 	if ( (cpuRegs.interrupt & (1 << n)) ) { \
 		if( ((int)(cpuRegs.cycle - cpuRegs.sCycle[n]) >= cpuRegs.eCycle[n]) ) { \
-			if (callback() == 1) { \
-				cpuRegs.interrupt &= ~(1 << n); \
-			} \
+			callback(); \
 		} \
 		else if( (int)(g_nextBranchCycle - cpuRegs.sCycle[n]) > cpuRegs.eCycle[n] ) { \
 			g_nextBranchCycle = cpuRegs.sCycle[n] + cpuRegs.eCycle[n]; \

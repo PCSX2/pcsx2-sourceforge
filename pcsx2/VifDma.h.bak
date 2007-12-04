@@ -23,7 +23,7 @@ typedef struct {
    int size;
    int cmd;
    u16 wl;
-   u16 cl;
+   u16 cl;   
 } vifCode;
 
 // NOTE, if debugging vif stalls, use sega classics, spyro, gt4, and taito
@@ -39,6 +39,7 @@ typedef struct {
 	u8 stallontag;
 	u8 irqoffset; // 32bit offset where next vif code is
     u32 savedtag; // need this for backwards compat with save states
+	u8 skipwrite;
 } vifStruct;
 
 extern vifStruct vif0, vif1;
@@ -83,8 +84,8 @@ void UNPACK_V4_5( u32 *dest, u32 *data, int size );
 void vifDmaInit();
 void vif0Init();
 void vif1Init();
-void  vif0Interrupt();
-void  vif1Interrupt();
+int  vif0Interrupt();
+int  vif1Interrupt();
 
 void vif0Write32(u32 mem, u32 value);
 void vif1Write32(u32 mem, u32 value);

@@ -57,13 +57,13 @@ typedef struct {
 	u32 pad14[3];
 	u32 mskpath3;
 	u32 pad15[3];
-	u32 r0;        // row0 register
+	s32 r0;        // row0 register
 	u32 pad16[3];
-	u32 r1;        // row1 register
+	s32 r1;        // row1 register
 	u32 pad17[3];
-	u32 r2;        // row2 register
+	s32 r2;        // row2 register
 	u32 pad18[3];
-	u32 r3;        // row3 register
+	s32 r3;        // row3 register
 	u32 pad19[3];
 	u32 c0;        // col0 register
 	u32 pad20[3];
@@ -85,7 +85,7 @@ void dmaVIF1();
 void mfifoVIF1transfer(int qwc);
 int  VIF0transfer(u32 *data, int size, int istag);
 int  VIF1transfer(u32 *data, int size, int istag);
-void  vifMFIFOInterrupt();
+int  vifMFIFOInterrupt();
 
 #ifndef PCSX2_NORECBUILD
 void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask);

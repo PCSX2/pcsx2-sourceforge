@@ -413,7 +413,7 @@ int  hwMFIFOWrite(u32 addr, u8 *data, int size);
 int  hwDmacSrcChainWithStack(DMACh *dma, int id);
 int  hwDmacSrcChain(DMACh *dma, int id);
 
-int  intcInterrupt();
-int  dmacInterrupt();
+void  intcInterrupt();
+void  dmacInterrupt();
 
 #endif /* __HW_H__ */

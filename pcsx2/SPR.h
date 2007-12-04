@@ -24,6 +24,6 @@
 void sprInit();
 void dmaSPR0();
 void dmaSPR1();
-int SPRFROMinterrupt();
-int SPRTOinterrupt();
+void SPRFROMinterrupt();
+void SPRTOinterrupt();
 #endif /* __SPR_H__ */

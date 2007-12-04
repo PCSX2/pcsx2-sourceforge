@@ -201,28 +201,34 @@ void psxDma8(u32 madr, u32 bcr, u32 chcr) {
 	psxDmaInterrupt2(1);
 }
 
-int  dev9Interrupt() {
+void  dev9Interrupt() {
 	if (dev9Handler == NULL) goto irq;
-	if (dev9Handler() != 1) return 1;
+	if (dev9Handler() != 1) {
+		psxRegs.interrupt&= ~(1 << 20);
+		return;
+		}
 irq:
 	psxHu32(0x1070)|= 1<<13;
 	//SBUS
 	hwIntcIrq(INTC_SBUS);	
-	return 1;
+	psxRegs.interrupt&= ~(1 << 20);
 }
 
 void dev9Irq(int cycles) {
 	PSX_INT(20, cycles);
 }
 
-int  usbInterrupt() {
+void  usbInterrupt() {
 	if (usbHandler == NULL) goto irq;
-	if (usbHandler() != 1) return 1;
+	if (usbHandler() != 1) {
+		psxRegs.interrupt&= ~(1 << 21);
+		return;
+		}
 irq:
 	psxHu32(0x1070)|= 1<<22;
 	//SBUS
 	hwIntcIrq(INTC_SBUS);
-	return 1;
+	psxRegs.interrupt&= ~(1 << 21);
 }
 
 void usbIrq(int cycles) {

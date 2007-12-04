@@ -169,6 +169,8 @@ u16 psxHwRead16(u32 add) {
 	
 		case 0x1f801100:
 			hard = (u16)psxRcntRcount16(0);
+			psxCounters[0].mode &= ~0x1800;
+			psxCounters[0].mode |= 0x400;
 #ifdef PSXCNT_LOG
 			PSXCNT_LOG("T0 count read16: %x\n", hard);
 #endif
@@ -193,6 +195,8 @@ u16 psxHwRead16(u32 add) {
 			return hard;
 		case 0x1f801114:
 			hard = psxCounters[1].mode;
+			psxCounters[1].mode &= ~0x1800;
+			psxCounters[1].mode |= 0x400;
 #ifdef PSXCNT_LOG
 			PSXCNT_LOG("T1 mode read16: %x\n", hard);
 #endif
@@ -211,6 +215,8 @@ u16 psxHwRead16(u32 add) {
 			return hard;
 		case 0x1f801124:
 			hard = psxCounters[2].mode;
+			psxCounters[2].mode &= ~0x1800;
+			psxCounters[2].mode |= 0x400;
 #ifdef PSXCNT_LOG
 			PSXCNT_LOG("T2 mode read16: %x\n", hard);
 #endif
@@ -233,6 +239,8 @@ u16 psxHwRead16(u32 add) {
 			return hard;
 		case 0x1f801484:
 			hard = psxCounters[3].mode;
+			psxCounters[3].mode &= ~0x1800;
+			psxCounters[3].mode |= 0x400;
 #ifdef PSXCNT_LOG
 			PSXCNT_LOG("T3 mode read16: %lx\n", hard);
 #endif
@@ -251,6 +259,8 @@ u16 psxHwRead16(u32 add) {
 			return hard;
 		case 0x1f801494:
 			hard = psxCounters[4].mode;
+			psxCounters[4].mode &= ~0x1800;
+			psxCounters[4].mode |= 0x400;
 #ifdef PSXCNT_LOG
 			PSXCNT_LOG("T4 mode read16: %lx\n", hard);
 #endif
@@ -269,6 +279,8 @@ u16 psxHwRead16(u32 add) {
 			return hard;
 		case 0x1f8014a4:
 			hard = psxCounters[5].mode;
+			psxCounters[5].mode &= ~0x1800;
+			psxCounters[5].mode |= 0x400;
 #ifdef PSXCNT_LOG
 			PSXCNT_LOG("T5 mode read16: %lx\n", hard);
 #endif

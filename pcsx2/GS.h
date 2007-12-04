@@ -159,13 +159,13 @@ void  gsConstRead64(u32 mem, int mmreg);
 void  gsConstRead128(u32 mem, int xmmreg);
 
 void gsIrq();
-int  gsInterrupt();
+void  gsInterrupt();
 void dmaGIF();
 void GIFdma();
 void mfifoGIFtransfer(int qwc);
 int  gsFreeze(gzFile f, int Mode);
 int _GIFchain();
-int  gifMFIFOInterrupt();
+void  gifMFIFOInterrupt();
 
 // GS Playback
 #define GSRUN_TRANS1 1
