@@ -48,6 +48,7 @@ PatchTextTable commands[] =
 											// Y - VU rounding mode (default is CHOP)
    { "zerogs", 6, patchFunc_zerogs }, // zerogs=hex
    { "path3hack", 7, patchFunc_path3hack },
+   { "vunanmode",8, patchFunc_vunanmode },
    { "", 0, NULL }
 };
 
@@ -355,6 +356,14 @@ void patchFunc_fastmemory( char * cmd, char * param )
 #ifndef PCSX2_NORECBUILD
 	// only valid for recompilers
 	SetFastMemory(1);
+#endif
+}
+
+void patchFunc_vunanmode( char * cmd, char * param )
+{
+#ifndef PCSX2_NORECBUILD
+	// only valid for recompilers
+    SetVUNanMode(param != NULL ? atoi(param) : 1);
 #endif
 }
 

@@ -169,14 +169,14 @@ u16 psxHwRead16(u32 add) {
 	
 		case 0x1f801100:
 			hard = (u16)psxRcntRcount16(0);
-			psxCounters[0].mode &= ~0x1800;
-			psxCounters[0].mode |= 0x400;
 #ifdef PSXCNT_LOG
 			PSXCNT_LOG("T0 count read16: %x\n", hard);
 #endif
 			return hard;
 		case 0x1f801104:
 			hard = psxCounters[0].mode;
+            psxCounters[0].mode &= ~0x1800;
+			psxCounters[0].mode |= 0x400;
 #ifdef PSXCNT_LOG
 			PSXCNT_LOG("T0 mode read16: %x\n", hard);
 #endif
