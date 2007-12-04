@@ -47,7 +47,7 @@
 
 extern _GSgifTransfer1    GSgifTransfer1;
 
-int g_VuNanHandling = 1; // for now enable all the time
+int g_VuNanHandling = 0; // for now enable all the time
 
 int vucycle;
 int vucycleold;
