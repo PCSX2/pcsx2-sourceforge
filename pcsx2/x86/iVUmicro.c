@@ -47,6 +47,8 @@
 
 extern _GSgifTransfer1    GSgifTransfer1;
 
+int g_VuNanHandling = 1; // for now enable all the time
+
 int vucycle;
 int vucycleold;
 _vuopinfo *cinfo = NULL;
@@ -958,12 +960,20 @@ static PCSX2_ALIGNED16(u32 s_expmask[]) = {0x7f800000, 0x7f800000, 0x7f800000, 0
 
 static PCSX2_ALIGNED16(u32 s_overflowmask[]) = {0xf0000000, 0xf0000000, 0xf0000000, 0xf0000000};
 
+void SetVUNanMode(int mode)
+{
+    g_VuNanHandling = mode;
+    if( mode )
+        SysPrintf("enabling vunan mode");
+}
+
 void CheckForOverflowSS_(int fdreg, int t0reg)
 {
 	assert( t0reg != fdreg );
     SSE_XORPS_XMM_to_XMM(t0reg, t0reg);
     SSE_CMPORDSS_XMM_to_XMM(t0reg, fdreg);
-    SSE_ORPS_M128_to_XMM(t0reg, (uptr)s_overflowmask);
+    if( g_VuNanHandling )
+        SSE_ORPS_M128_to_XMM(t0reg, (uptr)s_overflowmask);
     SSE_ANDPS_XMM_to_XMM(fdreg, t0reg);
 
 //	SSE_MOVSS_M32_to_XMM(t0reg, (u32)s_expmask);
@@ -979,7 +989,9 @@ void CheckForOverflow_(int fdreg, int t0reg, int keepxyzw)
 
     SSE_XORPS_XMM_to_XMM(t0reg, t0reg);
     SSE_CMPORDPS_XMM_to_XMM(t0reg, fdreg);
-    SSE_ORPS_M128_to_XMM(t0reg, (uptr)s_overflowmask);
+
+    if( g_VuNanHandling )
+        SSE_ORPS_M128_to_XMM(t0reg, (uptr)s_overflowmask);
 
     // for partial masks, sometimes regs can be integers
     if( keepxyzw != 15 )

@@ -47,6 +47,7 @@ void patchFunc_fastmemory( char * text1, char * text2 );
 void patchFunc_path3hack( char * text1, char * text2 );
 void patchFunc_roundmode( char * text1, char * text2 );
 void patchFunc_zerogs( char * text1, char * text2 );
+void patchFunc_vunanmode( char * text1, char * text2 );
 
 void inifile_trim( char * buffer );
 
@@ -71,6 +72,7 @@ void resetpatch( void );
 int AddPatch(int Mode, int Place, int Address, int Size, u64 data);
 
 void SetFastMemory(int); // iR5900LoadStore.c
+void SetVUNanMemory(int); // iVUmicro.c
 void SetCPUState(u32 sseMXCSR, u32 sseVUMXCSR);
 
 void SetRoundMode(u32 ee, u32 vu);

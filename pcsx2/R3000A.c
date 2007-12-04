@@ -128,7 +128,7 @@ void psxException(u32 code, u32 bd) {
 				break;
 		}
 	}
-	
+
 	/*if (psxRegs.CP0.n.Cause == 0x400 && (!(psxHu32(0x1450) & 0x8))) {
 		hwIntcIrq(1);
 	}*/
@@ -136,16 +136,16 @@ void psxException(u32 code, u32 bd) {
 
 #define PSX_TESTINT(n, callback) \
 	if (psxRegs.interrupt & (1 << n)) { \
-		if ((u32)(psxRegs.cycle - psxRegs.sCycle[n]) >= psxRegs.eCycle[n]) { \
+		if ((int)(psxRegs.cycle - psxRegs.sCycle[n]) >= psxRegs.eCycle[n]) { \
 			callback(); \
 		} \
-		else if( (u32)(g_psxNextBranchCycle - psxRegs.sCycle[n]) > psxRegs.eCycle[n] ) \
-			g_psxNextBranchCycle += psxRegs.sCycle[n] + psxRegs.eCycle[n]; \
+		else if( (int)(g_psxNextBranchCycle - psxRegs.sCycle[n]) > psxRegs.eCycle[n] ) \
+			g_psxNextBranchCycle = psxRegs.sCycle[n] + psxRegs.eCycle[n]; \
 	}
 
 static void _psxTestInterrupts() {
-	/*PSX_TESTINT(4, psxDma4Interrupt);
-	PSX_TESTINT(7, psxDma7Interrupt);*/
+	PSX_TESTINT(4, psxDma4Interrupt);
+	PSX_TESTINT(7, psxDma7Interrupt);
 
 	PSX_TESTINT(11, psxDMA11Interrupt);	// SIO2
 	PSX_TESTINT(12, psxDMA12Interrupt);	// SIO2

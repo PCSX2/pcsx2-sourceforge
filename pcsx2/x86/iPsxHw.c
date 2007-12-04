@@ -121,9 +121,9 @@ void psxConstReadCounterMode16(int x86reg, int index, int sign)
 
 		MOV32RtoR(x86reg, ECX);
 	}
-	
-	//AND16ItoR(ECX, ~0x1800);
-	//OR16ItoR(ECX, 0x400);
+
+	AND16ItoR(ECX, ~0x1800);
+	OR16ItoR(ECX, 0x400);
 	MOV16RtoM(psxCounters[index].mode, ECX);
 }
 

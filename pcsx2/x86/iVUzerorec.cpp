@@ -2650,8 +2650,8 @@ extern "C" void svudispfntemp()
                 //static int curesp;
                 //__asm mov curesp, esp
 				__Log("tVU: %x %x %x\n", s_svulast, s_vucount, s_vufnheader);
-				//if( g_curdebugvu ) iDumpVU1Registers();
-				//else iDumpVU0Registers();
+				if( g_curdebugvu ) iDumpVU1Registers();
+				else iDumpVU0Registers();
 				s_vucount++;
 			}
 		}
@@ -3238,14 +3238,20 @@ void VuInstruction::Recompile(list<VuInstruction>::iterator& itinst, u32 vuxyz)
                         if( nParentCheckForExecution >= 0 ) {
 
                             // don't now which parent we came from, so have to check
+//                            uptr tempstatus = (uptr)SuperVUStaticAlloc(4);
+//                            if( s_StatusRead != NULL )
+//                                MOV32MtoR(EAX, s_StatusRead);
+//                            else
+//                                MOV32MtoR(EAX, (uptr)&VU->VI[REG_STATUS_FLAG]);
+//                            s_StatusRead = tempstatus;
                             if( s_StatusRead == NULL )
                                 s_StatusRead = (uptr)&VU->VI[REG_STATUS_FLAG];
 
                             CMP32ItoM((uptr)&g_nLastBlockExecuted, nParentCheckForExecution);
                             u8* jptr = JNE8(0);
                             MOV32MtoR(EAX, pparentinst->pStatusWrite);
-                            MOV32RtoM(s_StatusRead, EAX);
                             MOV32ItoM(pparentinst->pStatusWrite, 0);
+                            MOV32RtoM(s_StatusRead, EAX);
                             x86SetJ8(jptr);
                         }
                         else {
@@ -3297,14 +3303,21 @@ void VuInstruction::Recompile(list<VuInstruction>::iterator& itinst, u32 vuxyz)
                         if( nParentCheckForExecution >= 0 ) {
 
                             // don't now which parent we came from, so have to check
+//                            uptr tempmac = (uptr)SuperVUStaticAlloc(4);
+//                            if( s_MACRead != NULL )
+//                                MOV32MtoR(EAX, s_MACRead);
+//                            else
+//                                MOV32MtoR(EAX, (uptr)&VU->VI[REG_MAC_FLAG]);
+//                            s_MACRead = tempmac;
+
                             if( s_MACRead == NULL )
                                 s_MACRead = (uptr)&VU->VI[REG_MAC_FLAG];
 
                             CMP32ItoM((uptr)&g_nLastBlockExecuted, nParentCheckForExecution);
                             u8* jptr = JNE8(0);
                             MOV32MtoR(EAX, pparentinst->pMACWrite);
-                            MOV32RtoM(s_MACRead, EAX);
                             MOV32ItoM(pparentinst->pMACWrite, 0);
+                            MOV32RtoM(s_MACRead, EAX);
                             x86SetJ8(jptr);
                         }
                         else {
