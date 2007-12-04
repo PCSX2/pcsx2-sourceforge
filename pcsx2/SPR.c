@@ -221,11 +221,11 @@ void _dmaSPR0() {
 	
 }
 
-int SPRFROMinterrupt()
+void SPRFROMinterrupt()
 {
 	spr0->chcr&= ~0x100;
 	hwDmacIrq(8);
-	return 1;
+	cpuRegs.interrupt &= ~(1 << 8);
 }
 extern int vifqwc;
 
@@ -398,10 +398,10 @@ void dmaSPR1() { // toSPR
 	FreezeXMMRegs(0)
 }
 
-int SPRTOinterrupt()
+void SPRTOinterrupt()
 {
 	spr1->chcr &= ~0x100;
 	hwDmacIrq(9);
-	return 1;
+	cpuRegs.interrupt &= ~(1 << 9);
 }
 

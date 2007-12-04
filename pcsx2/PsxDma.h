@@ -30,10 +30,10 @@ void psxDma10(u32 madr, u32 bcr, u32 chcr);
 
 int  psxDma4Interrupt();
 int  psxDma7Interrupt();
-int  dev9Interrupt();
+void  dev9Interrupt();
 DEV9handler dev9Handler;
 void dev9Irq(int cycles);
-int  usbInterrupt();
+void  usbInterrupt();
 USBhandler usbHandler;
 void usbIrq(int cycles);
 void fwIrq();

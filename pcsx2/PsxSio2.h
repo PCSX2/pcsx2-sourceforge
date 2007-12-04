@@ -92,8 +92,8 @@ u8   sio2_fifoOut();
 void psxDma11(u32 madr, u32 bcr, u32 chcr);
 void psxDma12(u32 madr, u32 bcr, u32 chcr);
 
-int psxDMA11Interrupt();
-int psxDMA12Interrupt();
+void psxDMA11Interrupt();
+void psxDMA12Interrupt();
 int  sio2Freeze(gzFile f, int Mode);
 
 #endif /* __PSXSIO2_H__ */

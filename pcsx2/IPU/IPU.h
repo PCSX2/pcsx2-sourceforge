@@ -192,8 +192,8 @@ void ipuConstWrite32(u32 mem, int mmreg);
 void ipuWrite64(u32 mem,u64 value);
 void ipuConstWrite64(u32 mem, int mmreg);
 
-int ipu0Interrupt();
-int ipu1Interrupt();
+void ipu0Interrupt();
+void ipu1Interrupt();
 
 u8 getBits32(u8 *address, u32 advance);
 u8 getBits16(u8 *address, u32 advance);

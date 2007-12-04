@@ -740,10 +740,10 @@ void mfifoVIF1transfer(int qwc) {
 	FreezeXMMRegs(0);
 }
 
-int vifMFIFOInterrupt()
+void vifMFIFOInterrupt()
 {
 	
-	if(!(vif1ch->chcr & 0x100)) return 1;
+if(!(vif1ch->chcr & 0x100)) { cpuRegs.interrupt &= ~(1 << 10); return; }
 	//if(vif1.vifstalled == 1 && (vif1Regs->stat & (VIF1_STAT_VSS|VIF1_STAT_VIS|VIF1_STAT_VFS))) {
 		if(vif1.irq && vif1.tag.size == 0) {
 			vif1Regs->stat|= VIF1_STAT_INT;
@@ -754,7 +754,8 @@ int vifMFIFOInterrupt()
 					vif1Regs->stat&= ~0x1F000000; // FQC=0
 					// One game doesnt like vif stalling at end, cant remember what. Spiderman isnt keen on it tho
 					vif1ch->chcr &= ~0x100;
-					return 1;
+					cpuRegs.interrupt &= ~(1 << 10);
+					return;
 				}		
 			//return 0;
 		}
@@ -762,12 +763,12 @@ int vifMFIFOInterrupt()
 
 	if(vif1.done != 1) {
 		mfifoVIF1transfer(0);
-		if(vifqwc <= 0 && vif1.done != 1) return 1;
+		if(vifqwc <= 0 && vif1.done != 1) { cpuRegs.interrupt &= ~(1 << 10); return; }
 		else {
-			if((vif1ch->madr == spr0->madr && vif1ch->tadr == spr0->madr) && vif1.done == 0) return 1;
-			else return 0;
+			if((vif1ch->madr == spr0->madr && vif1ch->tadr == spr0->madr) && vif1.done == 0) cpuRegs.interrupt &= ~(1 << 10);
+			return;
 		}
-	} else if(vif1.done != 1) return 1;
+		} else if(vif1.done != 1) { cpuRegs.interrupt &= ~(1 << 10); return; }
 	
 	vif1.done = 0;
 	vif1ch->chcr &= ~0x100;
@@ -783,5 +784,5 @@ int vifMFIFOInterrupt()
 //		vif1.irq--;
 //		hwIntcIrq(5); // VIF1 Intc
 //	}
-	return 1;
+	cpuRegs.interrupt &= ~(1 << 10);
 }

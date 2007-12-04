@@ -943,26 +943,27 @@ u32 GSgifTransferDummy(int path, u32 *pMem, u32 size)
 static int gspath3done=0;
 int gscycles = 0;
 
-int gsInterrupt() {
+void gsInterrupt() {
 #ifdef GIF_LOG 
 	GIF_LOG("gsInterrupt: %8.8x\n", cpuRegs.cycle);
 #endif
 
 	if((gif->chcr & 0x100) == 0){
 		//SysPrintf("Eh? why are you still interrupting! chcr %x, qwc %x, done = %x\n", gif->chcr, gif->qwc, done);
-		return 1;
+		cpuRegs.interrupt &= ~(1 << 2);
+		return;
 	}
 	if(gif->qwc > 0 || gspath3done == 0) {
 		if( !(psHu32(DMAC_CTRL) & 0x1) ) {
 			SysPrintf("gs dma masked\n");
-			return 0;
+			return;
 		}
 
 		GIFdma();
 #ifdef GSPATH3FIX
-		if ((vif1Regs->mskpath3 && (vif1ch->chcr & 0x100)) || (psHu32(GIF_MODE) & 0x1)) return 1;
+		if ((vif1Regs->mskpath3 && (vif1ch->chcr & 0x100)) || (psHu32(GIF_MODE) & 0x1)) cpuRegs.interrupt &= ~(1 << 2);
 #endif
-			return 0;
+			return;
 	}
 	
 	gspath3done = 0;
@@ -976,7 +977,7 @@ int gsInterrupt() {
 	psHu32(GIF_STAT)&= ~0x1F000000; // QFC=0
 	hwDmacIrq(DMAC_GIF);
 
-	return 1;
+	cpuRegs.interrupt &= ~(1 << 2);
 }
 
 static u64 s_gstag=0; // used for querying the last tag
@@ -1488,24 +1489,26 @@ void mfifoGIFtransfer(int qwc) {
 #endif
 }
 
-int gifMFIFOInterrupt()
+void gifMFIFOInterrupt()
 {
 	mfifocycles = 0;
 
-	if(!(gif->chcr & 0x100)) return 1;
+	if(!(gif->chcr & 0x100)) {cpuRegs.interrupt &= ~(1 << 11); return ; }
 	else if(gifqwc == 0 && (gifdone == 0 || gif->qwc > 0)) {
 		hwDmacIrq(14);
-		return 1;
+		cpuRegs.interrupt &= ~(1 << 11);
+		return;
 	}
 
 	if(gifdone != 1) {
 		mfifoGIFtransfer(0);
-		if(gifqwc == 0 || (gif->tadr == spr0->madr)) return 1;
-		else return 0;
+		if(gifqwc == 0 || (gif->tadr == spr0->madr)) {cpuRegs.interrupt &= ~(1 << 11); return; }
+		else return;
 	}
 	if(gifdone == 0 || gif->qwc > 0) {
 		SysPrintf("Shouldnt go here\n");
-		return 1;
+		cpuRegs.interrupt &= ~(1 << 11);
+		return;
 	}
 	gifdone = 0;
 	gif->chcr &= ~0x100;
@@ -1515,7 +1518,7 @@ int gifMFIFOInterrupt()
 	//psHu32(GIF_MODE)&= ~0x4;
 	psHu32(GIF_STAT)&= ~0xE00; // OPH=0 | APATH=0
 	psHu32(GIF_STAT)&= ~0x1F000000; // QFC=0
-	return 1;
+	cpuRegs.interrupt &= ~(1 << 11);
 }
 
 #if defined(_WIN32) && !defined(WIN32_PTHREADS)

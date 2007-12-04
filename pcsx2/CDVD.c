@@ -808,7 +808,7 @@ int cdvdReadSector() {
 	return 0;
 }
 
-int  cdvdReadInterrupt() {
+void cdvdReadInterrupt() {
 
 	//SysPrintf("cdvdReadInterrupt %x %x %x %x %x\n", cpuRegs.interrupt, cdvd.Readed, cdvd.Reading, cdvd.nSectors, (HW_DMA3_BCR_H16 * HW_DMA3_BCR_L16) *4);
 	cdvd.Ready   = 0x00;
@@ -820,7 +820,7 @@ int  cdvdReadInterrupt() {
 		cdvd.Status = CDVD_STATUS_SEEK_COMPLETE;
 
 		CDVDREAD_INT(cdvdReadTime);
-		return 0;
+		return;
 	}
 
 	if (cdvd.Reading == 1) {
@@ -833,7 +833,7 @@ int  cdvdReadInterrupt() {
 			if (cdvd.RetryCntP <= cdvd.RetryCnt) {
 				cdvd.RErr = CDVDreadTrack(cdvd.Sector, cdvd.ReadMode);
 				CDVDREAD_INT(cdvdReadTime);
-				return 0;
+				return;
 			}
 		}
 		cdvd.Reading = 0;
@@ -841,7 +841,7 @@ int  cdvdReadInterrupt() {
 	if (cdvdReadSector() == -1) {
 		assert( (int)cdvdReadTime > 0 );
 		CDVDREAD_INT(cdvdReadTime);
-		return 0;
+		return;
 	}
 
 	cdvd.Sector++;
@@ -853,14 +853,15 @@ int  cdvdReadInterrupt() {
 		HW_DMA3_CHCR &= ~0x01000000;
 		psxDmaInterrupt(3);
 		cdvd.Ready   = 0x4e;
-		return 1;
+		psxRegs.interrupt&= ~(1 << 19);
+		return;
 	}
 
 	cdvd.RetryCntP = 0;
 	cdvd.Reading = 1;
 	cdr.RErr = CDVDreadTrack(cdvd.Sector, cdvd.ReadMode);
 	CDVDREAD_INT(cdvdReadTime);
-	return 0;
+	return;
 }
 
 u8 monthmap[13] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };

@@ -520,7 +520,7 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 
 #if !defined(PCSX2_NORECBUILD)
 
-		if( size > 0 && vifRegs->num > 0 && !(v->addr&0xf) && cpucaps.hasStreamingSIMD2Extensions) {
+		if( size > 0 && vifRegs->num > 0 && !(v->addr&0xf) && !cpucaps.hasStreamingSIMD2Extensions) {
 			const UNPACKPARTFUNCTYPESSE* pfn;
 			int writemask;
 			//static LARGE_INTEGER lbase, lfinal;
@@ -1221,7 +1221,7 @@ int _chainVIF0() {
 	return vif0.done;												   //Return Done
 }
 
-void  vif0Interrupt() {
+int  vif0Interrupt() {
 	int ret;
 	g_vifCycles = 0; //Reset the cycle count, Wouldnt reset on stall if put lower down.
 #ifdef VIF_LOG 
@@ -1238,8 +1238,7 @@ void  vif0Interrupt() {
 			{
 				vif0Regs->stat&= ~0xF000000; // FQC=0
 				vif0ch->chcr &= ~0x100;
-				cpuRegs.interrupt &= ~1;
-				return;
+				return 1;
 			}					
 		}
 		
@@ -1258,7 +1257,7 @@ void  vif0Interrupt() {
 
 		if( !(psHu32(DMAC_CTRL) & 0x1) ) {
 			SysPrintf("vif0 dma masked\n");
-			return;
+			return 0;
 		}
 
 		if(vif0ch->qwc > 0) _VIF0chain();
@@ -1266,7 +1265,7 @@ void  vif0Interrupt() {
 		INT(0, g_vifCycles);
 		FreezeMMXRegs(0);
 		FreezeXMMRegs(0);
-		return;
+		return 0;
 		//if(ret!=2)
 		/*else*/ //return 1;
 	}
@@ -1278,7 +1277,7 @@ void  vif0Interrupt() {
 	hwDmacIrq(DMAC_VIF0);
 	vif0Regs->stat&= ~0xF000000; // FQC=0
 
-	cpuRegs.interrupt &= ~1;
+	return 1;
 }
 
 //  Vif1 Data Transfer Table
@@ -2117,7 +2116,7 @@ int _chainVIF1() {
 	return vif1.done;												   //Return Done
 }
 
-void vif1Interrupt() {
+int vif1Interrupt() {
 
 #ifdef VIF_LOG 
 	VIF_LOG("vif1Interrupt: %8.8x\n", cpuRegs.cycle);
@@ -2135,14 +2134,13 @@ void vif1Interrupt() {
 					vif1Regs->stat&= ~0x1F000000; // FQC=0
 					// One game doesnt like vif stalling at end, cant remember what. Spiderman isnt keen on it tho
 					vif1ch->chcr &= ~0x100;
-					cpuRegs.interrupt &= ~(1 << 1);
-					return;
+					return 1;
 				} 
 			//return 0;
 			if(vif1ch->qwc > 0){
 				_VIF1chain();
 				INT(1, g_vifCycles);
-				return;
+				return 0;
 			}
 		}
 		
@@ -2167,14 +2165,14 @@ void vif1Interrupt() {
 
 		if( !(psHu32(DMAC_CTRL) & 0x1) ) {
 			SysPrintf("vif1 dma masked\n");
-			return;
+			return 0;
 		}
 
 		_chainVIF1();
 		INT(1, g_vifCycles);
 		FreezeMMXRegs(0);
 		FreezeXMMRegs(0);
-		return;
+		return 0;
 	}
 	if(vif1ch->qwc > 0) SysPrintf("VIF1 Ending with QWC left\n");
 	//SysPrintf("VIF Interrupt\n");
@@ -2185,7 +2183,7 @@ void vif1Interrupt() {
 	hwDmacIrq(DMAC_VIF1);
 	if(vif1Regs->mskpath3 == 0 || (vif1ch->chcr & 0x1) == 0x1)vif1Regs->stat&= ~0x1F000000; // FQC=0
 
-	cpuRegs.interrupt &= ~(1 << 1);
+	return 1;
 }
 
 extern void gsWaitGS();

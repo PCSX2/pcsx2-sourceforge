@@ -1987,7 +1987,7 @@ void dmaIPU1() // toIPU
 
 extern void GIFdma();
 
-int ipu0Interrupt() {
+void ipu0Interrupt() {
 #ifdef IPU_LOG 
 	IPU_LOG("ipu0Interrupt: %x\n", cpuRegs.cycle);
 #endif
@@ -2017,10 +2017,10 @@ int ipu0Interrupt() {
 
 	hwDmacIrq(DMAC_FROM_IPU);
 	
-	return 1;
+	cpuRegs.interrupt &= ~(1 << 3);
 }
 
-int ipu1Interrupt() {
+void ipu1Interrupt() {
 #ifdef IPU_LOG 
 	IPU_LOG("ipu1Interrupt %x:\n", cpuRegs.cycle);
 #endif
@@ -2037,5 +2037,5 @@ int ipu1Interrupt() {
 	
 	hwDmacIrq(DMAC_TO_IPU);
 	
-	return 1;
+	cpuRegs.interrupt &= ~(1 << 4);
 }

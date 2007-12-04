@@ -92,7 +92,7 @@ void cdvdReadTimeRcnt(int mode);
 void cdvdVsync();
 int  cdvdInterrupt();
 int  cdvdFreeze(gzFile f, int Mode);
-int  cdvdReadInterrupt();
+void  cdvdReadInterrupt();
 void cdvdNewDiskCB();
 u8   cdvdRead04(void);
 u8   cdvdRead05(void);

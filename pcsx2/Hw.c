@@ -1283,15 +1283,18 @@ void hwWrite128(u32 mem, u64 *value) {
 			break;
 	}
 }
+#define endintccheck \
+	cpuRegs.interrupt &= ~(1 << 30); \
+	return;  \
 
-int  intcInterrupt() {
-	if ((cpuRegs.CP0.n.Status.val & 0x10407) != 0x10401) return 1;
+void  intcInterrupt() {
+	if ((cpuRegs.CP0.n.Status.val & 0x400) != 0x400) return;
 
 	if ((psHu32(INTC_STAT)) == 0) {
 		SysPrintf("*PCSX2*: intcInterrupt already cleared\n");
-		return 1;
+		endintccheck;
 	}
-	if ((psHu32(INTC_STAT) & psHu32(INTC_MASK)) == 0) return 1;
+	if ((psHu32(INTC_STAT) & psHu32(INTC_MASK)) == 0) return;
 
 #ifdef HW_LOG
 	HW_LOG("intcInterrupt %x\n", psHu32(INTC_STAT) & psHu32(INTC_MASK));
@@ -1303,27 +1306,33 @@ int  intcInterrupt() {
 
 	cpuException(0x400, cpuRegs.branch);
 
-	return 1;
+	endintccheck;
 }
 
-int  dmacTestInterrupt() {
-	if ((cpuRegs.CP0.n.Status.val & 0x10807) != 0x10801) return 1;
+#define enddmacheck \
+	cpuRegs.interrupt &= ~(1 << 31); \
+	return; \
+
+void  dmacTestInterrupt() {
+	if ((cpuRegs.CP0.n.Status.val & 0x800) != 0x800) return;
 
 	if ((psHu16(0xe012) & psHu16(0xe010) || 
-		 psHu16(0xe010) & 0x8000) == 0) return 1;
+		 psHu16(0xe010) & 0x8000) == 0) return;
 
-	if((psHu32(DMAC_CTRL) & 0x1) == 0) return 1;
-	return 1;
+	if((psHu32(DMAC_CTRL) & 0x1) == 0) return;
+	enddmacheck;
 }
 
-int  dmacInterrupt()
+
+
+void  dmacInterrupt()
 {
-if ((cpuRegs.CP0.n.Status.val & 0x10807) != 0x10801) return 1;
+if ((cpuRegs.CP0.n.Status.val & 0x10807) != 0x10801) return;
 
 	if ((psHu16(0xe012) & psHu16(0xe010) || 
-		 psHu16(0xe010) & 0x8000) == 0) return 1;
+		 psHu16(0xe010) & 0x8000) == 0) return;
 
-	if((psHu32(DMAC_CTRL) & 0x1) == 0) return 1;
+	if((psHu32(DMAC_CTRL) & 0x1) == 0) return;
 
 #ifdef HW_LOG
 	HW_LOG("dmacInterrupt %x\n", (psHu16(0xe012) & psHu16(0xe010) || 
@@ -1331,7 +1340,7 @@ if ((cpuRegs.CP0.n.Status.val & 0x10807) != 0x10801) return 1;
 #endif
 
 	cpuException(0x800, cpuRegs.branch);
-	return 1;
+	enddmacheck;
 }
 
 void hwIntcIrq(int n) {
