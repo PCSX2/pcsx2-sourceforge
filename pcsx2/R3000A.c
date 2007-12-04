@@ -144,6 +144,7 @@ void psxException(u32 code, u32 bd) {
 	}
 
 static void _psxTestInterrupts() {
+    // uncommenting until refraction can give a good reason as to why it shouldn't be here
 	PSX_TESTINT(4, psxDma4Interrupt);
 	PSX_TESTINT(7, psxDma7Interrupt);
 
@@ -168,7 +169,7 @@ void psxBranchTest()
 	else
 		g_psxNextBranchCycle = psxRegs.cycle;
 
-	if ((u32)(psxRegs.cycle - psxNextsCounter) >= psxNextCounter)
+	if ((int)(psxRegs.cycle - psxNextsCounter) >= psxNextCounter)
 		psxRcntUpdate();
 
 	if (psxRegs.interrupt) {
@@ -178,7 +179,7 @@ void psxBranchTest()
 //	if( (int)psxRegs.cycle-(int)g_psxNextBranchCycle > 0 )
 //		g_psxNextBranchCycle = psxRegs.cycle+1;
 //	else
-	if( (u32)(g_psxNextBranchCycle-psxNextsCounter) >= (u32)psxNextCounter )
+	if( (int)(g_psxNextBranchCycle-psxNextsCounter) >= (u32)psxNextCounter )
 		g_psxNextBranchCycle = (u32)psxNextsCounter+(u32)psxNextCounter;
 
 	if (psxHu32(0x1078)) {
