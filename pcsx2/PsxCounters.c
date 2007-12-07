@@ -69,7 +69,7 @@ static void psxRcntSet() {
 		if (c < psxNextCounter) {
 			psxNextCounter = c;
 		}
-		if((psxCounters[i].mode & 0x0020)) {			
+		if((psxCounters[i].mode & 0x0010)) { //0x20 is overflow interrupts, should be 0x10 for target, silly me.			
 			 c = (u32)(psxCounters[i].target - psxRcntCycles(i)) * psxCounters[i].rate;
 			if (c < psxNextCounter) {
 				psxNextCounter = c;
@@ -82,7 +82,7 @@ static void psxRcntSet() {
 		if (c < psxNextCounter) {
 			psxNextCounter = c;
 		}
-		if((psxCounters[i].mode & 0x0020)) {
+		if((psxCounters[i].mode & 0x0010)) { //0x20 is overflow interrupts, should be 0x10 for target, silly me.
 			 c = (u32)(psxCounters[i].target - psxRcntCycles(i)) * psxCounters[i].rate;
 			if (c < psxNextCounter) {
 				psxNextCounter = c;
