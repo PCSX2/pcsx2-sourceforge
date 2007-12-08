@@ -20,7 +20,7 @@
 #include <math.h>
 #include "PsxCommon.h"
 
-psxCounter psxCounters[9];
+psxCounter psxCounters[8];
 u32 psxNextCounter, psxNextsCounter;
 static int cnts = 6;
 u8 psxhblankgate = 0;
