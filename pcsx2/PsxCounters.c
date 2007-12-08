@@ -20,7 +20,7 @@
 #include <math.h>
 #include "PsxCommon.h"
 
-psxCounter psxCounters[8];
+psxCounter psxCounters[9];
 u32 psxNextCounter, psxNextsCounter;
 static int cnts = 6;
 u8 psxhblankgate = 0;
@@ -122,25 +122,24 @@ void psxRcntInit() {
 	psxCounters[5].interrupt = 0x10000;
 
 	if (SPU2async != NULL) {
-		cnts = 7;
+		
 
 		psxCounters[6].rate = 1;
 		psxCounters[6].CycleT = 48000;
 		psxCounters[6].mode = 0x8;
-	} else cnts = 6;
+	}
 
 	if (USBasync != NULL) {
-		psxCounters[cnts].rate = 1;
-		psxCounters[cnts].CycleT = PSXCLK/1000;
-		psxCounters[cnts].mode = 0x8;
-		cnts ++;
+		psxCounters[7].rate = 1;
+		psxCounters[7].CycleT = PSXCLK/1000;
+		psxCounters[7].mode = 0x8;
 	}
 
 	for (i=0; i<3; i++)
 		psxCounters[i].sCycleT = psxRegs.cycle;
 	for (i=3; i<6; i++)
 		psxCounters[i].sCycleT = psxRegs.cycle;
-	for (i=6; i<cnts; i++)
+	for (i=6; i<8; i++)
 		psxCounters[i].sCycleT = psxRegs.cycle;
 
 	psxRcntSet();
@@ -379,7 +378,7 @@ void _testRcnt32(int i) {
 
 void psxRcntUpdate() {
 	int i;
-	int q=6;
+
 	for (i=0; i<=5; i++) {
 		psxCounters[i].count += (psxRegs.cycle - psxCounters[i].sCycleT) / psxCounters[i].rate;
 		psxCounters[i].sCycleT = psxRegs.cycle;
@@ -394,17 +393,16 @@ void psxRcntUpdate() {
 
 	if(SPU2async)
 	{
-		q=7;
-		if (cnts >= 7 && (psxRegs.cycle - psxCounters[6].sCycleT) >= psxCounters[6].CycleT) {
+		if ((psxRegs.cycle - psxCounters[6].sCycleT) >= psxCounters[6].CycleT) {
 			SPU2async(psxRegs.cycle - psxCounters[6].sCycleT);//(u32)(psxRegs.cycle - psxNextsCounter));		
 			psxCounters[6].sCycleT = psxRegs.cycle;
 		}
 	}
 	if(USBasync)
 	{
-		if (cnts > q && (psxRegs.cycle - psxCounters[q].sCycleT) >= psxCounters[q].CycleT) {
-			USBasync(psxRegs.cycle - psxCounters[q].sCycleT);//(u32)(psxRegs.cycle - psxNextsCounter));		
-			psxCounters[q].sCycleT = psxRegs.cycle;
+		if ((psxRegs.cycle - psxCounters[7].sCycleT) >= psxCounters[7].CycleT) {
+			USBasync(psxRegs.cycle - psxCounters[7].sCycleT);//(u32)(psxRegs.cycle - psxNextsCounter));		
+			psxCounters[7].sCycleT = psxRegs.cycle;
 		}
 	}
 
