@@ -90,10 +90,20 @@ static void psxRcntSet() {
 		}
 	}
 
-	c = (u32)(psxCounters[6].CycleT - (psxRegs.cycle - psxCounters[6].sCycleT)) ;
-		if (c < psxNextCounter) {
-			psxNextCounter = c;
-		}
+	if(SPU2async)
+	{
+		c = (u32)(psxCounters[6].CycleT - (psxRegs.cycle - psxCounters[6].sCycleT)) ;
+			if (c < psxNextCounter) {
+				psxNextCounter = c;
+			}
+	}
+	if(USBasync)
+	{
+		c = (u32)(psxCounters[7].CycleT - (psxRegs.cycle - psxCounters[7].sCycleT)) ;
+			if (c < psxNextCounter) {
+				psxNextCounter = c;
+			}
+	}
 }
 
 
