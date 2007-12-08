@@ -36,11 +36,11 @@ LARGE_INTEGER lfreq;
 u32 eecntmask = 0;
 
 void rcntUpdTarget(int index) {
-	counters[index].sCycleT = cpuRegs.cycle - (cpuRegs.cycle % counters[index].rate);
+	counters[index].sCycleT = cpuRegs.cycle/* - (cpuRegs.cycle % counters[index].rate)*/;
 }
 
 void rcntUpd(int index) {
-	counters[index].sCycle = cpuRegs.cycle - (cpuRegs.cycle % counters[index].rate);
+	counters[index].sCycle = cpuRegs.cycle /*- (cpuRegs.cycle % counters[index].rate)*/;
 	rcntUpdTarget(index);
 }
 
@@ -482,11 +482,7 @@ void rcntUpdate()
 					hwIntcIrq(counters[i].interrupt);
 					
 				}
-				if (counters[i].mode & 0x40) { // Reset on target
-					counters[i].count -= counters[i].target;
-					//eecntmask &= ~(1 << i);
-					rcntUpd(i);
-				}
+				
 				//eecntmask |= (1 << i);
 				//}
 				
@@ -558,6 +554,14 @@ void rcntWmode(int index, u32 value)
 
 	if (value & 0xc00) { //Clear status flags, the ps2 only clears what is given in the value
 		//eecntmask &= ~(1 << index);
+		
+		
+		if ((counters[index].mode & 0x440) == 0x440) { // Reset on target
+				SysPrintf("CNT Reset\n");
+				counters[index].count = 0;
+				//eecntmask &= ~(1 << i);
+				rcntUpd(index);
+			}
 		counters[index].mode &= ~(value & 0xc00);
 	}
 
