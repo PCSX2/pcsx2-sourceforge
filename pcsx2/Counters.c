@@ -60,13 +60,13 @@ void rcntSet() {
 	for (i = 0; i < 4; i++) {
 		if (!(counters[i].mode & 0x80)) continue; // Stopped
 
-			c = (0xffff - rcntCycle(i)) * counters[i].rate;
+			c = (0x10000 - rcntCycle(i)) * counters[i].rate;
 			if (c < nextCounter) {
 				nextCounter = c;
 			}
 		
 		// the + 10 is just in case of overflow
-			if(!(counters[i].mode & 0x100)) continue;
+			if(!(counters[i].mode & 0x100) && (counters[i].target & 0xffff) > 0) continue;
 			 c = (counters[i].target - rcntCycle(i)) * counters[i].rate;
 			if (c < nextCounter) {
 			nextCounter = c;
@@ -457,8 +457,29 @@ void rcntUpdate()
 	for (i=0; i<=3; i++) {
 		if (!(counters[i].mode & 0x80)) continue; // Stopped
 
-		if (counters[i].count >= 0xffff) {
-		//eecntmask &= ~(1 << i);
+		if ((s64)(counters[i].target - counters[i].count) <= 0 && (counters[i].target & 0xffff) > 0) { // Target interrupt
+				
+				
+				if(counters[i].mode & 0x100 ) {
+#ifdef EECNT_LOG
+	EECNT_LOG("EE counter %d target reached mode %x count %x target %x\n", i, counters[i].mode, counters[i].count, counters[i].target);
+#endif
+
+					counters[i].mode|= 0x0400; // Target flag
+					hwIntcIrq(counters[i].interrupt);
+					if (counters[i].mode & 0x40) { //The PS2 only resets if the interrupt is enabled - Tested on PS2
+						if((counters[i].target > 0xffff)) {
+							//SysPrintf("EE Correcting target %x after reset on target\n", i);
+							counters[i].target &= 0xffff;
+						}
+						counters[i].count = 0; // Reset on target	
+					} 
+					else counters[i].target += 0x10000;
+				} 
+			
+		}
+		if (counters[i].count > 0xffff) {
+		
 		
 			if (counters[i].mode & 0x0200) { // Overflow interrupt
 #ifdef EECNT_LOG
@@ -466,41 +487,15 @@ void rcntUpdate()
 #endif
 				counters[i].mode|= 0x0800; // Overflow flag
 				hwIntcIrq(counters[i].interrupt);
-//				SysPrintf("counter[%d] overflow interrupt (%x)\n", i, cpuRegs.cycle);
+				//SysPrintf("counter[%d] overflow interrupt (%x)\n", i, cpuRegs.cycle);
 			}
 			counters[i].count = 0;
 			if(counters[i].target > 0xffff) {
-				//SysPrintf("EE %x Correcting target\n", i);
-				counters[i].target -= 0x10000;
+				//SysPrintf("EE %x Correcting target on overflow\n", i);
+				counters[i].target &= 0xffff;
 				}
 		} 	
 
-		if ((s64)(counters[i].target - counters[i].count) <= 0 && (counters[i].mode & 0x400) == 0) { // Target interrupt
-				/*if (rcntCycle(i) != counters[i].target){
-					SysPrintf("rcntcycle = %d, target = %d, cyclet = %d\n", rcntCycle(i), counters[i].target, counters[i].sCycleT);
-					counters[i].sCycleT += (rcntCycle(i) - counters[i].target) * counters[i].rate;
-					SysPrintf("rcntcycle = %d, target = %d, cyclet = %d\n", rcntCycle(i), counters[i].target, counters[i].sCycleT);
-				}*/
-				//if ((eecntmask & (1 << i)) == 0) {
-				
-				if(counters[i].mode & 0x100 ) {
-#ifdef EECNT_LOG
-	EECNT_LOG("EE counter %d target mode %x count %x target %x\n", i, counters[i].mode, counters[i].count, counters[i].target);
-#endif
-
-					counters[i].mode|= 0x0400; // Target flag
-					hwIntcIrq(counters[i].interrupt);
-					if (counters[i].mode & 0x40)  //The PS2 only resets if the interrupt is enabled - Tested on PS2
-						counters[i].count = 0; // Reset on target				
-				}
-				
-				
-				//eecntmask |= (1 << i);
-				//}		
-			
-		}
-				
-	//	rcntUpd(i);
 	}
 	
 	if ((cpuRegs.cycle - counters[4].sCycleT) >= counters[4].CycleT && hblankend == 1){
@@ -546,13 +541,14 @@ void rcntUpdate()
 }
 
 void rcntWcount(int index, u32 value) {
-	//SysPrintf ("writeCcount[%d] = %x\n", index, value);
 #ifdef EECNT_LOG
 	EECNT_LOG("EE count write %d count %x with %x target %x eecycle %x\n", index, counters[index].count, value, counters[index].target, cpuRegs.eCycle);
 #endif
-	//if((u16)value < counters[index].target)
-	//eecntmask &= ~(1 << index);
 	counters[index].count = value & 0xffff;
+	if(counters[index].target > 0xffff) {
+		counters[index].target &= 0xffff;
+		//SysPrintf("EE Counter %x count write, target > 0xffff\n", index);
+		}
 	rcntUpd(index);
 	rcntSet();
 }
@@ -562,17 +558,15 @@ void rcntWmode(int index, u32 value)
 
 
 	if (value & 0xc00) { //Clear status flags, the ps2 only clears what is given in the value
-		//eecntmask &= ~(1 << index);
 		counters[index].mode &= ~(value & 0xc00);
 	}
 
 	if((value & 0x80) && !(counters[index].mode & 0x80)) rcntUpd(index); //Counter wasnt started, so set the start cycle
 		
-//	if((value & 0x3ff) != (counters[index].mode & 0x3ff))eecntmask &= ~(1 << index);
 	counters[index].mode = (counters[index].mode & 0xc00) | (value & 0x3ff);
 
 #ifdef EECNT_LOG
-	EECNT_LOG("EE counter set %d mode %x\n", index, counters[index].mode);
+	EECNT_LOG("EE counter set %d mode %x count %x\n", index, counters[index].mode, rcntCycle(index));
 #endif
 
 	switch (value & 0x3) {                        //Clock rate divisers *2, they use BUSCLK speed not PS2CLK
@@ -592,10 +586,10 @@ void rcntWmode(int index, u32 value)
 			rcntReset(index);
 	}
 	else gates &= ~(1<<index);
-	//counters[index].count = 0;
-	if(counters[index].target > 0xffff) {
+	
+	if((counters[index].target > 0xffff) && (counters[index].target & 0xffff) > rcntCycle(index)) {
 				//SysPrintf("EE Correcting target %x after mode write\n", index);
-				counters[index].target -= 0x10000;
+				counters[index].target &= 0xffff;
 				}
 	rcntSet();
 
@@ -662,15 +656,14 @@ void rcntEndGate(int mode){
 }
 void rcntWtarget(int index, u32 value) {
 
-	//eecntmask &= ~(1 << index);
-	counters[index].target = value & 0xffff;
-	if(counters[index].target < rcntCycle(index)) {
-		//SysPrintf("EE Saving target %d from early trigger\n", index);
-		counters[index].target += 0x10000;
-		}
 #ifdef EECNT_LOG
 	EECNT_LOG("EE target write %d target %x value %x\n", index, counters[index].target, value);
 #endif
+	counters[index].target = value & 0xffff;
+		if(counters[index].target <= rcntCycle(index) && counters[index].target != 0) {
+			//SysPrintf("EE Saving target %d from early trigger, target = %x, count = %x\n", index, counters[index].target, rcntCycle(index));
+			counters[index].target += 0x10000;
+			}
 	rcntSet();
 }
 
