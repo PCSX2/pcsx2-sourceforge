@@ -740,11 +740,18 @@ static void (*recComOpXMM_to_XMM[] )(x86SSERegType, x86SSERegType) = {
 static void (*recComOpM32_to_XMM[] )(x86SSERegType, uptr) = {
 	SSE_ADDSS_M32_to_XMM, SSE_MULSS_M32_to_XMM, SSE_MAXSS_M32_to_XMM, SSE_MINSS_M32_to_XMM };
 
+static PCSX2_ALIGNED16(u32 s_overflowmask[]) = {0xf0000000, 0xf0000000, 0xf0000000, 0xf0000000};
+extern int g_VuNanHandling;
+
 void ClampValues(regd){ 
 	int t5reg = _allocTempXMMreg(XMMT_FPS, -1);
 
     SSE_XORPS_XMM_to_XMM(t5reg, t5reg); 
 	SSE_CMPORDSS_XMM_to_XMM(t5reg, regd); 
+
+    if( g_VuNanHandling )
+        SSE_ORPS_M128_to_XMM(t5reg, (uptr)s_overflowmask);
+
 	SSE_ANDPS_XMM_to_XMM(regd, t5reg); 
 	SSE_MAXSS_M32_to_XMM(regd, (uptr)&g_minvals[0]); 
 	SSE_MINSS_M32_to_XMM(regd, (uptr)&g_maxvals[0]); 

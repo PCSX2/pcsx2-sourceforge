@@ -82,3 +82,5 @@ _DEBUG - build with extra debug information
 NDEBUG - build without absolutely no debug information
 
 ZEROGS_SSE2 - controls sse2 usage in zerogs
+
+compile with -D_FILE_OFFSET_BITS=64 if iso is failing to load large files
