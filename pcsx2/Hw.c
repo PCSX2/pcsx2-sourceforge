@@ -1283,16 +1283,14 @@ void hwWrite128(u32 mem, u64 *value) {
 			break;
 	}
 }
-#define endintccheck \
-	cpuRegs.interrupt &= ~(1 << 30); \
-	return;  \
 
 void  intcInterrupt() {
+    cpuRegs.interrupt &= ~(1 << 30);
 	if ((cpuRegs.CP0.n.Status.val & 0x400) != 0x400) return;
 
 	if ((psHu32(INTC_STAT)) == 0) {
 		SysPrintf("*PCSX2*: intcInterrupt already cleared\n");
-		endintccheck;
+        return;
 	}
 	if ((psHu32(INTC_STAT) & psHu32(INTC_MASK)) == 0) return;
 
@@ -1305,29 +1303,24 @@ void  intcInterrupt() {
 	}
 
 	cpuException(0x400, cpuRegs.branch);
-
-	endintccheck;
 }
 
-#define enddmacheck \
-	cpuRegs.interrupt &= ~(1 << 31); \
-	return; \
-
 void  dmacTestInterrupt() {
+    cpuRegs.interrupt &= ~(1 << 31);
 	if ((cpuRegs.CP0.n.Status.val & 0x800) != 0x800) return;
 
 	if ((psHu16(0xe012) & psHu16(0xe010) || 
 		 psHu16(0xe010) & 0x8000) == 0) return;
 
 	if((psHu32(DMAC_CTRL) & 0x1) == 0) return;
-	enddmacheck;
 }
 
 
 
 void  dmacInterrupt()
 {
-if ((cpuRegs.CP0.n.Status.val & 0x10807) != 0x10801) return;
+    cpuRegs.interrupt &= ~(1 << 31);
+    if ((cpuRegs.CP0.n.Status.val & 0x10807) != 0x10801) return;
 
 	if ((psHu16(0xe012) & psHu16(0xe010) || 
 		 psHu16(0xe010) & 0x8000) == 0) return;
@@ -1340,7 +1333,6 @@ if ((cpuRegs.CP0.n.Status.val & 0x10807) != 0x10801) return;
 #endif
 
 	cpuException(0x800, cpuRegs.branch);
-	enddmacheck;
 }
 
 void hwIntcIrq(int n) {

@@ -1077,8 +1077,8 @@ int eeRecompileCodeXMM(int xmminfo)
 // rd = rs op rt
 void eeFPURecompileCode(R5900FNPTR_INFO xmmcode, R5900FNPTR_INFO fpucode, int xmminfo)
 {
-	int mmregs=-1, mmregt=-1, mmregd=-1, mmregacc=-1;
-	if( EE_FPU_REGCACHING && cpucaps.hasStreamingSIMDExtensions ) {
+    int mmregs=-1, mmregt=-1, mmregd=-1, mmregacc=-1;
+	if( fpucode == NULL || (EE_FPU_REGCACHING && cpucaps.hasStreamingSIMDExtensions) ) {
 		int info = PROCESS_EE_XMM;
 
 		if( xmminfo & XMMINFO_READS ) _addNeededFPtoXMMreg(_Fs_);
