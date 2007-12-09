@@ -756,7 +756,24 @@ void ClampValues(regd){
 	SSE_MAXSS_M32_to_XMM(regd, (uptr)&g_minvals[0]); 
 	SSE_MINSS_M32_to_XMM(regd, (uptr)&g_maxvals[0]); 
     _freeXMMreg(t5reg); 
-	}
+}
+
+void ClampValues2(regd){ 
+	int t5reg = _allocTempXMMreg(XMMT_FPS, -1);
+
+    SSE_XORPS_XMM_to_XMM(t5reg, t5reg); 
+	SSE_CMPORDSS_XMM_to_XMM(t5reg, regd); 
+
+    SSE_ORPS_M128_to_XMM(t5reg, (uptr)s_overflowmask); // fixes katamari falling off podium
+
+	SSE_ANDPS_XMM_to_XMM(regd, t5reg); 
+
+    // not necessary since above ORPS handles that (i think)
+	//SSE_MAXSS_M32_to_XMM(regd, (uptr)&g_minvals[0]); 
+	//SSE_MINSS_M32_to_XMM(regd, (uptr)&g_maxvals[0]); 
+
+    _freeXMMreg(t5reg); 
+}
 
 int recCommutativeOp(int info, int regd, int op) {
 	switch(info & (PROCESS_EE_S|PROCESS_EE_T) ) {
@@ -843,11 +860,9 @@ int recNonCommutativeOp(int info, int regd, int op)
 	return regd;
 }
 
-void recADD_S_xmm(int info) {
-			
-   ClampValues(recCommutativeOp(info, EEREC_D, 0));
-
-	
+void recADD_S_xmm(int info)
+{
+    ClampValues(recCommutativeOp(info, EEREC_D, 0));
 }
 
 FPURECOMPILE_CONSTCODE(ADD_S, XMMINFO_WRITED|XMMINFO_READS|XMMINFO_READT);
@@ -855,9 +870,7 @@ FPURECOMPILE_CONSTCODE(ADD_S, XMMINFO_WRITED|XMMINFO_READS|XMMINFO_READT);
 ////////////////////////////////////////////////////
 void recSUB_S_xmm(int info)
 {
-		
    ClampValues(recNonCommutativeOp(info, EEREC_D, 0));
-	
 }
 
 FPURECOMPILE_CONSTCODE(SUB_S, XMMINFO_WRITED|XMMINFO_READS|XMMINFO_READT);
@@ -873,7 +886,7 @@ FPURECOMPILE_CONSTCODE(MUL_S, XMMINFO_WRITED|XMMINFO_READS|XMMINFO_READT);
 ////////////////////////////////////////////////////
 void recDIV_S_xmm(int info)
 {				
-    ClampValues(recNonCommutativeOp(info, EEREC_D, 1));
+    ClampValues2(recNonCommutativeOp(info, EEREC_D, 1));
 }
 
 FPURECOMPILE_CONSTCODE(DIV_S, XMMINFO_WRITED|XMMINFO_READS|XMMINFO_READT);
@@ -1009,17 +1022,13 @@ FPURECOMPILE_CONSTCODE(RSQRT_S, XMMINFO_WRITED|XMMINFO_READS|XMMINFO_READT);
 
 void recADDA_S_xmm(int info)
 {
-	
     ClampValues(recCommutativeOp(info, EEREC_ACC, 0));
-	
 }
 
 FPURECOMPILE_CONSTCODE(ADDA_S, XMMINFO_WRITEACC|XMMINFO_READS|XMMINFO_READT);
 
 void recSUBA_S_xmm(int info) {				
     ClampValues(recNonCommutativeOp(info, EEREC_ACC, 0));
-
-   
 }
 
 FPURECOMPILE_CONSTCODE(SUBA_S, XMMINFO_WRITEACC|XMMINFO_READS|XMMINFO_READT);
@@ -1356,14 +1365,14 @@ void recCVT_W()
 
 void recMAX_S_xmm(int info)
 {
-	ClampValues(recCommutativeOp(info, EEREC_D, 2));
+    recCommutativeOp(info, EEREC_D, 2);
 }
 
 FPURECOMPILE_CONSTCODE(MAX_S, XMMINFO_WRITED|XMMINFO_READS|XMMINFO_READT);
 
 void recMIN_S_xmm(int info)
 {
-	ClampValues(recCommutativeOp(info, EEREC_D, 3));
+    recCommutativeOp(info, EEREC_D, 3);
 }
 
 FPURECOMPILE_CONSTCODE(MIN_S, XMMINFO_WRITED|XMMINFO_READS|XMMINFO_READT);

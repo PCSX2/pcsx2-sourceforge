@@ -66,7 +66,7 @@ void rcntSet() {
 			}
 		
 		// the + 10 is just in case of overflow
-			if(!(counters[i].mode & 0x100) && (counters[i].target & 0xffff) > 0) continue;
+			if(!(counters[i].mode & 0x100) /*&& (counters[i].target & 0xffff) > 0*/) continue;
 			 c = (counters[i].target - rcntCycle(i)) * counters[i].rate;
 			if (c < nextCounter) {
 			nextCounter = c;
@@ -457,7 +457,7 @@ void rcntUpdate()
 	for (i=0; i<=3; i++) {
 		if (!(counters[i].mode & 0x80)) continue; // Stopped
 
-		if ((s64)(counters[i].target - counters[i].count) <= 0 && (counters[i].target & 0xffff) > 0) { // Target interrupt
+		if ((s64)(counters[i].target - counters[i].count) <= 0 /*&& (counters[i].target & 0xffff) > 0*/) { // Target interrupt
 				
 				
 				if(counters[i].mode & 0x100 ) {
@@ -660,7 +660,7 @@ void rcntWtarget(int index, u32 value) {
 	EECNT_LOG("EE target write %d target %x value %x\n", index, counters[index].target, value);
 #endif
 	counters[index].target = value & 0xffff;
-		if(counters[index].target <= rcntCycle(index) && counters[index].target != 0) {
+		if(counters[index].target <= rcntCycle(index)/* && counters[index].target != 0*/) {
 			//SysPrintf("EE Saving target %d from early trigger, target = %x, count = %x\n", index, counters[index].target, rcntCycle(index));
 			counters[index].target += 0x10000;
 			}

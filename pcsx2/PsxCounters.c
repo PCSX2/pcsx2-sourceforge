@@ -61,7 +61,7 @@ static void psxRcntSet() {
 		if (c < psxNextCounter) {
 			psxNextCounter = c;
 		}
-		if((psxCounters[i].mode & 0x100) == 0 || (psxCounters[i].target & 0xffff) == 0) continue;
+		if((psxCounters[i].mode & 0x100) == 0 /*|| (psxCounters[i].target & 0xffff) == 0*/) continue;
 		 c = (u32)(psxCounters[i].target - psxRcntCycles(i)) * psxCounters[i].rate;
 		if (c < psxNextCounter && c > 0) {
 			psxNextCounter = c;
@@ -74,7 +74,7 @@ static void psxRcntSet() {
 			psxNextCounter = c;
 		}
 		
-		if((psxCounters[i].mode & 0x100) == 0 || (psxCounters[i].target & 0xffffffff) == 0) continue;
+		if((psxCounters[i].mode & 0x100) == 0 /*|| (psxCounters[i].target & 0xffffffff) == 0*/) continue;
 		c = (u32)(psxCounters[i].target - psxRcntCycles(i)) * psxCounters[i].rate;
 		if (c < psxNextCounter && c > 0) {
 			psxNextCounter = c;
@@ -359,7 +359,7 @@ void _testRcnt32overflow(int i) {
 
 void _testRcnt16(int i) {
 
-	if (psxCounters[i].target > 0 && (s64)(psxCounters[i].target - psxCounters[i].count) <= 0){
+	if (/*psxCounters[i].target > 0 &&*/ (s64)(psxCounters[i].target - psxCounters[i].count) <= 0){
 		_testRcnt16target(i);
 	}
 	if (psxCounters[i].count > 0xffff)
@@ -368,7 +368,7 @@ void _testRcnt16(int i) {
 
 void _testRcnt32(int i) {
 
-	if (psxCounters[i].target > 0 && (s64)(psxCounters[i].target - psxCounters[i].count) <= 0){
+	if (/*psxCounters[i].target > 0 && */(s64)(psxCounters[i].target - psxCounters[i].count) <= 0){
 		_testRcnt32target(i);
 	}
 	if (psxCounters[i].count > 0xffffffff)
@@ -655,7 +655,7 @@ void psxRcntWtarget16(int index, u32 value) {
 	PSXCNT_LOG("writeCtarget16[%ld] = %lx\n", index, value);
 #endif
 	psxCounters[index].target = value & 0xffff;
-	if(psxCounters[index].target <= psxRcntCycles(index) && psxCounters[index].target != 0) {
+	if(psxCounters[index].target <= psxRcntCycles(index)/* && psxCounters[index].target != 0*/) {
 		//SysPrintf("IOP 16 Saving %x target from early trigger target = %x, count = %I64x\n", index, psxCounters[index].target, psxRcntCycles(index));
 		psxCounters[index].target += 0x10000;
 		}
@@ -670,7 +670,7 @@ void psxRcntWtarget32(int index, u32 value) {
 #endif
 
 	psxCounters[index].target = value;
-	if(psxCounters[index].target <= psxRcntCycles(index) && psxCounters[index].target != 0) {
+	if(psxCounters[index].target <= psxRcntCycles(index)/* && psxCounters[index].target != 0*/) {
 		//SysPrintf("IOP 32 Saving %x target from early trigger target = %x, count = %I64x\n", index, psxCounters[index].target, psxRcntCycles(index));
 		psxCounters[index].target += 0x100000000;
 		}
