@@ -283,7 +283,7 @@ void _testRcnt16target(int i) {
 		psxHu32(0x1070)|= psxCounters[i].interrupt;	
 		
 	if (psxCounters[i].mode & 0x08) { // Reset on target
-		psxCounters[i].count -= psxCounters[i].target;
+		psxCounters[i].count = 0;
 		if(psxCounters[i].target > 0xffff) {
 			//SysPrintf("IOP 16 Correcting target\n");
 			psxCounters[i].target -= 0x10000;
@@ -306,7 +306,7 @@ void _testRcnt16overflow(int i) {
 		if(psxCounters[i].mode & 0x80)
 			psxCounters[i].mode&= ~0x0400; // Interrupt flag
 	}
-	psxCounters[i].count -= 0xffff;
+	psxCounters[i].count = 0;
 	if(psxCounters[i].target > 0xffff) {
 		//SysPrintf("IOP 16 Correcting target\n");
 		psxCounters[i].target -= 0x10000;
@@ -331,7 +331,7 @@ void _testRcnt32target(int i) {
 		psxHu32(0x1070)|= psxCounters[i].interrupt;	
 	
 	if (psxCounters[i].mode & 0x08) { // Reset on target
-			psxCounters[i].count -= psxCounters[i].target;
+			psxCounters[i].count = 0;
 			if(psxCounters[i].target > 0xffffffff) {
 				//SysPrintf("IOP 32 Correcting target\n");
 				psxCounters[i].target -= 0x100000000;
@@ -354,7 +354,7 @@ void _testRcnt32overflow(int i) {
 		if(psxCounters[i].mode & 0x80)
 			psxCounters[i].mode&= ~0x0400; // Interrupt flag
 	}
-	psxCounters[i].count -= 0xffffffff;
+	psxCounters[i].count = 0;
 	if(psxCounters[i].target > 0xffffffff) {
 		//SysPrintf("IOP 32 Correcting target\n");
 		psxCounters[i].target -= 0x100000000;
