@@ -273,7 +273,7 @@ void psxDMA12Interrupt()
 {
 	HW_DMA12_CHCR &= ~0x01000000;
 	psxDmaInterrupt2(5);
-	psxRegs.interrupt&= ~(1 << 16);
+	psxRegs.interrupt&= ~(1 << 12);
 }
 
 int  sio2Freeze(gzFile f, int Mode) {
