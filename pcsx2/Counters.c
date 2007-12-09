@@ -452,24 +452,30 @@ void rcntUpdate()
 	int i;
 	for (i=0; i<=3; i++) {
 		if ((counters[i].mode & 0x80)) counters[i].count += (int)((cpuRegs.cycle - counters[i].sCycleT) / counters[i].rate);
-		counters[i].sCycleT = cpuRegs.cycle - (cpuRegs.cycle % counters[i].rate);
+		counters[i].sCycleT = cpuRegs.cycle - ((cpuRegs.cycle - counters[i].sCycleT) % counters[i].rate);
 	}
 	for (i=0; i<=3; i++) {
 		if (!(counters[i].mode & 0x80)) continue; // Stopped
 
-			if (counters[i].count >= 0xffff) {
-			//eecntmask &= ~(1 << i);
-			
-				if (counters[i].mode & 0x0200 && !(counters[i].mode & 0x800)) { // Overflow interrupt
-					counters[i].mode|= 0x0800; // Overflow flag
-					hwIntcIrq(counters[i].interrupt);
-	//				SysPrintf("counter[%d] overflow interrupt (%x)\n", i, cpuRegs.cycle);
-				}
-				counters[i].count -= 0xffff;
-				rcntUpd(i);
-			} 
+		if (counters[i].count >= 0xffff) {
+		//eecntmask &= ~(1 << i);
 		
-			if ((s64)(counters[i].target - counters[i].count) <= 0) { // Target interrupt
+			if (counters[i].mode & 0x0200) { // Overflow interrupt
+#ifdef EECNT_LOG
+	EECNT_LOG("EE counter %d overflow mode %x count %x target %x\n", i, counters[i].mode, counters[i].count, counters[i].target);
+#endif
+				counters[i].mode|= 0x0800; // Overflow flag
+				hwIntcIrq(counters[i].interrupt);
+//				SysPrintf("counter[%d] overflow interrupt (%x)\n", i, cpuRegs.cycle);
+			}
+			counters[i].count -= 0xffff;
+			if(counters[i].target > 0x10000) {
+				//SysPrintf("EE %x Correcting target\n", i);
+				counters[i].target -= 0x10000;
+				}
+		} 	
+
+		if ((s64)(counters[i].target - counters[i].count) <= 0 && (counters[i].mode & 0x400) == 0) { // Target interrupt
 				/*if (rcntCycle(i) != counters[i].target){
 					SysPrintf("rcntcycle = %d, target = %d, cyclet = %d\n", rcntCycle(i), counters[i].target, counters[i].sCycleT);
 					counters[i].sCycleT += (rcntCycle(i) - counters[i].target) * counters[i].rate;
@@ -477,20 +483,23 @@ void rcntUpdate()
 				}*/
 				//if ((eecntmask & (1 << i)) == 0) {
 				
-				if(counters[i].mode & 0x100 && !(counters[i].mode & 0x400)) {
+				if(counters[i].mode & 0x100 ) {
+#ifdef EECNT_LOG
+	EECNT_LOG("EE counter %d target mode %x count %x target %x\n", i, counters[i].mode, counters[i].count, counters[i].target);
+#endif
+
 					counters[i].mode|= 0x0400; // Target flag
 					hwIntcIrq(counters[i].interrupt);
-					
+					if (counters[i].mode & 0x40)  //The PS2 only resets if the interrupt is enabled - Tested on PS2
+						counters[i].count -= counters[i].target; // Reset on target				
 				}
 				
-				//eecntmask |= (1 << i);
-				//}
 				
+				//eecntmask |= (1 << i);
+				//}		
 			
 		}
-		
-		
-		
+				
 	//	rcntUpd(i);
 	}
 	
@@ -554,14 +563,6 @@ void rcntWmode(int index, u32 value)
 
 	if (value & 0xc00) { //Clear status flags, the ps2 only clears what is given in the value
 		//eecntmask &= ~(1 << index);
-		
-		
-		if ((counters[index].mode & 0x440) == 0x440) { // Reset on target
-				SysPrintf("CNT Reset\n");
-				counters[index].count = 0;
-				//eecntmask &= ~(1 << i);
-				rcntUpd(index);
-			}
 		counters[index].mode &= ~(value & 0xc00);
 	}
 
@@ -592,6 +593,10 @@ void rcntWmode(int index, u32 value)
 	}
 	else gates &= ~(1<<index);
 	//counters[index].count = 0;
+	if(counters[index].target > 0xffff) {
+				//SysPrintf("EE Correcting target %x after mode write\n", index);
+				counters[index].target -= 0x10000;
+				}
 	rcntSet();
 
 }
@@ -659,7 +664,10 @@ void rcntWtarget(int index, u32 value) {
 
 	//eecntmask &= ~(1 << index);
 	counters[index].target = value & 0xffff;
-	
+	if(counters[index].target < rcntCycle(index)) {
+		//SysPrintf("EE Saving target %d from early trigger\n", index);
+		counters[index].target += 0x10000;
+		}
 #ifdef EECNT_LOG
 	EECNT_LOG("EE target write %d target %x value %x\n", index, counters[index].target, value);
 #endif

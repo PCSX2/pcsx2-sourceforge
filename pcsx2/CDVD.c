@@ -679,7 +679,7 @@ void cdvdReadTimeRcnt(int mode){	// Mode 0 is DVD, Mode 1 is CD
 	amount = 1280000;
 	
 	readsize = amount / cdvd.BlockSize; // Time taken for 1 sector to be read
-	cdvdReadTime = ((PSXCLK / readsize) / BIAS) / cdvd.Speed;
+	cdvdReadTime = ((PSXCLK / readsize)) / cdvd.Speed;
 }
 
 int  cdvdFreeze(gzFile f, int Mode) {

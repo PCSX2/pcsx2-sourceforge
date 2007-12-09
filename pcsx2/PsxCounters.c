@@ -69,25 +69,23 @@ static void psxRcntSet() {
 		if (c < psxNextCounter) {
 			psxNextCounter = c;
 		}
-		if((psxCounters[i].mode & 0x0010)) { //0x20 is overflow interrupts, should be 0x10 for target, silly me.			
-			 c = (u32)(psxCounters[i].target - psxRcntCycles(i)) * psxCounters[i].rate;
-			if (c < psxNextCounter) {
-				psxNextCounter = c;
-			}
-			//SysPrintf("Setting delay for counter %x time %x mode %I64x newtarget %x\n", i, psxNextCounter, psxCounters[i].mode, newtarget[i]);
+		 c = (u32)(psxCounters[i].target - psxRcntCycles(i)) * psxCounters[i].rate;
+		if (c < psxNextCounter && c > 0) {
+			psxNextCounter = c;
 		}
+			
 	}
 	for (i=3; i<6; i++) {
 		c = (u32)(0xffffffff - psxRcntCycles(i)) * psxCounters[i].rate;
 		if (c < psxNextCounter) {
 			psxNextCounter = c;
 		}
-		if((psxCounters[i].mode & 0x0010)) { //0x20 is overflow interrupts, should be 0x10 for target, silly me.
-			 c = (u32)(psxCounters[i].target - psxRcntCycles(i)) * psxCounters[i].rate;
-			if (c < psxNextCounter) {
-				psxNextCounter = c;
-			}
+
+		c = (u32)(psxCounters[i].target - psxRcntCycles(i)) * psxCounters[i].rate;
+		if (c < psxNextCounter && c > 0) {
+			psxNextCounter = c;
 		}
+		
 	}
 
 	if(SPU2async)
@@ -284,12 +282,14 @@ void _testRcnt16target(int i) {
 	if (psxCounters[i].mode & 0x10)  // Target interrupt
 		psxHu32(0x1070)|= psxCounters[i].interrupt;	
 		
-		
-	/*if (psxCounters[i].mode & 0x08) { // Reset on target
+	if (psxCounters[i].mode & 0x08) { // Reset on target
 		psxCounters[i].count -= psxCounters[i].target;
-		psxRcntUpd16(i);
-		return;
-	}*/
+		if(psxCounters[i].target > 0xffff) {
+			//SysPrintf("IOP 16 Correcting target\n");
+			psxCounters[i].target -= 0x10000;
+		}
+	}
+	
 	/*if(!(psxCounters[i].mode & 0x40))psxcntmask |= (1<<i);
 	else psxcntmask &= ~(1<<i);*/
 }
@@ -307,8 +307,12 @@ void _testRcnt16overflow(int i) {
 			psxCounters[i].mode&= ~0x0400; // Interrupt flag
 	}
 	psxCounters[i].count -= 0xffff;
+	if(psxCounters[i].target > 0xffff) {
+		//SysPrintf("IOP 16 Correcting target\n");
+		psxCounters[i].target -= 0x10000;
+		}
 	//psxcntmask &= ~(1<<i);
-	psxRcntUpd16(i);
+	//psxRcntUpd16(i);
 }
 
 void _testRcnt32target(int i) {
@@ -323,15 +327,17 @@ void _testRcnt32target(int i) {
 		if (psxCounters[i].mode & 0x10)psxCounters[i].mode&= ~0x0400; // Interrupt flag
 			
 
-	if (psxCounters[i].mode & 0x10) // Target interrupt
+	if (psxCounters[i].mode & 0x10)  // Target interrupt
 		psxHu32(0x1070)|= psxCounters[i].interrupt;	
-		
 	
-	/*if (psxCounters[i].mode & 0x8) { // Reset on target
-		psxCounters[i].count -= psxCounters[i].target;
-		psxRcntUpd32(i);
-		return;
-	} */	 
+	if (psxCounters[i].mode & 0x08) { // Reset on target
+			psxCounters[i].count -= psxCounters[i].target;
+			if(psxCounters[i].target > 0xffffffff) {
+				//SysPrintf("IOP 32 Correcting target\n");
+				psxCounters[i].target -= 0x100000000;
+			}	
+	}
+	
 	/*if(!(psxCounters[i].mode & 0x40))psxcntmask |= (1<<i);
 	else psxcntmask &= ~(1<<i);*/
 }
@@ -341,7 +347,7 @@ void _testRcnt32overflow(int i) {
 #ifdef PSXCNT_LOG
 	PSXCNT_LOG("[%d] overflow 0x%x >= 0x%x (Cycle); Rcount=0x%x, count=0x%x\n", i, (psxRegs.cycle - psxCounters[i].sCycle), psxCounters[i].Cycle, psxRcntRcount32(i), psxCounters[i].count);
 #endif	
-	
+	SysPrintf("Overflow \n");
 	psxCounters[i].mode|= 0x1000; // Overflow flag
 	if (psxCounters[i].mode & 0x0020) { // Overflow interrupt
 		psxHu32(0x1070)|= psxCounters[i].interrupt;
@@ -349,9 +355,13 @@ void _testRcnt32overflow(int i) {
 			psxCounters[i].mode&= ~0x0400; // Interrupt flag
 	}
 	psxCounters[i].count -= 0xffffffff;
+	if(psxCounters[i].target > 0xffffffff) {
+		//SysPrintf("IOP 32 Correcting target\n");
+		psxCounters[i].target -= 0x100000000;
+		}
 	//psxcntmask &= ~(1<<i);
-	psxRcntUpd32(i);
-	psxRcntSet();
+	//psxRcntUpd32(i);
+	//psxRcntSet();
 }
 
 
@@ -391,7 +401,7 @@ void psxRcntUpdate() {
 
 	for (i=0; i<=5; i++) {
 		psxCounters[i].count += (psxRegs.cycle - psxCounters[i].sCycleT) / psxCounters[i].rate;
-		psxCounters[i].sCycleT = psxRegs.cycle;
+		psxCounters[i].sCycleT = psxRegs.cycle - ((psxRegs.cycle - psxCounters[i].sCycleT) % psxCounters[i].rate);
 	}
 
 	_testRcnt16(0);
@@ -445,6 +455,7 @@ void psxRcnt0Wmode(u32 value)  {
 #ifdef PSXCNT_LOG
 	//PSXCNT_LOG("IOP writeCmode[0] = %lx\n", value);
 #endif
+	SysPrintf("Counter Mode Write %x value %x\n", 0, value);
 	if (value & 0x1c00) {
 		SysPrintf("Counter 0 Value write %x\n", value & 0x1c00);
 	}
@@ -464,6 +475,10 @@ void psxRcnt0Wmode(u32 value)  {
 
 	psxCounters[0].count = 0;
 	psxRcntUpd16(0);
+	if(psxCounters[0].target > 0xffff) {
+		//SysPrintf("IOP 16 Correcting target 0 after mode write\n");
+		psxCounters[0].target -= 0x10000;
+		}
 	psxRcntSet();
 	//}
 }
@@ -472,6 +487,7 @@ void psxRcnt1Wmode(u32 value)  {
 #ifdef PSXCNT_LOG
 	PSXCNT_LOG("IOP writeCmode[1] = %lx\n", value);
 #endif
+	SysPrintf("Counter Mode Write %x value %x\n", 1, value);
 	if (value & 0x1c00) {
 		SysPrintf("Counter 1 Value write %x\n", value & 0x1c00);
 	}
@@ -491,6 +507,10 @@ void psxRcnt1Wmode(u32 value)  {
 
 	psxCounters[1].count = 0;
 	psxRcntUpd16(1);
+	if(psxCounters[1].target > 0xffff) {
+		//SysPrintf("IOP 16 Correcting target 1 after mode write\n");
+		psxCounters[1].target -= 0x10000;
+		}
 	psxRcntSet();
 	//}
 }
@@ -499,6 +519,7 @@ void psxRcnt2Wmode(u32 value)  {
 #ifdef PSXCNT_LOG
 	PSXCNT_LOG("IOP writeCmode[2] = %lx\n", value);
 #endif
+	SysPrintf("Counter Mode Write %x value %x\n", 2, value);
 	if (value & 0x1c00) {
 		SysPrintf("Counter 2 Value write %x\n", value & 0x1c00);
 	}
@@ -523,6 +544,10 @@ void psxRcnt2Wmode(u32 value)  {
 	// Need to set a rate and target
 	psxCounters[2].count = 0;
 	psxRcntUpd16(2);
+	if(psxCounters[2].target > 0xffff) {
+		//SysPrintf("IOP 16 Correcting target 2 after mode write\n");
+		psxCounters[2].target -= 0x10000;
+		}
 	psxRcntSet();
 }
 
@@ -530,6 +555,7 @@ void psxRcnt3Wmode(u32 value)  {
 #ifdef PSXCNT_LOG
 	PSXCNT_LOG("IOP writeCmode[3] = %lx\n", value);
 #endif
+	SysPrintf("Counter Mode Write %x value %x\n", 3, value);
 	if (value & 0x1c00) {
 		SysPrintf("Counter 3 Value write %x\n", value & 0x1c00);
 	}
@@ -550,6 +576,10 @@ void psxRcnt3Wmode(u32 value)  {
 
 	psxCounters[3].count = 0;
 	psxRcntUpd32(3);
+	if(psxCounters[3].target > 0xffffffff) {
+		//SysPrintf("IOP 32 Correcting target 3 after mode write\n");
+		psxCounters[3].target -= 0x100000000;
+		}
 	psxRcntSet();
 	//}
 }
@@ -558,6 +588,7 @@ void psxRcnt4Wmode(u32 value)  {
 #ifdef PSXCNT_LOG
 	PSXCNT_LOG("IOP writeCmode[4] = %lx\n", value);
 #endif
+	SysPrintf("Counter Mode Write %x value %x\n", 4, value);
 	if (value & 0x1c00) {
 		SysPrintf("Counter 4 Value write %x\n", value & 0x1c00);
 	}
@@ -587,6 +618,10 @@ void psxRcnt4Wmode(u32 value)  {
 	}
 	psxCounters[4].count = 0;
 	psxRcntUpd32(4);
+	if(psxCounters[4].target > 0xffffffff) {
+		//SysPrintf("IOP 32 Correcting target 4 after mode write\n");
+		psxCounters[4].target -= 0x100000000;
+		}
 	psxRcntSet();
 }
 
@@ -594,6 +629,7 @@ void psxRcnt5Wmode(u32 value)  {
 #ifdef PSXCNT_LOG
 	PSXCNT_LOG("IOP writeCmode[5] = %lx\n", value);
 #endif
+	SysPrintf("Counter Mode Write %x value %x\n", 5, value);
 	if (value & 0x1c00) {
 		SysPrintf("Counter 5 Value write %x\n", value & 0x1c00);
 	}
@@ -622,6 +658,10 @@ void psxRcnt5Wmode(u32 value)  {
 	}
 	psxCounters[5].count = 0;
 	psxRcntUpd32(5);
+	if(psxCounters[5].target > 0xffffffff) {
+		//SysPrintf("IOP 32 Correcting target 5 after mode write\n");
+		psxCounters[5].target -= 0x100000000;
+		}
 	psxRcntSet();
 }
 
@@ -631,18 +671,26 @@ void psxRcntWtarget16(int index, u32 value) {
 	PSXCNT_LOG("writeCtarget16[%ld] = %lx\n", index, value);
 #endif
 	psxCounters[index].target = value & 0xffff;
+	if(psxCounters[index].target < psxCounters[index].count) {
+		//SysPrintf("IOP 16 Saving target from early trigger\n");
+		psxCounters[index].target += 0x10000;
+		}
 	//newtarget[index] = 1;
-	if (psxCounters[index].mode & 0x8) { // Reset on target
+	/*if (psxCounters[index].mode & 0x8) { // Reset on target
 		psxCounters[index].count = 0;
 		psxRcntUpd32(index);
 		//return;
-	} 	 
+	} 	 */
 	psxRcntSet();
 }
 
 void psxRcntWtarget32(int index, u32 value) {
 	//if(psxCounters[index].sCycleT > psxRegs.cycle) ReSyncTarget(index);
 	psxCounters[index].target = value;
+	if(psxCounters[index].target < psxCounters[index].count) {
+		//SysPrintf("IOP 32 Saving target from early trigger\n");
+		psxCounters[index].target += 0x100000000;
+		}
 	//newtarget[index] = 1;
 #ifdef PSXCNT_LOG
 		PSXCNT_LOG("writeCtarget32[%ld] = %lx (count=%lx) ; sCycleT: %x CycleT: %x psxRegscycle %x\n",
@@ -651,11 +699,11 @@ void psxRcntWtarget32(int index, u32 value) {
 #endif
 
 	//if(index == 5) SysPrintf("Counter 5 tar set CT %x, Tar %x, mode %x, psx.cycle %x\n", psxCounters[index].CycleT + psxCounters[index].sCycleT, psxCounters[index].target, psxCounters[index].mode, psxRegs.cycle);
-	if (psxCounters[index].mode & 0x8) { // Reset on target
+	/*if (psxCounters[index].mode & 0x8) { // Reset on target
 		psxCounters[index].count = 0;
 		psxRcntUpd32(index);
 		//return;
-	} 	 
+	} 	 */
 	psxRcntSet();
 }
 
