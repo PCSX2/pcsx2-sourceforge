@@ -672,14 +672,22 @@ void cdvdReset()
 
 }
 void cdvdReadTimeRcnt(int mode){	// Mode 0 is DVD, Mode 1 is CD
-	int readsize = 0;	// 1 Sector size
+	int readspeed = 0;	// 1 Sector size
 	int amount = 0;		// Total bytes transfered at 1x speed
 	//if(mode) amount = 153600;
 	//else 
-	amount = 1280000;
+	amount = cdvd.BlockSize; // in Bytes
+	if(mode == 0)
+		readspeed = ((PSXCLK /1382400)/* 1 Byte Time @ x1 */ * amount) / cdvd.Speed; //1350KB = dvd x 1
+	else
+		readspeed = ((PSXCLK /153600)/* 1 Byte Time @ x1 */ * amount) / cdvd.Speed; //150KB = cd x 1
 	
-	readsize = amount / cdvd.BlockSize; // Time taken for 1 sector to be read
-	cdvdReadTime = ((PSXCLK / readsize)) / cdvd.Speed;
+	//amount = 1280000;
+	
+	
+	//readsize = amount / cdvd.BlockSize; // Time taken for 1 sector to be read
+	cdvdReadTime = readspeed; //(PSXCLK / readspeed); /// amount;
+	//SysPrintf("CDVD Cnt Time = %x\n", cdvdReadTime);
 }
 
 int  cdvdFreeze(gzFile f, int Mode) {

@@ -284,7 +284,7 @@ void _testRcnt16target(int i) {
 	if (psxCounters[i].mode & 0x08) { // Reset on target
 		psxCounters[i].count = 0;
 		
-	} else psxCounters[i].target += 0x10000;
+	} else psxCounters[i].target += 0x1000000000;
 	
 }
 
@@ -335,7 +335,7 @@ void _testRcnt32target(int i) {
 	if (psxCounters[i].mode & 0x08) { // Reset on target
 			psxCounters[i].count = 0;
 			
-	} else psxCounters[i].target += 0x100000000;
+	} else psxCounters[i].target += 0x1000000000;
 	
 }
 
@@ -659,7 +659,7 @@ void psxRcntWtarget16(int index, u32 value) {
 	psxCounters[index].target = value & 0xffff;
 	if(psxCounters[index].target <= psxRcntCycles(index)/* && psxCounters[index].target != 0*/) {
 		//SysPrintf("IOP 16 Saving %x target from early trigger target = %x, count = %I64x\n", index, psxCounters[index].target, psxRcntCycles(index));
-		psxCounters[index].target += 0x10000;
+		psxCounters[index].target += 0x1000000000;
 		}
 
 	psxRcntSet();
@@ -674,7 +674,7 @@ void psxRcntWtarget32(int index, u32 value) {
 	psxCounters[index].target = value;
 	if(psxCounters[index].target <= psxRcntCycles(index)/* && psxCounters[index].target != 0*/) {
 		//SysPrintf("IOP 32 Saving %x target from early trigger target = %x, count = %I64x\n", index, psxCounters[index].target, psxRcntCycles(index));
-		psxCounters[index].target += 0x100000000;
+		psxCounters[index].target += 0x1000000000;
 		}
 
 	psxRcntSet();
