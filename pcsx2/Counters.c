@@ -165,9 +165,10 @@ void UpdateVSyncRate() {
 		if(Config.PsxType & 2)counters[5].rate = PS2VBLANK_NTSC_INT;
 		else counters[5].rate = PS2VBLANK_NTSC;
 	}	
+	rcntUpdTarget(4);
 	counters[4].CycleT  = PS2HBLANKEND;
 	counters[4].Cycle  = counters[4].rate-PS2HBLANKEND;
-	
+	rcntUpdTarget(5);
 	counters[5].CycleT  = PS2VBLANKEND;
 	counters[5].Cycle  = counters[5].rate-PS2VBLANKEND;
 
@@ -177,7 +178,7 @@ void UpdateVSyncRate() {
 		iTicks = GetTickFrequency()/vsyncs;
 		SysPrintf("Framelimiter rate updated (UpdateVSyncRate): %d fps\n",vsyncs);
 	}
-
+	rcntSet();
 }
 
 void FrameLimiter()
@@ -459,7 +460,10 @@ void rcntUpdate()
 
 		if ((s64)(counters[i].target - counters[i].count) <= 0 /*&& (counters[i].target & 0xffff) > 0*/) { // Target interrupt
 				
-				
+				if((counters[i].target > 0xffff)) {
+							//SysPrintf("EE Correcting target %x after reset on target\n", i);
+							counters[i].target &= 0xffff;
+						}
 				if(counters[i].mode & 0x100 ) {
 #ifdef EECNT_LOG
 	EECNT_LOG("EE counter %d target reached mode %x count %x target %x\n", i, counters[i].mode, counters[i].count, counters[i].target);
@@ -468,13 +472,10 @@ void rcntUpdate()
 					counters[i].mode|= 0x0400; // Target flag
 					hwIntcIrq(counters[i].interrupt);
 					if (counters[i].mode & 0x40) { //The PS2 only resets if the interrupt is enabled - Tested on PS2
-						if((counters[i].target > 0xffff)) {
-							//SysPrintf("EE Correcting target %x after reset on target\n", i);
-							counters[i].target &= 0xffff;
-						}
+						
 						counters[i].count = 0; // Reset on target	
 					} 
-					else counters[i].target += 0x10000;
+					else counters[i].target += 0x10000000;
 				} 
 			
 		}
@@ -587,10 +588,10 @@ void rcntWmode(int index, u32 value)
 	}
 	else gates &= ~(1<<index);
 	
-	if((counters[index].target > 0xffff) && (counters[index].target & 0xffff) > rcntCycle(index)) {
+	/*if((counters[index].target > 0xffff) && (counters[index].target & 0xffff) > rcntCycle(index)) {
 				//SysPrintf("EE Correcting target %x after mode write\n", index);
 				counters[index].target &= 0xffff;
-				}
+				}*/
 	rcntSet();
 
 }
@@ -662,7 +663,7 @@ void rcntWtarget(int index, u32 value) {
 	counters[index].target = value & 0xffff;
 		if(counters[index].target <= rcntCycle(index)/* && counters[index].target != 0*/) {
 			//SysPrintf("EE Saving target %d from early trigger, target = %x, count = %x\n", index, counters[index].target, rcntCycle(index));
-			counters[index].target += 0x10000;
+			counters[index].target += 0x10000000;
 			}
 	rcntSet();
 }
@@ -682,7 +683,9 @@ u16 rcntRcount(int index) {
 	}else{
 		ret = counters[index].count;
 	}
-
+#ifdef EECNT_LOG
+	EECNT_LOG("EE count read %d value %x\n", index, ret);
+#endif
 	return (u16)ret;
 }
 
