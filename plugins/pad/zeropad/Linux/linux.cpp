@@ -730,7 +730,7 @@ bool JoystickInfo::Init(const char* pdevid, int id, bool bStartThread)
 
 void JoystickInfo::ProcessData()
 {
-    if( pad < 0 )
+    if( pad < 0 || js_fd < 0 )
         return;
 
     for (int i=0; i<PADKEYS; i++) {
