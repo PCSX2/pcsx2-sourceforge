@@ -91,7 +91,7 @@ and SSSPSXPad, TwinPad authors</property>
 	      <property name="visible">True</property>
 	      <property name="label_xalign">0</property>
 	      <property name="label_yalign">0.5</property>
-	      <property name="shadow_type">GTK_SHADOW_NONE</property>
+	      <property name="shadow_type">GTK_SHADOW_ETCHED_IN</property>
 
 	      <child>
 		<widget class="GtkAlignment" id="alignment1">
@@ -183,6 +183,60 @@ and SSSPSXPad, TwinPad authors</property>
 	      <property name="padding">0</property>
 	      <property name="expand">False</property>
 	      <property name="fill">False</property>
+	    </packing>
+	  </child>
+
+	  <child>
+	    <widget class="GtkVBox" id="vbox2">
+	      <property name="visible">True</property>
+	      <property name="homogeneous">False</property>
+	      <property name="spacing">0</property>
+
+	      <child>
+		<widget class="GtkLabel" id="label5">
+		  <property name="visible">True</property>
+		  <property name="label" translatable="yes">Joystick to use for this PAD</property>
+		  <property name="use_underline">False</property>
+		  <property name="use_markup">False</property>
+		  <property name="justify">GTK_JUSTIFY_LEFT</property>
+		  <property name="wrap">False</property>
+		  <property name="selectable">False</property>
+		  <property name="xalign">0.5</property>
+		  <property name="yalign">0.5</property>
+		  <property name="xpad">0</property>
+		  <property name="ypad">0</property>
+		  <property name="ellipsize">PANGO_ELLIPSIZE_NONE</property>
+		  <property name="width_chars">-1</property>
+		  <property name="single_line_mode">False</property>
+		  <property name="angle">0</property>
+		</widget>
+		<packing>
+		  <property name="padding">0</property>
+		  <property name="expand">False</property>
+		  <property name="fill">False</property>
+		</packing>
+	      </child>
+
+	      <child>
+		<widget class="GtkComboBoxEntry" id="joydevicescombo">
+		  <property name="visible">True</property>
+		  <property name="items" translatable="yes"></property>
+		  <property name="add_tearoffs">False</property>
+		  <property name="has_frame">True</property>
+		  <property name="focus_on_click">True</property>
+		  <signal name="changed" handler="on_joydevicescombo_changed" last_modification_time="Wed, 12 Dec 2007 10:47:44 GMT"/>
+		</widget>
+		<packing>
+		  <property name="padding">0</property>
+		  <property name="expand">True</property>
+		  <property name="fill">True</property>
+		</packing>
+	      </child>
+	    </widget>
+	    <packing>
+	      <property name="padding">0</property>
+	      <property name="expand">True</property>
+	      <property name="fill">True</property>
 	    </packing>
 	  </child>
 
@@ -532,7 +586,7 @@ and SSSPSXPad, TwinPad authors</property>
 
 	      <child>
 		<widget class="GtkEntry" id="eRx">
-		  <property name="width_request">64</property>
+		  <property name="width_request">80</property>
 		  <property name="height_request">24</property>
 		  <property name="visible">True</property>
 		  <property name="can_focus">True</property>
@@ -552,7 +606,7 @@ and SSSPSXPad, TwinPad authors</property>
 
 	      <child>
 		<widget class="GtkEntry" id="eLx">
-		  <property name="width_request">64</property>
+		  <property name="width_request">80</property>
 		  <property name="height_request">24</property>
 		  <property name="visible">True</property>
 		  <property name="can_focus">True</property>
@@ -565,14 +619,14 @@ and SSSPSXPad, TwinPad authors</property>
 		  <property name="activates_default">False</property>
 		</widget>
 		<packing>
-		  <property name="x">176</property>
+		  <property name="x">160</property>
 		  <property name="y">352</property>
 		</packing>
 	      </child>
 
 	      <child>
 		<widget class="GtkEntry" id="eRy">
-		  <property name="width_request">64</property>
+		  <property name="width_request">80</property>
 		  <property name="height_request">24</property>
 		  <property name="visible">True</property>
 		  <property name="can_focus">True</property>
@@ -592,7 +646,7 @@ and SSSPSXPad, TwinPad authors</property>
 
 	      <child>
 		<widget class="GtkEntry" id="eLy">
-		  <property name="width_request">64</property>
+		  <property name="width_request">80</property>
 		  <property name="height_request">24</property>
 		  <property name="visible">True</property>
 		  <property name="can_focus">True</property>
@@ -605,7 +659,7 @@ and SSSPSXPad, TwinPad authors</property>
 		  <property name="activates_default">False</property>
 		</widget>
 		<packing>
-		  <property name="x">176</property>
+		  <property name="x">160</property>
 		  <property name="y">416</property>
 		</packing>
 	      </child>
@@ -809,24 +863,6 @@ and SSSPSXPad, TwinPad authors</property>
 	      </child>
 
 	      <child>
-		<widget class="GtkButton" id="Right">
-		  <property name="width_request">64</property>
-		  <property name="height_request">32</property>
-		  <property name="visible">True</property>
-		  <property name="can_focus">True</property>
-		  <property name="label" translatable="yes">Right</property>
-		  <property name="use_underline">True</property>
-		  <property name="relief">GTK_RELIEF_NORMAL</property>
-		  <property name="focus_on_click">True</property>
-		  <signal name="clicked" handler="OnConf_Key" last_modification_time="Fri, 16 Mar 2007 15:07:34 GMT"/>
-		</widget>
-		<packing>
-		  <property name="x">128</property>
-		  <property name="y">176</property>
-		</packing>
-	      </child>
-
-	      <child>
 		<widget class="GtkButton" id="Square">
 		  <property name="width_request">64</property>
 		  <property name="height_request">32</property>
@@ -841,122 +877,6 @@ and SSSPSXPad, TwinPad authors</property>
 		<packing>
 		  <property name="x">304</property>
 		  <property name="y">176</property>
-		</packing>
-	      </child>
-
-	      <child>
-		<widget class="GtkButton" id="R3">
-		  <property name="width_request">64</property>
-		  <property name="height_request">32</property>
-		  <property name="visible">True</property>
-		  <property name="can_focus">True</property>
-		  <property name="label" translatable="yes">R3</property>
-		  <property name="use_underline">True</property>
-		  <property name="relief">GTK_RELIEF_NORMAL</property>
-		  <property name="focus_on_click">True</property>
-		  <signal name="clicked" handler="OnConf_Key" last_modification_time="Fri, 16 Mar 2007 15:08:59 GMT"/>
-		</widget>
-		<packing>
-		  <property name="x">272</property>
-		  <property name="y">240</property>
-		</packing>
-	      </child>
-
-	      <child>
-		<widget class="GtkButton" id="Lx">
-		  <property name="width_request">64</property>
-		  <property name="height_request">32</property>
-		  <property name="visible">True</property>
-		  <property name="can_focus">True</property>
-		  <property name="label" translatable="yes">Lx</property>
-		  <property name="use_underline">True</property>
-		  <property name="relief">GTK_RELIEF_NORMAL</property>
-		  <property name="focus_on_click">True</property>
-		  <signal name="clicked" handler="OnConf_Key" last_modification_time="Fri, 16 Mar 2007 15:09:12 GMT"/>
-		</widget>
-		<packing>
-		  <property name="x">176</property>
-		  <property name="y">320</property>
-		</packing>
-	      </child>
-
-	      <child>
-		<widget class="GtkButton" id="Rx">
-		  <property name="width_request">64</property>
-		  <property name="height_request">32</property>
-		  <property name="visible">True</property>
-		  <property name="can_focus">True</property>
-		  <property name="label" translatable="yes">Rx</property>
-		  <property name="use_underline">True</property>
-		  <property name="relief">GTK_RELIEF_NORMAL</property>
-		  <property name="focus_on_click">True</property>
-		  <signal name="clicked" handler="OnConf_Key" last_modification_time="Fri, 16 Mar 2007 15:09:06 GMT"/>
-		</widget>
-		<packing>
-		  <property name="x">272</property>
-		  <property name="y">320</property>
-		</packing>
-	      </child>
-
-	      <child>
-		<widget class="GtkButton" id="Ly">
-		  <property name="width_request">64</property>
-		  <property name="height_request">32</property>
-		  <property name="visible">True</property>
-		  <property name="can_focus">True</property>
-		  <property name="label" translatable="yes">Ly</property>
-		  <property name="use_underline">True</property>
-		  <property name="relief">GTK_RELIEF_NORMAL</property>
-		  <property name="focus_on_click">True</property>
-		  <signal name="clicked" handler="OnConf_Key" last_modification_time="Fri, 16 Mar 2007 15:09:27 GMT"/>
-		</widget>
-		<packing>
-		  <property name="x">176</property>
-		  <property name="y">384</property>
-		</packing>
-	      </child>
-
-	      <child>
-		<widget class="GtkButton" id="Ry">
-		  <property name="width_request">64</property>
-		  <property name="height_request">32</property>
-		  <property name="visible">True</property>
-		  <property name="can_focus">True</property>
-		  <property name="label" translatable="yes">Ry</property>
-		  <property name="use_underline">True</property>
-		  <property name="relief">GTK_RELIEF_NORMAL</property>
-		  <property name="focus_on_click">True</property>
-		  <signal name="clicked" handler="OnConf_Key" last_modification_time="Fri, 16 Mar 2007 15:09:20 GMT"/>
-		</widget>
-		<packing>
-		  <property name="x">272</property>
-		  <property name="y">384</property>
-		</packing>
-	      </child>
-
-	      <child>
-		<widget class="GtkLabel" id="label3">
-		  <property name="width_request">408</property>
-		  <property name="height_request">16</property>
-		  <property name="visible">True</property>
-		  <property name="label" translatable="yes">Analog Controls (move mouse or analog joystick to select)</property>
-		  <property name="use_underline">False</property>
-		  <property name="use_markup">False</property>
-		  <property name="justify">GTK_JUSTIFY_LEFT</property>
-		  <property name="wrap">False</property>
-		  <property name="selectable">False</property>
-		  <property name="xalign">0.5</property>
-		  <property name="yalign">0.5</property>
-		  <property name="xpad">0</property>
-		  <property name="ypad">0</property>
-		  <property name="ellipsize">PANGO_ELLIPSIZE_NONE</property>
-		  <property name="width_chars">-1</property>
-		  <property name="single_line_mode">True</property>
-		  <property name="angle">0</property>
-		</widget>
-		<packing>
-		  <property name="x">56</property>
-		  <property name="y">296</property>
 		</packing>
 	      </child>
 
@@ -1011,6 +931,246 @@ and SSSPSXPad, TwinPad authors</property>
 		<packing>
 		  <property name="x">64</property>
 		  <property name="y">8</property>
+		</packing>
+	      </child>
+
+	      <child>
+		<widget class="GtkButton" id="Lx">
+		  <property name="width_request">80</property>
+		  <property name="height_request">32</property>
+		  <property name="visible">True</property>
+		  <property name="can_focus">True</property>
+		  <property name="label" translatable="yes">Lx</property>
+		  <property name="use_underline">True</property>
+		  <property name="relief">GTK_RELIEF_NORMAL</property>
+		  <property name="focus_on_click">True</property>
+		  <signal name="clicked" handler="OnConf_Key" last_modification_time="Fri, 16 Mar 2007 15:09:12 GMT"/>
+		</widget>
+		<packing>
+		  <property name="x">160</property>
+		  <property name="y">320</property>
+		</packing>
+	      </child>
+
+	      <child>
+		<widget class="GtkButton" id="Ly">
+		  <property name="width_request">80</property>
+		  <property name="height_request">32</property>
+		  <property name="visible">True</property>
+		  <property name="can_focus">True</property>
+		  <property name="label" translatable="yes">Ly</property>
+		  <property name="use_underline">True</property>
+		  <property name="relief">GTK_RELIEF_NORMAL</property>
+		  <property name="focus_on_click">True</property>
+		  <signal name="clicked" handler="OnConf_Key" last_modification_time="Fri, 16 Mar 2007 15:09:27 GMT"/>
+		</widget>
+		<packing>
+		  <property name="x">160</property>
+		  <property name="y">384</property>
+		</packing>
+	      </child>
+
+	      <child>
+		<widget class="GtkButton" id="Rx">
+		  <property name="width_request">80</property>
+		  <property name="height_request">32</property>
+		  <property name="visible">True</property>
+		  <property name="can_focus">True</property>
+		  <property name="label" translatable="yes">Rx</property>
+		  <property name="use_underline">True</property>
+		  <property name="relief">GTK_RELIEF_NORMAL</property>
+		  <property name="focus_on_click">True</property>
+		  <signal name="clicked" handler="OnConf_Key" last_modification_time="Fri, 16 Mar 2007 15:09:06 GMT"/>
+		</widget>
+		<packing>
+		  <property name="x">272</property>
+		  <property name="y">320</property>
+		</packing>
+	      </child>
+
+	      <child>
+		<widget class="GtkButton" id="Ry">
+		  <property name="width_request">80</property>
+		  <property name="height_request">32</property>
+		  <property name="visible">True</property>
+		  <property name="can_focus">True</property>
+		  <property name="label" translatable="yes">Ry</property>
+		  <property name="use_underline">True</property>
+		  <property name="relief">GTK_RELIEF_NORMAL</property>
+		  <property name="focus_on_click">True</property>
+		  <signal name="clicked" handler="OnConf_Key" last_modification_time="Fri, 16 Mar 2007 15:09:20 GMT"/>
+		</widget>
+		<packing>
+		  <property name="x">272</property>
+		  <property name="y">384</property>
+		</packing>
+	      </child>
+
+	      <child>
+		<widget class="GtkButton" id="Right">
+		  <property name="width_request">64</property>
+		  <property name="height_request">32</property>
+		  <property name="visible">True</property>
+		  <property name="can_focus">True</property>
+		  <property name="label" translatable="yes">Right</property>
+		  <property name="use_underline">True</property>
+		  <property name="relief">GTK_RELIEF_NORMAL</property>
+		  <property name="focus_on_click">True</property>
+		  <signal name="clicked" handler="OnConf_Key" last_modification_time="Fri, 16 Mar 2007 15:07:34 GMT"/>
+		</widget>
+		<packing>
+		  <property name="x">128</property>
+		  <property name="y">176</property>
+		</packing>
+	      </child>
+
+	      <child>
+		<widget class="GtkLabel" id="label3">
+		  <property name="width_request">408</property>
+		  <property name="height_request">16</property>
+		  <property name="visible">True</property>
+		  <property name="label" translatable="yes">Analog Controls (move mouse or analog joystick to select)</property>
+		  <property name="use_underline">False</property>
+		  <property name="use_markup">False</property>
+		  <property name="justify">GTK_JUSTIFY_LEFT</property>
+		  <property name="wrap">False</property>
+		  <property name="selectable">False</property>
+		  <property name="xalign">0.5</property>
+		  <property name="yalign">0.5</property>
+		  <property name="xpad">0</property>
+		  <property name="ypad">0</property>
+		  <property name="ellipsize">PANGO_ELLIPSIZE_NONE</property>
+		  <property name="width_chars">-1</property>
+		  <property name="single_line_mode">True</property>
+		  <property name="angle">0</property>
+		</widget>
+		<packing>
+		  <property name="x">48</property>
+		  <property name="y">296</property>
+		</packing>
+	      </child>
+
+	      <child>
+		<widget class="GtkButton" id="R3">
+		  <property name="width_request">64</property>
+		  <property name="height_request">32</property>
+		  <property name="visible">True</property>
+		  <property name="can_focus">True</property>
+		  <property name="label" translatable="yes">R3</property>
+		  <property name="use_underline">True</property>
+		  <property name="relief">GTK_RELIEF_NORMAL</property>
+		  <property name="focus_on_click">True</property>
+		  <signal name="clicked" handler="OnConf_Key" last_modification_time="Fri, 16 Mar 2007 15:08:59 GMT"/>
+		</widget>
+		<packing>
+		  <property name="x">272</property>
+		  <property name="y">240</property>
+		</packing>
+	      </child>
+
+	      <child>
+		<widget class="GtkCheckButton" id="checkbutton_reverselx">
+		  <property name="width_request">111</property>
+		  <property name="height_request">22</property>
+		  <property name="visible">True</property>
+		  <property name="can_focus">True</property>
+		  <property name="label" translatable="yes">Reverse LX</property>
+		  <property name="use_underline">True</property>
+		  <property name="relief">GTK_RELIEF_NORMAL</property>
+		  <property name="focus_on_click">True</property>
+		  <property name="active">False</property>
+		  <property name="inconsistent">False</property>
+		  <property name="draw_indicator">True</property>
+		  <signal name="toggled" handler="on_checkbutton_reverselx_toggled" last_modification_time="Wed, 12 Dec 2007 11:28:15 GMT"/>
+		</widget>
+		<packing>
+		  <property name="x">16</property>
+		  <property name="y">328</property>
+		</packing>
+	      </child>
+
+	      <child>
+		<widget class="GtkCheckButton" id="checkbutton_reversely">
+		  <property name="width_request">111</property>
+		  <property name="height_request">22</property>
+		  <property name="visible">True</property>
+		  <property name="can_focus">True</property>
+		  <property name="label" translatable="yes">Reverse LY</property>
+		  <property name="use_underline">True</property>
+		  <property name="relief">GTK_RELIEF_NORMAL</property>
+		  <property name="focus_on_click">True</property>
+		  <property name="active">False</property>
+		  <property name="inconsistent">False</property>
+		  <property name="draw_indicator">True</property>
+		  <signal name="toggled" handler="on_checkbutton_reversely_toggled" last_modification_time="Wed, 12 Dec 2007 11:28:39 GMT"/>
+		</widget>
+		<packing>
+		  <property name="x">16</property>
+		  <property name="y">352</property>
+		</packing>
+	      </child>
+
+	      <child>
+		<widget class="GtkCheckButton" id="checkbutton_reverserx">
+		  <property name="width_request">111</property>
+		  <property name="height_request">22</property>
+		  <property name="visible">True</property>
+		  <property name="can_focus">True</property>
+		  <property name="label" translatable="yes">Reverse RX</property>
+		  <property name="use_underline">True</property>
+		  <property name="relief">GTK_RELIEF_NORMAL</property>
+		  <property name="focus_on_click">True</property>
+		  <property name="active">False</property>
+		  <property name="inconsistent">False</property>
+		  <property name="draw_indicator">True</property>
+		  <signal name="toggled" handler="on_checkbutton_reverserx_toggled" last_modification_time="Wed, 12 Dec 2007 11:28:50 GMT"/>
+		</widget>
+		<packing>
+		  <property name="x">16</property>
+		  <property name="y">376</property>
+		</packing>
+	      </child>
+
+	      <child>
+		<widget class="GtkCheckButton" id="checkbutton_reversery">
+		  <property name="width_request">111</property>
+		  <property name="height_request">22</property>
+		  <property name="visible">True</property>
+		  <property name="can_focus">True</property>
+		  <property name="label" translatable="yes">Reverse RY</property>
+		  <property name="use_underline">True</property>
+		  <property name="relief">GTK_RELIEF_NORMAL</property>
+		  <property name="focus_on_click">True</property>
+		  <property name="active">False</property>
+		  <property name="inconsistent">False</property>
+		  <property name="draw_indicator">True</property>
+		  <signal name="toggled" handler="on_checkbutton_reversery_toggled" last_modification_time="Wed, 12 Dec 2007 11:29:07 GMT"/>
+		</widget>
+		<packing>
+		  <property name="x">16</property>
+		  <property name="y">400</property>
+		</packing>
+	      </child>
+
+	      <child>
+		<widget class="GtkCheckButton" id="forcefeedback">
+		  <property name="width_request">112</property>
+		  <property name="height_request">48</property>
+		  <property name="visible">True</property>
+		  <property name="can_focus">True</property>
+		  <property name="label" translatable="yes">Enable Force
+Feedback</property>
+		  <property name="use_underline">True</property>
+		  <property name="relief">GTK_RELIEF_NORMAL</property>
+		  <property name="focus_on_click">True</property>
+		  <property name="active">False</property>
+		  <property name="inconsistent">False</property>
+		  <property name="draw_indicator">True</property>
+		  <signal name="toggled" handler="on_forcefeedback_toggled" last_modification_time="Wed, 12 Dec 2007 11:29:20 GMT"/>
+		</widget>
+		<packing>
+		  <property name="x">384</property>
+		  <property name="y">320</property>
 		</packing>
 	      </child>
 	    </widget>

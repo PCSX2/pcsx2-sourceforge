@@ -22,4 +22,4 @@ clean:
 %.o: %.cpp
 	${CC} ${CFLAGS} -c -o $@ $< -MD -MF $(patsubst %.o,%.d,$@)
 
--include ${DEPS}
+#-include ${DEPS}
