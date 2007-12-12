@@ -283,10 +283,10 @@ u8  _PADpoll(u8 value) {
 	   
 				stdpar[curPad][2] = status[curPad] >> 8;
 				stdpar[curPad][3] = status[curPad] & 0xff;
-				stdpar[curPad][4] = g_ranalog[curPad].x+128;
-				stdpar[curPad][5] = g_ranalog[curPad].y+128;
-				stdpar[curPad][6] = g_lanalog[curPad].x+128;
-				stdpar[curPad][7] = g_lanalog[curPad].y+128;
+				stdpar[curPad][4] = g_ranalog[curPad].x;
+				stdpar[curPad][5] = g_ranalog[curPad].y;
+				stdpar[curPad][6] = g_lanalog[curPad].x;
+				stdpar[curPad][7] = g_lanalog[curPad].y;
 				if (padMode[curPad] == 1) cmdLen = 20;
 				else cmdLen = 4;
 				button_check2 = stdpar[curPad][2] >> 4;

@@ -213,7 +213,7 @@ void SysMessage(char *fmt, ...) {
     GTK_WIDGET_SET_FLAGS(Ok, GTK_CAN_DEFAULT);
     gtk_widget_show(Ok);
 
-    gtk_widget_show(MsgDlg);	
+    gtk_widget_show(MsgDlg);
 
     gtk_main();
 }
@@ -621,6 +621,17 @@ void JoystickInfo::EnumerateJoysticks(vector<JoystickInfo*>& vjoysticks)
         }
     }
 
+    if( vjoysticks.size() == 0 ) {
+        // try from /dev/input/
+        for(int i = 0; i < 6; ++i) {
+            sprintf(devid, "/dev/input/js%d", i);
+            if( pjoy->Init(devid, i) ) {
+                vjoysticks.push_back(pjoy);
+                pjoy = new JoystickInfo();
+            }
+        }
+    }
+
     delete pjoy;
 
     // set the pads
@@ -735,21 +746,25 @@ void JoystickInfo::ProcessData()
                     g_lanalog[pad].x = vaxes[PAD_GETJOYSTICK_AXIS(key)]/256;
                     if( conf.options&PADOPTION_REVERTLX )
                         g_lanalog[pad].x = -g_lanalog[pad].x;
+                    g_lanalog[pad].x += 128;
                     break;
                 case PAD_LY:
                     g_lanalog[pad].y = vaxes[PAD_GETJOYSTICK_AXIS(key)]/256;
                     if( conf.options&PADOPTION_REVERTLY )
                         g_lanalog[pad].y = -g_lanalog[pad].y;
+                    g_lanalog[pad].y += 128;
                     break;
                 case PAD_RX:
                     g_ranalog[pad].x = vaxes[PAD_GETJOYSTICK_AXIS(key)]/256;
                     if( conf.options&PADOPTION_REVERTRX )
                         g_ranalog[pad].x = -g_ranalog[pad].x;
+                    g_ranalog[pad].x += 128;
                     break;
                 case PAD_RY:
                     g_ranalog[pad].y = vaxes[PAD_GETJOYSTICK_AXIS(key)]/256;
                     if( conf.options&PADOPTION_REVERTRY )
                         g_ranalog[pad].y = -g_ranalog[pad].y;
+                    g_ranalog[pad].y += 128;
                     break;
             }
         }
