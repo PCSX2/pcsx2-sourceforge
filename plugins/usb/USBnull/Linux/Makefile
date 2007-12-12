@@ -32,4 +32,4 @@ clean:
 %.o: %.c
 	${CC} ${CFLAGS} -c -o $@ $< -MD -MF $(patsubst %.o,%.d,$@)
 
--include ${DEPS}
+#-include ${DEPS}

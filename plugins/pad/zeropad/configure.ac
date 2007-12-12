@@ -1,4 +1,4 @@
-AC_INIT(ZeroPAD,0.1,zerofrog@gmail.com)
+AC_INIT(ZeroPAD,0.2,zerofrog@gmail.com)
 
 AM_INIT_AUTOMAKE(ZeroPAD,0.1)
 
@@ -25,7 +25,6 @@ AC_SUBST(ZEROPAD_RELEASE)
 AC_SUBST(ZEROPAD_SONAME)
 
 CFLAGS=
-CPPFLAGS=
 CXXFLAGS=
 
 dnl Check for debug build
@@ -36,12 +35,10 @@ if test "x$debug" == xyes
 then
  AC_DEFINE(_DEBUG,1,[_DEBUG])
  CFLAGS+="-g "
- CPPFLAGS+="-g "
  CXXFLAGS+="-g "
 else
  AC_DEFINE(NDEBUG,1,[NDEBUG])
  CFLAGS+="-O2 -fomit-frame-pointer "
- CPPFLAGS+="-O2 -fomit-frame-pointer "
  CXXFLAGS+="-O2 -fomit-frame-pointer "
 fi
 AM_CONDITIONAL(DEBUGBUILD, test x$debug = xyes)
@@ -81,7 +78,7 @@ AC_MSG_CHECKING(gtk2+)
 AC_CHECK_PROG(GTK_CONFIG, pkg-config, pkg-config)
 LIBS+=$(pkg-config --libs gtk+-2.0)
 
-dnl bindir = pcsx2exe
+AC_CHECK_HEADER([linux/joystick.h], [AC_DEFINE(JOYSTICK_SUPPORT,1)])
 
 dnl assuming linux environment
 so_ext=".so.$ZEROPAD_RELEASE"

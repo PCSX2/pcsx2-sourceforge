@@ -66,6 +66,9 @@ create_Conf (void)
   GSList *PAD1_group = NULL;
   GtkWidget *PAD2;
   GtkWidget *label2;
+  GtkWidget *vbox2;
+  GtkWidget *label5;
+  GtkWidget *joydevicescombo;
   GtkWidget *fixed1;
   GtkWidget *eL2;
   GtkWidget *eL1;
@@ -99,17 +102,22 @@ create_Conf (void)
   GtkWidget *Cross;
   GtkWidget *Triangle;
   GtkWidget *Circle;
-  GtkWidget *Right;
   GtkWidget *Square;
-  GtkWidget *R3;
-  GtkWidget *Lx;
-  GtkWidget *Rx;
-  GtkWidget *Ly;
-  GtkWidget *Ry;
-  GtkWidget *label3;
   GtkWidget *L3;
   GtkWidget *Up;
   GtkWidget *L2;
+  GtkWidget *Lx;
+  GtkWidget *Ly;
+  GtkWidget *Rx;
+  GtkWidget *Ry;
+  GtkWidget *Right;
+  GtkWidget *label3;
+  GtkWidget *R3;
+  GtkWidget *checkbutton_reverselx;
+  GtkWidget *checkbutton_reversely;
+  GtkWidget *checkbutton_reverserx;
+  GtkWidget *checkbutton_reversery;
+  GtkWidget *forcefeedback;
   GtkWidget *dialog_action_area1;
   GtkWidget *cancelbutton1;
   GtkWidget *okbutton1;
@@ -128,7 +136,6 @@ create_Conf (void)
   frame1 = gtk_frame_new (NULL);
   gtk_widget_show (frame1);
   gtk_box_pack_start (GTK_BOX (vbox1), frame1, FALSE, FALSE, 0);
-  gtk_frame_set_shadow_type (GTK_FRAME (frame1), GTK_SHADOW_NONE);
 
   alignment1 = gtk_alignment_new (0.5, 0.5, 1, 1);
   gtk_widget_show (alignment1);
@@ -156,6 +163,18 @@ create_Conf (void)
   gtk_widget_show (label2);
   gtk_frame_set_label_widget (GTK_FRAME (frame1), label2);
   gtk_label_set_use_markup (GTK_LABEL (label2), TRUE);
+
+  vbox2 = gtk_vbox_new (FALSE, 0);
+  gtk_widget_show (vbox2);
+  gtk_box_pack_start (GTK_BOX (vbox1), vbox2, TRUE, TRUE, 0);
+
+  label5 = gtk_label_new (_("Joystick to use for this PAD"));
+  gtk_widget_show (label5);
+  gtk_box_pack_start (GTK_BOX (vbox2), label5, FALSE, FALSE, 0);
+
+  joydevicescombo = gtk_combo_box_entry_new_text ();
+  gtk_widget_show (joydevicescombo);
+  gtk_box_pack_start (GTK_BOX (vbox2), joydevicescombo, TRUE, TRUE, 0);
 
   fixed1 = gtk_fixed_new ();
   gtk_widget_show (fixed1);
@@ -281,28 +300,28 @@ create_Conf (void)
   eRx = gtk_entry_new ();
   gtk_widget_show (eRx);
   gtk_fixed_put (GTK_FIXED (fixed1), eRx, 272, 352);
-  gtk_widget_set_size_request (eRx, 64, 24);
+  gtk_widget_set_size_request (eRx, 80, 24);
   gtk_editable_set_editable (GTK_EDITABLE (eRx), FALSE);
   gtk_entry_set_invisible_char (GTK_ENTRY (eRx), 8226);
 
   eLx = gtk_entry_new ();
   gtk_widget_show (eLx);
-  gtk_fixed_put (GTK_FIXED (fixed1), eLx, 176, 352);
-  gtk_widget_set_size_request (eLx, 64, 24);
+  gtk_fixed_put (GTK_FIXED (fixed1), eLx, 160, 352);
+  gtk_widget_set_size_request (eLx, 80, 24);
   gtk_editable_set_editable (GTK_EDITABLE (eLx), FALSE);
   gtk_entry_set_invisible_char (GTK_ENTRY (eLx), 8226);
 
   eRy = gtk_entry_new ();
   gtk_widget_show (eRy);
   gtk_fixed_put (GTK_FIXED (fixed1), eRy, 272, 416);
-  gtk_widget_set_size_request (eRy, 64, 24);
+  gtk_widget_set_size_request (eRy, 80, 24);
   gtk_editable_set_editable (GTK_EDITABLE (eRy), FALSE);
   gtk_entry_set_invisible_char (GTK_ENTRY (eRy), 8226);
 
   eLy = gtk_entry_new ();
   gtk_widget_show (eLy);
-  gtk_fixed_put (GTK_FIXED (fixed1), eLy, 176, 416);
-  gtk_widget_set_size_request (eLy, 64, 24);
+  gtk_fixed_put (GTK_FIXED (fixed1), eLy, 160, 416);
+  gtk_widget_set_size_request (eLy, 80, 24);
   gtk_editable_set_editable (GTK_EDITABLE (eLy), FALSE);
   gtk_entry_set_invisible_char (GTK_ENTRY (eLy), 8226);
 
@@ -361,46 +380,10 @@ create_Conf (void)
   gtk_fixed_put (GTK_FIXED (fixed1), Circle, 432, 176);
   gtk_widget_set_size_request (Circle, 64, 32);
 
-  Right = gtk_button_new_with_mnemonic (_("Right"));
-  gtk_widget_show (Right);
-  gtk_fixed_put (GTK_FIXED (fixed1), Right, 128, 176);
-  gtk_widget_set_size_request (Right, 64, 32);
-
   Square = gtk_button_new_with_mnemonic (_("Square"));
   gtk_widget_show (Square);
   gtk_fixed_put (GTK_FIXED (fixed1), Square, 304, 176);
   gtk_widget_set_size_request (Square, 64, 32);
-
-  R3 = gtk_button_new_with_mnemonic (_("R3"));
-  gtk_widget_show (R3);
-  gtk_fixed_put (GTK_FIXED (fixed1), R3, 272, 240);
-  gtk_widget_set_size_request (R3, 64, 32);
-
-  Lx = gtk_button_new_with_mnemonic (_("Lx"));
-  gtk_widget_show (Lx);
-  gtk_fixed_put (GTK_FIXED (fixed1), Lx, 176, 320);
-  gtk_widget_set_size_request (Lx, 64, 32);
-
-  Rx = gtk_button_new_with_mnemonic (_("Rx"));
-  gtk_widget_show (Rx);
-  gtk_fixed_put (GTK_FIXED (fixed1), Rx, 272, 320);
-  gtk_widget_set_size_request (Rx, 64, 32);
-
-  Ly = gtk_button_new_with_mnemonic (_("Ly"));
-  gtk_widget_show (Ly);
-  gtk_fixed_put (GTK_FIXED (fixed1), Ly, 176, 384);
-  gtk_widget_set_size_request (Ly, 64, 32);
-
-  Ry = gtk_button_new_with_mnemonic (_("Ry"));
-  gtk_widget_show (Ry);
-  gtk_fixed_put (GTK_FIXED (fixed1), Ry, 272, 384);
-  gtk_widget_set_size_request (Ry, 64, 32);
-
-  label3 = gtk_label_new (_("Analog Controls (move mouse or analog joystick to select)"));
-  gtk_widget_show (label3);
-  gtk_fixed_put (GTK_FIXED (fixed1), label3, 56, 296);
-  gtk_widget_set_size_request (label3, 408, 16);
-  gtk_label_set_single_line_mode (GTK_LABEL (label3), TRUE);
 
   L3 = gtk_button_new_with_mnemonic (_("L3"));
   gtk_widget_show (L3);
@@ -416,6 +399,67 @@ create_Conf (void)
   gtk_widget_show (L2);
   gtk_fixed_put (GTK_FIXED (fixed1), L2, 64, 8);
   gtk_widget_set_size_request (L2, 64, 32);
+
+  Lx = gtk_button_new_with_mnemonic (_("Lx"));
+  gtk_widget_show (Lx);
+  gtk_fixed_put (GTK_FIXED (fixed1), Lx, 160, 320);
+  gtk_widget_set_size_request (Lx, 80, 32);
+
+  Ly = gtk_button_new_with_mnemonic (_("Ly"));
+  gtk_widget_show (Ly);
+  gtk_fixed_put (GTK_FIXED (fixed1), Ly, 160, 384);
+  gtk_widget_set_size_request (Ly, 80, 32);
+
+  Rx = gtk_button_new_with_mnemonic (_("Rx"));
+  gtk_widget_show (Rx);
+  gtk_fixed_put (GTK_FIXED (fixed1), Rx, 272, 320);
+  gtk_widget_set_size_request (Rx, 80, 32);
+
+  Ry = gtk_button_new_with_mnemonic (_("Ry"));
+  gtk_widget_show (Ry);
+  gtk_fixed_put (GTK_FIXED (fixed1), Ry, 272, 384);
+  gtk_widget_set_size_request (Ry, 80, 32);
+
+  Right = gtk_button_new_with_mnemonic (_("Right"));
+  gtk_widget_show (Right);
+  gtk_fixed_put (GTK_FIXED (fixed1), Right, 128, 176);
+  gtk_widget_set_size_request (Right, 64, 32);
+
+  label3 = gtk_label_new (_("Analog Controls (move mouse or analog joystick to select)"));
+  gtk_widget_show (label3);
+  gtk_fixed_put (GTK_FIXED (fixed1), label3, 48, 296);
+  gtk_widget_set_size_request (label3, 408, 16);
+  gtk_label_set_single_line_mode (GTK_LABEL (label3), TRUE);
+
+  R3 = gtk_button_new_with_mnemonic (_("R3"));
+  gtk_widget_show (R3);
+  gtk_fixed_put (GTK_FIXED (fixed1), R3, 272, 240);
+  gtk_widget_set_size_request (R3, 64, 32);
+
+  checkbutton_reverselx = gtk_check_button_new_with_mnemonic (_("Reverse LX"));
+  gtk_widget_show (checkbutton_reverselx);
+  gtk_fixed_put (GTK_FIXED (fixed1), checkbutton_reverselx, 16, 328);
+  gtk_widget_set_size_request (checkbutton_reverselx, 111, 22);
+
+  checkbutton_reversely = gtk_check_button_new_with_mnemonic (_("Reverse LY"));
+  gtk_widget_show (checkbutton_reversely);
+  gtk_fixed_put (GTK_FIXED (fixed1), checkbutton_reversely, 16, 352);
+  gtk_widget_set_size_request (checkbutton_reversely, 111, 22);
+
+  checkbutton_reverserx = gtk_check_button_new_with_mnemonic (_("Reverse RX"));
+  gtk_widget_show (checkbutton_reverserx);
+  gtk_fixed_put (GTK_FIXED (fixed1), checkbutton_reverserx, 16, 376);
+  gtk_widget_set_size_request (checkbutton_reverserx, 111, 22);
+
+  checkbutton_reversery = gtk_check_button_new_with_mnemonic (_("Reverse RY"));
+  gtk_widget_show (checkbutton_reversery);
+  gtk_fixed_put (GTK_FIXED (fixed1), checkbutton_reversery, 16, 400);
+  gtk_widget_set_size_request (checkbutton_reversery, 111, 22);
+
+  forcefeedback = gtk_check_button_new_with_mnemonic (_("Enable Force\nFeedback"));
+  gtk_widget_show (forcefeedback);
+  gtk_fixed_put (GTK_FIXED (fixed1), forcefeedback, 384, 320);
+  gtk_widget_set_size_request (forcefeedback, 112, 48);
 
   dialog_action_area1 = GTK_DIALOG (Conf)->action_area;
   gtk_widget_show (dialog_action_area1);
@@ -436,6 +480,9 @@ create_Conf (void)
                     NULL);
   g_signal_connect ((gpointer) PAD2, "clicked",
                     G_CALLBACK (OnConf_Pad2),
+                    NULL);
+  g_signal_connect ((gpointer) joydevicescombo, "changed",
+                    G_CALLBACK (on_joydevicescombo_changed),
                     NULL);
   g_signal_connect ((gpointer) Select, "clicked",
                     G_CALLBACK (OnConf_Key),
@@ -470,25 +517,7 @@ create_Conf (void)
   g_signal_connect ((gpointer) Circle, "clicked",
                     G_CALLBACK (OnConf_Key),
                     NULL);
-  g_signal_connect ((gpointer) Right, "clicked",
-                    G_CALLBACK (OnConf_Key),
-                    NULL);
   g_signal_connect ((gpointer) Square, "clicked",
-                    G_CALLBACK (OnConf_Key),
-                    NULL);
-  g_signal_connect ((gpointer) R3, "clicked",
-                    G_CALLBACK (OnConf_Key),
-                    NULL);
-  g_signal_connect ((gpointer) Lx, "clicked",
-                    G_CALLBACK (OnConf_Key),
-                    NULL);
-  g_signal_connect ((gpointer) Rx, "clicked",
-                    G_CALLBACK (OnConf_Key),
-                    NULL);
-  g_signal_connect ((gpointer) Ly, "clicked",
-                    G_CALLBACK (OnConf_Key),
-                    NULL);
-  g_signal_connect ((gpointer) Ry, "clicked",
                     G_CALLBACK (OnConf_Key),
                     NULL);
   g_signal_connect ((gpointer) L3, "clicked",
@@ -499,6 +528,39 @@ create_Conf (void)
                     NULL);
   g_signal_connect ((gpointer) L2, "clicked",
                     G_CALLBACK (OnConf_Key),
+                    NULL);
+  g_signal_connect ((gpointer) Lx, "clicked",
+                    G_CALLBACK (OnConf_Key),
+                    NULL);
+  g_signal_connect ((gpointer) Ly, "clicked",
+                    G_CALLBACK (OnConf_Key),
+                    NULL);
+  g_signal_connect ((gpointer) Rx, "clicked",
+                    G_CALLBACK (OnConf_Key),
+                    NULL);
+  g_signal_connect ((gpointer) Ry, "clicked",
+                    G_CALLBACK (OnConf_Key),
+                    NULL);
+  g_signal_connect ((gpointer) Right, "clicked",
+                    G_CALLBACK (OnConf_Key),
+                    NULL);
+  g_signal_connect ((gpointer) R3, "clicked",
+                    G_CALLBACK (OnConf_Key),
+                    NULL);
+  g_signal_connect ((gpointer) checkbutton_reverselx, "toggled",
+                    G_CALLBACK (on_checkbutton_reverselx_toggled),
+                    NULL);
+  g_signal_connect ((gpointer) checkbutton_reversely, "toggled",
+                    G_CALLBACK (on_checkbutton_reversely_toggled),
+                    NULL);
+  g_signal_connect ((gpointer) checkbutton_reverserx, "toggled",
+                    G_CALLBACK (on_checkbutton_reverserx_toggled),
+                    NULL);
+  g_signal_connect ((gpointer) checkbutton_reversery, "toggled",
+                    G_CALLBACK (on_checkbutton_reversery_toggled),
+                    NULL);
+  g_signal_connect ((gpointer) forcefeedback, "toggled",
+                    G_CALLBACK (on_forcefeedback_toggled),
                     NULL);
   g_signal_connect ((gpointer) cancelbutton1, "clicked",
                     G_CALLBACK (OnConf_Cancel),
@@ -517,6 +579,9 @@ create_Conf (void)
   GLADE_HOOKUP_OBJECT (Conf, PAD1, "PAD1");
   GLADE_HOOKUP_OBJECT (Conf, PAD2, "PAD2");
   GLADE_HOOKUP_OBJECT (Conf, label2, "label2");
+  GLADE_HOOKUP_OBJECT (Conf, vbox2, "vbox2");
+  GLADE_HOOKUP_OBJECT (Conf, label5, "label5");
+  GLADE_HOOKUP_OBJECT (Conf, joydevicescombo, "joydevicescombo");
   GLADE_HOOKUP_OBJECT (Conf, fixed1, "fixed1");
   GLADE_HOOKUP_OBJECT (Conf, eL2, "eL2");
   GLADE_HOOKUP_OBJECT (Conf, eL1, "eL1");
@@ -550,17 +615,22 @@ create_Conf (void)
   GLADE_HOOKUP_OBJECT (Conf, Cross, "Cross");
   GLADE_HOOKUP_OBJECT (Conf, Triangle, "Triangle");
   GLADE_HOOKUP_OBJECT (Conf, Circle, "Circle");
-  GLADE_HOOKUP_OBJECT (Conf, Right, "Right");
   GLADE_HOOKUP_OBJECT (Conf, Square, "Square");
-  GLADE_HOOKUP_OBJECT (Conf, R3, "R3");
-  GLADE_HOOKUP_OBJECT (Conf, Lx, "Lx");
-  GLADE_HOOKUP_OBJECT (Conf, Rx, "Rx");
-  GLADE_HOOKUP_OBJECT (Conf, Ly, "Ly");
-  GLADE_HOOKUP_OBJECT (Conf, Ry, "Ry");
-  GLADE_HOOKUP_OBJECT (Conf, label3, "label3");
   GLADE_HOOKUP_OBJECT (Conf, L3, "L3");
   GLADE_HOOKUP_OBJECT (Conf, Up, "Up");
   GLADE_HOOKUP_OBJECT (Conf, L2, "L2");
+  GLADE_HOOKUP_OBJECT (Conf, Lx, "Lx");
+  GLADE_HOOKUP_OBJECT (Conf, Ly, "Ly");
+  GLADE_HOOKUP_OBJECT (Conf, Rx, "Rx");
+  GLADE_HOOKUP_OBJECT (Conf, Ry, "Ry");
+  GLADE_HOOKUP_OBJECT (Conf, Right, "Right");
+  GLADE_HOOKUP_OBJECT (Conf, label3, "label3");
+  GLADE_HOOKUP_OBJECT (Conf, R3, "R3");
+  GLADE_HOOKUP_OBJECT (Conf, checkbutton_reverselx, "checkbutton_reverselx");
+  GLADE_HOOKUP_OBJECT (Conf, checkbutton_reversely, "checkbutton_reversely");
+  GLADE_HOOKUP_OBJECT (Conf, checkbutton_reverserx, "checkbutton_reverserx");
+  GLADE_HOOKUP_OBJECT (Conf, checkbutton_reversery, "checkbutton_reversery");
+  GLADE_HOOKUP_OBJECT (Conf, forcefeedback, "forcefeedback");
   GLADE_HOOKUP_OBJECT_NO_REF (Conf, dialog_action_area1, "dialog_action_area1");
   GLADE_HOOKUP_OBJECT (Conf, cancelbutton1, "cancelbutton1");
   GLADE_HOOKUP_OBJECT (Conf, okbutton1, "okbutton1");

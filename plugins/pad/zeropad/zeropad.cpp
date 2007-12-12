@@ -1,4 +1,4 @@
-/*  ZeroPAD
+/*  ZeroPAD - author: zerofrog(@gmail.com)
  *  Copyright (C) 2006-2007 
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -34,7 +34,7 @@ char *libraryName      = "ZeroPAD (Debug) ";
 char *libraryName      = "ZeroPAD ";
 #endif
 
-Analog lanalog[2], ranalog[2];
+PADAnalog g_lanalog[2], g_ranalog[2];
 PADconf conf;
 
 keyEvent event;
@@ -45,7 +45,7 @@ string s_strIniPath="inis/zeropad.ini";
 
 const unsigned char version  = PS2E_PAD_VERSION;
 const unsigned char revision = 0;
-const unsigned char build    = 1;    // increase that with each version
+const unsigned char build    = 2;    // increase that with each version
 
 
 u32 pads=0;
@@ -186,12 +186,10 @@ s32 CALLBACK PADinit(u32 flags) {
 
 	pressure = 100;
     for(int i = 0; i < 2; ++i) {
-        ranalog[i].x = 0x80;
-        ranalog[i].y = 0x80;
-        ranalog[i].button = 0;
-        lanalog[i].x = 0x80;
-        lanalog[i].y = 0x80;
-        lanalog[i].button = 0;
+        g_ranalog[i].x = 0x80;
+        g_ranalog[i].y = 0x80;
+        g_lanalog[i].x = 0x80;
+        g_lanalog[i].y = 0x80;
     }
 
 	return 0;
@@ -282,21 +280,13 @@ u8  _PADpoll(u8 value) {
 			case 0x42: // READ_DATA
 
                 _PADupdate(curPad);
-		
-				if(lanalog[curPad].button) status[curPad] &= ~(1<<9);
-				else status[curPad] |= (1<<9);
-				if(ranalog[curPad].button) status[curPad] &= ~(1<<10);
-				else status[curPad] |= (1<<10);
-
-				lanalog[curPad].button = 0; // reset them :p (l3)
-				ranalog[curPad].button = 0; // reset them :P (r3)
-
+	   
 				stdpar[curPad][2] = status[curPad] >> 8;
 				stdpar[curPad][3] = status[curPad] & 0xff;
-				stdpar[curPad][4] = ranalog[curPad].x;
-				stdpar[curPad][5] = ranalog[curPad].y;
-				stdpar[curPad][6] = lanalog[curPad].x;
-				stdpar[curPad][7] = lanalog[curPad].y;
+				stdpar[curPad][4] = g_ranalog[curPad].x+128;
+				stdpar[curPad][5] = g_ranalog[curPad].y+128;
+				stdpar[curPad][6] = g_lanalog[curPad].x+128;
+				stdpar[curPad][7] = g_lanalog[curPad].y+128;
 				if (padMode[curPad] == 1) cmdLen = 20;
 				else cmdLen = 4;
 				button_check2 = stdpar[curPad][2] >> 4;

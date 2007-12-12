@@ -13,4 +13,8 @@ then
 exit 1
 fi
 
-cp libspu2Peops*.so* ${PCSX2PLUGINS}
+if [ -s libspu2Peops*.so* ]
+then
+cp libspu2Peops*.so*  ${PCSX2PLUGINS}
+fi
+

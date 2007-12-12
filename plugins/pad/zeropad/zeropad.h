@@ -1,4 +1,4 @@
-/*  ZeroPAD
+/*  ZeroPAD - author: zerofrog(@gmail.com)
  *  Copyright (C) 2006-2007
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -47,47 +47,67 @@ extern "C" {
 
 extern char *libraryName;
 
-#define PAD_GETKEY(key) (key&0xffff)
+#define FORIT(it, v) for(it = (v).begin(); it != (v).end(); (it)++)
+
 #define IS_KEYBOARD(key) (key<0x10000)
-#define IS_JOYBUTTONS(key) (key>=0x10000 && key<0x20000)
-#define IS_JOYSTICK(key) (key>=0x20000&&key<0x30000)
-#define IS_POV(key) (key>=0x30000&&key<0x40000)
-#define IS_MOUSE(key) (key>=0x40000&&key<0x50000)
+#define IS_JOYBUTTONS(key) (key>=0x10000 && key<0x20000) // buttons
+#define IS_JOYSTICK(key) (key>=0x20000&&key<0x30000) // analog
+#define IS_POV(key) (key>=0x30000&&key<0x40000) // uses analog as buttons (cares about sign)
+#define IS_MOUSE(key) (key>=0x40000&&key<0x50000) // mouse
+
+#define PAD_GETKEY(key) ((key)&0xffff)
+#define PAD_GETJOYID(key) (((key)&0xf000)>>12)
+#define PAD_GETJOYBUTTON(key) ((key)&0xff)
+#define PAD_GETJOYSTICK_AXIS(key) ((key)&0xff)
+#define PAD_JOYBUTTON(joyid, buttonid) (0x10000|((joyid)<<12)|(buttonid))
+#define PAD_JOYSTICK(joyid, axisid) (0x20000|((joyid)<<12)|(axisid))
+#define PAD_POV(joyid, sign, axisid) (0x30000|((joyid)<<12)|((sign)<<8)|(axisid))
+#define PAD_GETPOVSIGN(key) (((key)&0x100)>>8)
 
 #define PADKEYS 20
+
+#define PADOPTION_FORCEFEEDBACK 1
+#define PADOPTION_REVERTLX 0x2
+#define PADOPTION_REVERTLY 0x4
+#define PADOPTION_REVERTRX 0x8
+#define PADOPTION_REVERTRY 0x10
 
 typedef struct {
 	unsigned long keys[2][PADKEYS];
 	int log;
+    int options;  // upper 16 bits are for pad2
 } PADconf;
 
 typedef struct {
 	u8 x,y;
-	u8 button;
-} Analog;
+} PADAnalog;
 
 extern PADconf conf;
 
-extern Analog lanalog[2], ranalog[2];
+extern PADAnalog g_lanalog[2], g_ranalog[2];
 extern FILE *padLog;
 #define PAD_LOG __Log
 
-#define PAD_LEFT      0x8000
-#define PAD_DOWN      0x4000
-#define PAD_RIGHT     0x2000
-#define PAD_UP        0x1000
-#define PAD_START     0x0800
-#define PAD_R3        0x0400
-#define PAD_L3        0x0200
-#define PAD_SELECT    0x0100
-#define PAD_SQUARE    0x0080
-#define PAD_CROSS     0x0040
-#define PAD_CIRCLE    0x0020
-#define PAD_TRIANGLE  0x0010
-#define PAD_R1        0x0008
-#define PAD_L1        0x0004
-#define PAD_R2        0x0002
-#define PAD_L2        0x0001
+#define PAD_RY        19
+#define PAD_LY        18
+#define PAD_RX        17
+#define PAD_LX        16
+#define PAD_LEFT      15
+#define PAD_DOWN      14
+#define PAD_RIGHT     13
+#define PAD_UP        12
+#define PAD_START     11
+#define PAD_R3        10
+#define PAD_L3        9
+#define PAD_SELECT    8
+#define PAD_SQUARE    7
+#define PAD_CROSS     6
+#define PAD_CIRCLE    5
+#define PAD_TRIANGLE  4
+#define PAD_R1        3
+#define PAD_L1        2
+#define PAD_R2        1
+#define PAD_L2        0
 
 /* end of pad.h */
 

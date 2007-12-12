@@ -26,4 +26,4 @@ libZeroPAD_LDFLAGS= @SHARED_LDFLAGS@
 libZeroPAD_LDFLAGS+=-Wl,-soname,@ZEROPAD_SONAME@
 libZeroPAD_LDADD=$(libZeroPAD_a_OBJECTS)
 
-libZeroPAD_a_SOURCES = zeropad.cpp linux.cpp support.c interface.c
+libZeroPAD_a_SOURCES = zeropad.cpp Linux/linux.cpp Linux/support.c Linux/interface.c
