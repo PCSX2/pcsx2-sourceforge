@@ -22,6 +22,7 @@
 
 #ifdef JOYSTICK_SUPPORT
 #include <linux/joystick.h>
+#include <linux/input.h>
 #include <sys/ioctl.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -668,7 +669,7 @@ bool JoystickInfo::Init(const char* pdevid, int id, bool bStartThread)
     assert(pdevid != NULL );
     Destroy();
     
-    if ((js_fd = open(pdevid, O_RDONLY)) < 0) {
+    if ((js_fd = open(pdevid, O_RDWR)) < 0) {
         return false;
     }
   
@@ -788,7 +789,43 @@ void JoystickInfo::TestForce()
 {
 #ifdef JOYSTICK_SUPPORT
     // send a small force command
-    
+    //struct input_event play;
+//	struct input_event stop;
+//	struct ff_effect effect;
+//	int fd, ret;
+//
+//	fd = open("/dev/input/js0", O_RDWR);
+//    //fd = js_fd;
+//
+//    int features;
+//    ret = ioctl(fd, EVIOCGBIT(EV_FF, sizeof(unsigned long)), &features);
+//    printf("ret: %d, err: %d\n", ret, errno);
+//    printf("features: %x\n", features);
+//    
+//    memset(&effect, 0, sizeof(effect));
+//    effect.type = FF_RUMBLE;
+//    effect.id = 1;
+//    effect.u.rumble.weak_magnitude = 0x3fff;
+//    effect.u.rumble.strong_magnitude = 0x3fff;
+//
+//    ret = ioctl(fd, EVIOCSFF, &effect);
+//    printf("ret: %d, err: %d\n", ret, errno);
+//    
+//	/* Play three times */
+//	play.type = EV_FF;
+//	play.code = effect.id;
+//	play.value = 3;
+//	
+//	ret = write(fd, (const void*) &play, sizeof(play));
+//    printf("ret: %d, err: %d\n", ret, errno);
+
+	/* Stop an effect */
+//	stop.type = EV_FF;
+//	stop.code = FF_RUMBLE;
+//	stop.value = 0;
+//	
+//	write(fd, (const void*) &play, sizeof(stop));
+//    close(fd);
 #endif
 }
 
