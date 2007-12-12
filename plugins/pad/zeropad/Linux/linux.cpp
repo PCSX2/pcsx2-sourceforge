@@ -611,7 +611,7 @@ void JoystickInfo::EnumerateJoysticks(vector<JoystickInfo*>& vjoysticks)
     FORIT(it, vjoysticks) delete *it;
     vjoysticks.clear();
     
-    char devid[10];
+    char devid[32];
     JoystickInfo* pjoy = new JoystickInfo();
     for(int i = 0; i < 6; ++i) {
         sprintf(devid, "/dev/js%d", i);
@@ -681,6 +681,7 @@ bool JoystickInfo::Init(const char* pdevid, int id, bool bStartThread)
     Destroy();
     
     if ((js_fd = open(pdevid, O_RDWR)) < 0) {
+        js_fd = -1;
         return false;
     }
   
@@ -701,8 +702,10 @@ bool JoystickInfo::Init(const char* pdevid, int id, bool bStartThread)
     int flags;
     if (-1 == (flags = fcntl(js_fd, F_GETFL, 0)))
         flags = 0;
-    if( fcntl(js_fd, F_SETFL, flags | O_NONBLOCK) < 0 )
+    if( fcntl(js_fd, F_SETFL, flags | O_NONBLOCK) < 0 ) {
+                printf("fcntl error\n");
         return false;
+    }
 
     if( numaxes >= 0 ) vaxes.resize(numaxes);
     if( numbuttons >= 0 ) vbuttonstate.resize(numbuttons);
