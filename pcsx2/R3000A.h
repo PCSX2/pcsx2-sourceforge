@@ -118,7 +118,7 @@ typedef union {
 	u32 r[32];
 } CP2Ctrl;
 
-typedef struct {
+typedef struct psxRegisters_t {
 	GPRRegs GPR;		/* General Purpose Registers */
 	CP0Regs CP0;		/* Coprocessor0 Registers */
 	CP2Data CP2D; 		/* Cop2 data registers */

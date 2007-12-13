@@ -286,7 +286,6 @@ void CACHE() {
 		{
 			int index = (addr >> 6) & 0x3F;
 			int way = addr & 0x1;
-			u8 * t, * out;
 #ifdef CACHE_LOG
 	CACHE_LOG("CACHE DXIN addr %x, index %d, way %d, flag %x\n",addr,index,way,pCache[index].tag[way] & 0x78);
 #endif

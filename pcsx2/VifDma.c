@@ -731,7 +731,7 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 	if(vifRegs->num == 0 && size > 3) SysPrintf("Size = %x, Vifnum = 0!\n", size);
 }
 
-static void vuExecMicro( u32 addr, const unsigned int VIFdmanum )
+static void vuExecMicro( u32 addr, const u32 VIFdmanum )
 {
 	int _cycles;
 	VURegs * VU;
@@ -749,7 +749,7 @@ static void vuExecMicro( u32 addr, const unsigned int VIFdmanum )
 		VU = &VU1;
 		vif1FLUSH();
 	}
-	if(VU->vifRegs->itops > (VIFdmanum ? 0x3ff : 0xff)) 
+	if(VU->vifRegs->itops > (VIFdmanum ? 0x3ffu : 0xffu)) 
 		SysPrintf("VIF%d ITOP overrun! %x\n", VIFdmanum, VU->vifRegs->itops);
 
 	VU->vifRegs->itop = VU->vifRegs->itops;
@@ -1627,7 +1627,7 @@ static int Vif1TransDirectHL(u32 *data, int size){
 	int ret = 0;
 	
 	if(splitptr > 0){  //Leftover data from the last packet, filling the rest and sending to the GS
-		if(splitptr < 4 && size > (4-splitptr)){
+		if(splitptr < 4 && (u32)size > (4-splitptr)){
 		
 			while(splitptr < 4){
 				splittransfer[splitptr++] = (u32)data++;

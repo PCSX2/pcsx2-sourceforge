@@ -32,7 +32,7 @@
 	sprintf(lp, "%s", FindData.cFileName); \
 	i = ComboBox_AddString(hw, tmpStr); \
 	ComboBox_SetItemData(hw, i, lp); \
-	if (stricmp(str, lp)==0) \
+	if (_stricmp(str, lp)==0) \
 		ComboBox_SetCurSel(hw, i); \
 }
 
@@ -134,7 +134,7 @@ BOOL OnConfigureDialog(HWND hW) {
 	sprintf(lp, "HLE");
 	i=ComboBox_AddString(hWC_BIOS, _("Internal HLE Bios"));
 	ComboBox_SetItemData(hWC_BIOS, i, lp);
-	if (stricmp(Config.Bios, lp)==0)
+	if (_stricmp(Config.Bios, lp)==0)
 		ComboBox_SetCurSel(hWC_BIOS, i);*/
 
 	strcpy(tmpStr, Config.BiosDir);
@@ -153,7 +153,7 @@ BOOL OnConfigureDialog(HWND hW) {
 		sprintf(lp, "%s", (char *)FindData.cFileName);
 		i = ComboBox_AddString(hWC_BIOS, description);		//2002-09-22 (Florin) modified
 		ComboBox_SetItemData(hWC_BIOS, i, lp);
-		if (stricmp(Config.Bios, FindData.cFileName)==0)
+		if (_stricmp(Config.Bios, FindData.cFileName)==0)
 			ComboBox_SetCurSel(hWC_BIOS, i);
 	} while (FindNextFile(Find,&FindData));
     
