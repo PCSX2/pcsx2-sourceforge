@@ -925,11 +925,16 @@ void* SPU2ThreadProc(void* lpParam)
             while(s_nQueuedBuffers< 3 && !s_bThreadExit) {
                 //printf("sleeping!!!!\n");
                 Sleep(1);
+                if( s_bThreadExit )
+                    return NULL;
             }
 
             while( SoundGetBytesBuffered() > 72000 ) {
                 //printf("bytes buffered\n");
                 Sleep(1);
+
+                if( s_bThreadExit )
+                    return NULL;
             }
         }
         else {
