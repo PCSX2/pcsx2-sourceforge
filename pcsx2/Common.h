@@ -61,8 +61,8 @@ extern AppData gApp;
 //#define min(a,b)            (((a) < (b)) ? (a) : (b))
 #define __declspec(x)
 #define __assume(x) ;
-#define strnicmp strncasecmp
-#define stricmp strcasecmp
+#define _strnicmp strncasecmp
+#define _stricmp strcasecmp
 #include <winbase.h>
 //#pragma intrinsic (InterlockedAnd)
 // Definitions added Feb 16, 2006 by efp

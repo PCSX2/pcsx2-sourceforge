@@ -153,12 +153,12 @@ extern __forceinline u32 timeGetTime()
 #undef FALSE
 #define FALSE 0
 
-#ifndef strnicmp
-#define strnicmp strncasecmp
+#ifndef _strnicmp
+#define _strnicmp strncasecmp
 #endif
 
-#ifndef stricmp
-#define stricmp strcasecmp
+#ifndef _stricmp
+#define _stricmp strcasecmp
 #endif
 
 #endif

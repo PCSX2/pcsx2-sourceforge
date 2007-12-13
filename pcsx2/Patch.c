@@ -359,6 +359,8 @@ void patchFunc_fastmemory( char * cmd, char * param )
 #endif
 }
 
+extern void SetVUNanMode(int mode);
+
 void patchFunc_vunanmode( char * cmd, char * param )
 {
 #ifndef PCSX2_NORECBUILD
@@ -386,16 +388,16 @@ void patchFunc_roundmode( char * cmd, char * param )
 	pText = strtok( param, ", " );
 	while(pText != NULL) {
 		u32 type = 0xffff;
-		if( stricmp(pText, "near") == 0 ) {
+		if( _stricmp(pText, "near") == 0 ) {
 			type = 0x0000;
 		}
-		else if( stricmp(pText, "down") == 0 ) {
+		else if( _stricmp(pText, "down") == 0 ) {
 			type = 0x2000;
 		}
-		else if( stricmp(pText, "up") == 0 ) {
+		else if( _stricmp(pText, "up") == 0 ) {
 			type = 0x4000;
 		}
-		else if( stricmp(pText, "chop") == 0 ) {
+		else if( _stricmp(pText, "chop") == 0 ) {
 			type = 0x6000;
 		}
 

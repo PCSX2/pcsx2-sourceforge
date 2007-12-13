@@ -6,8 +6,8 @@
 
 #include <string.h>
 
-//#ifndef strnicmp
-//#define strnicmp strncasecmp
+//#ifndef _strnicmp
+//#define _strnicmp strncasecmp
 //#endif
 
 #include "CDVDiso.h"
@@ -135,7 +135,7 @@ int TocEntryCompare(char* filename, char* extensions){
 		// then return a match
 		ext_point = strrchr(filename,'.');
 
-		if (strnicmp(ext_point, token, strlen(token)) == 0)
+		if (_strnicmp(ext_point, token, strlen(token)) == 0)
 			return (TRUE);
 
 		/* Get next token: */
@@ -436,10 +436,10 @@ int CDVD_findfile(char* fname, struct TocEntry* tocEntry){
 			// Copy the CD format TOC Entry to our format
 			TocEntryCopy(&localTocEntry, tocEntryPointer);
 
-			if ((strnicmp(localTocEntry.filename, filename, strlen(filename)) == 0) ||
+			if ((_strnicmp(localTocEntry.filename, filename, strlen(filename)) == 0) ||
 				((filename[strlen(filename)-2] == ';') &&
 				 (localTocEntry.filename[strlen(localTocEntry.filename)-2] == ';') && 
-				 (strnicmp(localTocEntry.filename, filename, strlen(filename)-2) == 0)))
+				 (_strnicmp(localTocEntry.filename, filename, strlen(filename)-2) == 0)))
 			{
 				// if the filename matches then copy the toc Entry
 				tocEntry->fileLBA = localTocEntry.fileLBA;

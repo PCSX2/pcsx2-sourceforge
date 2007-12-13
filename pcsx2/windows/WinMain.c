@@ -300,7 +300,7 @@ static int ParseCommandLine(char* pcmd)
 
 	while(token != NULL) {
 
-		if( stricmp(token, "-help") == 0) {
+		if( _stricmp(token, "-help") == 0) {
             const char* phelpmsg = 
                 "pcsx2 [options] [file]\n\n"
                 "-cfg [file] {configuration file}\n"
@@ -332,64 +332,64 @@ static int ParseCommandLine(char* pcmd)
 			MessageBox(NULL,phelpmsg,"Help", MB_OK);
 			return -1;
 		}
-        else if( stricmp(token, "-nogui") == 0 ) {
+        else if( _stricmp(token, "-nogui") == 0 ) {
 			UseGui = 0;
 		}
 #ifdef PCSX2_DEVBUILD
-        else if( stricmp(token, "-image") == 0 ) {
+        else if( _stricmp(token, "-image") == 0 ) {
 			token = strtok(NULL, pdelim);
 			g_TestRun.pimagename = token;
 		}
-		else if( stricmp(token, "-log") == 0 ) {
+		else if( _stricmp(token, "-log") == 0 ) {
 			token = strtok(NULL, pdelim);
 			g_TestRun.plogname = token;
 		}
-		else if( stricmp(token, "-logopt") == 0 ) {
+		else if( _stricmp(token, "-logopt") == 0 ) {
 			token = strtok(NULL, pdelim);
 			if( token != NULL ) {
 				if( token[0] == '0' && token[1] == 'x' ) token += 2;
 				sscanf(token, "%x", &varLog);
 			}
 		}
-        else if( stricmp(token, "-frame") == 0 ) {
+        else if( _stricmp(token, "-frame") == 0 ) {
 			token = strtok(NULL, pdelim);
 			if( token != NULL ) {
 				g_TestRun.frame = atoi(token);
 			}
 		}
-		else if( stricmp(token, "-numimages") == 0 ) {
+		else if( _stricmp(token, "-numimages") == 0 ) {
 			token = strtok(NULL, pdelim);
 			if( token != NULL ) {
 				g_TestRun.numimages = atoi(token);
 			}
 		}
-        else if( stricmp(token, "-jpg") == 0 ) {
+        else if( _stricmp(token, "-jpg") == 0 ) {
 			g_TestRun.jpgcapture = 1;
 		}
 #endif
-		else if( stricmp(token, "-pad") == 0 ) {
+		else if( _stricmp(token, "-pad") == 0 ) {
 			token = strtok(NULL, pdelim);
 			printf("-pad ignored\n");
 		}
-		else if( stricmp(token, "-efile") == 0 ) {
+		else if( _stricmp(token, "-efile") == 0 ) {
 			token = strtok(NULL, pdelim);
 			if( token != NULL ) {
 				g_TestRun.efile = atoi(token);
 			}
 		}
-		else if( stricmp(token, "-gs") == 0 ) {
+		else if( _stricmp(token, "-gs") == 0 ) {
 			token = strtok(NULL, pdelim);
 			g_TestRun.pgsdll = token;
 		}
-		else if( stricmp(token, "-cdvd") == 0 ) {
+		else if( _stricmp(token, "-cdvd") == 0 ) {
 			token = strtok(NULL, pdelim);
 			g_TestRun.pcdvddll = token;
 		}
-		else if( stricmp(token, "-spu") == 0 ) {
+		else if( _stricmp(token, "-spu") == 0 ) {
 			token = strtok(NULL, pdelim);
 			g_TestRun.pspudll = token;
 		}
-		else if( stricmp(token, "-loadgs") == 0 ) {
+		else if( _stricmp(token, "-loadgs") == 0 ) {
 			token = strtok(NULL, pdelim);
 			g_pRunGSState = token;
 		}
@@ -1493,9 +1493,9 @@ LRESULT WINAPI UserNameProc(HWND hDlg, UINT uMsg, WPARAM wParam, LPARAM lParam) 
 			switch(wParam) {
 				case IDOK:
 				{
-					char str[255];
-					GetWindowText(GetDlgItem(hDlg, IDC_USER_NAME), str, 255);
-					swprintf(s_szUserName, L"%S", str);
+					wchar_t str[255];
+					GetWindowTextW(GetDlgItem(hDlg, IDC_USER_NAME), str, 255);
+					swprintf(s_szUserName, 255, L"%S", str);
 					EndDialog(hDlg, TRUE );
 					return TRUE;
 				}

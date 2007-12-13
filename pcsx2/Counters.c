@@ -181,6 +181,8 @@ void UpdateVSyncRate() {
 	rcntSet();
 }
 
+u32 pauses=0;
+
 void FrameLimiter()
 {
 	static u64 iStart=0, iEnd=0, iExpectedEnd=0;
@@ -197,6 +199,7 @@ void FrameLimiter()
 	}
 	else do {
 		Sleep(1);
+		pauses++;
 		iEnd = GetCPUTicks();
 	} while(iEnd<iExpectedEnd);
 	iStart = iExpectedEnd; //remember the expected value frame. improves smoothness
@@ -330,6 +333,7 @@ void VSync()
 			if( CHECK_FRAMELIMIT == PCSX2_FRAMELIMIT_VUSKIP ) {
 				Cpu->ExecuteVU1Block = s_prevExecuteVU1Block;
 			}
+			lastWasSkip=0;
 		}
 
 		// used to limit frames
@@ -351,7 +355,8 @@ void VSync()
 					//add more if needed, but 1/8 of the real rate seems slow enough :/
 				};
 
-				static const u32 skipLevelCount = 14;
+				static const u32 skipLevelCount = (sizeof(skipLevels)/(sizeof(u32)*2))-1;
+
 				static u32 skipLevel=0;
 
 				static u32 toSkip=0;
@@ -373,19 +378,20 @@ void VSync()
 				{
 					u32 fps = uFramesRendered * 1000 / uDeltaTime;
 
-					if((fps<expected_fps)&&(skipLevel<skipLevelCount))
+					if((fps<(expected_fps-5))&&(skipLevel<skipLevelCount)) //if it's still slow, try to increase skip level
 					{
 						skipLevel++;
-						SysPrintf("SKIP level changed to: %d\n",skipLevel);
+						SysPrintf("SKIP level changed to: %d {%d,%d}\n",skipLevel,skipLevels[skipLevel][0],skipLevels[skipLevel][1]);
 					}
-					else if((fps>=expected_fps)&&(skipLevel>0))
+					else if((skipLevel>0)&&(pauses>3)) //if it has spare time, try to reduce the skip level
 					{
 						skipLevel--;
-						SysPrintf("SKIP level changed to: %d\n",skipLevel);
+						SysPrintf("SKIP level changed to: %d {%d,%d}\n",skipLevel,skipLevels[skipLevel][0],skipLevels[skipLevel][1]);
 					}
 
 					uLastTime=uCurTime;
 					uFramesRendered=0;
+					pauses=0;
 
 				}
 

@@ -124,7 +124,7 @@ void psxConstReadCounterMode16(int x86reg, int index, int sign)
 
 	AND16ItoR(ECX, ~0x1800);
 	OR16ItoR(ECX, 0x400);
-	MOV16RtoM(psxCounters[index].mode, ECX);
+	MOV16RtoM((uptr)&psxCounters[index].mode, ECX);
 }
 
 int psxHwConstRead16(u32 x86reg, u32 add, u32 sign) {
@@ -284,7 +284,7 @@ void psxConstReadCounterMode32(int x86reg, int index)
 
 	//AND16ItoR(ECX, ~0x1800);
 	//OR16ItoR(ECX, 0x400);
-	MOV16RtoM(psxCounters[index].mode, ECX);
+	MOV32RtoM((uptr)&psxCounters[index].mode, ECX);
 }
 
 static u32 s_tempsio;
@@ -762,10 +762,8 @@ void psxHwConstWrite16(u32 add, int mmreg) {
 
 #define recDmaExec(n) { \
 	iFlushCall(0); \
-	if( n > 6 ) \
-		TEST32ItoM((uptr)&HW_DMA_PCR2, 8 << ((n-7) * 4)); \
-	else \
-		TEST32ItoM((uptr)&HW_DMA_PCR, 8 << (n * 4)); \
+	if( n > 6 ) TEST32ItoM((uptr)&HW_DMA_PCR2, 8 << (((n<<2)-28)&0x1f)); \
+	else 		TEST32ItoM((uptr)&HW_DMA_PCR,  8 << (((n<<2))&0x1f)); \
 	j8Ptr[5] = JZ8(0); \
 	MOV32MtoR(EAX, (uptr)&HW_DMA##n##_CHCR); \
 	TEST32ItoR(EAX, 0x01000000); \
