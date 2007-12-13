@@ -408,7 +408,7 @@ void OnConf_Key(GtkButton *button, gpointer user_data)
         return;
     }
     
-    int id = (int)gtk_object_get_user_data(GTK_OBJECT(label));
+    int id = (int)(uptr)gtk_object_get_user_data(GTK_OBJECT(label));
     int pad = id/PADKEYS;
     int key = id%PADKEYS;
     unsigned long *pkey = &conf.keys[pad][key];
