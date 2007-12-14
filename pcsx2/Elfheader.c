@@ -240,8 +240,8 @@ int readFile( char *Exepath, char *ptr, u32 offset, int size ) {
 	FILE *f;
 	int fi;
 
-	if ((_strnicmp( Exepath, "cdrom0:", strlen("cdrom0:")) == 0) ||
-		(_strnicmp( Exepath, "cdrom1:", strlen("cdrom0:")) == 0)) {
+	if ((strnicmp( Exepath, "cdrom0:", strlen("cdrom0:")) == 0) ||
+		(strnicmp( Exepath, "cdrom1:", strlen("cdrom0:")) == 0)) {
 		if ((u32)offset >= toc.fileSize) return -1;
 		fi = CDVDFS_open(Exepath + strlen("cdromN:"), 1);//RDONLY
 		if (fi < 0) return -1;
@@ -567,8 +567,8 @@ int loadElfFile(char *filename) {
 	u32 i;
 
 	SysPrintf("loadElfFile: %s\n", filename);
-	if (_strnicmp( filename, "cdrom0:", strlen( "cdrom0:" ) ) &&
-		_strnicmp( filename, "cdrom1:", strlen( "cdrom1:" ) ) ) {
+	if (strnicmp( filename, "cdrom0:", strlen( "cdrom0:" ) ) &&
+		strnicmp( filename, "cdrom1:", strlen( "cdrom1:" ) ) ) {
 		if ( stat( filename, &sbuf ) != 0 )
 			return -1;
 		elfsize = sbuf.st_size;

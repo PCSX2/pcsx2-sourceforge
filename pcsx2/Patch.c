@@ -388,16 +388,16 @@ void patchFunc_roundmode( char * cmd, char * param )
 	pText = strtok( param, ", " );
 	while(pText != NULL) {
 		u32 type = 0xffff;
-		if( _stricmp(pText, "near") == 0 ) {
+		if( stricmp(pText, "near") == 0 ) {
 			type = 0x0000;
 		}
-		else if( _stricmp(pText, "down") == 0 ) {
+		else if( stricmp(pText, "down") == 0 ) {
 			type = 0x2000;
 		}
-		else if( _stricmp(pText, "up") == 0 ) {
+		else if( stricmp(pText, "up") == 0 ) {
 			type = 0x4000;
 		}
-		else if( _stricmp(pText, "chop") == 0 ) {
+		else if( stricmp(pText, "chop") == 0 ) {
 			type = 0x6000;
 		}
 

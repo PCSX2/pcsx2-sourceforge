@@ -88,11 +88,6 @@ void StartGui() {
     gtk_window_set_title(GTK_WINDOW(Window), "PCSX2 "PCSX2_VERSION" Watermoose");
 #endif
 
-#ifndef NEW_LOGGING
-	Item = lookup_widget(Window, "GtkMenuItem_Logging");
-	gtk_widget_set_sensitive(Item, FALSE);
-#endif
-
     // status bar
     pStatusBar = gtk_statusbar_new ();
     gtk_box_pack_start (GTK_BOX(lookup_widget(Window, "status_box")), pStatusBar, TRUE, TRUE, 0);
