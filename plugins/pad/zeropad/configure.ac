@@ -1,6 +1,6 @@
 AC_INIT(ZeroPAD,0.2,zerofrog@gmail.com)
 
-AM_INIT_AUTOMAKE(ZeroPAD,0.1)
+AM_INIT_AUTOMAKE(ZeroPAD,0.2)
 
 AC_PROG_CC([gcc g++ cl KCC CC cxx cc++ xlC aCC c++])
 AC_PROG_CXX([gcc g++ cl KCC CC cxx cc++ xlC aCC c++])
@@ -13,7 +13,7 @@ dnl necessary for compiling assembly
 AM_PROG_AS
 
 ZEROPAD_CURRENT=0
-ZEROPAD_REVISION=1
+ZEROPAD_REVISION=2
 ZEROPAD_AGE=0
 ZEROPAD_SONAME=libZeroPAD.so.[$ZEROPAD_CURRENT].[$ZEROPAD_REVISION].[$ZEROPAD_AGE]
 ZEROPAD_RELEASE=[$ZEROPAD_CURRENT].[$ZEROPAD_REVISION].[$ZEROPAD_AGE]
@@ -73,12 +73,16 @@ AM_CONDITIONAL(X86_64, test x$cpu64 = xyes)
 
 AC_CHECK_FUNCS([ _aligned_malloc _aligned_free ], AC_DEFINE(HAVE_ALIGNED_MALLOC))
 
+AC_CHECK_LIB(SDL,SDL_Init,[])
+
 dnl gtk
 AC_MSG_CHECKING(gtk2+)
 AC_CHECK_PROG(GTK_CONFIG, pkg-config, pkg-config)
-LIBS+=$(pkg-config --libs gtk+-2.0)
+LIBS+=$(pkg-config --libs gtk+-2.0 sdl)
+CFLAGS+="$(pkg-config --cflags gtk+-2.0 sdl) "
+CXXFLAGS+="$(pkg-config --cflags gtk+-2.0 sdl) "
 
-AC_CHECK_HEADER([linux/joystick.h], [AC_DEFINE(JOYSTICK_SUPPORT,1)])
+dnl AC_CHECK_HEADER([SDL/SDL.h], [AC_DEFINE(JOYSTICK_SUPPORT,1)])
 
 dnl assuming linux environment
 so_ext=".so.$ZEROPAD_RELEASE"
