@@ -9,12 +9,15 @@ echo ----------------
 if [ $# -gt 0 ] && [ $1 = "all" ]
 then
 
+#if possible
+make distclean
+
 aclocal
 automake -a
 autoconf
 chmod +x configure
 ./configure --prefix=${PCSX2PLUGINS}
-make clean
+make distclean
 make install
 
 else

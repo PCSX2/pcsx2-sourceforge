@@ -680,7 +680,7 @@ bool JoystickInfo::Init(const char* pdevid, int id, bool bStartThread)
     assert(pdevid != NULL );
     Destroy();
     
-    if ((js_fd = open(pdevid, O_RDWR)) < 0) {
+    if ((js_fd = open(pdevid, O_RDONLY)) < 0) {
         js_fd = -1;
         return false;
     }
