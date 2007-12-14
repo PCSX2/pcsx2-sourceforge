@@ -740,7 +740,8 @@ static void (*recComOpXMM_to_XMM[] )(x86SSERegType, x86SSERegType) = {
 static void (*recComOpM32_to_XMM[] )(x86SSERegType, uptr) = {
 	SSE_ADDSS_M32_to_XMM, SSE_MULSS_M32_to_XMM, SSE_MAXSS_M32_to_XMM, SSE_MINSS_M32_to_XMM };
 
-static PCSX2_ALIGNED16(u32 s_overflowmask[]) = {0xf0000000, 0xf0000000, 0xf0000000, 0xf0000000};
+	// Doesnt seem to like negatives - Ruins katamari graphics
+static PCSX2_ALIGNED16(u32 s_overflowmask[]) = {0x7f800000, 0x7f800000, 0x7f800000, 0x7f800000};
 extern int g_VuNanHandling;
 
 void ClampValues(regd){ 
@@ -768,9 +769,9 @@ void ClampValues2(regd){
 
 	SSE_ANDPS_XMM_to_XMM(regd, t5reg); 
 
-    // not necessary since above ORPS handles that (i think)
-	//SSE_MAXSS_M32_to_XMM(regd, (uptr)&g_minvals[0]); 
-	//SSE_MINSS_M32_to_XMM(regd, (uptr)&g_maxvals[0]); 
+    // not necessary since above ORPS handles that (i think) Lets enable it for now ;)
+	SSE_MAXSS_M32_to_XMM(regd, (uptr)&g_minvals[0]); 
+	SSE_MINSS_M32_to_XMM(regd, (uptr)&g_maxvals[0]); 
 
     _freeXMMreg(t5reg); 
 }
