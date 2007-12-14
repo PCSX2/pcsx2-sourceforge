@@ -579,12 +579,9 @@ int SaveState(char *file) {
 	SysPrintf("Saving GS\n");
     if( CHECK_MULTIGS ) {
         // have to call in thread, otherwise weird stuff will start happening
-#ifdef __x86_64
-        GSRingBufSimplePacket(GS_RINGTYPE_SAVE, (int)(f&0xffffffff), (int)(f>>32), 0);
-#else
-        GSRingBufSimplePacket(GS_RINGTYPE_SAVE, (int)f, 0, 0);
-#endif
-		gsWaitGS();
+        uptr uf = (uptr)f;
+        GSRingBufSimplePacket(GS_RINGTYPE_SAVE, (int)(uf&0xffffffff), (int)(uf>>32), 0);
+        gsWaitGS();
     }
     else {
         _PS2Esave(GS);
@@ -713,11 +710,8 @@ int LoadState(char *file) {
 	SysPrintf("Loading GS\n");
     if( CHECK_MULTIGS ) {
         // have to call in thread, otherwise weird stuff will start happening
-#ifdef __x86_64
-        GSRingBufSimplePacket(GS_RINGTYPE_LOAD, (int)(f&0xffffffff), (int)(f>>32), 0);
-#else
-        GSRingBufSimplePacket(GS_RINGTYPE_LOAD, (int)f, 0, 0);
-#endif
+        uptr uf = (uptr)f;
+        GSRingBufSimplePacket(GS_RINGTYPE_SAVE, (int)(uf&0xffffffff), (int)(uf>>32), 0);
         gsWaitGS();
     }
     else {

@@ -839,7 +839,9 @@ void psxHwWrite8(u32 add, u8 value) {
 	if((add & 0xf) == 0xa) SysPrintf("8bit write (possible chcr set) %x value %x\n", add, value);
 #endif
 	switch (add) {
-		case 0x1f801040: sioWrite8(value); break;
+		case 0x1f801040:
+            sioWrite8(value); 
+            break;
 	//	case 0x1f801050: serial_write8(value); break;//serial port
 
 		case 0x1f801100:
@@ -879,10 +881,11 @@ void psxHwWrite8(u32 add, u8 value) {
 			if (value == '\r') break;
 			if (value == '\n' || g_pbufi >= 1023) {
 				g_pbuf[g_pbufi++] = 0; g_pbufi = 0;
-				SysPrintf("%s\n", g_pbuf); break;
+				SysPrintf("%s\n", g_pbuf);
 			}
-			g_pbuf[g_pbufi++] = value;
-			break;
+			else g_pbuf[g_pbufi++] = value;
+            psxHu8(add) = value;
+            return;
 
 		case 0x1F808260:
 #ifdef PSXHW_LOG

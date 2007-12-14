@@ -1627,7 +1627,7 @@ static int Vif1TransDirectHL(u32 *data, int size){
 	int ret = 0;
 	
 	if(splitptr > 0){  //Leftover data from the last packet, filling the rest and sending to the GS
-		if(splitptr < 4 && (u32)size > (4-splitptr)){
+		if(splitptr < 4 && size > (4-(int)splitptr)){
 		
 			while(splitptr < 4){
 				splittransfer[splitptr++] = (u32)data++;

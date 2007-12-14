@@ -6,7 +6,7 @@
 //
 #define MAX_PATCH 1024 
 
-#define IFIS(x,str) if(!_strnicmp(x,str,sizeof(str)-1))
+#define IFIS(x,str) if(!strnicmp(x,str,sizeof(str)-1))
 
 #define GETNEXT_PARAM() \
 	while ( *param && ( *param != ',' ) ) param++; \

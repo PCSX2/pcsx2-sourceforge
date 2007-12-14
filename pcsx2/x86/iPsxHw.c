@@ -284,7 +284,7 @@ void psxConstReadCounterMode32(int x86reg, int index)
 
 	//AND16ItoR(ECX, ~0x1800);
 	//OR16ItoR(ECX, 0x400);
-	MOV32RtoM((uptr)&psxCounters[index].mode, ECX);
+	//MOV16RtoM((uptr)&psxCounters[index].mode, ECX);
 }
 
 static u32 s_tempsio;
