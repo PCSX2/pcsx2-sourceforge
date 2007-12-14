@@ -10,8 +10,6 @@ if [ $# -gt 0 ] && [ $1 = "all" ]
 then
 
 #if possible
-make distclean
-
 aclocal
 automake -a
 autoconf
