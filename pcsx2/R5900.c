@@ -542,6 +542,17 @@ void cpuExecuteBios()
 	}
 
 	bExecBIOS = FALSE;
+//    {
+//        FILE* f = fopen("eebios.bin", "wb");
+//        fwrite(PSM(0x80000000), 0x100000, 1, f);
+//        fclose(f);
+//        exit(0);
+
+//        f = fopen("iopbios.bin", "wb");
+//        fwrite(PS2MEM_PSX, 0x80000, 1, f);
+//        fclose(f);
+//    }
+
 //	REC_CLEARM(0x00200008);
 //	REC_CLEARM(0x00100008);
 //	REC_CLEARM(cpuRegs.pc);
@@ -578,7 +589,7 @@ void IntcpuBranchTest()
 	g_EEFreezeRegs = 0;
 #endif
 
-	g_nextBranchCycle = cpuRegs.cycle + EE_WAIT_CYCLE;
+    g_nextBranchCycle = cpuRegs.cycle + EE_WAIT_CYCLE;
 
 	if ((int)(cpuRegs.cycle - nextsCounter) >= nextCounter)
 		rcntUpdate();

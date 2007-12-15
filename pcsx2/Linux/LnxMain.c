@@ -23,7 +23,7 @@
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <errno.h>
-#include <error.h>
+//#include <error.h>
 #include <signal.h>
 #include <string.h>
 #include <sys/mman.h>

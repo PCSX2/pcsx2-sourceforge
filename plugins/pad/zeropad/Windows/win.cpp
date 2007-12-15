@@ -207,26 +207,16 @@ LRESULT WINAPI PADwndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             event.key = wParam;
 			break;
 
-		case WM_LBUTTONDBLCLK:
-            lanalog[0].button = 1;
-			lanalog[1].button = 1;
-			break;
-
 		case WM_LBUTTONDOWN:
 			lbutton = true;
 			break;
 
 		case WM_LBUTTONUP:
-			lanalog[0].x = 0x80;
-			lanalog[0].y = 0x80;
-            lanalog[1].x = 0x80;
-			lanalog[1].y = 0x80;
+			g_lanalog[0].x = 0x80;
+			g_lanalog[0].y = 0x80;
+            g_lanalog[1].x = 0x80;
+			g_lanalog[1].y = 0x80;
 			lbutton = false;
-			break;
-
-		case WM_RBUTTONDBLCLK:
-			ranalog[0].button = 1;
-            ranalog[1].button = 1;
 			break;
 
 		case WM_RBUTTONDOWN:
@@ -234,27 +224,27 @@ LRESULT WINAPI PADwndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 			break;
 
 		case WM_RBUTTONUP:
-			ranalog[0].x = 0x80;
-			ranalog[0].y = 0x80;
-            ranalog[1].x = 0x80;
-			ranalog[1].y = 0x80;
+			g_ranalog[0].x = 0x80;
+			g_ranalog[0].y = 0x80;
+            g_ranalog[1].x = 0x80;
+			g_ranalog[1].y = 0x80;
 			rbutton = false;
 			break;
 
 		case WM_MOUSEMOVE:
 			if(lbutton)
 			{
-				lanalog[0].x = LOWORD(lParam) & 254;
-				lanalog[0].y = HIWORD(lParam) & 254;
-                lanalog[1].x = LOWORD(lParam) & 254;
-				lanalog[1].y = HIWORD(lParam) & 254;
+				g_lanalog[0].x = LOWORD(lParam) & 254;
+				g_lanalog[0].y = HIWORD(lParam) & 254;
+                g_lanalog[1].x = LOWORD(lParam) & 254;
+				g_lanalog[1].y = HIWORD(lParam) & 254;
 			}
 			if(rbutton)
 			{
-				ranalog[0].x = LOWORD(lParam) & 254;
-				ranalog[0].y = HIWORD(lParam) & 254;
-                ranalog[1].x = LOWORD(lParam) & 254;
-				ranalog[1].y = HIWORD(lParam) & 254;
+				g_ranalog[0].x = LOWORD(lParam) & 254;
+				g_ranalog[0].y = HIWORD(lParam) & 254;
+                g_ranalog[1].x = LOWORD(lParam) & 254;
+				g_ranalog[1].y = HIWORD(lParam) & 254;
 			}
 			break;
 

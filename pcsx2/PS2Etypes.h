@@ -6,7 +6,7 @@
 #endif
 
 #ifdef __CYGWIN__
-#define _WIN32
+#define __LINUX__
 #endif
 
 #ifdef _WIN32

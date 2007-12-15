@@ -438,6 +438,8 @@ u32  CALLBACK USBread32(u32 addr);
 void CALLBACK USBwrite8(u32 addr,  u8 value);
 void CALLBACK USBwrite16(u32 addr, u16 value);
 void CALLBACK USBwrite32(u32 addr, u32 value);
+void CALLBACK USBasync(u32 cycles);
+
 // cycles = IOP cycles before calling callback,
 // if callback returns 1 the irq is triggered, else not
 void CALLBACK USBirqCallback(USBcallback callback);
@@ -636,6 +638,9 @@ typedef u32  (CALLBACK* _USBread32)(u32 mem);
 typedef void (CALLBACK* _USBwrite8)(u32 mem, u8 value);
 typedef void (CALLBACK* _USBwrite16)(u32 mem, u16 value);
 typedef void (CALLBACK* _USBwrite32)(u32 mem, u32 value);
+typedef void (CALLBACK* _USBasync)(u32 cycles);
+
+
 typedef void (CALLBACK* _USBirqCallback)(USBcallback callback);
 typedef USBhandler (CALLBACK* _USBirqHandler)(void);
 typedef void (CALLBACK* _USBsetRAM)(void *mem);
@@ -821,6 +826,8 @@ _USBread32         USBread32;
 _USBwrite8         USBwrite8;
 _USBwrite16        USBwrite16;
 _USBwrite32        USBwrite32;
+_USBasync          USBasync;
+
 _USBirqCallback    USBirqCallback;
 _USBirqHandler     USBirqHandler;
 _USBsetRAM         USBsetRAM;

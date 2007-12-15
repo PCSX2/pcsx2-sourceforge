@@ -74,6 +74,7 @@ int  vu0Init()
 	memLUT[0x11003].aPFNs = &s_psVuMem.aPFNs[0]; memLUT[0x11003].aVFNs = &s_psVuMem.aVFNs[0];
 
 	// since vuregisters are mapped in vumem0, go to diff addr, but mapping to same physical addr
+    VirtualFree((void*)0x11000000, 0x10000, MEM_RELEASE); // free just in case
 	VU0.Mem = VirtualAlloc((void*)0x11000000, 0x10000, MEM_RESERVE|MEM_PHYSICAL, PAGE_READWRITE);
 
 	if( VU0.Mem != (void*)0x11000000 ) {
