@@ -22,7 +22,7 @@
 
 #define JOYSTICK_SUPPORT
 #ifdef JOYSTICK_SUPPORT
-#include <SDL.h>
+#include <SDL/SDL.h>
 #endif
 
 #include "zeropad.h"
