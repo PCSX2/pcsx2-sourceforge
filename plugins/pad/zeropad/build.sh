@@ -15,7 +15,7 @@ automake -a
 autoconf
 chmod +x configure
 ./configure --prefix=${PCSX2PLUGINS}
-make distclean
+make clean
 make install
 
 else
