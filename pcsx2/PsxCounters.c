@@ -695,8 +695,23 @@ u64 psxRcntCycles(int index) {
 	return (u64)(psxCounters[index].count + (u32)((psxRegs.cycle - psxCounters[index].sCycleT) / psxCounters[index].rate));
 }
 
-int psxRcntFreeze(gzFile f, int Mode) {
-	gzfreezel(psxCounters);
+extern u32 dwCurSaveStateVer;
+int psxRcntFreeze(gzFile f, int Mode)
+{
+    if( Mode == 0 && (dwCurSaveStateVer < 0x7a300010) ) { // reading
+        // struct used to be 32bit count and target
+        int i;
+        u32 val;
+        for(i = 0; i < ARRAYSIZE(psxCounters); ++i) {
+            gzfreeze(&val,4); psxCounters[i].count = val;
+            gzfreeze(&val,4); psxCounters[i].mode = val;
+            gzfreeze(&val,4); psxCounters[i].target = val;
+            gzfreeze((u8*)&psxCounters[i].rate, sizeof(psxCounters[i])-20);
+        }
+    }
+    else
+	    gzfreezel(psxCounters);
+
 
 	return 0;
 }

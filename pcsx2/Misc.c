@@ -40,7 +40,7 @@
 
 #include "Cache.h"
 
-u32 dwSaveVersion = 0x7a30000f;
+u32 dwSaveVersion = 0x7a300010;
 u32 dwCurSaveStateVer = 0;
 extern u32 s_iLastCOP0Cycle;
 extern u32 s_iLastPERFCycle[2];
@@ -624,7 +624,8 @@ int LoadState(char *file) {
 
 	if( dwCurSaveStateVer != dwSaveVersion ) {
 
-		if( dwCurSaveStateVer != 0x7a30000d && dwCurSaveStateVer != 0x7a30000e  ) {
+        // pcsx2 supports opening these formats
+		if( dwCurSaveStateVer != 0x7a30000d && dwCurSaveStateVer != 0x7a30000e  && dwCurSaveStateVer != 0x7a30000f) {
 			gzclose(f);
 			SysPrintf("Save state wrong version\n");
 			return 0;

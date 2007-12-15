@@ -1,13 +1,22 @@
 #ifndef __PS2ETYPES_H__
 #define __PS2ETYPES_H__
 
+#if defined (__linux__) && !defined(__LINUX__)  // some distributions are lower case
+#define __LINUX__
+#endif
+
+#ifdef __CYGWIN__
+#define __LINUX__
+#endif
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 #ifndef ARRAYSIZE
 #define ARRAYSIZE(x) (sizeof(x)/sizeof((x)[0]))
 #endif
 
-#if defined (__linux__) && !defined(__LINUX__)  // some distributions are lower case
-#define __LINUX__
-#endif
 
 // Basic types
 #if defined(_MSC_VER)
@@ -23,6 +32,7 @@ typedef unsigned __int32 u32;
 typedef unsigned __int64 u64;
 
 #define PCSX2_ALIGNED16(x) __declspec(align(16)) x
+#define PCSX2_ALIGNED16_DECL(x) __declspec(align(16)) x
 
 #else
 
@@ -48,6 +58,8 @@ typedef union _LARGE_INTEGER
 #else
 #define PCSX2_ALIGNED16(x) x __attribute((aligned(16)))
 #endif
+
+#define PCSX2_ALIGNED16_DECL(x) x
 
 #ifndef __forceinline
 #define __forceinline inline
