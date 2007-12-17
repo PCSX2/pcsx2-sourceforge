@@ -302,7 +302,7 @@ u32 hwRead32(u32 mem) {
 				}
 				else ret = psHu32(mem);
 //#ifdef HW_LOG
-//				SysPrintf("sif %x(%x) Read 32bit %x\n", mem, 0xbd000000 | (mem & 0xf0),ret);
+				//__Log("%x: sif %x(%x) Read 32bit %x\n", cpuRegs.pc, mem, 0xbd000000 | (mem & 0xf0),ret);
 //#endif	}
 				break;
 			

@@ -259,7 +259,13 @@ void zeroEx() {
 		if (!strncmp(lib, irxlibs[i].name, 8)) {
 			if (code >= (u32)irxlibs[i].maxn) break;
 
-			fname = irxlibs[i].names[code]; break;
+			fname = irxlibs[i].names[code];
+            if( strcmp(fname, "setIOPrcvaddr") == 0 ) {
+                SysPrintf("yo\n");
+                varLog |= 0x100000;
+                Log = 1;
+            }
+            break;
 		}
 	}
 
