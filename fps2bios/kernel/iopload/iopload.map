@@ -1,0 +1,93 @@
+
+Allocating common symbols
+Common symbol       size              file
+
+elfsize             0x4               iopelf.o
+sections_names      0x4               iopelf.o
+elfdata             0x4               iopelf.o
+elfHeader           0x4               iopelf.o
+elfbase             0x4               iopelf.o
+elfProgH            0x4               iopelf.o
+elfSectH            0x4               iopelf.o
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+*default*        0x0000000000000000 0xffffffffffffffff
+
+Linker script and memory map
+
+LOAD iopload.o
+LOAD iopirq.o
+LOAD romdir.o
+LOAD iopelf.o
+LOAD iopdebug.o
+LOAD /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a
+LOAD /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a
+                0x0000000000080000                _stack_size = 0x80000
+                0x0000000000a00000                _heap_size = 0xa00000
+
+.               0x0000000080000000      0x260
+ iopirq.o()
+ .text          0x0000000080000000       0x90 iopirq.o
+                0x0000000080000080                CpuException
+                0x0000000080000000                CpuException0
+ .mdebug        0x0000000080000090      0x1d0 iopirq.o
+
+.text           0x0000000080001000     0x1130
+ *(.text)
+ .text          0x0000000080001000      0x140 iopload.o
+                0x0000000080001110                Kmemcpy
+                0x0000000080001000                _start
+ .text          0x0000000080001140      0x1c0 romdir.o
+                0x0000000080001140                romdirInit
+                0x00000000800011e0                romdirGetFile
+ .text          0x0000000080001300      0x610 iopelf.o
+                0x000000008000170c                loadSectionHeaders
+                0x00000000800014c8                _relocateElfSection
+                0x0000000080001328                loadHeaders
+                0x0000000080001364                loadProgramHeaders
+                0x0000000080001814                loadElfFile
+ .text          0x0000000080001910      0x540 iopdebug.o
+                0x0000000080001910                __printf
+                0x0000000080001df8                __puts
+                0x0000000080001dec                __putc
+ *(.data)
+ .data          0x0000000080001e50       0x80 iopload.o
+                0x0000000080001e50                iopModules
+ .data          0x0000000080001ed0       0x10 romdir.o
+                0x0000000080001ed0                base
+ .data          0x0000000080001ee0       0x10 iopelf.o
+ .data          0x0000000080001ef0       0x10 iopdebug.o
+ *(.rdata)
+ *(.sdata)
+ *(.rodata)
+ .rodata        0x0000000080001f00       0xd0 iopload.o
+ .rodata        0x0000000080001fd0       0xa0 iopelf.o
+ .rodata        0x0000000080002070       0xb0 iopdebug.o
+ *(.bss)
+ .bss           0x0000000080002120       0x10 iopdebug.o
+ *(.sbss)
+OUTPUT(../../build/IOPLOAD binary)
+
+.reginfo        0x0000000080002130       0x18
+ .reginfo       0x0000000080002130       0x18 iopload.o
+
+.mdebug         0x0000000000000000      0xe6c
+ .mdebug        0x0000000000000000      0x228 iopload.o
+ .mdebug        0x0000000000000228      0x1e0 romdir.o
+ .mdebug        0x0000000000000408      0x4f0 iopelf.o
+ .mdebug        0x00000000000008f8      0x574 iopdebug.o
+
+.mdebug.abi32   0x0000000000000000        0x0
+
+.scommon        0x0000000000000000       0x1c
+ .scommon       0x0000000000000000       0x1c iopelf.o
+                                          0x0 (size before relaxing)
+                0x0000000000000000                elfsize
+                0x0000000000000004                sections_names
+                0x0000000000000008                elfdata
+                0x000000000000000c                elfHeader
+                0x0000000000000010                elfbase
+                0x0000000000000014                elfProgH
+                0x0000000000000018                elfSectH
