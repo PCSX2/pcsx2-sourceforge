@@ -37,7 +37,7 @@ fps2bios:
 	./romdir_exe $(FILES); \
 	./ps2romgen_exe fps2bios; \
 	cd ..)
-	cp build/fps2bios ../../bin/bios
+	cp build/fps2bios ../bin/bios
 
 .PHONY: clean ps2romgen_exe romdir_exe fps2bios
 
