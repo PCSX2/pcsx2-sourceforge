@@ -37,7 +37,7 @@ LOAD /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a
 .text           0x0000000080001000     0x1130
  *(.text)
  .text          0x0000000080001000      0x140 iopload.o
-                0x0000000080001110                Kmemcpy
+                0x0000000080001114                Kmemcpy
                 0x0000000080001000                _start
  .text          0x0000000080001140      0x1c0 romdir.o
                 0x0000000080001140                romdirInit

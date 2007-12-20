@@ -270,6 +270,14 @@ void intrman_syscall_0C()
 //
 // Return 0 for success, -101 for invalid interrupt number
 //
+#define ERROR_BAD_NUMBER -101
+#define INUM_DMA_0 0x20
+#define INUM_DMA_BERR 0x27
+#define INUM_DMA_7 0x28
+#define IMODE_DMA_IRM 0x100
+#define IMODE_DMA_IQE 0x200
+#define INUM_DMA 3
+
 int EnableIntr(int interrupt)
 {
     int retval = 0;
@@ -278,33 +286,34 @@ int EnableIntr(int interrupt)
     
     u32 ictrl;
     CpuSuspendIntr(&ictrl);
-    
-    if (low_irq < 0x20){
+
+    if( interrupt < 0 ) {
+        retval = ERROR_BAD_NUMBER;
+    }
+    else if (low_irq < INUM_DMA_0){
         IMASK |= (1 << low_irq);
-    } else if (low_irq < 0x27){    
-        if (high_irq & 0x100)
-            DMA_ICR = (DMA_ICR & ((~(1<<(low_irq-0x20)))&0x00FFFFFF)) | 0x800000 | (1<<(low_irq-0x10)) | (1<<(low_irq-0x20));
-        else
-            DMA_ICR = (DMA_ICR & ((~(1<<(low_irq-0x20)))&0x00FFFFFF)) | 0x800000 | (1<<(low_irq-0x10));
+    } else if (low_irq < INUM_DMA_BERR){
+        DMA_ICR = (DMA_ICR & ((~(1<<(low_irq-INUM_DMA_0)))&0x00FFFFFF))
+            | (1 << (INUM_DMA_BERR-INUM_DMA_0 + 16))
+            | (1<<(low_irq-INUM_DMA_0+0x10))
+            | ((high_irq & IMODE_DMA_IRM) ? (1<<(low_irq-INUM_DMA_0)) : 0);
+            
+        DMA_ICR2 = (DMA_ICR2 & ((~(1<<(low_irq-INUM_DMA_0)))&0x00FFFFFF))
+            | ((high_irq & IMODE_DMA_IQE) ? (1<<(low_irq-0x10)) : 0);
         
-        if (high_irq & 0x200)
-            DMA_ICR2 = (DMA_ICR2 & ((~(1<<(low_irq-0x20)))&0x00FFFFFF)) | (1<<(low_irq-0x10));
-        else
-            DMA_ICR2 = (DMA_ICR2 & ((~(1<<(low_irq-0x20)))&0x00FFFFFF));
-        
-        IMASK |= 0x08;
-    } else if (low_irq<0x2E&&low_irq>0x27){ // 0x27 isn't handled?
+        IMASK |= 1<<INUM_DMA;
+    } else if ( (low_irq-INUM_DMA_7)<6){ // low_irq = 0x27 isn't handled?
 
         u32 extra = 0;
-        if (high_irq & 0x200)
-            extra = (1<<(low_irq-0x21));
+        if (high_irq & IMODE_DMA_IQE)
+            extra = (1<<(low_irq-INUM_DMA_7 + (INUM_DMA_BERR-INUM_DMA_0)));
 
-        DMA_ICR2=(DMA_ICR2&(~(1<<(low_irq-0x21)) & 0x00FFFFFF)) | (1<<(low_irq-0x18)) | extra;
-        DMA_ICR |= 0x800000;
+        DMA_ICR2=(DMA_ICR2&(~(1<<(low_irq-INUM_DMA_7 + (INUM_DMA_BERR-INUM_DMA_0))) & 0x00FFFFFF)) | (1<<(low_irq-INUM_DMA_7+0x10)) | extra;
+        DMA_ICR |= (DMA_ICR&0x00FFFFFF)| (1 << (INUM_DMA_BERR-INUM_DMA_0 + 16));
         
-        IMASK |= 0x08;
+        IMASK |= 1<<INUM_DMA;
     } else {
-        retval = -101;   
+        retval = ERROR_BAD_NUMBER;
     }
     
     CpuResumeIntr(ictrl);

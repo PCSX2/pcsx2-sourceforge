@@ -20,20 +20,25 @@ void _start() {
 
 	romdirGetFile("IOPLOAD", &ri); offset+= (ri.fileSize + 15) & ~0xf;
 
-	lci.memsize     = 2;
-	lci.sysmem      = (void*)offset;
-	lci.moduleslist = (void*)iopModules;
+	lci.ramM     = 2;
+    lci.bootinfo = 0;
+    lci.btupdater = 0;
+	lci.sysmem_LET      = (void*)offset;
+    lci._pos = 0;
+    lci._size = 0;
+    lci.lines = sizeof(iopModules)/sizeof(iopModules[0]);
+	lci.modules = (void*)iopModules;
 
 	romdirGetFile("SYSMEM", &ri);
 	sysmem_entry = (void *(*)(u32))loadElfFile("SYSMEM", offset);
 	offset+= (ri.fileSize + 15) & ~0xf;
-	sysmem_entry(lci.memsize);
+	sysmem_entry(lci.ramM);
 
 	romdirGetFile("LOADCORE", &ri);
 	loadcore_entry = (void (*)())loadElfFile("LOADCORE", offset);
 	offset+= (ri.fileSize + 15) & ~0xf;
 	__printf("executing LOADCORE entry at %p\n", loadcore_entry);
-	lci.offset = offset;
+	//lci.offset = offset;
 	loadcore_entry(&lci);
 
 	__printf("loadcore finished ok\n");
@@ -54,6 +59,8 @@ void Kmemcpy(void *dest, const void *src, int n) {
 }
 
 char *iopModules[32] = {
+    "SYSMEM",
+    "LOADCORE",
 	"EXCEPMAN",
 	"INTRMAN",
 	"SSBUSC",
