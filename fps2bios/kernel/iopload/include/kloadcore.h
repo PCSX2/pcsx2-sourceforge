@@ -31,6 +31,14 @@ struct func_stub {
 #define INS_JR_RA 0x03E00008
 #define INS_J     0x08000000
 
+enum tag_BOOTUPCB_PRIO{
+	BOOTUPCB_FIRST    = 0,
+	BOOTUPCB_RUN_UDNL = 1,
+	BOOTUPCB_NORMAL   = 2,
+	BOOTUPCB_LAST     = 3,
+	BOOTUPCB_PRIORITIES
+} BOOTUPCB_PRIO;
+
 struct import {
 	u32		magic;		//0x41E00000
 	struct import 	*next;
@@ -41,7 +49,7 @@ struct import {
 };
 
 struct export {
-	u32		magic_link;	//0x41C00000
+	u32		magic_link;	//0x41C00000, prev
 	struct export	*next;
 	short	version;	//mjmi (mj=major, mi=minor version numbers)
 	short	flags;		//=0
@@ -53,14 +61,14 @@ struct export {
 //		funcs	  	// more functions: the services provided my module
 };
 
-struct imageInfo {
-	struct imageInfo *next;		//+00
+typedef struct {
+	u32 next;		//+00
 	char	*name;		//+04
 	short	version,	//+08
-		HA,		//+0A
-		index,		//+0C
+		flags,		//+0A
+		modid,		//+0C
 		HE;		//+0E
-	int	entry,		//+10
+	u32	entry,		//+10
 		gp_value,	//+14
 		p1_vaddr,	//+18
 		text_size,	//+1C
@@ -68,12 +76,12 @@ struct imageInfo {
 		bss_size,	//+24
 		H28,		//+28
 		H2C;		//+2C
-};
+} imageInfo;
 
-struct moduleInfo{
+typedef struct {
 	char	*name;
 	short	version;
-};
+} moduleInfo;
 
 struct bootmode {
 	short	unk0;
@@ -82,17 +90,21 @@ struct bootmode {
 	int	data[0];
 };
 
-struct init {
-	u32	 memsize;		// in megs
-	void *sysmem;		// address of sysmem export stub
-	char **moduleslist;	// modules list to load
-	u32 offset;			// offset addr for the next module
+struct init{
+	unsigned int	ramM;		//+00 in megs
+	unsigned int	bootinfo;	//+04 
+	char		*btupdater;	//+08
+	void		*sysmem_LET;	//+0C address of sysmem export stub
+	unsigned int	_pos;		//+10
+	unsigned int	_size;		//+14
+	unsigned int	lines;		//+18 lines in 'iopbtconf' file
+	void		*modules;	//+1C address in bios of modules from 'iopbtconf'
 };
 
 void	FlushIcache();				//4 (14)
 void	FlushDcache();				//5 (14,21,26)
 int	RegisterLibraryEntries(struct export*);	//6 (05,06,07,13,14,17,18,28)
-int*	QueryBootMode(int code);		//12(11,21,25,26,28)
+u32*	QueryBootMode(int code);		//12(11,21,25,26,28)
 int	loadcore_call20_registerFunc(int (*function)(int *, int), int a1, int *result);
 						//20(28)
 

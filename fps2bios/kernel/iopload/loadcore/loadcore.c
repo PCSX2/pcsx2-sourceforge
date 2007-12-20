@@ -6,27 +6,31 @@
 #include "iopdebug.h"
 #include "iopelf.h"
 #include "romdir.h"
-#include "irx.h"		// for IMPORT_MAGIC
+#include "irx.h"		// ps2sdk file for IMPORT_MAGIC
+
+#define BOOTMODE_START	*((volatile u32**)0x3F0)
+#define BOOTMODE_END	*((volatile u32**)0x3F4)
+
+void _start(struct init *init); // has to be declared first!
+
+struct tag_LC_internals {
+	struct export* let_next, *let_prev;
+	struct export* mda_next, *mda_prev;//.prev==free
+	imageInfo *image_info; // 0x800?0x830?
+	int		module_count;
+	int		module_index;
+} lc_internals;
 
 u32 free;
 u32 sysmem_00;
 u32 modules_count;
 u32	module_index;
 u32 *place;	// addr of 8 * 31 = 8 * linesInIopbtconf	//place[2][31]
-u32	bootmodes[16];
+u32	bootmodes[17]; // was 16?
 u32 bootmodes_size;
 int debug=1;
 
-struct _let {
-	struct export *first;
-	struct export *last;
-	struct export *mda;
-} let;
-
-
 u32 bm_end;
-
-void _start(struct init *init);
 
 #define _dprintf(fmt, args...) \
 	if (debug > 0) __printf("loadcore: " fmt, ## args)
@@ -48,7 +52,7 @@ void RegisterBootMode(struct bootmode *b) {
 }
 
 ///////////////////////////////////////////////////////////////////////
-int *QueryBootMode(int id) {
+u32 *QueryBootMode(int id) {
 	u32 *b;
 
 	for (b = (u32*)&bootmodes[0]; *b; b += ((struct bootmode*)b)->len + 1)
@@ -128,7 +132,7 @@ int  link_client(struct import *imp){
 	struct export *e;
 
 //	_dprintf("%s\n", __FUNCTION__);
-	for (e=let.first; e; e=(struct export*)e->magic_link) {
+	for (e=lc_internals.let_next; e; e=(struct export*)e->magic_link) {
 /*		if (debug > 0){
 			// Zero terminate the name before printing it
 			char ename[9], iname[9];
@@ -139,11 +143,11 @@ int  link_client(struct import *imp){
 		}
 */
 		if (!(e->flags & FLAG_NO_AUTO_LINK)){	
-            if ( match_name(e, imp)){
-		        if (match_version_major(e, imp)==0) {
+            if ( match_name(e, (struct export*)imp)){
+		        if (match_version_major(e, (struct export*)imp)==0) {
 					fix_imports(imp, e);
-					imp->next=e->next;
-					e->next=imp;
+					imp->next=(struct import*)e->next;
+					e->next=(struct export*)imp;
 					FlushIcache();
 					return 0;
 				} else {
@@ -161,7 +165,7 @@ int  link_client(struct import *imp){
 }
 
 ///////////////////////////////////////////////////////////////////////[OK]
-int  findFixImports(u32 *addr, int size) {
+int  _LinkImports(u32 *addr, int size) {
 	struct import *p;
 	int i;
 
@@ -172,7 +176,7 @@ int  findFixImports(u32 *addr, int size) {
 			check_import_table(p) &&
 		    ((p->flags & 7) == 0) &&
 		    link_client(p)) {
-			restoreImports(p, size);
+			_UnlinkImports(p, size);
 			return -1;
 		}
 	}
@@ -208,22 +212,22 @@ void restore_imports(struct import* imp){
 }
 
 ///////////////////////////////////////////////////////////////////////[OK]
-int  restoreImports(void *addr, int size) {
+int  _UnlinkImports(void *addr, int size) {
     struct export *e;
     struct export *i;
     struct export *tmp;
     void 		*limit = addr + (size & ~0x3);
 	
-	for (e = (struct export*)let.first; e; e=(struct export*)e->magic_link){
+	for (e = (struct export*)lc_internals.let_next; e; e=(struct export*)e->magic_link){
 		for (i = e->next; i; i=i->next) {
-			if ((i >= addr) && (i < limit)) {
-				if (unlink_client(e, i))
+			if (((u32)i >= (u32)addr) && ((u32)i < (u32)limit)) {
+				if (unlink_client((struct import*)e, (struct import*)i))
 					return -1;
 				i->flags &= ~0x7;
-				restore_imports(i);                      
+				restore_imports((struct import*)i);
 			}
 		}
-		if ((e >= addr) && (e < limit))
+		if (((u32)e >= (u32)addr) && ((u32)e < (u32)limit))
 			ReleaseLibraryEntries(e);
 	}
 /*
@@ -251,49 +255,56 @@ int  UnsetNonAutoLinkFlag(struct export *e){
 }
 
 ///////////////////////////////////////////////////////////////////////
-int  registerFunc(int (*function)(int *, int), int a1, int *result){
-/*	int x;
-	int r;
-
+int  _RegisterBootupCBFunc(int (*function)(int *, int), int priority, int *result) {
+    int x;
+    register int r;
 	if (place==NULL){
 		x=1;
 		r=function(&x, 0);
 		if (result)	*result=r;
 		return 0;
 	}
-	place[0]=function + a1 & 3;
-	place[1]=$gp;
+
+    __asm__("move %0, $gp\n" : "=r"(x) : );
+
+	place[0]=(u32)function + (priority & 3);
+	place[1]=x;
 	place[2]=0;
 	place+=2;
-	return 1;*/
+	return 1;
 }
 
 ///////////////////////////////////////////////////////////////////////
-void linkModule(struct imageInfo *ii){
-	struct imageInfo *p;
-
-	for (p=&sysmem_00; p->next && (p->next < ii); p=p->next);
+void _LinkModule(imageInfo *ii){
+    imageInfo* p;
+	for (p=lc_internals.image_info; p->next && (p->next < (u32)ii); p=(imageInfo*)p->next);
 
 	ii->next=p->next;	
-	p->next=ii;
+	p->next=(u32)ii;
 
-	ii->index=module_index++;
+	ii->modid=module_index++;
 	modules_count++;
 }
 
 ///////////////////////////////////////////////////////////////////////
-void unlinkModule(struct imageInfo *ii){
-    struct imageInfo *p;
+void _UnlinkModule(imageInfo *ii){
+     imageInfo *p;
+	if (ii)
+		for (p=lc_internals.image_info; p->next; p=(imageInfo*)p->next)
+			if (p->next == (u32)ii){
+				p->next=((imageInfo*)p->next)->next;
+				modules_count--;
+				return;
+			}
+}
 
-	if (ii == NULL) return;
-
-	for (p=&sysmem_00; p->next; p=p->next) {
-		if (p->next == ii){
-			p->next=p->next->next;
-			modules_count--;
-			return;
-		}
-	}
+u32  _FindImageInfo(void *addr){
+	register imageInfo *ii;
+	for (ii=lc_internals.image_info; ii; ii=(imageInfo*)ii->next)
+		if(((u32)addr>=ii->p1_vaddr) && 
+		   ((u32)addr <ii->p1_vaddr + ii->text_size + ii->data_size + ii->bss_size))
+			return (u32)ii;
+	return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -319,7 +330,7 @@ int RegisterLibraryEntries(struct export *es){
 		
 		
 	plast=NULL;
-	for (p=(struct export*)let.first; p; p=(struct export*)p->magic_link) {
+	for (p=(struct export*)lc_internals.let_next; p; p=(struct export*)p->magic_link) {
 		if (match_name(es, p) == 0 ||
 			match_version_major(es, p) == 0) continue;
 
@@ -341,8 +352,8 @@ int RegisterLibraryEntries(struct export *es){
 			tmp=tmp->next;
 		}
 	}
-/*
-	for (tmp = let.mda; tmp->next; tmp=tmp->next) { //free
+
+	for (tmp = lc_internals.mda_next; tmp->next; tmp=tmp->next) { //free
 		if ((match_name(es, tmp->next)) &&
 		    (match_version_major(es, tmp->next)==0)){
 			_dprintf("%s: freeing module\n", __FUNCTION__);
@@ -352,52 +363,54 @@ int RegisterLibraryEntries(struct export *es){
 			tmp->next=snext;
 		} else tmp=tmp->next;
 	}
-*/
+
 	es->next=0;
 	while (plast) {
 		snext=plast->next;
-		fix_imports(plast, es);
+		fix_imports((struct import*)plast, es);
 		plast->next=es->next;
 		es->next=plast;
 		plast=snext;
 	}
 	es->flags &= ~FLAG_NO_AUTO_LINK;
-	es->magic_link=let.first;
-	let.first=es;
+	es->magic_link=(u32)lc_internals.let_next;
+    lc_internals.let_next=es;
 	FlushIcache();
 
 	return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////
-int  ReleaseLibraryEntries(struct export *e) {
-	struct export *n, *p, *next, *prev;
+int  ReleaseLibraryEntries(struct export *e)
+{
+	register struct export *n, *p, *next, *prev;
 
-	p = let.first;
+	p = lc_internals.let_next;
 	while ((p) && (p!=e)){
 		prev=p;
 		p=(struct export*)prev->magic_link;
 	}
-	if (p != e)
-		return -1;
+	if (p != e)	// if (0 != e)
+		return -1;		//japanese BUG for e==p==0
 
-	n = e->next;
-	e->next = 0;
+	n               =e->next;
+	e   ->next      =0;
 
-	prev->magic_link = e->magic_link;
-	e->magic_link    = EXPORT_MAGIC;
+	prev->magic_link=e->magic_link;
+	e   ->magic_link=0x41C00000;
 
-	while (n) {
+	while(n) {
 		next = n->next;
-		if (link_client(n)){
-			restore_imports(n);
+        if (link_client((struct import*)n)){
+			restore_imports((struct import*)n);
 			n->flags=(n->flags & ~2) | 4;
-			n->next = let.mda->next;
-			free=n;
+			n->next = lc_internals.mda_prev;
+			lc_internals.mda_prev=n;
 		}
 		n=next;
 	}
-	return 0;
+    
+    return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -406,8 +419,8 @@ int  RegisterNonAutoLinkEntries(struct export *e) {
 		return -1;
 	}
 	e->flags |= FLAG_NO_AUTO_LINK;
-	e->magic_link = let.first;	// --add as first
-	let.first = e;				// /
+	e->magic_link = (u32)lc_internals.let_next;	// --add as first
+	lc_internals.let_next = e;				// /
 	FlushIcache();
 
 	return 0;
@@ -415,19 +428,19 @@ int  RegisterNonAutoLinkEntries(struct export *e) {
 
 ///////////////////////////////////////////////////////////////////////
 int  QueryLibraryEntryTable(struct export *e){
-	struct export *p = let.first;
+	struct export *p = lc_internals.let_next;
 	while (p){
 		if ((match_name(p, e)) && (match_version_major(p, e)==0)){
-			return p->func;
+			return (int)p->func;
 		}
-		p=p->magic_link;
+		p=(struct export*)p->magic_link;
 	}
 	return 0;
 }
 
 ///////////////////////////////////////////////////////////////////////
-struct export* GetLibraryEntryTable(){
-	return (struct export*)&let;
+struct tag_LC_internals* GetLibraryEntryTable(){
+	return &lc_internals;
 }
 
 ///////////////////////////////////////////////////////////////////////
@@ -548,7 +561,7 @@ void _SetIcache(u32 val) {
 	__asm__ ("mtc0 %0, $12\n" : : "r"(status) );
 }
 
-void SetIcache(u32 val){
+void _SetCacheCtrl(u32 val){
 	__asm__ (
 		"la   $26, %0\n"
 		"lui  $27, 0xA000\n"
@@ -559,8 +572,379 @@ void SetIcache(u32 val){
 	);
 }
 
+typedef struct {
+	u8	e_ident[16];   	//+00 0x7f,"ELF"  (ELF file identifier)
+	u16	e_type;        	//+10 ELF type: 0=NONE, 1=REL, 2=EXEC, 3=SHARED, 4=CORE
+	u16	e_machine;      //+12 Processor: 8=MIPS R3000
+	u32	e_version;      //+14 Version: 1=current
+	u32	e_entry;        //+18 Entry point address
+	u32	e_phoff;        //+1C Start of program headers (offset from file start)
+	u32	e_shoff;        //+20 Start of section headers (offset from file start)
+	u32	e_flags;        //+24 Processor specific flags = 0x20924001 noreorder, mips
+	u16	e_ehsize;       //+28 ELF header size (0x34 = 52 bytes)
+	u16	e_phentsize;    //+2A Program headers entry size 
+	u16	e_phnum;        //+2C Number of program headers
+	u16	e_shentsize;    //+2E Section headers entry size
+	u16	e_shnum;        //+30 Number of section headers
+	u16	e_shstrndx;     //+32 Section header stringtable index	
+} ELF_HEADER;			//+34=sizeof
+#define ET_SCE_IOPRELEXEC	0xFF80
+#define PT_SCE_IOPMOD		0x70000080
+#define SHT_REL			9
+#define EM_MIPS 8
+
+typedef struct tag_COFF_AOUTHDR {
+	short	magic;		//+00
+	short	vstamp;		//+02
+	int	tsize;		//+04
+	int	dsize;		//+08
+	int	bsize;		//+0C
+	int	entry;		//+10
+	int	text_start;	//+14
+	int	data_start;	//+18
+	int	bss_start;	//+1C
+	int	field_20;	//+20
+	int	field_24;	//+24
+	int	field_28;	//+28
+	int	field_2C;	//+2C
+	int	moduleinfo;	//+30
+	int	gp_value;	//+34
+} COFF_AOUTHDR, COHDR;		//=38
+
+typedef struct tag_CHDR{
+	short	f_magic;	//+00
+	short	f_nscns;	//+02
+	int	f_timdat;	//+04
+	int	f_symptr;	//+08
+	int	f_nsyms;	//+0C
+	short	f_opthdr;	//+10
+	short	f_flags;	//+12
+} CHDR;				//=14
+
+typedef struct tag_COFF_HEADER{		//same header as above
+	short	f_magic;	//+00
+	short	f_nscns;	//+02
+	int	f_timdat;	//+04
+	int	f_symptr;	//+08
+	int	f_nsyms;	//+0C
+	short	f_opthdr;	//+10
+	short	f_flags;	//+12
+	COFF_AOUTHDR	opthdr;	//+14
+} COFF_HEADER;			//=4C
+
+typedef struct tag_COFF_scnhdr
+{
+	char	s_name[8];	//+00
+	int	s_paddr;	//+08
+	int	s_vaddr;	//+0C
+	int	s_size;		//+10
+	int	s_scnptr;	//+14
+	int	s_relptr;	//+18
+	int	s_lnnoptr;	//+1C
+	short	s_nreloc;	//+20
+	short	s_nlnno;	//+22
+	int	s_flags;	//+24
+} COFF_scnhdr, SHDR;		//=28
+
+typedef struct _fileInfo
+{
+	u32			type,		//+00
+				entry,		//+04
+				gp_value,	//+08
+				p1_vaddr,	//+0C
+				text_size,	//+10
+				data_size,	//+14
+				bss_size,	//+18
+				p1_memsz;	//+1C
+	moduleInfo	*moduleinfo;	//+20
+} fileInfo;
+
+typedef struct {
+	u32 p_type;         //+00 see notes1
+	u32 p_offset;       //+04 Offset from file start to program segment.
+	u32 p_vaddr;        //+08 Virtual address of the segment
+	u32 p_paddr;        //+0C Physical address of the segment
+	u32 p_filesz;       //+10 Number of bytes in the file image of the segment
+	u32 p_memsz;        //+14 Number of bytes in the memory image of the segment
+	u32 p_flags;        //+18 Flags for segment
+	u32 p_align;        //+1C Alignment. The address of 0x08 and 0x0C must fit this alignment. 0=no alignment
+} ELF_PHR;
+
+typedef struct {
+    u32 r_offset;
+    u32 r_info;
+} ELF_REL;
+
+typedef struct {
+    char* moduleinfo;
+    u32 entry; //+04
+    u32 gp_value; //+08
+    u32 text_size; //+0C
+    u32 data_size; //+10
+    u32 bss_size;//+14
+    short moduleversion;//+18
+    char* modulename;   //+1A
+} ELF_IOPMOD;
+
+typedef struct {
+	u32	sh_name;        //+00 No. to the index of the Section header stringtable index
+    u32	sh_type;        //+04 See notes2
+	u32	sh_flags;       //+08 see notes3
+	u32	sh_addr;        //+0C Section start address
+	u32	sh_offset;      //+10 Offset from start of file to section
+	u32	sh_size;        //+14 Size of section
+	u32	sh_link;        //+18 Section header table index link
+	u32	sh_info;        //+1C Info
+	u32	sh_addralign;   //+20 Alignment. The adress of 0x0C must fit this alignment. 0=no alignment.
+	u32	sh_entsize;     //+24 Fixed size entries.
+} ELF_SHR;
+
+/*
+notes 2
+-------
+Type:
+0=Inactive
+1=PROGBITS
+2=SYMTAB symbol table
+3=STRTAB string table
+4=RELA relocation entries
+5=HASH hash table
+6=DYNAMIC dynamic linking information
+7=NOTE
+8=NOBITS 
+9=REL relocation entries
+10=SHLIB
+0x70000000=LOPROC processor specifc
+0x7fffffff=HIPROC
+0x80000000=LOUSER lower bound
+0xffffffff=HIUSER upper bound
+
+notes 3
+-------
+Section Flags:  (1 bit, you may combine them like 3 = alloc & write permission)
+1=Write section contains data the is be writeable during execution.
+2=Alloc section occupies memory during execution
+4=Exec section contains executable instructions
+0xf0000000=Mask bits processor-specific
+*/
+
+#define ELF32_ST_TYPE(i) ((i)&0xf)
+
+///////////////////////////////////////////////////////////////////////
+int  _ReadModuleHeader(void *image, fileInfo *result){
+	COFF_HEADER *coffhdr = image;
+	COFF_scnhdr *section = (COFF_scnhdr*)((char*)image+sizeof(COFF_HEADER));//0x4C
+
+	if ((coffhdr->f_magic==0x162) &&		//COFF loading
+	    (coffhdr->opthdr.magic == 0x107) &&
+	    (coffhdr->f_nscns < 32) &&
+	    ((coffhdr->f_opthdr & 0x2FFFF) == 0x20038) &&
+	    (section->s_paddr == coffhdr->opthdr.text_start)){
+
+		if (coffhdr->opthdr.vstamp == 0x7001)
+			return -1;
+		result->type	=1;
+		result->entry	=coffhdr->opthdr.entry;
+		result->gp_value	=coffhdr->opthdr.gp_value;
+		result->p1_vaddr	=coffhdr->opthdr.text_start;
+		result->text_size	=coffhdr->opthdr.tsize;
+		result->data_size	=coffhdr->opthdr.dsize;
+		result->bss_size	=coffhdr->opthdr.bsize;
+		result->p1_memsz	=coffhdr->opthdr.bss_start+coffhdr->opthdr.bsize-coffhdr->opthdr.text_start;
+		result->moduleinfo	=(moduleInfo*)coffhdr->opthdr.moduleinfo;
+		return result->type;
+	}else{
+        ELF_HEADER* eh = (ELF_HEADER*)image;
+		ELF_PHR* ph= (ELF_PHR*)((char*)eh +eh->e_phoff);
+		//if ((eh->e_ident[EI_CLASS] != ELFCLASS32) ||
+        //(eh->e_ident[EI_DATA]) != ELFDATA2LSB))	return -1;//break
+        if( *(u16*)(eh->e_ident+4) != 0x101 )
+            return -1;
+		if (eh->e_machine != EM_MIPS)
+            return -1;//break
+		if (eh->e_phentsize != sizeof(ELF_PHR))
+            return -1;//break
+		if (eh->e_phnum != 2)
+            return -1;//break
+		if (ph[0].p_type != PT_SCE_IOPMOD)
+            return -1;//break
+		if (eh->e_type != ET_SCE_IOPRELEXEC){
+			if (eh->e_type != eh->e_phnum )//ET_EXEC)
+                return -1;//only
+			result->type=3;
+		}else
+			result->type=4;
+		ELF_IOPMOD* im= (ELF_IOPMOD*)((char*)image + ph[0].p_offset);
+		result->entry	=im->entry;
+		result->gp_value=im->gp_value;
+		result->p1_vaddr=ph[1].p_vaddr;
+		result->text_size=im->text_size;
+		result->data_size=im->data_size;
+		result->bss_size=im->bss_size;
+		result->p1_memsz=ph[1].p_memsz;
+		result->moduleinfo=( moduleInfo*)im->moduleinfo;
+		return result->type;
+	}
+	return result->type=-1;
+}
+
+#define MODULE_TYPE_COFF	1
+#define MODULE_TYPE_2		2
+#define MODULE_TYPE_EXEC	3
+#define MODULE_TYPE_IOPRELEXEC	4
+
+///////////////////////////////////////////////////////////////////////
+void setImageInfo(fileInfo *fi, imageInfo *ii){
+	ii->next	=0;
+	ii->name	=NULL;
+	ii->version	=0;
+	ii->flags	=0;
+	ii->modid	=0;
+	if ((int)fi->moduleinfo != -1){
+		ii->name	=fi->moduleinfo->name;
+		ii->version	=fi->moduleinfo->version;
+	}
+	ii->entry	=fi->entry;
+	ii->gp_value	=fi->gp_value;
+	ii->p1_vaddr	=fi->p1_vaddr;
+	ii->text_size	=fi->text_size;
+	ii->data_size	=fi->data_size;
+	ii->bss_size	=fi->bss_size;
+}
+
+///////////////////////////////////////////////////////////////////////
+void load_type_1(COFF_HEADER *image){
+	SHDR* s0=(SHDR*)( (char*)image + *(int*)((char*)image+0x60) );
+	lc_memcpy(s0, image->opthdr.text_start, image->opthdr.tsize);
+	lc_memcpy((char*)s0+image->opthdr.tsize, image->opthdr.data_start, image->opthdr.dsize);
+	if (image->opthdr.bss_start && image->opthdr.bsize)
+		lc_zeromem((void*)image->opthdr.bss_start, image->opthdr.bsize/4);
+}
+
+///////////////////////////////////////////////////////////////////////
+void load_type_3(void *image){
+	ELF_PHR *ph=(ELF_PHR*)((char*)image+((ELF_HEADER*)image)->e_phoff);
+	lc_memcpy(image+ph[1].p_offset, ph[1].p_vaddr, ph[1].p_filesz);
+	if (ph[1].p_filesz < ph[1].p_memsz)
+		lc_zeromem(ph[1].p_vaddr+ph[1].p_filesz,
+			  (ph[1].p_memsz-ph[1].p_filesz)/4);
+}
+
+///////////////////////////////////////////////////////////////////////
+#define R_MIPS_32 2
+#define R_MIPS_26 4
+#define R_MIPS_HI16 5
+#define R_MIPS_LO16 6
+
+void load_type_4(ELF_HEADER *image, fileInfo *fi)
+{
+    ELF_PHR *ph=(ELF_PHR*)((char*)image+image->e_phoff);
+    ELF_SHR* sh = (ELF_SHR*)((char*)image+image->e_shoff);
+    ELF_REL* rel;
+    int i,j,scount;
+    u32* b, *b2, tmp;
+    
+    fi->entry	+= fi->p1_vaddr;
+    fi->gp_value	+= fi->p1_vaddr;
+    if ((int)fi->moduleinfo != -1)
+        fi->moduleinfo = (moduleInfo*)((int)fi->moduleinfo + fi->p1_vaddr);
+    lc_memcpy((char*)image+ph[1].p_offset, fi->p1_vaddr, ph[1].p_filesz);
+	if (ph[1].p_filesz < ph[1].p_memsz)
+		lc_zeromem(ph[1].p_vaddr+ph[1].p_filesz, (ph[1].p_memsz-ph[1].p_filesz)/4);
+    
+	for (i=1; i<image->e_shnum; i++)
+		if (sh[i].sh_type==SHT_REL)
+			for (j=0, scount=sh[i].sh_size / sh[i].sh_entsize, rel=(ELF_REL*)(sh[i].sh_offset + (char*)image); j<scount; j++){
+				b=(u32*)(fi->p1_vaddr + rel[j].r_offset);
+				switch(rel[j].r_info&0xff){
+				case R_MIPS_LO16:
+					*b=(*b & 0xFFFF0000) | (((*b & 0x0000FFFF) + fi->p1_vaddr) & 0xFFFF);
+					break;
+				case R_MIPS_32:
+					*b+=fi->p1_vaddr;
+					break;
+				case R_MIPS_26:
+					*b = (*b & 0xFC000000) | ((((((*b & 0x03FFFFFF) << 2) | ((u32)b & 0xF0000000/*BUG*/)) + fi->p1_vaddr) << 4) >> 6);
+					break;
+				case R_MIPS_HI16:
+					b2=(u32*)(rel[j++].r_offset + fi->p1_vaddr);//short*
+
+					tmp=(*b<<16 + rel[j].r_offset + fi->p1_vaddr) & 0xFFFF;
+					*b =(*b & 0xFFFF0000) | (((((*b<<16 + rel[j].r_offset + fi->p1_vaddr) >> 15) + 1) >> 1) & 0xFFFF);
+					*b2=(*b2 & 0xFFFF0000) | tmp;
+					break;
+				}
+			}
+}
+
+int  _LoadModule(void *image, fileInfo *fi){
+	switch (fi->type){
+	case MODULE_TYPE_COFF:		load_type_1(image);	break;
+	case MODULE_TYPE_EXEC:		load_type_3(image);	break;
+	case MODULE_TYPE_IOPRELEXEC:   	load_type_4(image, fi);	break;
+	default:	return -1;
+	}
+
+	setImageInfo(fi, (imageInfo*)(fi->p1_vaddr-0x30));
+
+	return 0;
+}
+
+///////////////////////////////////////////////////////////////////////[OK]
+int lc_memcpy(void *src,void *dest,int len){
+	for (len=len/4; len>0; len--)	*(int*)dest++=*(int*)src++;
+}
+
+///////////////////////////////////////////////////////////////////////[OK]
+int lc_zeromem(void *addr,int len){
+	for (len=len/4; len>0; len--)	*(int*)addr++=0;
+}
+
+int  lc_strlen(char *s)
+{
+    int len;
+	if (s==NULL)	return 0;
+	for (len=0; *s++; len++);
+	return len;
+}
+
+int recursive_set_a2(int* start, int* end, int val)
+{
+    *start++ = val;
+    if( start < end )
+        return recursive_set_a2(start, end, val);
+    return 0;
+}
+
+void*  lc_memcpy_overlapping(char *dst,char *src,int len){
+	if (dst==NULL)	return 0;
+
+	if (dst>=src)
+		while(--len>=0)
+			*(dst+len)=*(src+len);
+	else
+		while (len-->0)
+			*dst++=*src++;
+
+	return dst;
+}
 
 //////////////////////////////entrypoint///////////////////////////////
+void _start(struct init *init) {
+	*(int*)0xFFFE0130 = 0x1e988;
+	__asm__ (
+		"addiu $26, $0, 0\n"
+		"mtc0  $26, $12\n"
+		"move  $fp, %0\n"
+		"move  $sp, %0\n"
+		: : "r"((init->ramM << 20) - 0x40)
+	);
+	__asm__ (
+		"j     loadcore_start\n"
+		"nop\n"
+	);
+}
+
 struct export loadcore_stub={
 	EXPORT_MAGIC,
 	0,
@@ -575,97 +959,189 @@ struct export loadcore_stub={
 	(func)FlushDcache,
 	(func)RegisterLibraryEntries,
 	(func)ReleaseLibraryEntries,
-	(func)findFixImports,
-	(func)restoreImports,
+	(func)_LinkImports,
+	(func)_UnlinkImports,
 	(func)RegisterNonAutoLinkEntries,
 	(func)QueryLibraryEntryTable,
 	(func)QueryBootMode,
 	(func)RegisterBootMode,
 	(func)SetNonAutoLinkFlag,
 	(func)UnsetNonAutoLinkFlag,
-	(func)linkModule,
-	(func)unlinkModule,
+	(func)_LinkModule,
+	(func)_UnlinkModule,
 	(func)retonly,
 	(func)retonly,
-	(func)registerFunc,
-	(func)SetIcache,
-/*	(func)ReadModuleHeader,
-	(func)LoadModule,
-	(func)findImageInfo,*/
+	(func)_RegisterBootupCBFunc,
+	(func)_SetCacheCtrl,
+	(func)_ReadModuleHeader,
+	(func)_LoadModule,
+	(func)_FindImageInfo,
 	0
 };
 
-void loadcore_start(struct init *init) {
-    struct export *sysmem;
-	struct rominfo ri;
+extern void* _ftext, *_etext, *_end;
+typedef int (*IopEntryFn)(u32,void*,void*,void*);
+
+void loadcore_start(struct init *pInitParams)
+{
+    fileInfo fi;
 	void (*entry)();
 	u32 offset;
 	u32 status = 0x401;
     int bm;
 	int i;
+    void** s0; // pointer in module list to current module?
+    struct init params;
+    u32 _ftext, _etext;
+    u32 s1, s2, s3, sp, a2;
 
 	_dprintf("%s\n", __FUNCTION__);
 
-	// Write 0x401 into the co-processor status register
-	// This enables interrupts generally, and disables (masks) them all except hardware interrupt 0
-	__asm__ (
-		"mtc0 %0, $12\n"
-		: : "r"(status)
-	);
+	// Write 0x401 into the co-processor status register?
+	// This enables interrupts generally, and disables (masks) them all except hardware interrupt 0?
+
+    lc_memcpy(&params,pInitParams, sizeof(struct init));
+	BOOTMODE_END = BOOTMODE_START = bootmodes;
+
+	lc_internals.let_next = params.sysmem_LET;
+	lc_internals.let_prev = params.sysmem_LET;
+	lc_internals.let_next->next = 0;
+	lc_internals.module_count = 2;			// SYSMEM + LOADCORE
+	lc_internals.mda_prev = lc_internals.mda_next = NULL;
+	lc_internals.module_index = 3;			// next available index
 
 	for (i=0; i<17; i++){
 		bootmodes[i]=0;
 	}
 	bootmodes_size=0;
 
-	let.first = init->sysmem;
-	let.last  = init->sysmem;
-	sysmem = init->sysmem;
-	sysmem->magic_link = 0;
-	modules_count	= 2;	//sysmem + loadcore
-	module_index	= 3;	//next module will be the 3rd
+	bm = params.bootinfo | 0x00040000;
+	RegisterBootMode((struct bootmode*)&bm);
 
-	bm = 0x00040000;
-	RegisterBootMode(&bm);
+    lc_internals.image_info = (imageInfo*)((u32)lc_internals.let_prev - 0x30);
+	lc_internals.image_info->modid = 1;		// SYSMEM is the first module
+	lc_internals.image_info->next = _ftext - 0x30;
+	((imageInfo*)lc_internals.image_info->next)->modid = 2;	// LOADCORE is the second module
+    
+	// find & fix LOADCORE imports (to SYSMEM)
+	_LinkImports((u32*)_ftext, (u32)_etext - (u32)_ftext);
 
 	RegisterLibraryEntries(&loadcore_stub);
 
-	_dprintf("loading modules\n");
+    // reserve LOADCORE memory
+	AllocSysMemory(2, (u32)(_end - (((u32)_ftext - 0x30) >> 8 << 8)), (void*)((((u32)_ftext - 0x30) >> 8 << 8) & 0x1FFFFFFF));
 
-	offset = init->offset;
-	for (i=0; init->moduleslist[i] != NULL; i++) {
-		_dprintf("loading module %s: at offset %x\n", init->moduleslist[i], offset);
-		if (romdirGetFile(init->moduleslist[i], &ri) == NULL) {
-			_dprintf("error loading module %s\n", init->moduleslist[i]);
-		}
-		entry = (void (*)())loadElfFile(init->moduleslist[i], offset);
-		if (findFixImports(offset, ri.fileSize) == -1) {
-			_dprintf("failed to fix imports to module %s\n", init->moduleslist[i]);
-		} else {
-			_dprintf("executing %s entry at %p\n", init->moduleslist[i], entry);
-			entry();
-		}
-		offset+= (ri.fileSize + 15) & ~0xf;
+	if (params._pos)
+		params._pos = (u32)AllocSysMemory(2, params._size, (void*)params._pos);
+
+	sp=(u32)alloca(0x10);
+	s0 = (void**)((sp - 0xDF0) & 0x1FFFFF00);//=0x001ff100
+	recursive_set_a2((int*)s0, (void*)(sp+0x10), 0x11111111);
+	if ((u32)s0 < QueryMemSize())
+		AllocSysMemory(2, QueryMemSize() - (u32)s0, s0);
+
+	if (params.btupdater){
+        int v0 = lc_strlen(params.btupdater);
+		int* v1 = (int*)alloca((v0 + 8 + 8) >> 3 << 3);
+		lc_memcpy_overlapping((char*)&v1[6], params.btupdater, v0+1);
+		params.btupdater = (char*)&v1[6];
+		v1[4] = 0x01050000;
+		v1[5] = (int)&v1[6];
+		RegisterBootMode((struct bootmode*)&v1[4]);	// BTUPDATER bootmode 5
 	}
 
-	__printf("%x; %x; %x\n", *(u32*)0x1f801070, *(u32*)0x1f801074, *(u32*)0x1f801078);
+	a2 = (params.lines+1) * 4;
+	s0 = alloca((a2 + 7) >> 3 << 3) + 0x10;
+	lc_memcpy_overlapping((char*)s0, (char*)params.modules, a2);	//0x20020
 
-	_dprintf("modules loaded ok\n");
-}
+	s1 = 0;
+	params.modules = s0;
+	s2 = (u32)alloca(params.lines << 3) + 0x10;
+    place = (u32*)s2;
+	*place = 0;
+	i = -1;
+    s3 = 1;
 
-//////////////////////////////entrypoint///////////////////////////////
-void _start(struct init *init) {
-	*(int*)0xFFFE0130 = 0x1e988;
-	__asm__ (
-		"addiu $26, $0, 0\n"
-		"mtc0  $26, $12\n"
-		"move  $fp, %0\n"
-		"move  $sp, %0\n"
-		: : "r"((init->memsize << 20) - 0x40)
-	);
-	__asm__ (
-		"j     loadcore_start\n"
-		"nop\n"
-	);
+	_dprintf("loading modules\n");
+
+    for (s0+=2; *s0; s0+=1) {
+		if ((u32)*s0 & 1){
+			if (((u32)*s0 & 0xF) == s3)
+				s1 = (u32)*s0>>2;
+		}else{
+			i += 1;
+			i &= 0xF;
+
+			switch(_ReadModuleHeader(*s0, &fi)){
+			case MODULE_TYPE_COFF:
+			case MODULE_TYPE_EXEC:
+				a2 = ((fi.p1_vaddr - 0x30) >> 8 << 8) & 0x1FFFFFFF;
+				if (NULL == AllocSysMemory(2, fi.p1_memsz + fi.p1_vaddr - a2, (void*)a2))
+					goto HALT;
+				break;
+
+			case MODULE_TYPE_2:
+			case MODULE_TYPE_IOPRELEXEC:
+				if (fi.p1_vaddr = (u32)((s1 == 0) ?
+						AllocSysMemory(0, fi.p1_memsz+0x30, 0) : 
+                                   AllocSysMemory(2, fi.p1_memsz+0x30, (void*)s1)) )
+					fi.p1_vaddr += 0x30;
+				else
+					goto HALT;
+				break;
+
+			default:
+				goto HALT;
+			}
+
+            _dprintf("loading module %s: at offset %x, type=%d\n", fi.moduleinfo->name, fi.p1_vaddr);
+
+			_LoadModule(*s0, &fi);
+			if (0 == _LinkImports((u32*)fi.p1_vaddr, fi.text_size)){
+				FlushIcache();
+				__asm__("move $gp, %0\n" : : "r"(fi.gp_value));
+				s1 = ((IopEntryFn)fi.entry)(0, NULL, s0, NULL);
+                
+				if ((s1 & 3) == 0){
+					_LinkModule((imageInfo*)(fi.p1_vaddr - 0x30));
+					if (s1 & ~3)
+						_RegisterBootupCBFunc((int (*)(int *, int))(s1 & ~3), BOOTUPCB_NORMAL, 0);
+				}else{
+					_UnlinkImports((void*)fi.p1_vaddr, fi.text_size);
+					FreeSysMemory((void*)((fi.p1_vaddr - 0x30) >> 8 << 8));
+				}
+			}else
+				FreeSysMemory((void*)((fi.p1_vaddr - 0x30) >> 8 << 8));
+            
+			s1 = 0;
+		}
+    }
+    
+	if (params._pos)
+		FreeSysMemory((void*)params._pos);
+
+	for (i=BOOTUPCB_FIRST; i<BOOTUPCB_PRIORITIES; i++){
+		if (i == BOOTUPCB_LAST)
+			place = 0;
+
+		for (s0=(void**)s2; *s0; s0+=2)
+			if (((u32)*s0 & 3) == i){
+                __asm__("move $gp, %0\n" : : "r"(s0[1]));
+				((int (*)(int *, int))((u32)*s0 & ~3))(((u32)*s0 & 3) == BOOTUPCB_LAST ? (int*)&s0[2] : (int*)s0, 1);
+			}
+
+		if (i == BOOTUPCB_NORMAL){
+			while ((u32)s2 < (u32)s0){
+				s0-=2;	// -8 bytes
+				if (((u32)*s0 & 3) == BOOTUPCB_LAST)
+					break;
+				*s0 = 0;
+			}
+		}
+	}
+
+HALT:
+	*(char*)0x80000000 = 2;
+	goto HALT;
 }
 

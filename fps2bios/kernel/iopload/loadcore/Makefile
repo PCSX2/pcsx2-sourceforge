@@ -43,7 +43,7 @@ all: loadcore
 
 LDFLAGS = -L$(PS2LIB)/iop/lib
 LDADD   =
-OBJECTS = loadcore.o ../iopdebug.o ../iopelf.o ../romdir.o
+OBJECTS = loadcore.o ../iopdebug.o ../iopelf.o ../romdir.o ../libkernel/iop_sysmem.o
 
 loadcore: $(OBJECTS)
 	$(IOPLINK) $(OBJECTS) $(LDFLAGS) $(LDADD) -o ../../../build/LOADCORE
