@@ -341,6 +341,8 @@ void CALLBACK SPU2irqCallback(void (*SPU2callback)(),void (*DMA4callback)(),void
 // for now, pData is not used
 int CALLBACK SPU2setupRecording(int start, void* pData);
 
+void CALLBACK SPU2setClockPtr(u32* ptr);
+
 void CALLBACK SPU2async(u32 cycles);
 s32  CALLBACK SPU2freeze(int mode, freezeData *data);
 void CALLBACK SPU2configure();
@@ -571,6 +573,9 @@ typedef void (CALLBACK* _SPU2setDMABaseAddr)(uptr baseaddr);
 typedef void (CALLBACK* _SPU2interruptDMA7)();
 typedef void (CALLBACK* _SPU2irqCallback)(void (*SPU2callback)(),void (*DMA4callback)(),void (*DMA7callback)());
 typedef int (CALLBACK* _SPU2setupRecording)(int, void*);
+
+typedef void (CALLBACK* _SPU2setClockPtr)(u32*ptr);
+
 typedef u32 (CALLBACK* _SPU2ReadMemAddr)(int core);
 typedef void (CALLBACK* _SPU2WriteMemAddr)(int core,u32 value);
 typedef void (CALLBACK* _SPU2async)(u32 cycles);
@@ -578,6 +583,7 @@ typedef s32  (CALLBACK* _SPU2freeze)(int mode, freezeData *data);
 typedef void (CALLBACK* _SPU2configure)();
 typedef s32  (CALLBACK* _SPU2test)();
 typedef void (CALLBACK* _SPU2about)();
+
 
 // CDVD
 // NOTE: The read/write functions CANNOT use XMM/MMX regs
@@ -766,6 +772,8 @@ _SPU2ReadMemAddr   SPU2ReadMemAddr;
 _SPU2setupRecording SPU2setupRecording;
 _SPU2WriteMemAddr   SPU2WriteMemAddr;
 _SPU2irqCallback   SPU2irqCallback;
+
+_SPU2setClockPtr   SPU2setClockPtr;
 
 _SPU2async         SPU2async;
 _SPU2freeze        SPU2freeze;

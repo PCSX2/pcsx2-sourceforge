@@ -250,7 +250,9 @@ int LoadSPU2plugin(char *filename) {
 	LoadSPU2sym1(WriteMemAddr,  "SPU2WriteMemAddr");
 	LoadSPU2sym1(irqCallback,  "SPU2irqCallback");
 
-    LoadSPU2symN(setupRecording, "SPU2setupRecording");
+    LoadSPU2symN(setClockPtr, "SPU2setClockPtr");
+
+	LoadSPU2symN(setupRecording, "SPU2setupRecording");
 
 	LoadSPU2sym0(freeze,       "SPU2freeze");
 	LoadSPU2sym0(configure,    "SPU2configure");
@@ -585,6 +587,10 @@ int OpenPlugins(const char* pTitleFilename) {
 	SPU2irqCallback(spu2Irq,spu2DMA4Irq,spu2DMA7Irq);
     if( SPU2setDMABaseAddr != NULL )
         SPU2setDMABaseAddr((uptr)PSXM(0));
+
+	if(SPU2setClockPtr != NULL)
+		SPU2setClockPtr(&psxRegs.cycle);
+
 	ret = SPU2open((void*)&pDsp);
 	if (ret != 0) { SysMessage (_("Error Opening SPU2 Plugin")); goto OpenError; }
 
