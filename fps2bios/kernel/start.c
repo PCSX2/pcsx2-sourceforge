@@ -12,8 +12,10 @@ __asm__ (
 	"sltiu $at, 0x59\n"
 	"bne   $at, $0, __iopstart\n"
 	"j     eestart\n"
+    "nop\n"
 	"__iopstart:\n"
-	"j     iopstart");
+	"j     iopstart\n"
+    "nop\n");
 
 
 /*

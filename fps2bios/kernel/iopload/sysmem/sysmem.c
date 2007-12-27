@@ -15,6 +15,7 @@
 
 #include "ksysmem.h"
 #include "kloadcore.h"
+#include "iopdebug.h"
 
 #define EIGHTMEGSm256	(8*1024*1024-256)	//0x007FFF00
 #define ALIGN256	0xFFFFFF00
@@ -56,8 +57,6 @@ unsigned int unk;
 
 ///////////////////////////////////////////////////////////////////////
 unsigned int		memsize;
-struct allocTABLE	_alloclist;
-struct allocTABLE	*alloclist;
 
 void		*_start(u32 iopmemsize);
 void		*sysmem_init_memory();
@@ -91,6 +90,10 @@ struct export sysmem_stub={
 	0
 };
 
+struct allocTABLE	*alloclist;
+char _alloclist[0x200]; // temp buffer
+//struct allocTABLE	_alloclist; // has to be last!, also temp!
+
 void Kputc(u8 c) {
 	*((u8*)0x1f80380c) = c;
 }
@@ -101,15 +104,32 @@ void Kputs(u8 *s) {
 	}
 }
 
+void Kprintnum(unsigned int n)
+{
+    char chars[16] = "0123456789abcdef";
+    int i = 0;
+    while(i < 8) {
+        Kputc(chars[n>>28]);
+        n <<= 4;
+        ++i;
+    }
+}
+
+
 ///////////////////////////////////////////////////////////////////////[OK]
 void sysmem_retonly(){}
 
 //////////////////////////////entrypoint///////////////////////////////[OK]
-void *_start(u32 iopmemsize) {
+void *_start(u32 iopmemsize)
+{
 	iopmemsize=min(EIGHTMEGSm256, iopmemsize);
 
-	alloclist = &_alloclist;
+	alloclist = (struct allocTABLE*)(((u32)&_alloclist + 255)  & 0xFFFFFF00); // round up
 	memsize = iopmemsize & 0xFFFFFF00;
+    
+    //__printf("sysmem_start: %x, %x\n", memsize, ((u32)alloclist+sizeof(struct allocTABLE)));
+    //Kprintnum((int)alloclist);  Kputs(" alloclist\n");
+    //Kprintnum((int)&alloclist);  Kputs(" &alloclist\n");
 
 	if (memsize >= ((u32)alloclist+sizeof(struct allocTABLE)))	//alloctable must fit memory
 		return sysmem_init_memory();
@@ -118,9 +138,12 @@ void *_start(u32 iopmemsize) {
 }
 
 ///////////////////////////////////////////////////////////////////////
+extern void* _end;
 void *sysmem_init_memory(){	//mark all mem as not allocated, available
 	unsigned int		i;
 	struct allocELEM	*p;
+
+    //__printf("system_init_memory\n");
 
 	if (alloclist == NULL) return NULL;
 
@@ -134,16 +157,20 @@ void *sysmem_init_memory(){	//mark all mem as not allocated, available
 	alloclist->list[smFIRST].info &= 0x0001FFFF;
 	alloclist->list[smFIRST].info |= (((memsize<0 ?
 				 memsize+255:memsize) >> 8) << 17);
+    
+    // _end ~= alloclist + sizeof(struct alocTABLE);
 
-	if (AllocSysMemory(ALLOC_FIRST, (unsigned int)alloclist, NULL)==0) { //this is not NULL! but the starting address of the first 0x1500 bytes allocated
-		if (alloclist==AllocSysMemory(ALLOC_FIRST, sizeof(struct allocTABLE)-4, NULL)){ //alloc allocated allocation table;-)
-			for (p=alloclist->list; p; p=p->next)
-				if (!mALLOCATED(p->info))
+    //this is not NULL! but the starting address of the first 0x1500 bytes allocated
+	if ( AllocSysMemory(ALLOC_FIRST, (int)alloclist, NULL)==0) {
+        if (alloclist==AllocSysMemory(ALLOC_FIRST, sizeof(struct allocTABLE)-4, NULL)){ //alloc allocated allocation table;-)
+            for (p=alloclist->list; p; p=p->next) {
+				if (!mALLOCATED(p->info)) {
 					return (void*)((mADDRESS(p->info))<<8);//next free block address
+                }
+            }
 			return NULL;
 		}
 	}
-
 	alloclist=NULL;
 	return NULL;
 }
@@ -184,8 +211,9 @@ void maintain();
 ///////////////////////////////////////////////////////////////////////[OK]
 void *AllocSysMemory(int flags, int size, void *mem){
 	if (alloclist && (flags<3)){
-		void *r=alloc(flags, size, mem);
+        void *r=alloc(flags, size, mem);
 		maintain();
+        //Kprintnum((int)r); Kputs("\n");
 		return (void*)r;
 	}
 	return NULL;

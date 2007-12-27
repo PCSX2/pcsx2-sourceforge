@@ -1159,7 +1159,7 @@ int _SifSetReg(int reg, u32 val) {
 }
 
 int _SifGetReg(int reg) {
-	__printf("%s: reg=%x\n", __FUNCTION__, reg);
+	//__printf("%s: reg=%x\n", __FUNCTION__, reg);
 
 	if (reg == 1) {
 		return *(u32*)0xB000F200;

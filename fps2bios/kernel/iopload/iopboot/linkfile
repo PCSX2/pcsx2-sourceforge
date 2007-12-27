@@ -3,12 +3,7 @@ _heap_size = 1024*1024*10;
 
 ENTRY(_start);
 SECTIONS {
-
-	. 0x80000000 : {
-		iopirq.o
-	}
-
-	.text 0x80001000 : {
+	.text 0xbfc0a180 : {
 		*(.text)
 		*(.data)
 		*(.rdata)

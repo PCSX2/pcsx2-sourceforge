@@ -1,86 +1,5 @@
 #include "romdir.h"
-
-
-typedef struct {
-    u8	e_ident[16];    //0x7f,"ELF"  (ELF file identifier)
-    u16	e_type;         //ELF type: 0=NONE, 1=REL, 2=EXEC, 3=SHARED, 4=CORE
-	u16	e_machine;      //Processor: 8=MIPS R3000
-	u32	e_version;      //Version: 1=current
-	u32	e_entry;        //Entry point address
-	u32	e_phoff;        //Start of program headers (offset from file start)
-	u32	e_shoff;        //Start of section headers (offset from file start)
-	u32	e_flags;        //Processor specific flags = 0x20924001 noreorder, mips
-	u16	e_ehsize;       //ELF header size (0x34 = 52 bytes)
-	u16	e_phentsize;    //Program headers entry size 
-	u16	e_phnum;        //Number of program headers
-	u16	e_shentsize;    //Section headers entry size
-	u16	e_shnum;        //Number of section headers
-	u16	e_shstrndx;     //Section header stringtable index	
-} ELF_HEADER;
-
-typedef struct {
-	u32 p_type;         //see notes1
-	u32 p_offset;       //Offset from file start to program segment.
-	u32 p_vaddr;        //Virtual address of the segment
-	u32 p_paddr;        //Physical address of the segment
-	u32 p_filesz;       //Number of bytes in the file image of the segment
-	u32 p_memsz;        //Number of bytes in the memory image of the segment
-	u32 p_flags;        //Flags for segment
-	u32 p_align;        //Alignment. The address of 0x08 and 0x0C must fit this alignment. 0=no alignment
-} ELF_PHR;
-
-/*
-notes1
-------
-0=Inactive
-1=Load the segment into memory, no. of bytes specified by 0x10 and 0x14
-2=Dynamic linking
-3=Interpreter. The array element must specify a path name
-4=Note. The array element must specify the location and size of aux. info
-5=reserved
-6=The array element must specify location and size of the program header table.
-*/
-
-typedef struct {
-	u32	sh_name;        //No. to the index of the Section header stringtable index
-    u32	sh_type;        //See notes2
-	u32	sh_flags;       //see notes3
-	u32	sh_addr;        //Section start address
-	u32	sh_offset;      //Offset from start of file to section
-	u32	sh_size;        //Size of section
-	u32	sh_link;        //Section header table index link
-	u32	sh_info;        //Info
-	u32	sh_addralign;   //Alignment. The adress of 0x0C must fit this alignment. 0=no alignment.
-	u32	sh_entsize;     //Fixed size entries.
-} ELF_SHR;
-/*
-notes 2
--------
-Type:
-0=Inactive
-1=PROGBITS
-2=SYMTAB symbol table
-3=STRTAB string table
-4=RELA relocation entries
-5=HASH hash table
-6=DYNAMIC dynamic linking information
-7=NOTE
-8=NOBITS 
-9=REL relocation entries
-10=SHLIB
-0x70000000=LOPROC processor specifc
-0x7fffffff=HIPROC
-0x80000000=LOUSER lower bound
-0xffffffff=HIUSER upper bound
-
-notes 3
--------
-Section Flags:  (1 bit, you may combine them like 3 = alloc & write permission)
-1=Write section contains data the is be writeable during execution.
-2=Alloc section occupies memory during execution
-4=Exec section contains executable instructions
-0xf0000000=Mask bits processor-specific
-*/
+#include "iopelf.h"
 
 typedef struct {
 	u32	st_name;
@@ -90,13 +9,6 @@ typedef struct {
 	u8	st_other;
 	u16	st_shndx;
 } Elf32_Sym;
-
-#define ELF32_ST_TYPE(i) ((i)&0xf)
-
-typedef struct {
-	u32	r_offset;
-	u32	r_info;
-} Elf32_Rel;
 
 char *sections_names;
 	
@@ -236,8 +148,8 @@ int loadProgramHeaders() {
 						} else {
 							size = elfProgH[ i ].p_filesz;
 						}
-						_dprintf("loading program to %x\n", elfProgH[ i ].p_paddr + elfbase);
-						__memcpy(elfProgH[ i ].p_paddr + elfbase, 
+						_dprintf("loading program at %x, size=%x\n", elfProgH[ i ].p_paddr + elfbase, size);
+						__memcpy((void*)(elfProgH[ i ].p_paddr + elfbase), 
 								 &elfdata[elfProgH[ i ].p_offset],
 								 size);
 					}
@@ -264,7 +176,7 @@ int loadProgramHeaders() {
 }
 
 void _relocateElfSection(int i) {
-	Elf32_Rel *rel;
+	ELF_REL *rel;
 	int size = elfSectH[i].sh_size / 4;
 	int r = 0;
 	u32 *ptr, *tmp;
@@ -279,7 +191,7 @@ void _relocateElfSection(int i) {
 //	__printf("sh_addr %x\n", elfSectH[i].sh_addr);
 
 	while (size > 0) {
-		rel = (Elf32_Rel*)&ptr[r];
+		rel = (ELF_REL*)&ptr[r];
 //		__printf("rel size=%x: offset=%x, info=%x\n", size, rel->r_offset, rel->r_info);
 
 		tmp = (u32*)&mem[rel->r_offset];
@@ -296,16 +208,16 @@ void _relocateElfSection(int i) {
 				imm = (((*tmp & 0xffff) + (elfbase >> 16)) & 0xffff);
 				for (j=(r+2)/2; j<elfSectH[i].sh_size / 4; j++) {
 					if (j*2 == r) continue;
-					if ((u8)((Elf32_Rel*)&ptr[j*2])->r_info == 6)
+					if ((u8)((ELF_REL*)&ptr[j*2])->r_info == 6)
 						break;
-//					if ((rel->r_info >> 8) == (((Elf32_Rel*)&ptr[j*2])->r_info >> 8))
+//					if ((rel->r_info >> 8) == (((ELF_REL*)&ptr[j*2])->r_info >> 8))
 //						break;
 				}
 
 /*				if (j != elfSectH[i].sh_size / 4)*/ {
 					u32 *p;
 
-					rel = (Elf32_Rel*)&ptr[j*2];
+					rel = (ELF_REL*)&ptr[j*2];
 //					__printf("HI16: found match: %x\n", rel->r_offset);
 					p = (u32*)&mem[rel->r_offset];
 //					__printf("%x + %x = %x\n", *p, elfbase, (*p & 0xffff) + (elfbase & 0xffff));
@@ -478,28 +390,18 @@ int loadSectionHeaders() {
 	return 0;
 }
 
-
-u32 loadElfFile(char *filename, u32 base) {
-	struct rominfo ri;
-	char str[256];
-	char str2[256];
-	int i;
-
-	__printf("loadElfFile: %s (base=%x, elfHeader=%x)\n", filename, base, &elfHeader);
-
-	if (romdirGetFile(filename, &ri) == NULL) {
-		__printf("file %s not found!!\n", filename);
-		return -1;
-	}
-	elfdata = (u8*)(0xbfc00000 + ri.fileOffset);
-	elfsize = ri.fileSize;
-	elfbase = base;
+void* loadElfFile(ROMFILE_INFO* ri, u32 offset)
+{
+	__printf("loadElfFile: base=%x, size=%x\n", ri->fileData, ri->entry->fileSize);
+	elfdata = (u8*)(ri->fileData);
+	elfsize = ri->entry->fileSize;
+	elfbase = offset;
 
 	loadHeaders();
 	loadProgramHeaders();
 	loadSectionHeaders();
 	
-	_dprintf("loadElfFile: e_entry=%x\n", elfHeader->e_entry);
-	return elfHeader->e_entry + base;
+	_dprintf("loadElfFile: e_entry=%x, hdr=%x\n", elfHeader->e_entry, elfHeader);
+	return elfbase+elfHeader->e_entry;
 }
 
