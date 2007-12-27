@@ -78,11 +78,6 @@ typedef struct {
 		H2C;		//+2C
 } imageInfo;
 
-typedef struct {
-	char	*name;
-	short	version;
-} moduleInfo;
-
 struct bootmode {
 	short	unk0;
 	char	id;
@@ -90,16 +85,16 @@ struct bootmode {
 	int	data[0];
 };
 
-struct init{
-	unsigned int	ramM;		//+00 in megs
-	unsigned int	bootinfo;	//+04 
-	char		*btupdater;	//+08
-	void		*sysmem_LET;	//+0C address of sysmem export stub
-	unsigned int	_pos;		//+10
-	unsigned int	_size;		//+14
-	unsigned int	lines;		//+18 lines in 'iopbtconf' file
-	void		*modules;	//+1C address in bios of modules from 'iopbtconf'
-};
+typedef struct boot_params {
+	int		ramMBSize;		//+00/0 size of iop ram in megabytes (2 or 8)
+	int		bootInfo;		//+04/1 ==QueryBootMode(KEY_IOPbootinfo)
+	char*	udnlString;		//+08/2 points to the undl reboot string, NULL if no string
+	u32		firstModuleAddr;//+0C/3 the load address of the first module (sysmem)
+	int		pos;			//+10/4
+	int		size;			//+14/5
+	int		numConfLines;	//+18/6 number of lines in IOPBTCONF
+	u32**	moduleAddrs;	//+1C/7 pointer to an array of addresses to load modules from
+} BOOT_PARAMS;			//=20
 
 void	FlushIcache();				//4 (14)
 void	FlushDcache();				//5 (14,21,26)

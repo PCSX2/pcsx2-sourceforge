@@ -30,21 +30,29 @@ static void _iopstart() {
 	Kputs("iopstart: fps2bios v");
 	Kputc(str[1]); Kputc('.'); Kputc(str[3]); Kputc('\n');
 
-	romdirGetFile("IOPLOAD", &ri);
+    // note, IOPBOOT has to be linked at location ri.fileOffset=0x600!!
+	romdirGetFile("IOPBOOT", &ri);
 
-	Kputs("_iopstart: loading IOPLOAD to 0x80000000\n");
-	Kmemcpy((void*)0x80000000, (void*)(0xbfc00000 + ri.fileOffset), ri.fileSize);
+	Kputs("_iopstart: loading IOPBOOT to 0xbfc0a180\n");
+	//Kmemcpy((void*)0x80000000, (void*)(0xbfc00000 + ri.fileOffset), ri.fileSize);
 
 	__asm__ (
-		"li  $26, 0x80001000\n"
-		"jr  $26\n");
+        "li $a0, 2\n" // 2Mb
+        "move $a1, $0\n"
+        "move $a2, $0\n"
+        "move $a3, $0\n"
+		"move $26, %0\n"
+		"jr $26\n"
+        "nop\n" : : "r"(0xbfc00000+ri.fileOffset));
 	for (;;);
 }
 
 __asm__ (
 	".global iopstart\n"
 	"iopstart:\n"
-	"li	$sp, 0x80010000\n"
-	"j     _iopstart\n");
+	"li	$sp, 0x001fffc0\n" // (2<<20)-0x40
+    "move $fp, $sp\n"
+	"j     _iopstart\n"
+    "nop\n");
 
 

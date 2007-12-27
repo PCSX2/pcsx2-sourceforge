@@ -209,9 +209,9 @@ LOAD /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a
  .rodata        0x0000000080000bd0       0x40 eeirq.o
  .comment       0x0000000080000c10       0x12 eeirq.o
 
-.text           0x0000000080001000     0x8060
+.text           0x0000000080001000     0x8020
  *(.text)
- .text          0x0000000080001000     0x2878 eeload.o
+ .text          0x0000000080001000     0x2858 eeload.o
                 0x0000000080002990                _SetGsVParam
                 0x0000000080001d58                _AddDmacHandler
                 0x0000000080002118                _TerminateThread
@@ -244,9 +244,9 @@ LOAD /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a
                 0x0000000080002270                _ReleaseWaitThread
                 0x0000000080002320                _SleepThread
                 0x0000000080001f40                _CreateThread
-                0x00000000800031c8                _SetGsCrt
+                0x00000000800031a8                _SetGsCrt
                 0x0000000080001858                _AddSbusIntcHandler
-                0x0000000080003150                _GetMemorySize
+                0x0000000080003130                _GetMemorySize
                 0x0000000080002c90                _SetCPUTimer
                 0x0000000080002a08                _DeleteEventFlag
                 0x0000000080002168                _DisableDispatchThread
@@ -263,13 +263,13 @@ LOAD /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a
                 0x00000000800016e0                _RFU___
                 0x0000000080001518                _AddHandler
                 0x0000000080002468                _JoinThread
-                0x0000000080003128                _MachineType
+                0x0000000080003108                _MachineType
                 0x00000000800014e0                LL_unlinkthis
                 0x00000000800017c0                _TlbWriteRandom
                 0x0000000080001e80                __EnableDmac
                 0x00000000800020b8                _ExitThread
                 0x0000000080001a20                __AddIntcHandler
-                0x0000000080003138                _SetMemorySize
+                0x0000000080003118                _SetMemorySize
                 0x00000000800027c8                _RFU073
                 0x0000000080001e48                __DisableIntc
                 0x0000000080001b68                _AddIntcHandler
@@ -290,7 +290,7 @@ LOAD /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a
                 0x0000000080001d78                _RemoveDmacHandler
                 0x0000000080002ce0                _SetPgifHandler
                 0x0000000080002b00                _DisableDmacHandler
-                0x00000000800030e8                _ExecOSD
+                0x00000000800030c8                _ExecOSD
                 0x00000000800029b0                _SetGsHParam
                 0x00000000800022c0                _GetThreadId
                 0x0000000080002218                _RotateThreadReadyQueue
@@ -299,7 +299,7 @@ LOAD /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a
                 0x0000000080002e20                _sifGetMSFLG
                 0x00000000800026b8                _DeleteSema
                 0x0000000080001120                saveContext
-                0x0000000080003110                _PSMode
+                0x00000000800030f0                _PSMode
                 0x00000000800019c0                _SetVCommonHandler
                 0x00000000800015e0                SifDmaInit
                 0x0000000080002d08                _SetVSyncFlag
@@ -333,159 +333,159 @@ LOAD /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a
                 0x0000000080003010                _SifGetReg
                 0x0000000080002df8                _SifSetDChain
                 0x0000000080002cc8                _GsPutIMR
- .text          0x0000000080003878      0xa08 eeinit.o
-                0x0000000080003eb0                InitializeScratchPad
-                0x0000000080003b10                _ResetEE
-                0x0000000080004130                InitPgifHandler
-                0x0000000080003bc0                _SemasInit
-                0x0000000080003ab0                InitializeUserMemory
-                0x00000000800039c8                InitializeTIMER
-                0x0000000080003e20                InitializeFPU
-                0x0000000080003b88                _TlbSet
-                0x0000000080003998                InitializeINTC
-                0x0000000080003fb8                Restart
-                0x0000000080003c30                TlbInit
-                0x0000000080003878                InitializeDMAC
-                0x0000000080003990                InitializeGS
-                0x0000000080003ee8                Initialize
-                0x0000000080003968                InitializeGIF
- .text          0x0000000080004280      0x2d0 eeelf.o
-                0x0000000080004418                loadSectionHeaders
-                0x00000000800042b0                loadHeaders
-                0x00000000800042e8                loadProgramHeaders
-                0x00000000800044b0                loadElfFile
- .text          0x0000000080004550       0xf8 eedebug.o
-                0x00000000800045d8                __printf
-                0x0000000080004590                __puts
-                0x0000000080004550                __putc
- .text          0x0000000080004648      0x1a0 romdir.o
-                0x0000000080004648                romdirInit
-                0x00000000800046d0                romdirGetFile
- .text          0x00000000800047e8       0xac /usr/local/ps2dev/ps2sdk/ee/lib/libc.a(memset.o)
-                0x00000000800047e8                memset
- *fill*         0x0000000080004894        0x4 00
- .text          0x0000000080004898       0x40 /usr/local/ps2dev/ps2sdk/ee/lib/libc.a(vsnprintf.o)
-                0x0000000080004898                vsnprintf
- .text          0x00000000800048d8     0x1030 /usr/local/ps2dev/ps2sdk/ee/lib/libc.a(vxprintf.o)
-                0x0000000080004968                vxprintf
- .text          0x0000000080005908       0x88 /usr/local/ps2dev/ps2sdk/ee/lib/libc.a(__sout.o)
-                0x0000000080005908                __sout
- .text          0x0000000080005990       0xf8 /usr/local/ps2dev/ps2sdk/ee/lib/libc.a(free.o)
-                0x0000000080005990                free
- .text          0x0000000080005a88       0xc0 /usr/local/ps2dev/ps2sdk/ee/lib/libc.a(__alloc_internals.o)
-                0x0000000080005ab8                _ps2sdk_alloc_deinit
-                0x0000000080005a88                _ps2sdk_alloc_init
-                0x0000000080005ae8                _ps2sdk_alloc_lock
-                0x0000000080005b18                _ps2sdk_alloc_unlock
- .text          0x0000000080005b48       0x18 /usr/local/ps2dev/ps2sdk/ee/lib/libc.a(isdigit.o)
-                0x0000000080005b48                isdigit
- .text          0x0000000080005b60       0x68 /usr/local/ps2dev/ps2sdk/ee/lib/libc.a(sbrk.o)
-                0x0000000080005b60                ps2_sbrk
- .text          0x0000000080005bc8      0x138 /usr/local/ps2dev/ps2sdk/ee/lib/libc.a(strlen.o)
-                0x0000000080005bc8                strlen
- .text          0x0000000080005d00      0x1f0 /usr/local/ps2dev/ps2sdk/ee/lib/libc.a(malloc.o)
-                0x0000000080005d40                malloc
-                0x0000000080005d00                _heap_mem_fit
- .text          0x0000000080005ef0       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(EndOfHeap.o)
-                0x0000000080005ef0                EndOfHeap
- .text          0x0000000080005f00       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(CreateSema.o)
-                0x0000000080005f00                CreateSema
- .text          0x0000000080005f10       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(DeleteSema.o)
-                0x0000000080005f10                DeleteSema
- .text          0x0000000080005f20       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(SignalSema.o)
-                0x0000000080005f20                SignalSema
- .text          0x0000000080005f30       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(WaitSema.o)
-                0x0000000080005f30                WaitSema
- .text          0x0000000080005f40       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(SetVSyncFlag.o)
-                0x0000000080005f40                SetVSyncFlag
- .text          0x0000000080005f50       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(GetMemorySize.o)
-                0x0000000080005f50                GetMemorySize
- .text          0x0000000080005f60      0x4f0 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(SifRpcMain.o)
-                0x0000000080006258                SifInitRpc
-                0x0000000080006428                SifExitRpc
- .text          0x0000000080006450       0x30 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(_rpc_get_fpacket.o)
-                0x0000000080006450                _rpc_get_fpacket
- .text          0x0000000080006480       0x50 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(DIntr.o)
-                0x0000000080006480                DIntr
- .text          0x00000000800064d0       0x18 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(EIntr.o)
-                0x00000000800064d0                EIntr
- *fill*         0x00000000800064e8        0x8 00
- .text          0x00000000800064f0       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(iWakeupThread.o)
-                0x00000000800064f0                iWakeupThread
- .text          0x0000000080006500       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(iSignalSema.o)
-                0x0000000080006500                iSignalSema
- .text          0x0000000080006510       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(SifSetReg.o)
-                0x0000000080006510                SifSetReg
- .text          0x0000000080006520       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(SifGetReg.o)
-                0x0000000080006520                SifGetReg
- .text          0x0000000080006530      0x1b0 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(sif_cmd_send.o)
-                0x0000000080006660                SifSendCmd
-                0x00000000800066a0                iSifSendCmd
- .text          0x00000000800066e0      0x2a8 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(sif_cmd_main.o)
-                0x0000000080006710                SifInitCmd
-                0x0000000080006950                SifExitCmd
- .text          0x0000000080006988       0x38 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(sif_cmd_addhandler.o)
-                0x0000000080006988                SifAddCmdHandler
- .text          0x00000000800069c0       0x18 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(sif_sreg_get.o)
-                0x00000000800069c0                SifGetSreg
- .text          0x00000000800069d8       0x78 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(EnableDmac.o)
-                0x00000000800069d8                EnableDmac
- .text          0x0000000080006a50       0x78 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(DisableDmac.o)
-                0x0000000080006a50                DisableDmac
- *fill*         0x0000000080006ac8        0x8 00
- .text          0x0000000080006ad0       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(AddDmacHandler.o)
-                0x0000000080006ad0                AddDmacHandler
- .text          0x0000000080006ae0       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(RemoveDmacHandler.o)
-                0x0000000080006ae0                RemoveDmacHandler
- .text          0x0000000080006af0       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(_EnableDmac.o)
-                0x0000000080006af0                _EnableDmac
- .text          0x0000000080006b00       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(_DisableDmac.o)
-                0x0000000080006b00                _DisableDmac
- .text          0x0000000080006b10       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(FlushCache.o)
-                0x0000000080006b10                FlushCache
- .text          0x0000000080006b20       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(SifSetDma.o)
-                0x0000000080006b20                SifSetDma
- .text          0x0000000080006b30       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(iSifSetDma.o)
-                0x0000000080006b30                iSifSetDma
- .text          0x0000000080006b40       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(SifSetDChain.o)
-                0x0000000080006b40                SifSetDChain
- .text          0x0000000080006b50       0xb0 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(SifWriteBackDCache.o)
-                0x0000000080006b50                SifWriteBackDCache
- .text          0x0000000080006c00       0xe0 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(_sif_cmd_int_handler.o)
-                0x0000000080006c00                _SifCmdIntHandler
- .text          0x0000000080006ce0       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(iSifSetDChain.o)
-                0x0000000080006ce0                iSifSetDChain
- .text          0x0000000080006cf0      0x6c8 /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a(_udivdi3.o)
-                0x0000000080006cf0                __udivdi3
- .text          0x00000000800073b8      0x6c8 /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a(_umoddi3.o)
-                0x00000000800073b8                __umoddi3
- .text          0x0000000080007a80      0x308 /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a(_addsub_df.o)
-                0x0000000080007d18                dpsub
-                0x0000000080007cb8                dpadd
- .text          0x0000000080007d88      0x2d0 /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a(_mul_df.o)
-                0x0000000080007d88                dpmul
- .text          0x0000000080008058       0x58 /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a(_compare_df.o)
-                0x0000000080008058                dpcmp
- .text          0x00000000800080b0       0xc0 /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a(_si_to_df.o)
-                0x00000000800080b0                litodp
- .text          0x0000000080008170       0xa0 /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a(_df_to_si.o)
-                0x0000000080008170                dptoli
- .text          0x0000000080008210      0x190 /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a(_pack_df.o)
-                0x0000000080008210                __pack_d
- .text          0x00000000800083a0       0xe8 /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a(_unpack_df.o)
-                0x00000000800083a0                __unpack_d
- .text          0x0000000080008488      0x108 /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a(_fpcmp_parts_df.o)
-                0x0000000080008488                __fpcmp_parts_d
+ .text          0x0000000080003858      0xa08 eeinit.o
+                0x0000000080003e90                InitializeScratchPad
+                0x0000000080003af0                _ResetEE
+                0x0000000080004110                InitPgifHandler
+                0x0000000080003ba0                _SemasInit
+                0x0000000080003a90                InitializeUserMemory
+                0x00000000800039a8                InitializeTIMER
+                0x0000000080003e00                InitializeFPU
+                0x0000000080003b68                _TlbSet
+                0x0000000080003978                InitializeINTC
+                0x0000000080003f98                Restart
+                0x0000000080003c10                TlbInit
+                0x0000000080003858                InitializeDMAC
+                0x0000000080003970                InitializeGS
+                0x0000000080003ec8                Initialize
+                0x0000000080003948                InitializeGIF
+ .text          0x0000000080004260      0x2d0 eeelf.o
+                0x00000000800043f8                loadSectionHeaders
+                0x0000000080004290                loadHeaders
+                0x00000000800042c8                loadProgramHeaders
+                0x0000000080004490                loadElfFile
+ .text          0x0000000080004530       0xf8 eedebug.o
+                0x00000000800045b8                __printf
+                0x0000000080004570                __puts
+                0x0000000080004530                __putc
+ .text          0x0000000080004628      0x1a0 romdir.o
+                0x0000000080004628                romdirInit
+                0x00000000800046b0                romdirGetFile
+ .text          0x00000000800047c8       0xac /usr/local/ps2dev/ps2sdk/ee/lib/libc.a(memset.o)
+                0x00000000800047c8                memset
+ *fill*         0x0000000080004874        0x4 00
+ .text          0x0000000080004878       0x40 /usr/local/ps2dev/ps2sdk/ee/lib/libc.a(vsnprintf.o)
+                0x0000000080004878                vsnprintf
+ .text          0x00000000800048b8     0x1030 /usr/local/ps2dev/ps2sdk/ee/lib/libc.a(vxprintf.o)
+                0x0000000080004948                vxprintf
+ .text          0x00000000800058e8       0x88 /usr/local/ps2dev/ps2sdk/ee/lib/libc.a(__sout.o)
+                0x00000000800058e8                __sout
+ .text          0x0000000080005970       0xf8 /usr/local/ps2dev/ps2sdk/ee/lib/libc.a(free.o)
+                0x0000000080005970                free
+ .text          0x0000000080005a68       0xc0 /usr/local/ps2dev/ps2sdk/ee/lib/libc.a(__alloc_internals.o)
+                0x0000000080005a98                _ps2sdk_alloc_deinit
+                0x0000000080005a68                _ps2sdk_alloc_init
+                0x0000000080005ac8                _ps2sdk_alloc_lock
+                0x0000000080005af8                _ps2sdk_alloc_unlock
+ .text          0x0000000080005b28       0x18 /usr/local/ps2dev/ps2sdk/ee/lib/libc.a(isdigit.o)
+                0x0000000080005b28                isdigit
+ .text          0x0000000080005b40       0x68 /usr/local/ps2dev/ps2sdk/ee/lib/libc.a(sbrk.o)
+                0x0000000080005b40                ps2_sbrk
+ .text          0x0000000080005ba8      0x138 /usr/local/ps2dev/ps2sdk/ee/lib/libc.a(strlen.o)
+                0x0000000080005ba8                strlen
+ .text          0x0000000080005ce0      0x1f0 /usr/local/ps2dev/ps2sdk/ee/lib/libc.a(malloc.o)
+                0x0000000080005d20                malloc
+                0x0000000080005ce0                _heap_mem_fit
+ .text          0x0000000080005ed0       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(EndOfHeap.o)
+                0x0000000080005ed0                EndOfHeap
+ .text          0x0000000080005ee0       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(CreateSema.o)
+                0x0000000080005ee0                CreateSema
+ .text          0x0000000080005ef0       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(DeleteSema.o)
+                0x0000000080005ef0                DeleteSema
+ .text          0x0000000080005f00       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(SignalSema.o)
+                0x0000000080005f00                SignalSema
+ .text          0x0000000080005f10       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(WaitSema.o)
+                0x0000000080005f10                WaitSema
+ .text          0x0000000080005f20       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(SetVSyncFlag.o)
+                0x0000000080005f20                SetVSyncFlag
+ .text          0x0000000080005f30       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(GetMemorySize.o)
+                0x0000000080005f30                GetMemorySize
+ .text          0x0000000080005f40      0x4f0 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(SifRpcMain.o)
+                0x0000000080006238                SifInitRpc
+                0x0000000080006408                SifExitRpc
+ .text          0x0000000080006430       0x30 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(_rpc_get_fpacket.o)
+                0x0000000080006430                _rpc_get_fpacket
+ .text          0x0000000080006460       0x50 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(DIntr.o)
+                0x0000000080006460                DIntr
+ .text          0x00000000800064b0       0x18 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(EIntr.o)
+                0x00000000800064b0                EIntr
+ *fill*         0x00000000800064c8        0x8 00
+ .text          0x00000000800064d0       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(iWakeupThread.o)
+                0x00000000800064d0                iWakeupThread
+ .text          0x00000000800064e0       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(iSignalSema.o)
+                0x00000000800064e0                iSignalSema
+ .text          0x00000000800064f0       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(SifSetReg.o)
+                0x00000000800064f0                SifSetReg
+ .text          0x0000000080006500       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(SifGetReg.o)
+                0x0000000080006500                SifGetReg
+ .text          0x0000000080006510      0x1b0 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(sif_cmd_send.o)
+                0x0000000080006640                SifSendCmd
+                0x0000000080006680                iSifSendCmd
+ .text          0x00000000800066c0      0x2a8 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(sif_cmd_main.o)
+                0x00000000800066f0                SifInitCmd
+                0x0000000080006930                SifExitCmd
+ .text          0x0000000080006968       0x38 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(sif_cmd_addhandler.o)
+                0x0000000080006968                SifAddCmdHandler
+ .text          0x00000000800069a0       0x18 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(sif_sreg_get.o)
+                0x00000000800069a0                SifGetSreg
+ .text          0x00000000800069b8       0x78 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(EnableDmac.o)
+                0x00000000800069b8                EnableDmac
+ .text          0x0000000080006a30       0x78 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(DisableDmac.o)
+                0x0000000080006a30                DisableDmac
+ *fill*         0x0000000080006aa8        0x8 00
+ .text          0x0000000080006ab0       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(AddDmacHandler.o)
+                0x0000000080006ab0                AddDmacHandler
+ .text          0x0000000080006ac0       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(RemoveDmacHandler.o)
+                0x0000000080006ac0                RemoveDmacHandler
+ .text          0x0000000080006ad0       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(_EnableDmac.o)
+                0x0000000080006ad0                _EnableDmac
+ .text          0x0000000080006ae0       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(_DisableDmac.o)
+                0x0000000080006ae0                _DisableDmac
+ .text          0x0000000080006af0       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(FlushCache.o)
+                0x0000000080006af0                FlushCache
+ .text          0x0000000080006b00       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(SifSetDma.o)
+                0x0000000080006b00                SifSetDma
+ .text          0x0000000080006b10       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(iSifSetDma.o)
+                0x0000000080006b10                iSifSetDma
+ .text          0x0000000080006b20       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(SifSetDChain.o)
+                0x0000000080006b20                SifSetDChain
+ .text          0x0000000080006b30       0xb0 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(SifWriteBackDCache.o)
+                0x0000000080006b30                SifWriteBackDCache
+ .text          0x0000000080006be0       0xe0 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(_sif_cmd_int_handler.o)
+                0x0000000080006be0                _SifCmdIntHandler
+ .text          0x0000000080006cc0       0x10 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(iSifSetDChain.o)
+                0x0000000080006cc0                iSifSetDChain
+ .text          0x0000000080006cd0      0x6c8 /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a(_udivdi3.o)
+                0x0000000080006cd0                __udivdi3
+ .text          0x0000000080007398      0x6c8 /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a(_umoddi3.o)
+                0x0000000080007398                __umoddi3
+ .text          0x0000000080007a60      0x308 /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a(_addsub_df.o)
+                0x0000000080007cf8                dpsub
+                0x0000000080007c98                dpadd
+ .text          0x0000000080007d68      0x2d0 /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a(_mul_df.o)
+                0x0000000080007d68                dpmul
+ .text          0x0000000080008038       0x58 /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a(_compare_df.o)
+                0x0000000080008038                dpcmp
+ .text          0x0000000080008090       0xc0 /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a(_si_to_df.o)
+                0x0000000080008090                litodp
+ .text          0x0000000080008150       0xa0 /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a(_df_to_si.o)
+                0x0000000080008150                dptoli
+ .text          0x00000000800081f0      0x190 /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a(_pack_df.o)
+                0x00000000800081f0                __pack_d
+ .text          0x0000000080008380       0xe8 /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a(_unpack_df.o)
+                0x0000000080008380                __unpack_d
+ .text          0x0000000080008468      0x108 /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a(_fpcmp_parts_df.o)
+                0x0000000080008468                __fpcmp_parts_d
  *(.rodata)
- .rodata        0x0000000080008590      0x590 eeload.o
- .rodata        0x0000000080008b20      0x190 eeinit.o
- .rodata        0x0000000080008cb0       0x30 eeelf.o
- .rodata        0x0000000080008ce0      0x188 /usr/local/ps2dev/ps2sdk/ee/lib/libc.a(vxprintf.o)
- .rodata        0x0000000080008e68       0xe0 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(SifRpcMain.o)
- .rodata        0x0000000080008f48       0x18 /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a(_thenan_df.o)
-                0x0000000080008f48                __thenan_df
- .rodata        0x0000000080008f60      0x100 /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a(_clz.o)
-                0x0000000080008f60                __clz_tab
+ .rodata        0x0000000080008570      0x570 eeload.o
+ .rodata        0x0000000080008ae0      0x190 eeinit.o
+ .rodata        0x0000000080008c70       0x30 eeelf.o
+ .rodata        0x0000000080008ca0      0x188 /usr/local/ps2dev/ps2sdk/ee/lib/libc.a(vxprintf.o)
+ .rodata        0x0000000080008e28       0xe0 /usr/local/ps2dev/ps2sdk/ee/lib/libkernel.a(SifRpcMain.o)
+ .rodata        0x0000000080008f08       0x18 /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a(_thenan_df.o)
+                0x0000000080008f08                __thenan_df
+ .rodata        0x0000000080008f20      0x100 /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a(_clz.o)
+                0x0000000080008f20                __clz_tab
 
 .reginfo        0x0000000080009080       0x18
  *(.reginfo)

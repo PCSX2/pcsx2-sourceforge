@@ -13,10 +13,10 @@ STRIP = strip
 OPTIMIZE = -O2 -fomit-frame-pointer -finline-functions -ffast-math
 CFLAGS = -Wall ${OPTIMIZE} -I.
 DIRS = kernel intro loader
-FILES = RESET ROMDIR EXTINFO ROMVER EELOAD IOPLOAD \
+FILES = RESET ROMDIR EXTINFO ROMVER EELOAD IOPBOOT \
 		SYSMEM LOADCORE EXCEPMAN INTRMAN SSBUSC DMACMAN \
 		TIMRMAN SYSCLIB HEAPLIB THREADMAN VBLANK STDIO \
-		SIFMAN SIFCMD SIO2MAN LOADER INTRO FP2BLOGO
+		SIFMAN SIFCMD SIO2MAN LOADER INTRO IOPBTCONF FP2BLOGO
 
 ps2romgen_exe: ps2romgen.o
 	${CC} ${CFLAGS} ps2romgen.o -o build/ps2romgen_exe
@@ -32,6 +32,7 @@ fps2bios:
 		(cd $$i; make; cd ..) \
 	done;
 	cp -f FP2BLOGO build
+	cp -f IOPBTCONF build/
 	(cd build; \
 	./romver_exe $(VERSION) $(BUILD); \
 	./romdir_exe $(FILES); \

@@ -26,15 +26,16 @@ EECFLAGS  = -O2 -fomit-frame-pointer -mips3 -EL -nostartfiles
 EEINCLUDES = -I. -Iinclude -I$(PS2LIB)/common/include -I$(PS2LIB)/ee/include
 
 IOPCFLAGS = -O2 -fomit-frame-pointer -nostartfiles -G0
-IOPINCLUDES = -I. -Iinclude -I$(PS2LIB)/common/include -I$(PS2LIB)/iop/include
+IOPINCLUDES = -I. -I../include -I$(PS2LIB)/common/include -I$(PS2LIB)/iop/include
 IOPCOMPILE = $(IOPCC) $(IOPINCLUDES) $(IOPCFLAGS)
 IOPLINK = $(IOPLD) -dc
+IOPASFLAGS := -EL -G0
 
 
 #  ------------------------------------------------------------------------
 #  PROJECTS TO BUILD
 
-all: iopload
+all: iopboot
 
 
 #  ------------------------------------------------------------------------
@@ -42,26 +43,17 @@ all: iopload
 
 LDFLAGS = -nostartfiles -L$(PS2LIB)/iop/lib
 LDADD   =
-OBJECTS = romdir.o iopelf.o iopdebug.o
-DIRS    = iopboot sysmem loadcore excepman intrman stdio timrman \
-		  dmacman sifman sifcmd ssbusc sysclib heaplib \
-		  vblank threadman sio2man
+OBJECTS = iopboot.o ../iopdebug.o ../iopelf.o ../romdir.o 
 
-iopload: $(OBJECTS)
-	for i in $(DIRS); do \
-		(cd $$i; make; cd ..) \
-	done; 
-
+iopboot: $(OBJECTS)
+	$(EELD) -Wl,--oformat,binary,--Map,iopboot.map -T linkfile $(OBJECTS) $(LDFLAGS) $(LDADD) -o ../../../build/IOPBOOT
 
 %.o: %.c
 	$(IOPCC) $(IOPINCLUDES) $(IOPCFLAGS) -o $@ -c $<
 
+%.o : %.s
+	$(IOPAS) $(IOPASFLAGS) $< -o $@
 
 clean:
-	for i in $(DIRS); do \
-		(cd $$i; make clean; cd ..) \
-	done; 
 	rm -f $(OBJECTS)
-
-
 
