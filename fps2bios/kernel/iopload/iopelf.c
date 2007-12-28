@@ -350,37 +350,10 @@ int loadSectionHeaders() {
 		if (elfSectH[i].sh_type == 0x02) {
 			i_st = i; i_dt = elfSectH[i].sh_link;
 		}
-/*
-		if (elfSectH[i].sh_type == 0x01) {
-			int size = elfSectH[i].sh_size / 4;
-			u32 *ptr = (u32*)&psxM[(elfSectH[i].sh_addr + irx_addr) & 0x1fffff];
-
-			while (size) {
-
-				if (*ptr == 0x41e00000) { // import func
-					int ret = iopSetImportFunc(ptr+1);
-					size-= ret; ptr+= ret;
-				}
-
-				if (*ptr == 0x41c00000) { // export func
-					int ret = iopSetExportFunc(ptr+1);
-					size-= ret; ptr+= ret;
-				}
-
-				size--; ptr++;
-			}
-		}
-*/
-/*		if (!strcmp(".data", &sections_names[elfSectH[i].sh_name])) {
-			// seems so..
-
-			psxRegs.GPR.n.gp = 0x8000 + irx_addr + elfSectH[i].sh_addr;
-		}*/
 	}
 
 
 	// now that we have all the stuff loaded, relocate it
-
 	for (i = 0 ; i < elfHeader->e_shnum ; i++) {
 		if (elfSectH[i].sh_type == 0x09) { // relocations
 			_relocateElfSection(i);
@@ -392,16 +365,64 @@ int loadSectionHeaders() {
 
 void* loadElfFile(ROMFILE_INFO* ri, u32 offset)
 {
+    imageInfo* ii;
+    ELF_PHR* ph;
+    ELF_IOPMOD* im;
+
 	__printf("loadElfFile: base=%x, size=%x\n", ri->fileData, ri->entry->fileSize);
 	elfdata = (u8*)(ri->fileData);
 	elfsize = ri->entry->fileSize;
-	elfbase = offset;
+	elfbase = offset+0x30;
 
 	loadHeaders();
+
+    // fill the image info header
+    ph= (ELF_PHR*)((char*)elfHeader +elfHeader->e_phoff);
+    im= (ELF_IOPMOD*)((char*)elfHeader + ph[0].p_offset);
+    ii = (imageInfo*)offset;
+
+    if( *(u16*)(elfHeader->e_ident+4) != 0x101 )
+        return NULL;
+    if (elfHeader->e_machine != EM_MIPS)
+        return NULL;
+    if (elfHeader->e_phentsize != sizeof(ELF_PHR))
+        return NULL;
+    if (elfHeader->e_phnum != 2)
+        return NULL;
+    if (ph[0].p_type != PT_SCE_IOPMOD)
+        return NULL;
+    if (elfHeader->e_type != ET_SCE_IOPRELEXEC){
+        if (elfHeader->e_type != elfHeader->e_phnum )//ET_EXEC)
+            return NULL;
+        //result->type=3;
+    }
+    //else result->type=4;
+
+    ii->next	=0;
+	ii->name	=NULL;
+	ii->version	=0;
+	ii->flags	=0;
+	ii->modid	=0;
+	if ((int)im->moduleinfo != -1) {
+        moduleInfo* minfo = (moduleInfo*)(im->moduleinfo+ph[1].p_vaddr); // probably wrong
+		ii->name	= minfo->name;
+		ii->version	= minfo->version;
+	}
+    else {
+        ii->name = NULL;
+        ii->version = 0;
+    }
+	ii->entry = im->entry;
+	ii->gp_value = im->gp_value;
+	ii->p1_vaddr = ph[1].p_vaddr;
+	ii->text_size = im->text_size;
+	ii->data_size = im->data_size;
+	ii->bss_size = im->bss_size;
+
 	loadProgramHeaders();
 	loadSectionHeaders();
 	
 	_dprintf("loadElfFile: e_entry=%x, hdr=%x\n", elfHeader->e_entry, elfHeader);
-	return elfbase+elfHeader->e_entry;
+	return (void*)(elfbase+elfHeader->e_entry);
 }
 

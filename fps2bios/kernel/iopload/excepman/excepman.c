@@ -13,17 +13,17 @@
 #define _dprintf(fmt, args...) \
 	__printf("excepman: " fmt, ## args)
 
-void* *extable;
-struct exHandler *handlers[16];
-void *defhandler; 
-
-void iopException();
 int  _start();
 int  excepman_reinit();
 int  excepman_deinit();
+void *GetExHandlersTable();
+int RegisterExceptionHandler(int code, struct exHandler *handler);
+int RegisterPriorityExceptionHandler(int code, int priority, struct exHandler *handler);
+int RegisterDefaultExceptionHandler(struct exHandler *handler);
+int ReleaseExceptionHandler(int code, struct exHandler *handler);
+int ReleaseDefaultExceptionHandler(struct exHandler *handler);
 
-//////////////////////////////entrypoint///////////////////////////////
-struct export excepman_stub={
+struct export excepman_stub __attribute__((section(".text"))) ={
 	0x41C00000,
 	0,
 	VER(1, 1),	// 1.1 => 0x101
@@ -40,6 +40,12 @@ struct export excepman_stub={
 	(func)ReleaseDefaultExceptionHandler,
 	0
 };
+
+void* *extable;
+struct exHandler *handlers[16];
+void *defhandler; 
+
+void iopException();
 
 extern void defaultEH();
 
@@ -85,6 +91,22 @@ void registerEH() {
 }
 
 //////////////////////////////entrypoint///////////////////////////////[00]
+void Kputc(u8 c) {
+	*((u8*)0x1f80380c) = c;
+}
+
+void Kprintnum(unsigned int n)
+{
+    int i = 0;
+    while(i < 8) {
+        u32 a = n>>28;
+        if( a < 10 ) Kputc('0'+a);
+        else Kputc('a'+(a-10));
+        n <<= 4;
+        ++i;
+    }
+}
+
 int _start() {
 	int *src, *dst;
 	int i;
@@ -120,7 +142,8 @@ int excepman_reinit() {
 }
 
 ///////////////////////////////////////////////////////////////////////[04]
-int RegisterExceptionHandler(int code, struct exHandler *handler){
+int RegisterExceptionHandler(int code, struct exHandler *handler)
+{
 	return RegisterPriorityExceptionHandler(code, 2, handler);
 }
 
@@ -205,7 +228,8 @@ int RegisterDefaultExceptionHandler(struct exHandler *handler)
 }
 
 ///////////////////////////////////////////////////////////////////////[07]
-int ReleaseExceptionHandler(int code, struct exHandler *handler){
+int ReleaseExceptionHandler(int code, struct exHandler *handler)
+{
 	struct exHandler *p, *p_prev;
 
 	_dprintf("%s: %d\n", __FUNCTION__, code);
@@ -235,7 +259,8 @@ int ReleaseExceptionHandler(int code, struct exHandler *handler){
 }
 
 ///////////////////////////////////////////////////////////////////////[08]
-int ReleaseDefaultExceptionHandler(struct exHandler *handler){
+int ReleaseDefaultExceptionHandler(struct exHandler *handler)
+{
 	struct exHandler *p;
 
 	_dprintf("%s\n", __FUNCTION__);
@@ -251,7 +276,8 @@ int ReleaseDefaultExceptionHandler(struct exHandler *handler){
 }
 
 ///////////////////////////////////////////////////////////////////////[03]
-void *GetExHandlersTable() {
+void *GetExHandlersTable()
+{
 	return extable;
 }
 

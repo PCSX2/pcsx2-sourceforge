@@ -42,7 +42,7 @@ all: excepman
 
 LDFLAGS = 
 LDADD   = 
-OBJECTS = ../libkernel/iop_loadcore.o excepman.o ex_handler.o ../iopdebug.o
+OBJECTS = excepman.o ../libkernel/iop_loadcore.o ex_handler.o ../iopdebug.o
 
 excepman: $(OBJECTS)
 	$(IOPLINK) $(OBJECTS) $(LDFLAGS) $(LDADD) -o ../../../build/EXCEPMAN

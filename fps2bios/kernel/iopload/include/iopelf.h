@@ -201,6 +201,24 @@ typedef struct {
 
 #define ELF32_ST_TYPE(i) ((i)&0xf)
 
+// special header for every iop module?
+typedef struct {
+	u32 next;		//+00
+	char	*name;		//+04
+	short	version,	//+08
+		flags,		//+0A
+		modid,		//+0C
+		HE;		//+0E
+	u32	entry,		//+10
+		gp_value,	//+14
+		p1_vaddr,	//+18
+		text_size,	//+1C
+		data_size,	//+20
+		bss_size,	//+24
+		H28,		//+28
+		H2C;		//+2C
+} imageInfo;
+
 // pass in the memory to load the elf file from
 // elfoffset - offset to load elf file to
 void* loadElfFile(ROMFILE_INFO* ri, u32 elfoffset);
