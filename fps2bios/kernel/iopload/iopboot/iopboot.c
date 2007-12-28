@@ -189,7 +189,7 @@ void _start(int ramMBSize, int bootInfo, char* udnlString, int unk)
         __printf("loadElfFile: failed to find SYSMEM module\n");
         return;
     }
-    sysmem_entry = (void *(*)(u32))loadElfFile(&romfile_info, module_load_addr+0x30);
+    sysmem_entry = (void *(*)(u32))loadElfFile(&romfile_info, module_load_addr);
     if( sysmem_entry == 0 )
         return;
 
@@ -200,13 +200,13 @@ void _start(int ramMBSize, int bootInfo, char* udnlString, int unk)
         return;
     }
 
-    __printf("SYSMEM success, start addr: %x, alloc start: %x\n", module_load_addr+0x30, psysmemstart);
+    __printf("SYSMEM success, start addr: %x, alloc start: %x\n", module_load_addr, psysmemstart);
     
     if( searchFileInRom(&romdir_info, "LOADCORE", &romfile_info) == NULL ) {
         __printf("loadElfFile: failed to find SYSMEM module\n");
         return;
     }
-    loadcore_entry = (void (*)())loadElfFile(&romfile_info, (u32)psysmemstart+0x30);
+    loadcore_entry = (void (*)())loadElfFile(&romfile_info, (u32)psysmemstart);
     if( loadcore_entry == 0 )
         return;
     

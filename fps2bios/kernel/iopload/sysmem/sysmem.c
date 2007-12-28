@@ -64,8 +64,7 @@ void		sysmem_retonly();
 unsigned int	*sysmem_return_addr_of_memsize();
 
 //////////////////////////////entrypoint///////////////////////////////
-struct export sysmem_stub __attribute__((section(".text")));
-struct export sysmem_stub={
+struct export sysmem_stub __attribute__((section(".text"))) = {
 	0x41C00000,
 	0,
 	VER(1, 1),	// 1.1 => 0x101

@@ -61,23 +61,6 @@ struct export {
 //		funcs	  	// more functions: the services provided my module
 };
 
-typedef struct {
-	u32 next;		//+00
-	char	*name;		//+04
-	short	version,	//+08
-		flags,		//+0A
-		modid,		//+0C
-		HE;		//+0E
-	u32	entry,		//+10
-		gp_value,	//+14
-		p1_vaddr,	//+18
-		text_size,	//+1C
-		data_size,	//+20
-		bss_size,	//+24
-		H28,		//+28
-		H2C;		//+2C
-} imageInfo;
-
 struct bootmode {
 	short	unk0;
 	char	id;
