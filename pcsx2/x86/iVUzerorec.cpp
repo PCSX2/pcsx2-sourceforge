@@ -943,7 +943,14 @@ static VuBaseBlock* SuperVUBuildBlocks(VuBaseBlock* parent, u32 startpc, const V
 {
 	// check if block already exists
 	VuBlockHeader* pbh = &recVUBlocks[s_vu][startpc/8];
-	if( pbh->pblock != NULL ) {
+
+	if(pbh->pblock == (VuBaseBlock*)0xfdfdfdfd) 
+	{
+		pbh->pblock=NULL;
+		pbh->delay=0;
+	}
+
+	if ( pbh->pblock != NULL ) {
 
 		VuBaseBlock* pblock = pbh->pblock;
 		list<VuInstruction>::iterator itinst;
