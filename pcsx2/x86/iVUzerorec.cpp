@@ -942,13 +942,9 @@ void SuperVUAddWritebacks(VuBaseBlock* pblock, const list<WRITEBACK>& listWriteb
 static VuBaseBlock* SuperVUBuildBlocks(VuBaseBlock* parent, u32 startpc, const VUPIPELINES& pipes)
 {
 	// check if block already exists
+	//SysPrintf("startpc %x\n", startpc);
+	startpc &= (s_vu ? 0x3fff : 0xfff);
 	VuBlockHeader* pbh = &recVUBlocks[s_vu][startpc/8];
-
-	if(pbh->pblock == (VuBaseBlock*)0xfdfdfdfd) 
-	{
-		pbh->pblock=NULL;
-		pbh->delay=0;
-	}
 
 	if ( pbh->pblock != NULL ) {
 
