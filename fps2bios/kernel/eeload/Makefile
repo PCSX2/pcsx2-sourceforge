@@ -42,11 +42,14 @@ all: eeload
 
 LDFLAGS = -L$(PS2LIB)/ee/lib
 LDADD   = -lmc -lpad -lc -lkernel
-OBJECTS = eedata.o eeirq.o eeload.o eeinit.o eeelf.o eedebug.o romdir.o
+OBJECTS = eeirq.o eedata.o eekernel.o eeinit.o eeelf.o eedebug.o romdir.o
 
 eeload: $(OBJECTS)
 	$(EELD) -Wl,--oformat,binary,--Map,eeload.map -T linkfile $(EECFLAGS) $(OBJECTS) $(LDFLAGS) $(LDADD) -o ../../build/EELOAD
 
+# restrict all but the kernel registers
+eeirq.o: eeirq.c
+	$(EECC) $(EEINCLUDES) $(EECFLAGS) -ffixed-2 -ffixed-3 -ffixed-4 -ffixed-5 -ffixed-6 -ffixed-7 -ffixed-8 -ffixed-9 -ffixed-10 -ffixed-11 -ffixed-12 -ffixed-13 -ffixed-14 -ffixed-15 -ffixed-16 -ffixed-17 -ffixed-18 -ffixed-19 -ffixed-20 -ffixed-21 -ffixed-22 -ffixed-23 -ffixed-24 -ffixed-25 -fcall-used-26 -fcall-used-27 -ffixed-30 -o $@ -c $<
 %.o: %.c
 	$(EECC) $(EEINCLUDES) $(EECFLAGS) -o $@ -c $<
 

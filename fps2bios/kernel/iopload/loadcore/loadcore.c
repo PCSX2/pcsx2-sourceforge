@@ -28,7 +28,7 @@ u32	module_index;
 u32 *place;	// addr of 8 * 31 = 8 * linesInIopbtconf	//place[2][31]
 u32	bootmodes[17]; // was 16?
 u32 bootmodes_size;
-int debug=1;
+int debug=0;
 
 u32 bm_end;
 
@@ -195,7 +195,7 @@ int  link_client(struct import *imp){
 			*(int*)ename = *(int*)e->name;   *(int*)(ename+4) = *(int*)(e->name+4);  ename[8] = 0;
 			*(int*)iname = *(int*)imp->name; *(int*)(iname+4) = *(int*)(imp->name+4);iname[8] = 0;
 			
-			__printf("loadcore: %s: %s, %s\n", __FUNCTION__, ename, iname);
+			//__printf("loadcore: %s: %s, %s\n", __FUNCTION__, ename, iname);
 		}
 
 		if (!(e->flags & FLAG_NO_AUTO_LINK)){	
@@ -389,7 +389,7 @@ int RegisterLibraryEntries(struct export *es){
 		*(int*)(ename+4) = *(int*)(es->name+4);
 		ename[8] = 0;
 		
-		__printf("loadcore: %s: %s, %x\n", __FUNCTION__, ename, es->version);
+		__printf("loadcore: %s (%x): %s, %x\n", __FUNCTION__, es, es->name, es->version);
 	}
 		
 		
@@ -893,7 +893,7 @@ void loadcore_start(BOOT_PARAMS *pInitParams)
     lc_memcpy(pInitParams,&params,sizeof(BOOT_PARAMS));
 	BOOTMODE_END = BOOTMODE_START = bootmodes;
 
-    __printf("module: %x\n", params.firstModuleAddr);
+    //_dprintf("module: %x\n", params.firstModuleAddr);
     
 	lc_internals.let_next = (struct export*)params.firstModuleAddr;
 	lc_internals.let_prev = (struct export*)params.firstModuleAddr;

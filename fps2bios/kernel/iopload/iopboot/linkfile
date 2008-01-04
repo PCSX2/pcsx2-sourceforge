@@ -3,7 +3,7 @@ _heap_size = 1024*1024*10;
 
 ENTRY(_start);
 SECTIONS {
-	.text 0xbfc0a180 : {
+	.text 0xbfc008f0 : {
 		*(.text)
 		*(.data)
 		*(.rdata)

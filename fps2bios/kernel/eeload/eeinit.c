@@ -1,11 +1,136 @@
-
+// EE initialization functions
+// [made by] [RO]man, zerofrog
 #include <tamtypes.h>
 #include <stdio.h>
 
 #include "eeload.h"
 
+void InitializeGS();
+void InitializeGIF();
+void InitializeDMAC(int code);
+void InitializeVU1();
+void InitializeVIF1();
+void InitializeIPU();
+void InitializeVIF0();
+void InitializeVU0();
+void InitializeFPU();
+void InitializeScratchPad();
+void InitializeUserMemory(u32 base);
+void InitializeINTC(int a);
+void InitializeTIMER();
 
-void InitializeDMAC(int code) {
+////////////////////////////////////////////////////////////////////
+//8000AA60
+////////////////////////////////////////////////////////////////////
+void InitializeGS()
+{
+}
+
+////////////////////////////////////////////////////////////////////
+//8000AB98
+////////////////////////////////////////////////////////////////////
+void InitializeGIF()
+{
+	GIF_CTRL = 1;
+	__asm__ ("sync\n");
+	GIF_FIFO = 0;
+}
+
+////////////////////////////////////////////////////////////////////
+//8000AD68		SYSCALL 001 ResetEE
+////////////////////////////////////////////////////////////////////
+int  _ResetEE(int init)
+{
+	if (init & 0x01) { __printf("# Initialize DMAC ...\n"); InitializeDMAC(0x31F); }
+	if (init & 0x02) { __printf("# Initialize VU1 ...\n");  InitializeVU1(); }
+	if (init & 0x04) { __printf("# Initialize VIF1 ...\n"); InitializeVIF1(); }
+	if (init & 0x08) { __printf("# Initialize GIF ...\n");  InitializeGIF(); }
+	if (init & 0x10) { __printf("# Initialize VU0 ...\n");  InitializeVU0(); }
+	if (init & 0x04) { __printf("# Initialize VIF0 ...\n"); InitializeVIF0(); }
+	if (init & 0x40) { __printf("# Initialize IPU ...\n");  InitializeIPU(); }
+
+	InitializeINTC(0xC);
+//	return (*(int*)0x1000F410 &= 0xFFFBFFFF); code never reached :)
+}
+
+////////////////////////////////////////////////////////////////////
+//8000AE88
+////////////////////////////////////////////////////////////////////
+int Initialize()
+{
+	__printf("# Initialize Start.\n");
+	__printf("# Initialize GS ...");
+
+	InitializeGS();
+	_SetGsCrt(1, 2, 1);
+	__printf("\n");
+
+	__printf("# Initialize INTC ...\n");
+	InitializeINTC(0xFFFF);
+
+	__printf("# Initialize TIMER ...\n");
+	InitializeTIMER();
+
+	ResetEE(0x7F);
+
+	__printf("# Initialize FPU ...\n");
+	InitializeFPU();
+
+	__printf("# Initialize User Memory ...\n");
+	InitializeUserMemory(0x80000);
+
+	__printf("# Initialize Scratch Pad ...\n");
+	InitializeScratchPad();
+
+	__printf("# Initialize Done.\n");
+}
+
+////////////////////////////////////////////////////////////////////
+//8000AF50
+////////////////////////////////////////////////////////////////////
+int  Restart()
+{
+	__printf("# Restart.\n");
+	__printf("# Initialize GS ...");
+
+	INTC_STAT = 4;
+	while (INTC_STAT & 4) { __asm__ ("nop\nnop\nnop\n"); }
+	INTC_STAT = 4;
+
+	InitializeGS();
+	_SetGsCrt(1, 2, 1);
+	__printf("\n");
+
+	__printf("# Initialize INTC ...\n");
+	InitializeINTC(0xDFFD);
+
+	__printf("# Initialize TIMER ...\n");
+	InitializeTIMER();
+
+	ResetEE(0x7F);
+
+	__printf("# Initialize FPU ...\n");
+	InitializeFPU();
+
+	__printf("# Initialize User Memory ...\n");
+	InitializeUserMemory(0x82000);
+
+	__printf("# Initialize Scratch Pad ...\n");
+	InitializeScratchPad();
+
+	__printf("# Restart Done.\n");
+
+	//wait for syncing IOP
+	while (SBUS_SMFLG & SBFLG_IOPSYNC) { __asm__ ("nop\nnop\nnop\n"); }
+
+	SBUS_SMFLG=SBFLG_IOPSYNC;
+}
+
+////////////////////////////////////////////////////////////////////
+//8000B0A0
+////////////////////////////////////////////////////////////////////
+void InitializeDMAC(int code)
+{
 	int i;
 	int *addr;
 
@@ -37,22 +162,121 @@ void InitializeDMAC(int code) {
 	DMAC_RBOR = 0;
 }
 
-void InitializeGIF() {
-	GIF_CTRL = 1;
-	__asm__ ("sync\n");
-	GIF_FIFO = 0;
+////////////////////////////////////////////////////////////////////
+//8000B1F0
+////////////////////////////////////////////////////////////////////
+void InitializeVU1()
+{
 }
 
-void InitializeGS() {
+////////////////////////////////////////////////////////////////////
+//8000B2D8
+////////////////////////////////////////////////////////////////////
+void InitializeVIF1()
+{
 }
 
-void InitializeINTC(int a){
+////////////////////////////////////////////////////////////////////
+//8000B3B0
+////////////////////////////////////////////////////////////////////
+void InitializeIPU()
+{
+}
+
+////////////////////////////////////////////////////////////////////
+//8000B6F8
+////////////////////////////////////////////////////////////////////
+void InitializeVIF0()
+{
+}
+
+////////////////////////////////////////////////////////////////////
+//8000B778
+////////////////////////////////////////////////////////////////////
+void InitializeVU0()
+{
+}
+
+////////////////////////////////////////////////////////////////////
+//8000B7A8
+////////////////////////////////////////////////////////////////////
+void InitializeFPU()
+{
+	__asm__ (
+		"mtc1    $0, $0\n"
+		"mtc1    $0, $1\n"
+		"mtc1    $0, $2\n"
+		"mtc1    $0, $3\n"
+		"mtc1    $0, $4\n"
+		"mtc1    $0, $5\n"
+		"mtc1    $0, $6\n"
+		"mtc1    $0, $7\n"
+		"mtc1    $0, $8\n"
+		"mtc1    $0, $9\n"
+		"mtc1    $0, $10\n"
+		"mtc1    $0, $11\n"
+		"mtc1    $0, $12\n"
+		"mtc1    $0, $13\n"
+		"mtc1    $0, $14\n"
+		"mtc1    $0, $15\n"
+		"mtc1    $0, $16\n"
+		"mtc1    $0, $17\n"
+		"mtc1    $0, $18\n"
+		"mtc1    $0, $19\n"
+		"mtc1    $0, $20\n"
+		"mtc1    $0, $21\n"
+		"mtc1    $0, $22\n"
+		"mtc1    $0, $23\n"
+		"mtc1    $0, $24\n"
+		"mtc1    $0, $25\n"
+		"mtc1    $0, $26\n"
+		"mtc1    $0, $27\n"
+		"mtc1    $0, $28\n"
+		"mtc1    $0, $29\n"
+		"mtc1    $0, $30\n"
+		"mtc1    $0, $31\n"
+		"adda.s  $0, $1\n"
+		"sync\n"
+		"ctc1    $0, $31\n"
+	);
+}
+
+////////////////////////////////////////////////////////////////////
+//8000B840
+////////////////////////////////////////////////////////////////////
+void InitializeScratchPad()
+{
+	u128 *p;
+
+	for (p=(u128*)0x70000000; (u32)p<0x70004000; p++) *p=0;
+}
+
+////////////////////////////////////////////////////////////////////
+//8000B878
+////////////////////////////////////////////////////////////////////
+void InitializeUserMemory(u32 base)
+{
+	u128 *memsz;
+	u128 *p = (u128*)base;
+	
+	for (memsz=(u128*)_GetMemorySize(); p<memsz; p++) *p = 0;
+}
+
+////////////////////////////////////////////////////////////////////
+//8000B8D0
+////////////////////////////////////////////////////////////////////
+void InitializeINTC(int a)
+{
 	a &= 0xDFFD;
 	INTC_STAT &= a;
 	INTC_MASK &= a;
 }
 
-void InitializeTIMER() {
+////////////////////////////////////////////////////////////////////
+//8000B900
+////////////////////////////////////////////////////////////////////
+void InitializeTIMER()
+{
 	RCNT0_MODE   = 0xC00;
 	RCNT0_COUNT  = 0;
 	RCNT0_TARGET = 0xFFFF;
@@ -72,28 +296,7 @@ void InitializeTIMER() {
 	RCNT3_TARGET = 0xFFFF;
 
 	InitializeINTC(0x1E00);
-//	_InitRCNT3();
-}
-
-void InitializeUserMemory(u32 base) {
-	u128 *memsz;
-	u128 *p = (u128*)base;
-	
-	for (memsz=(u128*)_GetMemorySize(); p<memsz; p++) *p = 0;
-}
-
-
-int  _ResetEE(int init) {
-	if (init & 0x01) { __printf("# Initialize DMAC ...\n"); InitializeDMAC(0x31F); }
-//	if (init & 0x02) { __printf("# Initialize VU1 ...\n");  InitializeVU1(); }
-//	if (init & 0x04) { __printf("# Initialize VIF1 ...\n"); InitializeVIF1(); }
-	if (init & 0x08) { __printf("# Initialize GIF ...\n");  InitializeGIF(); }
-//	if (init & 0x10) { __printf("# Initialize VU0 ...\n");  InitializeVU0(); }
-//	if (init & 0x04) { __printf("# Initialize VIF0 ...\n"); InitializeVIF0(); }
-//	if (init & 0x40) { __printf("# Initialize IPU ...\n");  InitializeIPU(); }
-
-	InitializeINTC(0xC);
-//	return (*(int*)0x1000F410 &= 0xFFFBFFFF); code never reached :)
+	_InitRCNT3();
 }
 
 u32 tlb1_data[] = {
@@ -239,132 +442,40 @@ void TlbInit() {
 	__printf("Ok\n");
 }
 
-void InitializeFPU() {
-	__asm__ (
-		"mtc1    $0, $0\n"
-		"mtc1    $0, $1\n"
-		"mtc1    $0, $2\n"
-		"mtc1    $0, $3\n"
-		"mtc1    $0, $4\n"
-		"mtc1    $0, $5\n"
-		"mtc1    $0, $6\n"
-		"mtc1    $0, $7\n"
-		"mtc1    $0, $8\n"
-		"mtc1    $0, $9\n"
-		"mtc1    $0, $10\n"
-		"mtc1    $0, $11\n"
-		"mtc1    $0, $12\n"
-		"mtc1    $0, $13\n"
-		"mtc1    $0, $14\n"
-		"mtc1    $0, $15\n"
-		"mtc1    $0, $16\n"
-		"mtc1    $0, $17\n"
-		"mtc1    $0, $18\n"
-		"mtc1    $0, $19\n"
-		"mtc1    $0, $20\n"
-		"mtc1    $0, $21\n"
-		"mtc1    $0, $22\n"
-		"mtc1    $0, $23\n"
-		"mtc1    $0, $24\n"
-		"mtc1    $0, $25\n"
-		"mtc1    $0, $26\n"
-		"mtc1    $0, $27\n"
-		"mtc1    $0, $28\n"
-		"mtc1    $0, $29\n"
-		"mtc1    $0, $30\n"
-		"mtc1    $0, $31\n"
-//		"adda.s  $0, $1\n"
-		"sync\n"
-		"ctc1    $0, $31\n"
-	);
+////////////////////////////////////////////////////////////////////
+//80001630
+////////////////////////////////////////////////////////////////////
+void DefaultINTCHandler(int n)
+{
+    //TODO
 }
 
-void InitializeScratchPad() {
-	u128 *p;
-
-	for (p=(u128*)0x70000000; (u32)p<0x70004000; p++) *p=0;
+////////////////////////////////////////////////////////////////////
+//80001798
+////////////////////////////////////////////////////////////////////
+void DefaultDMACHandler(int n)
+{
+    //TODO
 }
 
-int Initialize() {
-	__printf("# Initialize Start.\n");
-	__printf("# Initialize GS ...");
-
-	InitializeGS();
-	_SetGsCrt(1, 2, 1);
-	__printf("\n");
-
-	__printf("# Initialize INTC ...\n");
-	InitializeINTC(0xFFFF);
-
-	__printf("# Initialize TIMER ...\n");
-	InitializeTIMER();
-
-	_ResetEE(0x7F);
-
-	__printf("# Initialize FPU ...\n");
-	InitializeFPU();
-
-	__printf("# Initialize User Memory ...\n");
-	InitializeUserMemory(0x80000);
-
-	__printf("# Initialize Scratch Pad ...\n");
-	InitializeScratchPad();
-
-	__printf("# Initialize Done.\n");
-}
-
-
-int  Restart() {
-	__printf("# Restart.\n");
-	__printf("# Initialize GS ...");
-
-	INTC_STAT = 4;
-	while (INTC_STAT & 4) { __asm__ ("nop\nnop\nnop\n"); }
-	INTC_STAT = 4;
-
-	InitializeGS();
-	_SetGsCrt(1, 2, 1);
-	__printf("\n");
-
-	__printf("# Initialize INTC ...\n");
-	InitializeINTC(0xDFFD);
-
-	__printf("# Initialize TIMER ...\n");
-	InitializeTIMER();
-
-	_ResetEE(0x7F);
-
-	__printf("# Initialize FPU ...\n");
-	InitializeFPU();
-
-	__printf("# Initialize User Memory ...\n");
-	InitializeUserMemory(0x82000);
-
-	__printf("# Initialize Scratch Pad ...\n");
-	InitializeScratchPad();
-
-	__printf("# Restart Done.\n");
-
-	//wait for syncing IOP
-	while (SBUS_SMFLG & SBFLG_IOPSYNC) { __asm__ ("nop\nnop\nnop\n"); }
-
-	SBUS_SMFLG=SBFLG_IOPSYNC;
-}
-
+////////////////////////////////////////////////////////////////////
+//80002050
+////////////////////////////////////////////////////////////////////
 int InitPgifHandler() {
 	int i;
 
 	_HandlersCount = 0;
-
+    
 	for (i=0; i<15; i++) {
 		intcs_array[i].count = 0;
-		intcs_array[i-1].l.prev = (struct ll*)&ihandlers_last[i];
-		intcs_array[i-1].l.next = (struct ll*)&ihandlers_last[i];
-//		setINTCHandler(i, 0x80001630);
+        // intcs_array[-1] = ihandlers_last,first
+		intcs_array[i-1].l.prev = &intcs_array[i-1].l.next;
+		intcs_array[i-1].l.next = &intcs_array[i-1].l.next;
+        setINTCHandler(i, DefaultINTCHandler);
 	}
 
-//	setINTCHandler(1,  sbusHandler);
-//	setINTCHandler(12, rcnt3Handler);
+    setINTCHandler(12, rcnt3Handler);
+    setINTCHandler(1,  sbusHandler);
 
 	for (i=0; i<32; i++) {
 		sbus_handlers[i] = 0;
@@ -374,19 +485,58 @@ int InitPgifHandler() {
 	
 	for (i=0; i<16; i++) {
 		dmacs_array[i].count = 0;
-		dmacs_array[i-1].l.prev = (struct ll*)&dhandlers_last[i];
-		dmacs_array[i-1].l.next = (struct ll*)&dhandlers_last[i];
-//		setDMACHandler(i, 0x80001798);
+		dmacs_array[i-1].l.prev = &dmacs_array[i-1].l.next;
+		dmacs_array[i-1].l.next = &dmacs_array[i-1].l.next;
+        setDMACHandler(i, DefaultDMACHandler);
 	}
 
 	handler_ll_free.next = &handler_ll_free;
 	handler_ll_free.prev = &handler_ll_free;
-	for (i=0; i<0x80; i++) {
-		pgifhandlers_array[i].handler = 0;
-		pgifhandlers_array[i].flag    = 3;
+	for (i=0; i<160; i++) {
+		pgifhandlers_array[i+1].handler = 0;
+		pgifhandlers_array[i+1].flag    = 3;
 		LL_add(&handler_ll_free, (struct ll*)&pgifhandlers_array[i+1].next);
 	}
 
 	return 0x81;
 }
 
+////////////////////////////////////////////////////////////////////
+//800021B0
+// asme as InitPgifHandler except don't reset sbus
+////////////////////////////////////////////////////////////////////
+int InitPgifHandler2()
+{
+	int i;
+
+	_HandlersCount = 0;
+    
+    for(i = 0; i < 15; ++i) {
+        if(i != 1 ) {
+            intcs_array[i].count = 0;
+            // intcs_array[-1] = ihandlers_last,first
+            intcs_array[i-1].l.prev = &intcs_array[i-1].l.next;
+            intcs_array[i-1].l.next = &intcs_array[i-1].l.next;
+            setINTCHandler(i, DefaultINTCHandler);
+        }
+	}
+
+    setINTCHandler(12, rcnt3Handler);
+	
+	for (i=0; i<16; i++) {
+		dmacs_array[i].count = 0;
+		dmacs_array[i-1].l.prev = &dmacs_array[i-1].l.next;
+		dmacs_array[i-1].l.next = &dmacs_array[i-1].l.next;
+        setDMACHandler(i, DefaultDMACHandler);
+	}
+
+	handler_ll_free.next = &handler_ll_free;
+	handler_ll_free.prev = &handler_ll_free;
+	for (i=0; i<160; i++) {
+		pgifhandlers_array[i+1].handler = 0;
+		pgifhandlers_array[i+1].flag    = 3;
+		LL_add(&handler_ll_free, (struct ll*)&pgifhandlers_array[i+1].next);
+	}
+
+	return 0x81;
+}

@@ -194,20 +194,20 @@ LOAD /usr/local/ps2dev/ee/lib/gcc-lib/ee/3.2.2/libgcc.a
                 0x0000000000080000                _stack_size = 0x80000
                 0x0000000000a00000                _heap_size = 0xa00000
 
-.               0x0000000080000000      0xc22
+.               0x0000000080000000      0xc5a
  eeirq.o()
- .text          0x0000000080000000      0x5b8 eeirq.o
+ .text          0x0000000080000000      0x5d0 eeirq.o
                 0x0000000080000280                SyscException
                 0x0000000080000180                CpuException
                 0x00000000800003b0                INTCException
                 0x0000000080000390                _Deci2Call
                 0x0000000080000200                CpuException2
-                0x00000000800004a0                DMACException
+                0x00000000800004b8                DMACException
                 0x0000000080000000                CpuException0
- .mdebug        0x00000000800005b8      0x614 eeirq.o
- *fill*         0x0000000080000bcc        0x4 00
- .rodata        0x0000000080000bd0       0x40 eeirq.o
- .comment       0x0000000080000c10       0x12 eeirq.o
+ .mdebug        0x00000000800005d0      0x634 eeirq.o
+ *fill*         0x0000000080000c04        0x4 00
+ .rodata        0x0000000080000c08       0x40 eeirq.o
+ .comment       0x0000000080000c48       0x12 eeirq.o
 
 .text           0x0000000080001000     0x8020
  *(.text)

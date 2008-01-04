@@ -1,6 +1,6 @@
-
-#include "eestart.h"
-#include "iopstart.h"
+#include <tamtypes.h>
+void eestart() __attribute__ ((noreturn));
+void iopstart() __attribute__ ((noreturn));
 
 __asm__ (
 	".org 0\n"
