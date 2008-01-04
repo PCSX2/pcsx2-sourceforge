@@ -1,5 +1,4 @@
-
-#include "eestart.h"
+#include <tamtypes.h>
 #include "romdir.h"
 
 static void Kputc(u8 c) {

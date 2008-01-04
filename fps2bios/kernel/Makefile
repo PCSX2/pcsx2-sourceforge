@@ -23,10 +23,10 @@ EELD  = ee-gcc
 
 
 EECFLAGS  = -O2 -fomit-frame-pointer -mips3 -EL -nostartfiles -G0
-EEINCLUDES = -I. -Iinclude -I$(PS2LIB)/common/include -I$(PS2LIB)/ee/include
+EEINCLUDES = -I. -I$(PS2LIB)/common/include -I$(PS2LIB)/ee/include
 
 IOPCFLAGS = -O2 -fomit-frame-pointer -nostartfiles -G0
-IOPINCLUDES = -I. -Iinclude -I$(PS2LIB)/common/include -I$(PS2LIB)/iop/include
+IOPINCLUDES = -I. -I$(PS2LIB)/common/include -I$(PS2LIB)/iop/include
 IOPCOMPILE = $(IOPCC) $(IOPINCLUDES) $(IOPCFLAGS)
 IOPLINK = $(IOPLD) -dc
 

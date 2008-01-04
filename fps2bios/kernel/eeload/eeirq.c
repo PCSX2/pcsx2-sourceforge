@@ -1,5 +1,14 @@
+// EE core interrupt and exception handlers
+// most functions here can only use $at, $k0, and $k1
+// [made by] [RO]man, zerofrog
 
-#include "eeload.h"
+#include "eekernel.h"
+#include "eeirq.h"
+
+
+#define LOAD_KERNELSTACK \
+    "lui $sp, %hi(g_kernelstackend)\n" \
+    "addiu $sp, %lo(g_kernelstackend)\n"
 
 __asm__(".org 0x0000");
 
@@ -73,48 +82,44 @@ void CpuException2() {
 	);
 }
 
+extern char call_used_regs[];
+extern char fixed_regs[];
+
 __asm__(".org 0x0280");
-
 __asm__(".set noreorder");
-__asm__(".set noat");
-void SyscException() {
-	__asm__ (
-		"bgez  $3,  _SyscNEx\n"
-		"nop\n"
 
-		"addiu $sp, -0x10\n"
-		"sw    $31, 0($sp)\n"
-		"mfc0  $26, $14\n"
-		"addiu $26, 4\n"
-		"sw    $26, 4($sp)\n"
-		"mtc0  $26, $14\n"
-		"sync\n"
+void SyscException()
+{
+    const register int code __asm__("$3"); // $v1
+    
+	if (code < 0) {
+        __asm__(
+            "addiu $sp, -0x10\n"
+            "sw    $31, 0($sp)\n"
+            "mfc0  $26, $14\n"
+            "addiu $26, 4\n"
+            "sw    $26, 4($sp)\n"
+            "mtc0  $26, $14\n"
+            "sync\n");
 
-		"subu  $3, $0, $3\n"
-		"sll   $3, 2\n"
-		"lui   $26, %hi(table_SYSCALL)\n"
-		"addu  $26, $3\n"
-		"lw    $26, %lo(table_SYSCALL)($26)\n"
-		"jalr  $26\n"
-		"nop\n"
+		table_SYSCALL[-code]();
+        
+		__asm__(
+            "lw    $26, 4($sp)\n"
+            "lw    $31, 0($sp)\n"
+            "addiu $sp, 0x10\n"
+            "mtc0  $26, $14\n"
+            "sync\n"
+            "eret\n"
+            "nop\n");
+	}
 
-		"lw    $26, 4($sp)\n"
-		"lw    $31, 0($sp)\n"
-		"addiu $sp, 0x10\n"
-		"mtc0  $26, $14\n"
-		"sync\n"
-		"eret\n"
-		"nop\n"
+	if (code == 0x7c) {
+		_Deci2Call();
+        return;
+	}
 
-		"_SyscNEx:\n"
-		"nop\n"
-
-		"ori   $26, $0, 0x7C\n"
-		"bne   $26, $3, N_Deci2Call\n"
-		"nop\n"
-		"j     _Deci2Call\n"
-
-		"N_Deci2Call:\n"
+    __asm__(
 		"lui   $26, %hi(SavedSP)\n"
 		"sq    $sp, %lo(SavedSP)($26)\n"
 		"lui   $26, %hi(SavedRA)\n"
@@ -129,7 +134,7 @@ void SyscException() {
 		"sync\n"
 
 		"move  $26, $sp\n"
-		"li    $sp, 0x80080000\n"
+        LOAD_KERNELSTACK
 		"addiu $sp, -0x10\n"
 		"sw    $31, 0($sp)\n"
 		"sw    $26, 4($sp)\n"
@@ -137,16 +142,12 @@ void SyscException() {
 		"addiu $26, 4\n"
 		"sw    $26, 8($sp)\n"
 		"mtc0  $26, $14\n"
-		"sync\n"
+		"sync\n");
 
-		"sll   $3, 2\n"
-		"lui   $26, %hi(table_SYSCALL)\n"
-		"addu  $26, $3\n"
-		"lw    $26, %lo(table_SYSCALL)($26)\n"
-		"jalr  $26\n"
-		"nop\n"
+	table_SYSCALL[code]();
 
-		"lw    $26, 8($sp)\n"
+    __asm__(
+        "lw    $26, 8($sp)\n"
 		"lw    $31, 0($sp)\n"
 		"lw    $sp, 4($sp)\n"
 		"mtc0  $26, $14\n"
@@ -157,28 +158,33 @@ void SyscException() {
 		"mtc0  $26, $12\n"
 		"sync\n"
 		"eret\n"
-		"nop\n"
-	);
+		"nop\n");
 }
 
 void _Deci2Call() {
 	__puts("_Deci2Call called\n");
 }
 
+void __ThreadHandler();
+
 void INTCException() {
 	u32 code;
 	u32 temp;
 
 	code = INTC_STAT & INTC_MASK;
-/*	if (code & 0xC0) {
+	if (code & 0xC0) {
 		int VpuStat;
 
-		__asm { cfc2 VpuStat, VPU-STAT }
+		__asm__("cfc2 %0, $29\n" : "=r"(VpuStat) : );
 		if (VpuStat & 0x202) {
-			__asm { lq   $at, SavedAT }
-			__exception(); return;
+            __asm__(
+                ".set noat\n"
+                "lui   $26, %hi(SavedAT)\n"
+                "lq    $1,  %lo(SavedAT)($26)\n"
+                ".set at\n");
+			__exception();
 		}
-	}*/
+	}
 	__asm__ (
 		"mfc0  $26, $14\n"
 		"li    $27, 0xFFFFFFE4\n"
@@ -186,12 +192,12 @@ void INTCException() {
 		"mtc0  $26, $14\n"
 		"sync\n"
 
-		"li    $sp, 0x80080000\n"
+        LOAD_KERNELSTACK
 		"addiu $sp, -0x10\n"
 		"mfc0  $26, $14\n"
 		"sw    $26, 0($sp)\n"
 	);
-	saveContext();
+	saveContext2();
 
 	__asm__ (
 		"plzcw %0, %1"
@@ -203,10 +209,10 @@ void INTCException() {
 
 	INTCTable[temp](temp);
 
-	restoreContext();
+	restoreContext2();
 
 	__asm__ (
-		".set noat\n"
+        ".set noat\n"
 		"lw    $26, 0($sp)\n"
 		"mtc0  $26, $14\n"
 		"lui   $26, %hi(SavedSP)\n"
@@ -218,7 +224,7 @@ void INTCException() {
 		".set at\n"
 	);
 
-/*	if (!threadStatus)*/ {
+	if (!threadStatus) {
 		__asm__ (
 			"mfc0  $26, $12\n"
 			"ori   $26, 0x13\n"
@@ -227,12 +233,10 @@ void INTCException() {
 			"eret\n"
 		);
 	}
-/*	__asm {
-		li   $sp, 0x80015C40
-	}
+    __asm__(LOAD_KERNELSTACK);
 	threadStatus = 0;
 
-	__ThreadHandler();*/
+	__ThreadHandler();
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -245,9 +249,13 @@ void DMACException() {
 	code = (DMAC_STAT >> 16) | 0x8000;
 	code&=  DMAC_STAT & 0xFFFF;
 	if (code & 0x80) {
-		__printf("%s: code & 0x80\n", __FUNCTION__);
-//		__asm { lq   $at, SavedAT }
-//		__exception1(); return;
+		//__printf("%s: code & 0x80\n", __FUNCTION__);
+        __asm__(
+                ".set noat\n"
+                "lui   $26, %hi(SavedAT)\n"
+                "lq    $1,  %lo(SavedAT)($26)\n"
+                ".set at\n");
+		__exception1();
 	}
 	__asm__ (
 		"mfc0  $26, $14\n"
@@ -256,12 +264,12 @@ void DMACException() {
 		"mtc0  $26, $14\n"
 		"sync\n"
 
-		"li    $sp, 0x80080000\n"
+        LOAD_KERNELSTACK
 		"addiu $sp, -0x10\n"
 		"mfc0  $26, $14\n"
 		"sw    $26, 0($sp)\n"
 	);
-	saveContext();
+	saveContext2();
 
 	__asm__ (
 		"plzcw %0, %1"
@@ -273,7 +281,7 @@ void DMACException() {
 
 	DMACTable[temp](temp);
 
-	restoreContext();
+	restoreContext2();
 
 	__asm__ (
 		".set noat\n"
@@ -288,7 +296,7 @@ void DMACException() {
 		".set at\n"
 	);
 
-/*	if (!threadStatus)*/ {
+	if (!threadStatus) {
 		__asm__ (
 			"mfc0  $26, $12\n"
 			"ori   $26, 0x13\n"
@@ -297,11 +305,32 @@ void DMACException() {
 			"eret\n"
 		);
 	}
-/*	__asm {
-		li   $sp, 0x80015C40
-	}
+    __asm__(LOAD_KERNELSTACK);
 	threadStatus = 0;
 
-	__ThreadHandler();*/
+	__ThreadHandler();
 }
 
+////////////////////////////////////////////////////////////////////
+//80000600
+////////////////////////////////////////////////////////////////////
+void TIMERException()
+{
+    
+}
+
+////////////////////////////////////////////////////////////////////
+//80000700
+////////////////////////////////////////////////////////////////////
+void setINTCHandler(int n, void (*phandler)(int))
+{
+    INTCTable[n] = phandler;
+}
+
+////////////////////////////////////////////////////////////////////
+//80000780
+////////////////////////////////////////////////////////////////////
+void setDMACHandler(int n, void (*phandler)(int))
+{
+    DMACTable[n] = phandler;
+}

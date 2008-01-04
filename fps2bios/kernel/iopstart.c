@@ -1,5 +1,4 @@
-
-#include "iopstart.h"
+#include <tamtypes.h>
 #include "romdir.h"
 
 static void Kputc(u8 c) {
@@ -24,6 +23,15 @@ static void Kmemcpy(void *dest, const void *src, int n) {
 static void _iopstart() {
 	struct rominfo ri;
 	u8 *str;
+
+    // setup iop
+    *(char*)0xbf802070 = 9;
+    *(int*)0xfffe0130 = 0xcc4;
+    *(int*)0xfffe0130 = 0xcc0;
+    if( (*(int*)0xbf801450)  & 8 )
+        *(int*)0xfffe0130 = 0x1e988;
+    else
+        *(int*)0xfffe0130 = 0x1edd8;
 
 	romdirGetFile("ROMVER", &ri);
 	str = (u8*)(0xbfc00000 + ri.fileOffset);

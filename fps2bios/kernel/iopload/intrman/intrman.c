@@ -196,7 +196,7 @@ int CpuDisableIntr()
 ///////////////////////////////////////////////////////////////////////
 int CpuEnableIntr()
 {
-	_dprintf("%s\n", __FUNCTION__);
+	//_dprintf("%s\n", __FUNCTION__);
 //	intrman_syscall_08();
 //	_dprintf("syscall ok\n");
 	CpuEnableICTRL();
