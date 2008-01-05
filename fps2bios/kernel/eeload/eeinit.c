@@ -3,7 +3,8 @@
 #include <tamtypes.h>
 #include <stdio.h>
 
-#include "eeload.h"
+#include "eekernel.h"
+#include "eeirq.h"
 
 void InitializeGS();
 void InitializeGIF();
@@ -235,7 +236,7 @@ void InitializeFPU()
 		"mtc1    $0, $29\n"
 		"mtc1    $0, $30\n"
 		"mtc1    $0, $31\n"
-		"adda.s  $0, $1\n"
+		"adda.s  $f0, $f1\n"
 		"sync\n"
 		"ctc1    $0, $31\n"
 	);
@@ -259,7 +260,8 @@ void InitializeUserMemory(u32 base)
 	u128 *memsz;
 	u128 *p = (u128*)base;
 	
-	for (memsz=(u128*)_GetMemorySize(); p<memsz; p++) *p = 0;
+	for (memsz=(u128*)_GetMemorySize(); p<memsz; p++)
+        *p = 0;
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -366,28 +368,6 @@ void _TlbSet(u32 Index, u32 PageMask, u32 EntryHi, u32 EntryLo0, u32 EntryLo1) {
 	);
 }
 
-
-int _SemasInit() {
-	int i;
-	
-//	memset(bSema, 0, sizeof(bSema));
-
-	for (i=0; i<256; i++) {
-		semas_array[i].free = &semas_array[i+1];
-		semas_array[i].count = -1;
-		semas_array[i].wait_threads = 0;
-		semas_array[i].wait_next = (struct TCB*)&semas_array[i].wait_next;
-		semas_array[i].wait_prev = (struct TCB*)&semas_array[i].wait_next;
-	}
-	semas_array[255].free = 0;
-
-	semas_last  = semas_array;
-	semas_count = 0;
-
-	return 256;
-}
-
-
 void TlbInit() {
 	int i, last;
 	u32 *ptr;
@@ -442,21 +422,10 @@ void TlbInit() {
 	__printf("Ok\n");
 }
 
-////////////////////////////////////////////////////////////////////
-//80001630
-////////////////////////////////////////////////////////////////////
-void DefaultINTCHandler(int n)
-{
-    //TODO
-}
-
-////////////////////////////////////////////////////////////////////
-//80001798
-////////////////////////////////////////////////////////////////////
-void DefaultDMACHandler(int n)
-{
-    //TODO
-}
+void DefaultINTCHandler(int n);
+void DefaultDMACHandler(int n);
+void rcnt3Handler();
+void sbusHandler();
 
 ////////////////////////////////////////////////////////////////////
 //80002050
@@ -469,8 +438,8 @@ int InitPgifHandler() {
 	for (i=0; i<15; i++) {
 		intcs_array[i].count = 0;
         // intcs_array[-1] = ihandlers_last,first
-		intcs_array[i-1].l.prev = &intcs_array[i-1].l.next;
-		intcs_array[i-1].l.next = &intcs_array[i-1].l.next;
+		intcs_array[i-1].l.prev = (struct ll*)&intcs_array[i-1].l.next;
+		intcs_array[i-1].l.next = (struct ll*)&intcs_array[i-1].l.next;
         setINTCHandler(i, DefaultINTCHandler);
 	}
 
@@ -485,8 +454,8 @@ int InitPgifHandler() {
 	
 	for (i=0; i<16; i++) {
 		dmacs_array[i].count = 0;
-		dmacs_array[i-1].l.prev = &dmacs_array[i-1].l.next;
-		dmacs_array[i-1].l.next = &dmacs_array[i-1].l.next;
+		dmacs_array[i-1].l.prev = (struct ll*)&dmacs_array[i-1].l.next;
+		dmacs_array[i-1].l.next = (struct ll*)&dmacs_array[i-1].l.next;
         setDMACHandler(i, DefaultDMACHandler);
 	}
 
@@ -515,8 +484,8 @@ int InitPgifHandler2()
         if(i != 1 ) {
             intcs_array[i].count = 0;
             // intcs_array[-1] = ihandlers_last,first
-            intcs_array[i-1].l.prev = &intcs_array[i-1].l.next;
-            intcs_array[i-1].l.next = &intcs_array[i-1].l.next;
+            intcs_array[i-1].l.prev = (struct ll*)&intcs_array[i-1].l.next;
+            intcs_array[i-1].l.next = (struct ll*)&intcs_array[i-1].l.next;
             setINTCHandler(i, DefaultINTCHandler);
         }
 	}
@@ -525,8 +494,8 @@ int InitPgifHandler2()
 	
 	for (i=0; i<16; i++) {
 		dmacs_array[i].count = 0;
-		dmacs_array[i-1].l.prev = &dmacs_array[i-1].l.next;
-		dmacs_array[i-1].l.next = &dmacs_array[i-1].l.next;
+		dmacs_array[i-1].l.prev = (struct ll*)&dmacs_array[i-1].l.next;
+		dmacs_array[i-1].l.next = (struct ll*)&dmacs_array[i-1].l.next;
         setDMACHandler(i, DefaultDMACHandler);
 	}
 

@@ -112,6 +112,36 @@
 //#define DMAC_14		14		//not used
 #define DMAC_ERROR		15
 
+ ///////////////////////
+ // DMA TAG REGISTERS //
+ ///////////////////////
+ #define DMA_TAG_REFE	0x00
+ #define DMA_TAG_CNT	0x01
+ #define DMA_TAG_NEXT	0x02
+ #define DMA_TAG_REF	0x03
+ #define DMA_TAG_REFS	0x04
+ #define DMA_TAG_CALL	0x05
+ #define DMA_TAG_RET	0x06
+ #define DMA_TAG_END	0x07
+
+// Modes for DMA transfers
+#define SIF_DMA_FROM_IOP	0x0
+#define SIF_DMA_TO_IOP		0x1
+#define SIF_DMA_FROM_EE		0x0
+#define SIF_DMA_TO_EE		0x1
+
+#define SIF_DMA_INT_I		0x2
+#define SIF_DMA_INT_O		0x4
+#define SIF_DMA_SPR		0x8
+#define SIF_DMA_BSN		0x10 /* ? what is this? */
+#define SIF_DMA_TAG 0x20
+#define SIF_DMA_ERT 0x40
+#define DMA_TAG_IRQ 0x80000000
+#define DMA_TAG_PCE 0x0C000000
+
+#define KSEG1_ADDR(x) (((u32)(x))|0xA0000000)
+#define KUSEG_ADDR(x) (((u32)(x))&0x1FFFFFFF)
+
 #define MAX_SEMAS 256
 #define STACK_RES 0x2A0
 
@@ -146,7 +176,7 @@ struct ThreadParam {
 	int		currentPriority;
 	u32		attr;
 	u32		option;
-	int		waitType;
+	int		waitSema; // waitType?
 	int		waitId;
 	int		wakeupCount;
 };
@@ -160,7 +190,7 @@ struct TCB { //internal struct
 	void		*gpReg; //+14
 	short		currentPriority; //+18
 	short		initPriority; //+1A
-	int			waitSema, //+1C
+	int			waitSema, //+1C waitType?
                 semaId, //+20
                 wakeupCount, //+24
                 attr, //+28
@@ -171,7 +201,7 @@ struct TCB { //internal struct
 	void		*stack;//+3C
 	int			stackSize; //+40
 	int			(*root)(); //+44
-	int			heap_base; //+48
+	void*		heap_base; //+48
 };
 
 struct threadCtx {
@@ -205,25 +235,26 @@ struct SemaParam {
 };
 
 struct kSema { // internal struct
-	struct kSema	*free;
-	int 			count;
-	int 			max_count;
-	int 			attr;
-	int 			option;
-	int 			wait_threads;
-	struct TCB		*wait_next,
-					*wait_prev;
+	struct kSema	*free;//+00
+	int 			count;//+04
+	int 			max_count;//+08
+	int 			attr;//+0C
+	int 			option;//+10
+	int 			wait_threads;//+14
+	struct TCB		*wait_next,//+18
+                    *wait_prev;//+1C
 };
 
 struct ll { struct ll *next, *prev; };			//linked list
 
 //internal struct
 struct IDhandl { //intc dmac handler
-	struct ll *next, *prev;
-	int (*handler)(int);
-	u32 gp;
-	void *arg;
-	int flag;
+	struct ll *next, //+00
+        *prev; //+04
+	int (*handler)(int); //+08
+	u32 gp; //+0C
+	void *arg; //+10
+	int flag; //+14
 };
 
 //internal struct
@@ -231,7 +262,6 @@ struct HCinfo{ //handler cause info
 	int		count;
 	struct ll	l;
 };
-
 
 extern u128 SavedSP;
 extern u128 SavedRA;
@@ -243,6 +273,7 @@ extern eeRegs SavedRegs;
 extern u32  excepRA;
 extern u32  excepSP;
 
+extern u32 (*table_CpuConfig[6])(u32);
 extern void (*table_SYSCALL[0x80])();
 
 extern void (*VCRTable[14])();
@@ -275,14 +306,14 @@ extern struct HCinfo	dmacs_array[15];
 extern struct IDhandl	pgifhandlers_array[161];
 extern void (*sbus_handlers[32])(int ca);
 
-extern int 		rcnt3Mode;
-extern int 		rcnt3TargetTable[0x140];
-extern char		rcnt3TargetNum;
+extern int 		rcnt3Code;
+extern int 		rcnt3TargetTable[0x142];
+extern u8       rcnt3TargetNum[0x40];
 extern int		threads_count;
 extern struct ll	thread_ll_free;
 extern struct ll	thread_ll_priorities[128];
 extern int		semas_count;
-extern int		semas_last;
+extern struct kSema* semas_last;
 
 extern struct TCB	threads_array[256];
 extern struct kSema	semas_array[256];
@@ -298,15 +329,6 @@ extern int	extrastorage[(16/4) * 8][31];
 
 extern int	osdConfigParam;
 
-extern u32 sifEEbuff[32];
-extern u32 sifRegs[32];
-extern u32 sifIOPbuff;
-extern u32 sif1tagdata;
-
-// internal functions
-void Kmemcpy(void *dest, const void *src, int n);
-void SifDmaInit();
-
 // syscalls
 // Every syscall is officially prefixed with _ (to avoid clashing with ps2sdk)
 void _SetSYSCALL(int num, int address);
@@ -319,8 +341,8 @@ void *_SetVCommonHandler(int cause, void (*handler)());
 void *_SetVInterruptHandler(int cause, void (*handler)());
 void _PSMode();
 u32  _MachineType();
-long _SetMemorySize(long size);
-long _GetMemorySize();
+u32 _SetMemorySize(u32 size);
+u32 _GetMemorySize();
 u64  _GsGetIMR();
 u64 _GsPutIMR(u64 val);
 int  _Exit(); // 3
@@ -348,7 +370,6 @@ int  _WaitSema(int sid);
 void  _ChangeThreadPriority(int tid, int prio);
 int  _CreateThread(struct ThreadParam *param);
 int  _iChangeThreadPriority(int tid, int prio);
-int  _iRotateThreadReadyQueue(int prio);
 int  _GetThreadId();
 int  _ReferThreadStatus(int tid, struct ThreadParam *info);
 int  _iWakeupThread(int tid);
@@ -362,15 +383,15 @@ int  _iSignalSema(int sid);
 int  _PollSema(int sid);
 int  _ReferSemaStatus(int sid, struct SemaParam *sema);
 int  _DeleteEventFlag();
-char *_InitializeMainThread(int gp, void *stack, int stack_size, 
+void*_InitializeMainThread(u32 gp, void *stack, int stack_size, 
 						char *args, int root);
 void *_InitializeHeapArea(void *heap_base, int heap_size);
 void *_EndOfHeap();
-int _LoadPS2Exe(const char *filename, int argc, char **argv);
+int _LoadPS2Exe(char *filename, int argc, char **argv);
 int _ExecOSD(int argc, char **argv);
-void _sceSifSetDChain();
-void _sceSifStopDma();
-void _sceSifSetDma(SifDmaTransfer_t *sdd, int len);
+void _SifSetDChain();
+void _SifStopDma();
+u32 _SifSetDma(SifDmaTransfer_t *sdd, int len);
 void _SetGsCrt(short arg0, short arg1, short arg2); // 2
 void _GetGsHParam(int *p0, int *p1, int *p2, int *p3);
 int  _GetGsVParam();
@@ -379,45 +400,41 @@ void _GetOsdConfigParam(int *result);
 void _SetOsdConfigParam(int *param);
 int  _ResetEE(int init); // 1
 int  _TlbWriteRandom(u32 PageMask, u32 EntryHi, u32 EntryLo0, u32 EntryLo1);
-void __SetAlarm();
-void __ReleaseAlarm();
+int _SetAlarm(short a0, int a1, int a2);
+void _ReleaseAlarm();
 int _TerminateThread(int tid);
+void _RotateThreadReadyQueue(int prio);
 int _iTerminateThread(int tid);
-void _DisableDispatchThread();
-void _EnableDispatchThread();
-void _RotateThreadReadyQueue();
+int _DisableDispatchThread();
+int _EnableDispatchThread();
 int  _iRotateThreadReadyQueue(int prio);
-void _ReleaseWaitThread();
-void _iReleaseWaitThread();
-void _ResumeThread();
+void _ReleaseWaitThread(int tid);
+int _iReleaseWaitThread(int tid);
+int _ResumeThread(int tid);
 int  _iResumeThread(int tid);
 void _JoinThread();
-void _DeleteSema();
-void _SignalSema();
-void _SetGsHParam();
-void _SetEventFlag();
-void _iSetEventFlag();
-void _EnableIntcHandler();
-void _DisableIntcHandler();
-void _EnableDmacHandler();
-void _DisableDmacHandler();
-void _KSeg0();
-void _EnableCache();
-void _DisableCache();
-void _FlushCache();
-void _105();
-void _CpuConfig();
-void _SetCPUTimerHandler();
-void _SetCPUTimer();
-void _SetPgifHandler();
+int _DeleteSema(int sid);
+int _iDeleteSema(int sid);
+void _SignalSema(int sid);
+void _SetGsHParam(int a0, int a1, int a2, int a3);
+int _SetEventFlag(int ef, u32 bits); // bits is EF_X
+int _iSetEventFlag(int ef, u32 bits);
+void _EnableIntcHandler(u32 id);
+void _DisableIntcHandler(u32 id);
+void _EnableDmacHandler(u32 id);
+void _DisableDmacHandler(u32 id);
+void _KSeg0(u32 arg);
+int _EnableCache(int cache);
+int _DisableCache(int cache);
+void _FlushCache(int op);
+void _105(int op1, int op2);
+u32 _CpuConfig(u32 op);
+void _SetCPUTimerHandler(void (*handler)());
+void _SetCPUTimer(int compval);
+void _SetPgifHandler(void (*handler)(int));
 void _print();
-void _sceSifDmaStat();
-int  _sceSifSetReg(int reg, u32 val);
-int  _sceSifGetReg(int reg);
+int _SifDmaStat(int id);
 
-void _SifDmaStat();
-void _SifSetDma(SifDmaTransfer_t *sdd, int len);
-void _SifSetDChain();
 int _SifGetReg(int reg);
 int _SifSetReg(int reg, u32 val);
 

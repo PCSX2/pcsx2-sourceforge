@@ -42,7 +42,7 @@ all: eeload
 
 LDFLAGS = -L$(PS2LIB)/ee/lib
 LDADD   = -lmc -lpad -lc -lkernel
-OBJECTS = eeirq.o eedata.o eekernel.o eeinit.o eeelf.o eedebug.o romdir.o
+OBJECTS = eeirq.o eedata.o eekernel.o eeinit.o eeload.o eeelf.o eedebug.o romdir.o
 
 eeload: $(OBJECTS)
 	$(EELD) -Wl,--oformat,binary,--Map,eeload.map -T linkfile $(EECFLAGS) $(OBJECTS) $(LDFLAGS) $(LDADD) -o ../../build/EELOAD
