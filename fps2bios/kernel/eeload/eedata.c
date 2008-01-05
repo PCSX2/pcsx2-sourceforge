@@ -16,8 +16,14 @@ u128 SavedRA __attribute((aligned(16)));
 u128 SavedAT __attribute((aligned(16)));
 u64  SavedT9 __attribute((aligned(16)));
 
-u32  excepRA=0;
-u32  excepSP=0;
+u32 _CpuConfig_0(u32);
+u32 _CpuConfig_1(u32);
+u32 _CpuConfig_2(u32);
+u32 _CpuConfig_3(u32);
+u32 _CpuConfig_4(u32);
+u32 _CpuConfig_5(u32);
+u32 (*table_CpuConfig[6])(u32) = {_CpuConfig_0, _CpuConfig_1, _CpuConfig_2,
+                          _CpuConfig_3, _CpuConfig_4, _CpuConfig_5};
 
 u32 dmac_CHCR[10] = {
 	0xB0008000,
@@ -85,14 +91,14 @@ void (*table_SYSCALL[0x80])() = {
 	(void (*))__DisableIntc, 
 	(void (*))__EnableDmac, 
 	(void (*))__DisableDmac, 
-	(void (*))__SetAlarm, 				// 0x18
-	(void (*))__ReleaseAlarm,
+	(void (*))_SetAlarm, 				// 0x18
+	(void (*))_ReleaseAlarm,
 	(void (*))__EnableIntc, 
 	(void (*))__DisableIntc, 
 	(void (*))__EnableDmac,				// 0x1C 
 	(void (*))__DisableDmac, 
-	(void (*))__SetAlarm, 
-	(void (*))__ReleaseAlarm, 
+	(void (*))_SetAlarm, 
+	(void (*))_ReleaseAlarm, 
 	(void (*))_CreateThread, 			// 0x20
 	(void (*))_DeleteThread, 
 	(void (*))_StartThread, 
@@ -134,7 +140,7 @@ void (*table_SYSCALL[0x80])() = {
 	(void (*))_PollSema, 
 	(void (*))_ReferSemaStatus,
 	(void (*))_ReferSemaStatus, 
-	(void (*))_RFU073, 
+	(void (*))_iDeleteSema, 
 	(void (*))_SetOsdConfigParam, 
 	(void (*))_GetOsdConfigParam, 
 	(void (*))_GetGsHParam, 
@@ -168,11 +174,11 @@ void (*table_SYSCALL[0x80])() = {
 	(void (*))_FlushCache, 
 	(void (*))_105, 
 	(void (*))_CpuConfig, 
-	(void (*))_sceSifStopDma,                      //_sceSifStopDma, 
+	(void (*))_SifStopDma,                      //_sceSifStopDma, 
 	(void (*))_SetCPUTimerHandler, 
 	(void (*))_SetCPUTimer, 
-	(void (*))0, 
-	(void (*))0, 
+	(void (*))0,//_SetOsdConfigParam2, 
+	(void (*))0,//_GetOsdConfigParam2, 
 	(void (*))_GsGetIMR, 				// 0x70
 	(void (*))_GsPutIMR, 
 	(void (*))_SetPgifHandler, 
