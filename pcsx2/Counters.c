@@ -345,84 +345,98 @@ void VSync()
 			case PCSX2_FRAMELIMIT_SKIP:
 			case PCSX2_FRAMELIMIT_VUSKIP:
 			{
-				static u32 skipLevels[][2] = {
-					// {skip,show}
-					{0,0},								 //no skipping
-					{1,7},{1,6},{1,5},{1,4},{1,3},{1,2}, //skip 1 every N frames (soft skipping)
-					{1,1},								 //every other frame
-					{2,1},{3,1},{4,1},{5,1},{6,1},{7,1}, //show 1 every N frames (hard skipping)
-					
-					//add more if needed, but 1/8 of the real rate seems slow enough :/
-				};
+				// the 6 was after trial and error
+				static u32 uPrevTimes[6] = {0}, uNextFrame = 0, uNumFrames = 0, uTotalTime = 0;
+				static u32 uLastTime = 0;
+				static int nConsecutiveSkip = 0, nConsecutiveRender = 0;
+				extern u32 g_bVUSkip;
+				static int changed = 0;
+				static int nNoSkipFrames = 0;
 
-				static const u32 skipLevelCount = (sizeof(skipLevels)/(sizeof(u32)*2))-1;
-
-				static u32 skipLevel=0;
-
-				static u32 toSkip=0;
-				static u32 toShow=0;
-
-				static u32 uLastTime=0;
-				static u32 uFramesRendered=0;
-
-				u32 expected_fps = (Config.PsxType&1) ? 50:60;
-
+				u32 uExpectedTime;
 				u32 uCurTime = timeGetTime();
 				u32 uDeltaTime = uCurTime - uLastTime;
 
-				uFramesRendered++;
+				assert( GSsetFrameSkip != NULL );
 
-				if(uLastTime==0) uLastTime=timeGetTime();
+				if( uLastTime > 0 ) {
 
-				if(uDeltaTime>=1000) // 1 sec has passed
-				{
-					u32 fps = uFramesRendered * 1000 / uDeltaTime;
+					if( uNumFrames == ARRAYSIZE(uPrevTimes) )
+						uTotalTime -= uPrevTimes[uNextFrame];
 
-					if((fps<(expected_fps-5))&&(skipLevel<skipLevelCount)) //if it's still slow, try to increase skip level
-					{
-						skipLevel++;
-						SysPrintf("SKIP level changed to: %d {%d,%d}\n",skipLevel,skipLevels[skipLevel][0],skipLevels[skipLevel][1]);
-					}
-					else if((skipLevel>0)&&(pauses>3)) //if it has spare time, try to reduce the skip level
-					{
-						skipLevel--;
-						SysPrintf("SKIP level changed to: %d {%d,%d}\n",skipLevel,skipLevels[skipLevel][0],skipLevels[skipLevel][1]);
-					}
+					uPrevTimes[uNextFrame] = uDeltaTime;
+					uNextFrame = (uNextFrame + 1) % ARRAYSIZE(uPrevTimes);
+					uTotalTime += uDeltaTime;
 
-					uLastTime=uCurTime;
-					uFramesRendered=0;
-					pauses=0;
-
+					if( uNumFrames < ARRAYSIZE(uPrevTimes) )
+						++uNumFrames;
 				}
 
-				if(skipLevel>0)
-				{
-					if((toSkip==0)&&(toShow==0)) //reload counters
-					{
-						toSkip=skipLevels[skipLevel][0];
-						toShow=skipLevels[skipLevel][1];
-					}
+				uExpectedTime = (Config.PsxType&1) ? (ARRAYSIZE(uPrevTimes) * 1000 / 50 -1) : (ARRAYSIZE(uPrevTimes) * 1000 / 60 - 1);
 
-					if(toSkip>0)
-					{
-						if( CHECK_MULTIGS ) GSRingBufSimplePacket(GS_RINGTYPE_FRAMESKIP, 1, 0, 0);
-						else GSsetFrameSkip(1);
-						if( CHECK_FRAMELIMIT == PCSX2_FRAMELIMIT_VUSKIP ) 
-						{
+				if( nNoSkipFrames > 0 )
+					--nNoSkipFrames;
+
+				// hmm... this might be more complicated than it needs to be
+				if( changed != 0 ) {
+					if( changed > 0 ) {
+						++nConsecutiveRender;
+						--changed;
+
+						if( nConsecutiveRender > 20 && uTotalTime + 1 < uExpectedTime ) {
+							Sleep(uExpectedTime-uTotalTime);
+							nNoSkipFrames = ARRAYSIZE(uPrevTimes);
+						}
+					}
+					else {
+						++nConsecutiveSkip;
+						++changed;
+					}
+				}
+				else {
+					if( nNoSkipFrames == 0 && nConsecutiveRender > 1 && nConsecutiveSkip < 20 &&
+						(CHECK_MULTIGS? (uTotalTime >= uExpectedTime + uDeltaTime/4 && (uTotalTime >= uExpectedTime + uDeltaTime*3/4 || nConsecutiveSkip==0)) : 
+										(uTotalTime >= uExpectedTime + (uDeltaTime/4))) ) {
+
+						if( CHECK_FRAMELIMIT == PCSX2_FRAMELIMIT_VUSKIP ) {
+							
 							Cpu->ExecuteVU1Block = DummyExecuteVU1Block;
 						}
-						lastWasSkip=1;
-						toSkip--;
-					}
-					else
-					{
-						toShow--;
-					}
 
+						if( nConsecutiveSkip == 0 ) {
+							if( CHECK_MULTIGS ) GSRingBufSimplePacket(GS_RINGTYPE_FRAMESKIP, 1, 0, 0);
+							else GSsetFrameSkip(1);
+						}
+
+						changed = -3;
+						nConsecutiveSkip++;
+					}
+					else {
+
+						if( CHECK_FRAMELIMIT == PCSX2_FRAMELIMIT_VUSKIP ) {
+							Cpu->ExecuteVU1Block = s_prevExecuteVU1Block;
+						}
+
+						if( nConsecutiveSkip ) {
+							if( CHECK_MULTIGS ) GSRingBufSimplePacket(GS_RINGTYPE_FRAMESKIP, 0, 0, 0);
+							else GSsetFrameSkip(0);
+
+							nConsecutiveRender = 0;
+						}
+
+						changed = 3;
+						nConsecutiveRender++;
+						nConsecutiveSkip = 0;
+
+						if( nConsecutiveRender > 20 && uTotalTime + 1 < uExpectedTime ) {
+							Sleep(uExpectedTime-uTotalTime);
+							nNoSkipFrames = ARRAYSIZE(uPrevTimes);
+						}
+					}
 				}
 
-				// it's fast enough so make sure skipping doesn't get it too fast unintentionally
-				FrameLimiter();
+				uLastTime = uCurTime;
+
 				break;
 			}
 		}

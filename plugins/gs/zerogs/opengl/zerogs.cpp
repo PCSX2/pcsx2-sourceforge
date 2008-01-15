@@ -893,9 +893,9 @@ void ZeroGS::HandleGLError()
             case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT_EXT:
                 ERROR_LOG("Error! has no images/buffers attached!\n");
                 break;
-            case GL_FRAMEBUFFER_INCOMPLETE_DUPLICATE_ATTACHMENT_EXT:
-                ERROR_LOG("Error! has an image/buffer attached in multiple locations!\n");
-                break;
+//            case GL_FRAMEBUFFER_INCOMPLETE_DUPLICATE_ATTACHMENT_EXT:
+//                ERROR_LOG("Error! has an image/buffer attached in multiple locations!\n");
+//                break;
             case GL_FRAMEBUFFER_INCOMPLETE_DIMENSIONS_EXT:
                 ERROR_LOG("Error! has mismatched image/buffer dimensions!\n");
                 break;
