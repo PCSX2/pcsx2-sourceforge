@@ -2015,6 +2015,14 @@ void recClearMem(BASEBLOCK* p)
 	pexblock = PC_GETBLOCKEX(pstart);
 	assert( pexblock->startpc == pstart->startpc );
 
+    if( pexblock->startpc != pstart->startpc ) {
+        // some bug with ffx after beating a big snake in sewers
+        RemoveBaseBlockEx(pexblock, 0);
+	    pexblock->size = 0;
+	    pexblock->startpc = 0;
+        return;
+    }
+
 //	if( pexblock->pOldFnptr ) {
 //		// have to mod oldfnptr too
 //		x86Ptr = pexblock->pOldFnptr;
