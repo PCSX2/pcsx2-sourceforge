@@ -472,6 +472,10 @@ void rcntUpdate()
 {
 	int i;
 	for (i=0; i<=3; i++) {
+		if(gates & (1<<i)){
+			//SysPrintf("Stopped accidental update of ee counter %x when using a gate\n", i);
+			continue;
+			}
 		if ((counters[i].mode & 0x80)) counters[i].count += (int)((cpuRegs.cycle - counters[i].sCycleT) / counters[i].rate);
 		counters[i].sCycleT = cpuRegs.cycle - ((cpuRegs.cycle - counters[i].sCycleT) % counters[i].rate);
 	}
