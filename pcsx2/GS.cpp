@@ -1070,10 +1070,7 @@ void GIFdma() {
 			SysPrintf("DMA Stall Control %x\n",(psHu32(DMAC_CTRL) & 0xC0));
 			}*/
 
-	if ((psHu32(DMAC_CTRL) & 0xC) == 0xC ) { // GIF MFIFO
-		gifMFIFOInterrupt();
-		return;
-	}
+	
 	if( (psHu32(GIF_CTRL) & 8) ) {
 		// temporarily stop
 		SysPrintf("Gif dma temp paused?\n");
@@ -1264,6 +1261,13 @@ void dmaGIF() {
 
 	if(gif->qwc > 0 && (gif->chcr & 0x4) == 0x4)
         gspath3done = 1; //Halflife sets a QWC amount in chain mode, no tadr set.
+
+	if ((psHu32(DMAC_CTRL) & 0xC) == 0xC ) { // GIF MFIFO
+		//SysPrintf("GIF MFIFO\n");
+		gifMFIFOInterrupt();
+		return;
+	}
+
 	GIFdma();
 }
 
@@ -1281,6 +1285,7 @@ int mfifoGIFrbTransfer() {
 	u32 maddr = psHu32(DMAC_RBOR);
 	int msize = psHu32(DMAC_RBSR)+16;
 	u32 qwc = (psHu32(GIF_MODE) & 0x4) ? min(8, (int)gif->qwc) : gif->qwc;
+	int mfifoqwc = ((gif->madr & ~psHu32(DMAC_RBSR)) == psHu32(DMAC_RBOR)) ? min(gif->qwc, qwc) : qwc;
 	u32 *src;
 
 	if(qwc > gifqwc) qwc = gifqwc; 
@@ -1288,9 +1293,9 @@ int mfifoGIFrbTransfer() {
 	if (qwc == 0) return 0;
 
 	/* Check if the transfer should wrap around the ring buffer */
-	if ((gif->madr+qwc*16) >= (maddr+msize)) {
+	if ((gif->madr+mfifoqwc*16) >= (maddr+msize)) {
 		int s1 = (maddr+msize) - gif->madr;
-		int s2 = qwc*16 - s1;
+		int s2 = mfifoqwc*16 - s1;
 
 		/* it does, so first copy 's1' bytes from 'addr' to 'data' */
 		src = (u32*)PSM(gif->madr);
@@ -1308,13 +1313,13 @@ int mfifoGIFrbTransfer() {
 		src = (u32*)PSM(gif->madr);
 		if (src == NULL) return -1;
 		
-		WRITERING_DMA(src, qwc);
+		WRITERING_DMA(src, mfifoqwc);
 	}
 
-	gifqwc -= qwc;
-	gif->qwc -= qwc;
-	gif->madr+= qwc*16;
-	mfifocycles+= (qwc) * 2; /* guessing */
+	gifqwc -= mfifoqwc;
+	gif->qwc -= mfifoqwc;
+	gif->madr+= mfifoqwc*16;
+	mfifocycles+= (mfifoqwc) * 2; /* guessing */
 	gif->madr = psHu32(DMAC_RBOR) + (gif->madr & psHu32(DMAC_RBSR));
 
 	return 0;
@@ -1331,13 +1336,14 @@ int mfifoGIFchain() {
 		if (mfifoGIFrbTransfer() == -1) return -1;
 	} else {
 		u32 qwc = (psHu32(GIF_MODE) & 0x4) ? min(8, (int)gif->qwc) : gif->qwc;
+		int mfifoqwc = ((gif->madr & ~psHu32(DMAC_RBSR)) == psHu32(DMAC_RBOR)) ? min(gif->qwc, qwc) : qwc;
 		u32 *pMem = (u32*)dmaGetAddr(gif->madr);
 		if (pMem == NULL) return -1;
 
-		WRITERING_DMA(pMem, qwc);
-		gif->madr+= qwc*16;
-		gif->qwc -= qwc;
-		mfifocycles+= (qwc) * 2; /* guessing */
+		WRITERING_DMA(pMem, mfifoqwc);
+		gif->madr+= mfifoqwc*16;
+		gif->qwc -= mfifoqwc;
+		mfifocycles+= (mfifoqwc) * 2; /* guessing */
 	}
 
 	
@@ -1393,32 +1399,32 @@ void mfifoGIFtransfer(int qwc) {
 			GIF_LOG("dmaChain %8.8x_%8.8x size=%d, id=%d, madr=%lx, tadr=%lx mfifo qwc = %x spr0 madr = %x\n",
 					ptag[1], ptag[0], gif->qwc, id, gif->madr, gif->tadr, gifqwc, spr0->madr);
 	#endif
-			
+			gifqwc--;
 			switch (id) {
 				case 0: // Refe - Transfer Packet According to ADDR field
-					/*if(gifqwc < gif->qwc && (gif->madr & ~psHu32(DMAC_RBSR)) == psHu32(DMAC_RBOR)) {
-						//SysPrintf("Sliced GIF MFIFO Transfer %d\n", id);
-						return;
-					}*/
+					if(gifqwc < gif->qwc && (gif->madr & ~psHu32(DMAC_RBSR)) == psHu32(DMAC_RBOR)) {
+						SysPrintf("Sliced GIF MFIFO Transfer %d\n", id);
+						//return;
+					}
 					gif->tadr += 16;
 					gifdone = 2;										//End Transfer
 					break;
 
 				case 1: // CNT - Transfer QWC following the tag.
-					/*if(gifqwc < gif->qwc && ((gif->tadr + 16) & ~psHu32(DMAC_RBSR)) == psHu32(DMAC_RBOR)) {
-						//SysPrintf("Sliced GIF MFIFO Transfer %d\n", id);
-						return;
-					}*/
+					if(gifqwc < gif->qwc && ((gif->tadr + 16) & ~psHu32(DMAC_RBSR)) == psHu32(DMAC_RBOR)) {
+						SysPrintf("Sliced GIF MFIFO Transfer %d\n", id);
+						//return;
+					}
 					gif->madr = gif->tadr + 16;						//Set MADR to QW after Tag            
 					gif->tadr = gif->madr + (gif->qwc << 4);			//Set TADR to QW following the data
 					gifdone = 0;
 					break;
 
 				case 2: // Next - Transfer QWC following tag. TADR = ADDR
-					/*if(gifqwc < gif->qwc && ((gif->tadr + 16) & ~psHu32(DMAC_RBSR)) == psHu32(DMAC_RBOR)) {
-						//SysPrintf("Sliced GIF MFIFO Transfer %d\n", id);
-						return;
-					}*/
+					if(gifqwc < gif->qwc && ((gif->tadr + 16) & ~psHu32(DMAC_RBSR)) == psHu32(DMAC_RBOR)) {
+						SysPrintf("Sliced GIF MFIFO Transfer %d\n", id);
+						//return;
+					}
 					temp = gif->madr;								//Temporarily Store ADDR
 					gif->madr = gif->tadr + 16; 					  //Set MADR to QW following the tag
 					gif->tadr = temp;								//Copy temporarily stored ADDR to Tag
@@ -1427,25 +1433,25 @@ void mfifoGIFtransfer(int qwc) {
 
 				case 3: // Ref - Transfer QWC from ADDR field
 				case 4: // Refs - Transfer QWC from ADDR field (Stall Control) 
-					/*if(gifqwc < gif->qwc && (gif->madr & ~psHu32(DMAC_RBSR)) == psHu32(DMAC_RBOR)) {
-						//SysPrintf("Sliced GIF MFIFO Transfer %d\n", id);
-						return;
-					}*/
+					if(gifqwc < gif->qwc && (gif->madr & ~psHu32(DMAC_RBSR)) == psHu32(DMAC_RBOR)) {
+						SysPrintf("Sliced GIF MFIFO Transfer %d\n", id);
+						//return;
+					}
 					gif->tadr += 16;									//Set TADR to next tag
 					gifdone = 0;
 					break;
 
 				case 7: // End - Transfer QWC following the tag
-					/*if(gifqwc < gif->qwc && ((gif->tadr + 16) & ~psHu32(DMAC_RBSR)) == psHu32(DMAC_RBOR)) {
-						//SysPrintf("Sliced GIF MFIFO Transfer %d\n", id);
-						return;
-					}*/
+					if(gifqwc < gif->qwc && ((gif->tadr + 16) & ~psHu32(DMAC_RBSR)) == psHu32(DMAC_RBOR)) {
+						SysPrintf("Sliced GIF MFIFO Transfer %d\n", id);
+						//return;
+					}
 					gif->madr = gif->tadr + 16;						//Set MADR to data following the tag
 					gif->tadr = gif->madr + (gif->qwc << 4);			//Set TADR to QW following the data
 					gifdone = 2;										//End Transfer
 					break;
 			}
-			gifqwc--;
+			
 			
 			//SysPrintf("GIF MFIFO qwc %d gif qwc %d, madr = %x, tadr = %x\n", qwc, gif->qwc, gif->madr, gif->tadr);
 			gif->tadr = psHu32(DMAC_RBOR) + (gif->tadr & psHu32(DMAC_RBSR));
@@ -1481,11 +1487,11 @@ void mfifoGIFtransfer(int qwc) {
 	}*/
 	
 	if(gif->qwc == 0 && gifdone == 2) gifdone = 1;
-	if(gifqwc == 0) psHu32(GIF_STAT) &= ~0xE00;
+	//if(gifqwc == 0) psHu32(GIF_STAT) &= ~0xE00;
 	INT(11,mfifocycles);
 	//hwDmacIrq(1);
-#ifdef SPR_LOG
-	SPR_LOG("mfifoGIFtransfer end %x madr %x, tadr %x\n", gif->chcr, gif->madr, gif->tadr);
+#ifdef GIF_LOG
+	GIF_LOG("mfifoGIFtransfer end %x madr %x, tadr %x\n", gif->chcr, gif->madr, gif->tadr);
 #endif
 }
 
@@ -1493,23 +1499,25 @@ void gifMFIFOInterrupt()
 {
 	mfifocycles = 0;
 
-	if(!(gif->chcr & 0x100)) {cpuRegs.interrupt &= ~(1 << 11); return ; }
-	else if(gifqwc == 0 && (gifdone == 0 || gif->qwc > 0)) {
+	if(gifqwc <= 0 && gifdone == 0) {
+		//SysPrintf("Empty\n");
+		psHu32(GIF_STAT)&= ~0xE00; // OPH=0 | APATH=0
 		hwDmacIrq(14);
-		cpuRegs.interrupt &= ~(1 << 11);
+		cpuRegs.interrupt &= ~(1 << 11); 
 		return;
-	}
-
+		}
+	if(!(gif->chcr & 0x100)) { SysPrintf("WTF GIFMFIFO\n");cpuRegs.interrupt &= ~(1 << 11); return ; }
+	
 	if(gifdone != 1) {
 		mfifoGIFtransfer(0);
-		if(gifqwc == 0 || (gif->tadr == spr0->madr)) {cpuRegs.interrupt &= ~(1 << 11); return; }
-		else return;
+		return;
 	}
 	if(gifdone == 0 || gif->qwc > 0) {
 		SysPrintf("Shouldnt go here\n");
 		cpuRegs.interrupt &= ~(1 << 11);
 		return;
 	}
+	gifqwc = 0;
 	gifdone = 0;
 	gif->chcr &= ~0x100;
 	hwDmacIrq(DMAC_GIF);

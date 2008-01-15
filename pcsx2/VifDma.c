@@ -1087,12 +1087,9 @@ int VIF0transfer(u32 *data, int size, int istag) {
 			VIF_LOG( "Interrupt on VIFcmd: %x (INTC_MASK = %x)\n", vif0.cmd, psHu32(INTC_MASK) );
 #endif
 			
-			if(((vif0Regs->code >> 24) & 0x7f) != 0x7)vif0Regs->stat|= VIF0_STAT_VIS;
-			else SysPrintf("VIF0 IRQ on MARK\n");
-
 			++vif0.irq;
 			vif0.cmd &= 0x7f;
-			if(istag) vif0.stallontag = 1;
+			if(istag && vif0.tag.size == 0) vif0.stallontag = 1;
 		} 
 	}
 	g_vifCycles+= (transferred >> 2)*BIAS; /* guessing */
@@ -1101,9 +1098,11 @@ int VIF0transfer(u32 *data, int size, int istag) {
 	if( !vif0.tag.size )
 		vif0Regs->stat &= ~VIF0_STAT_VPS_W;
 		
-	if ((vif0Regs->stat & VIF0_STAT_VIS) && vif0.tag.size == 0) {
+	if (vif0.irq && vif0.tag.size == 0) {
 		vif0.vifstalled = 1;
 
+		if(((vif0Regs->code >> 24) & 0x7f) != 0x7)vif0Regs->stat|= VIF0_STAT_VIS;
+		else SysPrintf("VIF0 IRQ on MARK\n");
 		// spiderman doesn't break on qw boundaries
 		vif0.irqoffset = transferred%4; // cannot lose the offset
 		if(vif0.tag.size > 0) SysPrintf("Oh dear, possible VIF0 stall problem. CMD %x, tag.size %x\n", vif0.cmd, vif0.tag.size);
@@ -1947,11 +1946,11 @@ int VIF1transfer(u32 *data, int size, int istag) {
 			/*if((psHu32(DMAC_CTRL) & 0xC) == 0x8){
 				SysPrintf("VIF1 Stall on MFIFO, not implemented!\n");
 			}*/
-			if(((vif1Regs->code >> 24) & 0x7f) != 0x7)vif1Regs->stat|= VIF1_STAT_VIS;
-			else SysPrintf("Stall on Vif1 MARK\n");
+			
+			
 			++vif1.irq;
 			vif1.cmd &= 0x7f;
-			if(istag) vif1.stallontag = 1;
+			if(istag && vif1.tag.size == 0) vif1.stallontag = 1;
 		} 
 	}
 	g_vifCycles+= (transferred>>2)*BIAS; /* guessing */
@@ -1960,8 +1959,10 @@ int VIF1transfer(u32 *data, int size, int istag) {
 	if( !vif1.tag.size )
 		vif1Regs->stat &= ~VIF1_STAT_VPS_W;
 		
-	if ((vif1Regs->stat & VIF1_STAT_VIS) && vif1.tag.size == 0) {
+	if (vif1.irq && vif1.tag.size == 0) {
 		vif1.vifstalled = 1;
+		if(((vif1Regs->code >> 24) & 0x7f) != 0x7)vif1Regs->stat|= VIF1_STAT_VIS;
+		else SysPrintf("Stall on Vif1 MARK\n");
 		// spiderman doesn't break on qw boundaries
 		vif1.irqoffset = transferred%4; // cannot lose the offset
 		if(vif1.tag.size > 0) SysPrintf("Oh dear, possible VIF1 stall problem. CMD %x, tag.size %x\n", vif1.cmd, vif1.tag.size);
@@ -2190,7 +2191,7 @@ void vif1Interrupt() {
 
 extern void gsWaitGS();
 extern u32 g_MTGSVifStart, g_MTGSVifCount;
-
+#define spr0 ((DMACh*)&PS2MEM_HW[0xD000])
 void dmaVIF1()
 {
 
@@ -2240,7 +2241,8 @@ void dmaVIF1()
 	}*/
 
 	if (((psHu32(DMAC_CTRL) & 0xC) == 0x8)) { // VIF MFIFO
-		vifMFIFOInterrupt();
+		//SysPrintf("VIFMFIFO\n");
+		if(vif1ch->madr != spr0->madr)vifMFIFOInterrupt();
 		return;
 	}
 

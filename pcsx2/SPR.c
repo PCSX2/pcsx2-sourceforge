@@ -220,36 +220,40 @@ void _dmaSPR0() {
 		INT(8, cycles);
 	
 }
-
-void SPRFROMinterrupt()
-{
-	spr0->chcr&= ~0x100;
-	hwDmacIrq(8);
-	cpuRegs.interrupt &= ~(1 << 8);
-}
 extern int vifqwc;
 
 extern void mfifoGIFtransfer(int);
 #define gif ((DMACh*)&PS2MEM_HW[0xA000])
+int transqwc = 0;
+
+void SPRFROMinterrupt()
+{
+	if ((psHu32(DMAC_CTRL) & 0xC) == 0xC) { // GIF MFIFO
+		spr0->madr = psHu32(DMAC_RBOR) + (spr0->madr & psHu32(DMAC_RBSR));
+		//SysPrintf("mfifoGIFtransfer %x madr %x, tadr %x\n", gif->chcr, gif->madr, gif->tadr);
+		mfifoGIFtransfer(transqwc);
+	} else
+	if ((psHu32(DMAC_CTRL) & 0xC) == 0x8) { // VIF1 MFIFO
+		spr0->madr = psHu32(DMAC_RBOR) + (spr0->madr & psHu32(DMAC_RBSR));
+		//SysPrintf("mfifoVIF1transfer %x madr %x, tadr %x\n", vif1ch->chcr, vif1ch->madr, vif1ch->tadr);
+		//vifqwc+= qwc;
+		mfifoVIF1transfer(transqwc);
+	}
+	transqwc = 0;
+	spr0->chcr&= ~0x100;
+	hwDmacIrq(8);
+	cpuRegs.interrupt &= ~(1 << 8);
+}
+
 void dmaSPR0() { // fromSPR
-	int qwc = spr0->qwc;
+	if ((psHu32(DMAC_CTRL) & 0xC))transqwc = spr0->qwc;
 #ifdef SPR_LOG
 	SPR_LOG("dmaSPR0 chcr = %lx, madr = %lx, qwc  = %lx, sadr = %lx\n",
 			spr0->chcr, spr0->madr, spr0->qwc, spr0->sadr);
 #endif
 
 	_dmaSPR0();
-	if ((psHu32(DMAC_CTRL) & 0xC) == 0xC) { // GIF MFIFO
-		spr0->madr = psHu32(DMAC_RBOR) + (spr0->madr & psHu32(DMAC_RBSR));
-		//SysPrintf("mfifoGIFtransfer %x madr %x, tadr %x\n", gif->chcr, gif->madr, gif->tadr);
-		mfifoGIFtransfer(qwc);
-	} else
-	if ((psHu32(DMAC_CTRL) & 0xC) == 0x8) { // VIF1 MFIFO
-		spr0->madr = psHu32(DMAC_RBOR) + (spr0->madr & psHu32(DMAC_RBSR));
-		//SysPrintf("mfifoVIF1transfer %x madr %x, tadr %x\n", vif1ch->chcr, vif1ch->madr, vif1ch->tadr);
-		//vifqwc+= qwc;
-		mfifoVIF1transfer(qwc);
-	}
+	
 	
 	FreezeMMXRegs(0);
 	FreezeXMMRegs(0);

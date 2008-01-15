@@ -213,7 +213,7 @@ void psxCheckStartGate(int counter) {  //Check Gate events when Vsync Starts
 
 	if(counter < 3){  //Gates for 16bit counters
 		if((psxCounters[i].mode & 0x1) == 0) return; //Ignore Gate
-		SysPrintf("PSX Gate %x\n", i);
+		//SysPrintf("PSX Gate %x\n", i);
 		switch((psxCounters[i].mode & 0x6) >> 1) {
 			case 0x0: //GATE_ON_count
 				psxRcntUpd32(i);
@@ -238,7 +238,7 @@ void psxCheckStartGate(int counter) {  //Check Gate events when Vsync Starts
 
 	if(counter >= 3){  //Gates for 32bit counters
 		if((psxCounters[i].mode & 0x1) == 0) return; //Ignore Gate
-		SysPrintf("PSX Gate %x\n", i);
+		//SysPrintf("PSX Gate %x\n", i);
 		switch((psxCounters[i].mode & 0x6) >> 1) {
 			case 0x0: //GATE_ON_count
 				psxRcntUpd32(i);
@@ -383,6 +383,10 @@ void psxRcntUpdate() {
 	int i;
 
 	for (i=0; i<=5; i++) {
+		if((psxCounters[i].mode & 0x1) != 0){
+			//SysPrintf("Stopped accidental update of psx counter %x when using a gate\n", i);
+			continue;
+			}
 		psxCounters[i].count += (psxRegs.cycle - psxCounters[i].sCycleT) / psxCounters[i].rate;
 		psxCounters[i].sCycleT = psxRegs.cycle - ((psxRegs.cycle - psxCounters[i].sCycleT) % psxCounters[i].rate);
 	}
