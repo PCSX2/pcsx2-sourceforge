@@ -19,9 +19,9 @@
 #define __VIFDMA_H__
 
 typedef struct {
-   int addr;
-   int size;
-   int cmd;
+   u32 addr;
+   u32 size;
+   u32 cmd;
    u16 wl;
    u16 cl;
 } vifCode;
@@ -39,6 +39,7 @@ typedef struct {
 	u8 stallontag;
 	u8 irqoffset; // 32bit offset where next vif code is
     u32 savedtag; // need this for backwards compat with save states
+	u32 vifpacketsize;
 } vifStruct;
 
 extern vifStruct vif0, vif1;
