@@ -69,8 +69,8 @@ typedef void (*UNPACKFUNCTYPE)( u32 *dest, u32 *data, int size );
 typedef int  (*UNPACKPARTFUNCTYPESSE)( u32 *dest, u32 *data, int size );
 void (*Vif1CMDTLB[82])();
 void (*Vif0CMDTLB[75])();
-int (*Vif1TransTLB[128])(u32 *data, int size);
-int (*Vif0TransTLB[128])(u32 *data, int size);
+int (*Vif1TransTLB[128])(u32 *data);
+int (*Vif0TransTLB[128])(u32 *data);
 
 typedef struct {
 	UNPACKFUNCTYPE       funcU;
@@ -348,7 +348,9 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 	VIFregisters *vifRegs;
 	VURegs * VU;
 	u8 *cdata = (u8*)data;
+#ifdef _DEBUG
 	int memsize;
+#endif
 
 #ifdef _MSC_VER
 	_mm_prefetch((char*)data, _MM_HINT_NTA);
@@ -358,7 +360,9 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 		VU = &VU0;
 		vif = &vif0;
 		vifRegs = vif0Regs;
+#ifdef _DEBUG
 		memsize = 0x1000;
+#endif
 		assert( v->addr < 0x1000 );
 		v->addr &= 0xfff;
 	} else {
@@ -366,7 +370,9 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 		VU = &VU1;
 		vif = &vif1;
 		vifRegs = vif1Regs;
+#ifdef _DEBUG
 		memsize = 0x4000;
+#endif
 		assert( v->addr < 0x4000 );
 		v->addr &= 0x3fff;
 
@@ -415,8 +421,12 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 	if(unpackType == 0xC && vifRegs->cycle.cl == vifRegs->cycle.wl) {
 		// v4-32
 		if(vifRegs->mode == 0 && !(vifRegs->code & 0x10000000)){
-			if (v->size != size)ProcessMemSkip(size << 2, unpackType, VIFdmanum);
-
+			if (v->size != size){
+				vifRegs->num -= size>>2;
+				ProcessMemSkip(size << 2, unpackType, VIFdmanum);
+				} 
+			else vifRegs->num -= 0;
+			
 			memcpy_fast((u8*)dest, cdata, size << 2);
 			size = 0;
 			return;
@@ -854,12 +864,12 @@ __inline void _vif0mpgTransfer(u32 addr, u32 *data, int size) {
 // Vif1 Data Transfer Commands
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-static int Vif0TransNull(u32 *data, int size){ // Shouldnt go here
+static int Vif0TransNull(u32 *data){ // Shouldnt go here
 	SysPrintf("VIF0 Shouldnt go here CMD = %x\n", vif0Regs->code);
 	vif0.cmd &= ~0x7f;
 	return 0;
 }
-static int Vif0TransSTMask(u32 *data, int size){ // STMASK
+static int Vif0TransSTMask(u32 *data){ // STMASK
 	SetNewMask(g_vif0Masks, g_vif0HasMask3, data[0], vif0Regs->mask);
 	vif0Regs->mask = data[0];
 #ifdef VIF_LOG
@@ -870,13 +880,13 @@ static int Vif0TransSTMask(u32 *data, int size){ // STMASK
 	return 1;
 }
 
-static int Vif0TransSTRow(u32 *data, int size){ // STROW
+static int Vif0TransSTRow(u32 *data){ // STROW
     int ret;
 
 	u32* pmem = &vif0Regs->r0+(vif0.tag.addr<<2);
 	u32* pmem2 = g_vifRow0+vif0.tag.addr;
 	assert( vif0.tag.addr < 4 );
-	ret = min(4-vif0.tag.addr, size);
+	ret = min(4-vif0.tag.addr, vif0.vifpacketsize);
 	assert( ret > 0 );
 	switch(ret) {
 		case 4: pmem[12] = data[3]; pmem2[3] = data[3];
@@ -894,12 +904,12 @@ static int Vif0TransSTRow(u32 *data, int size){ // STROW
 	return ret;
 }
 
-static int Vif0TransSTCol(u32 *data, int size){ // STCOL
+static int Vif0TransSTCol(u32 *data){ // STCOL
 	int ret;
 
 	u32* pmem = &vif0Regs->c0+(vif0.tag.addr<<2);
 	u32* pmem2 = g_vifCol0+vif0.tag.addr;
-	ret = min(4-vif0.tag.addr, size);
+	ret = min(4-vif0.tag.addr, vif0.vifpacketsize);
     switch(ret) {
 		case 4: pmem[12] = data[3]; pmem2[3] = data[3];
 		case 3: pmem[8] = data[2]; pmem2[2] = data[2];
@@ -915,12 +925,12 @@ static int Vif0TransSTCol(u32 *data, int size){ // STCOL
 	return ret;
 }
 
-static int Vif0TransMPG(u32 *data, int size){ // MPG
-	if (size < vif0.tag.size) {
-		_vif0mpgTransfer(vif0.tag.addr, data, size);
-        vif0.tag.addr += size << 2;
-        vif0.tag.size -= size; 
-        return size;
+static int Vif0TransMPG(u32 *data){ // MPG
+	if (vif0.vifpacketsize < vif0.tag.size) {
+		_vif0mpgTransfer(vif0.tag.addr, data, vif0.vifpacketsize);
+        vif0.tag.addr += vif0.vifpacketsize << 2;
+        vif0.tag.size -= vif0.vifpacketsize; 
+        return vif0.vifpacketsize;
     } else {
 		int ret;
 		_vif0mpgTransfer(vif0.tag.addr, data, vif0.tag.size);
@@ -931,15 +941,15 @@ static int Vif0TransMPG(u32 *data, int size){ // MPG
     }
 }
 
-static int Vif0TransUnpack(u32 *data, int size){ // UNPACK
-	if (size < vif0.tag.size) {
+static int Vif0TransUnpack(u32 *data){ // UNPACK
+	if (vif0.vifpacketsize < vif0.tag.size) {
 			/* size is less that the total size, transfer is 
 			   'in pieces' */
-			VIFunpack(data, &vif0.tag, size, VIF0dmanum);
+			VIFunpack(data, &vif0.tag, vif0.vifpacketsize, VIF0dmanum);
 		//	g_vifCycles+= size >> 1;
 			//vif0.tag.addr += size << 2;
-			vif0.tag.size -= size; 
-			return size;
+			vif0.tag.size -= vif0.vifpacketsize; 
+			return vif0.vifpacketsize;
 		} else {
 			int ret;
 			/* we got all the data, transfer it fully */
@@ -1035,13 +1045,13 @@ int VIF0transfer(u32 *data, int size, int istag) {
 
 	vif0.stallontag = 0;
 	vif0.vifstalled = 0;
-
-	while (size > 0) {
+	vif0.vifpacketsize = size;
+	while (vif0.vifpacketsize > 0) {
 
 		if (vif0.cmd & 0x7f) {
 			//vif0Regs->stat |= VIF0_STAT_VPS_T;
-			ret = Vif0TransTLB[(vif0.cmd & 0x7f)](data, size);
-			data+= ret; size-= ret;
+			ret = Vif0TransTLB[(vif0.cmd & 0x7f)](data);
+			data+= ret; vif0.vifpacketsize-= ret;
 			transferred+= ret;
 			//vif0Regs->stat &= ~VIF0_STAT_VPS_T;
 			continue;
@@ -1049,10 +1059,9 @@ int VIF0transfer(u32 *data, int size, int istag) {
 		
 		vif0Regs->stat &= ~VIF0_STAT_VPS_W;
 
-		
-		if(vif0.tag.size > 0) SysPrintf("VIF0 Tag size %x when cmd == 0!\n", vif0.tag.size);
+		if(vif0.tag.size != 0) SysPrintf("no vif0 cmd but tag size is left last cmd read %x\n", vif0Regs->code);
 		// if interrupt and new cmd is NOT MARK
-		if(vif0.irq && vif0.tag.size == 0) {
+		if(vif0.irq) {
 			break;
 		}
 
@@ -1079,7 +1088,7 @@ int VIF0transfer(u32 *data, int size, int istag) {
 		//vif0Regs->stat &= ~VIF0_STAT_VPS_D;
 		if(vif0.tag.size > 0) vif0Regs->stat |= VIF0_STAT_VPS_W;
 		++data; 
-		--size;
+		--vif0.vifpacketsize;
 		++transferred;
 
 		if ((vif0.cmd & 0x80) && !(vif0Regs->err & 0x1) ) { //i bit on vifcode and not masked by VIF0_ERR
@@ -1281,7 +1290,7 @@ void  vif0Interrupt() {
 }
 
 //  Vif1 Data Transfer Table
-int (*Vif0TransTLB[128])(u32 *data, int size) = 
+int (*Vif0TransTLB[128])(u32 *data) = 
 {
 	Vif0TransNull	 , Vif0TransNull    , Vif0TransNull	  , Vif0TransNull   , Vif0TransNull   , Vif0TransNull   , Vif0TransNull   , Vif0TransNull   , /*0x7*/
 	Vif0TransNull	 , Vif0TransNull    , Vif0TransNull	  , Vif0TransNull   , Vif0TransNull   , Vif0TransNull   , Vif0TransNull   , Vif0TransNull   , /*0xF*/
@@ -1543,12 +1552,12 @@ __inline void _vif1mpgTransfer(u32 addr, u32 *data, int size) {
 // Vif1 Data Transfer Commands
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-static int Vif1TransNull(u32 *data, int size){ // Shouldnt go here
+static int Vif1TransNull(u32 *data){ // Shouldnt go here
 	SysPrintf("Shouldnt go here CMD = %x\n", vif1Regs->code);
 	vif1.cmd &= ~0x7f;
 	return 0;
 }
-static int Vif1TransSTMask(u32 *data, int size){ // STMASK
+static int Vif1TransSTMask(u32 *data){ // STMASK
 	SetNewMask(g_vif1Masks, g_vif1HasMask3, data[0], vif1Regs->mask);
 	vif1Regs->mask = data[0];
 #ifdef VIF_LOG
@@ -1559,13 +1568,13 @@ static int Vif1TransSTMask(u32 *data, int size){ // STMASK
 	return 1;
 }
 
-static int Vif1TransSTRow(u32 *data, int size){
+static int Vif1TransSTRow(u32 *data){
     int ret;
 
 	u32* pmem = &vif1Regs->r0+(vif1.tag.addr<<2);
 	u32* pmem2 = g_vifRow1+vif1.tag.addr;
 	assert( vif1.tag.addr < 4 );
-	ret = min(4-vif1.tag.addr, size);
+	ret = min(4-vif1.tag.addr, vif1.vifpacketsize);
 	assert( ret > 0 );
 	switch(ret) {
 		case 4: pmem[12] = data[3]; pmem2[3] = data[3];
@@ -1583,12 +1592,12 @@ static int Vif1TransSTRow(u32 *data, int size){
 	return ret;
 }
 
-static int Vif1TransSTCol(u32 *data, int size){
+static int Vif1TransSTCol(u32 *data){
 	int ret;
 
 	u32* pmem = &vif1Regs->c0+(vif1.tag.addr<<2);
 	u32* pmem2 = g_vifCol1+vif1.tag.addr;
-	ret = min(4-vif1.tag.addr, size);
+	ret = min(4-vif1.tag.addr, vif1.vifpacketsize);
     switch(ret) {
 		case 4: pmem[12] = data[3]; pmem2[3] = data[3];
 		case 3: pmem[8] = data[2]; pmem2[2] = data[2];
@@ -1604,12 +1613,12 @@ static int Vif1TransSTCol(u32 *data, int size){
 	return ret;
 }
 
-static int Vif1TransMPG(u32 *data, int size){
-	if (size < vif1.tag.size) {
-		_vif1mpgTransfer(vif1.tag.addr, data, size);
-        vif1.tag.addr += size << 2;
-        vif1.tag.size -= size; 
-        return size;
+static int Vif1TransMPG(u32 *data){
+	if (vif1.vifpacketsize < vif1.tag.size) {
+		_vif1mpgTransfer(vif1.tag.addr, data, vif1.vifpacketsize);
+        vif1.tag.addr += vif1.vifpacketsize << 2;
+        vif1.tag.size -= vif1.vifpacketsize; 
+        return vif1.vifpacketsize;
     } else {
 		int ret;
 		_vif1mpgTransfer(vif1.tag.addr, data, vif1.tag.size);
@@ -1622,11 +1631,11 @@ static int Vif1TransMPG(u32 *data, int size){
 u32 splittransfer[4];
 u32 splitptr = 0;
 
-static int Vif1TransDirectHL(u32 *data, int size){
+static int Vif1TransDirectHL(u32 *data){
 	int ret = 0;
 	
 	if(splitptr > 0){  //Leftover data from the last packet, filling the rest and sending to the GS
-		if(splitptr < 4 && size > (4-(int)splitptr)){
+		if(splitptr < 4 && vif1.vifpacketsize >= (4-splitptr)){
 		
 			while(splitptr < 4){
 				splittransfer[splitptr++] = (u32)data++;
@@ -1634,6 +1643,7 @@ static int Vif1TransDirectHL(u32 *data, int size){
 				vif1.tag.size--;
 			}
 		}
+		if(splitptr < 4) SysPrintf("Whoopsie\n");
 		if( CHECK_MULTIGS ) {
 			u8* gsmem = GSRingBufCopy((u32*)splittransfer[0], 16, GS_RINGTYPE_P2);
 			if( gsmem != NULL ) {
@@ -1649,22 +1659,24 @@ static int Vif1TransDirectHL(u32 *data, int size){
 			FreezeXMMRegs(1);
 			GSGIFTRANSFER2((u32*)splittransfer[0], 1);
 		}
+		if(vif1.tag.size == 0) vif1.cmd &= ~0x7f;
 		splitptr = 0;
 		return ret;
 	}
-	if (size < vif1.tag.size) {
-		if(size < 4 && splitptr != 4) {  //Not a full QW left in the buffer, saving left over data
-			ret = size;
+	if (vif1.vifpacketsize < vif1.tag.size) {
+		if(vif1.vifpacketsize < 4 && splitptr != 4) {  //Not a full QW left in the buffer, saving left over data
+			ret = vif1.vifpacketsize;
 				while(ret > 0){
 					splittransfer[splitptr++] = (u32)data++;
 					vif1.tag.size--;
 					ret--;
 				}
-				return size;
-			} 
+				if(vif1.tag.size < 0) SysPrintf("Help\n");
+				return vif1.vifpacketsize;
+			} else if(vif1.vifpacketsize%4 != 0) SysPrintf("Size left = %x, non-qw aligned amount == %x\n", vif1.vifpacketsize, vif1.vifpacketsize%4);
 
-		vif1.tag.size-= size;
-		ret = size;
+		vif1.tag.size-= vif1.vifpacketsize;
+		ret = vif1.vifpacketsize;
     } else {
         ret = vif1.tag.size;
         vif1.tag.size = 0;
@@ -1690,15 +1702,15 @@ static int Vif1TransDirectHL(u32 *data, int size){
 	return ret;
 }
 
-static int Vif1TransUnpack(u32 *data, int size){
-	if (size < vif1.tag.size) {
+static int Vif1TransUnpack(u32 *data){
+	if (vif1.vifpacketsize < vif1.tag.size) {
 			/* size is less that the total size, transfer is 
 			   'in pieces' */
-			VIFunpack(data, &vif1.tag, size, VIF1dmanum);
+			VIFunpack(data, &vif1.tag, vif1.vifpacketsize, VIF1dmanum);
 		//	g_vifCycles+= size >> 1;
 			//vif1.tag.addr += size << 2;
-			vif1.tag.size -= size; 
-			return size;
+			vif1.tag.size -= vif1.vifpacketsize; 
+			return vif1.vifpacketsize;
 		} else {
 			int ret;
 			/* we got all the data, transfer it fully */
@@ -1840,7 +1852,7 @@ static void Vif1CMDNull(){ // invalid opcode
 
 //  Vif1 Data Transfer Table
 
-int (*Vif1TransTLB[128])(u32 *data, int size) = 
+int (*Vif1TransTLB[128])(u32 *data) = 
 {
 	Vif1TransNull	 , Vif1TransNull    , Vif1TransNull	  , Vif1TransNull   , Vif1TransNull   , Vif1TransNull   , Vif1TransNull   , Vif1TransNull   , /*0x7*/
 	Vif1TransNull	 , Vif1TransNull    , Vif1TransNull	  , Vif1TransNull   , Vif1TransNull   , Vif1TransNull   , Vif1TransNull   , Vif1TransNull   , /*0xF*/
@@ -1891,27 +1903,26 @@ int VIF1transfer(u32 *data, int size, int istag) {
 
 	vif1.vifstalled = 0;
 	vif1.stallontag = 0;
+	vif1.vifpacketsize = size;
 	//vif1.irq = 0;
-	while (size > 0) { 		
+	while (vif1.vifpacketsize > 0) { 		
 
-		if (vif1.cmd & 0x7f) {
+		if (vif1.cmd) {
 			//vif1Regs->stat |= VIF1_STAT_VPS_T;
-			ret = Vif1TransTLB[(vif1.cmd & 0x7f)](data, size);
-			data+= ret; size-= ret;
-			transferred+= ret;
+			ret = Vif1TransTLB[vif1.cmd](data);
+			data+= ret; vif1.vifpacketsize-= ret;
 			//vif1Regs->stat &= ~VIF1_STAT_VPS_T;
 			continue;
 		}
 		
-		vif1Regs->stat &= ~VIF1_STAT_VPS_W;
+		if(vif1.tag.size != 0) SysPrintf("no vif1 cmd but tag size is left last cmd read %x\n", vif1Regs->code);
+		//vif1Regs->stat &= ~VIF1_STAT_VPS_W;
 
-		if(vif1.tag.size > 0) SysPrintf("VIF1 Tag size %x when cmd == 0!\n", vif1.tag.size);
+		//if(vif1.tag.size > 0) SysPrintf("VIF1 Tag size %x when cmd == 0!\n", vif1.tag.size);
 
 		
-		if(vif1.irq && vif1.tag.size == 0) {
-			break;
-		}
-		
+		if(vif1.irq) break;
+
 		vif1.cmd = (data[0] >> 24);
 		vif1Regs->code = data[0];
 		
@@ -1921,25 +1932,24 @@ int VIF1transfer(u32 *data, int size, int istag) {
 			vif1UNPACK(data);
 		} else {
 #ifdef VIF_LOG 
-		VIF_LOG( "VIFtransfer: cmd %x, num %x, imm %x, size %x\n", vif1.cmd, (data[0] >> 16) & 0xff, data[0] & 0xffff, size );
+		VIF_LOG( "VIFtransfer: cmd %x, num %x, imm %x, size %x\n", vif1.cmd, (data[0] >> 16) & 0xff, data[0] & 0xffff, vif1.vifpacketsize );
 #endif
 			//vif1CMD(data, size);
-			if((vif1.cmd & 0x7f) > 0x51){
+			/*if((vif1.cmd & 0x7f) > 0x51){
 				if ((vif1Regs->err & 0x4) == 0) {  //Ignore vifcode and tag mismatch error
 						SysPrintf( "UNKNOWN VifCmd: %x\n", vif1.cmd );
 						vif1Regs->stat |= 1 << 13;
 						vif1.irq++;
 				 }
 				vif1.cmd = 0;
-			} else 	Vif1CMDTLB[(vif1.cmd & 0x7f)]();
+			} else*/ 	Vif1CMDTLB[(vif1.cmd & 0x7f)]();
 		}
 		//vif1Regs->stat &= ~VIF1_STAT_VPS_D;
-		if(vif1.tag.size > 0) vif1Regs->stat |= VIF1_STAT_VPS_W;
+		//if(vif1.tag.size > 0) vif1Regs->stat |= VIF1_STAT_VPS_W;
 		++data; 
-		--size;
-		++transferred;
+		--vif1.vifpacketsize;
 
-		if ((vif1.cmd & 0x80) && !(vif1Regs->err & 0x1)) { //i bit on vifcode and not masked by VIF1_ERR
+		if ((vif1.cmd & 0x80)) { //i bit on vifcode and not masked by VIF1_ERR
 #ifdef VIF_LOG
 			VIF_LOG( "Interrupt on VIFcmd: %x (INTC_MASK = %x)\n", vif1.cmd, psHu32(INTC_MASK) );
 #endif
@@ -1947,17 +1957,21 @@ int VIF1transfer(u32 *data, int size, int istag) {
 				SysPrintf("VIF1 Stall on MFIFO, not implemented!\n");
 			}*/
 			
-			
-			++vif1.irq;
-			vif1.cmd &= 0x7f;
-			if(istag && vif1.tag.size == 0) vif1.stallontag = 1;
+			if(!(vif1Regs->err & 0x1)){
+				++vif1.irq;
+				vif1.cmd &= 0x7f;
+				if(istag && vif1.tag.size <= vif1.vifpacketsize) vif1.stallontag = 1;
+			}
 		} 
 	}
+	if(vif1.cmd != 0 && vif1.tag.size == 0) SysPrintf("cmd but no tag size is left %x\n", vif1.cmd);
+	if(vif1.cmd == 0 && vif1.tag.size != 0) SysPrintf("no cmd but tag size is left last cmd read %x\n", vif1Regs->code);
+	transferred += size - vif1.vifpacketsize;
 	g_vifCycles+= (transferred>>2)*BIAS; /* guessing */
 	// use tag.size because some game doesn't like .cmd
 	//if( !vif1.cmd )
-	if( !vif1.tag.size )
-		vif1Regs->stat &= ~VIF1_STAT_VPS_W;
+	//if( !vif1.tag.size )
+	//	vif1Regs->stat &= ~VIF1_STAT_VPS_W;
 		
 	if (vif1.irq && vif1.tag.size == 0) {
 		vif1.vifstalled = 1;
@@ -1965,14 +1979,11 @@ int VIF1transfer(u32 *data, int size, int istag) {
 		else SysPrintf("Stall on Vif1 MARK\n");
 		// spiderman doesn't break on qw boundaries
 		vif1.irqoffset = transferred%4; // cannot lose the offset
-		if(vif1.tag.size > 0) SysPrintf("Oh dear, possible VIF1 stall problem. CMD %x, tag.size %x\n", vif1.cmd, vif1.tag.size);
 
 		if( istag ) {
 			return -2;
-		}
-
+		}		
 		
-
 		transferred = transferred >> 2;
 		vif1ch->madr+= (transferred << 4);
 		vif1ch->qwc-= transferred;
