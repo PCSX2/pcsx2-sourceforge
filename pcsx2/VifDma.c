@@ -1966,10 +1966,10 @@ int VIF1transfer(u32 *data, int size, int istag) {
 			}*/
 			
 			if(!(vif1Regs->err & 0x1)){
-				++vif1.irq;
-				vif1.cmd &= 0x7f;
+				++vif1.irq;				
 				if(istag && vif1.tag.size <= vif1.vifpacketsize) vif1.stallontag = 1;
 			}
+			vif1.cmd &= 0x7f;
 		} 
 	}
 	if(vif1.cmd != 0 && vif1.tag.size == 0) SysPrintf("cmd but no tag size is left %x\n", vif1.cmd);
