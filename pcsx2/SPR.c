@@ -66,41 +66,39 @@ static void TestClearVUs(u32 madr, u32 size)
 }
 
 int  _SPR0chain() {
-	u32 qwc = spr0->qwc;
 	u32 *pMem;
 
-	if (qwc == 0) return 0;
+	if (spr0->qwc == 0) return 0;
 
 	pMem = (u32*)dmaGetAddr(spr0->madr);
 	if (pMem == NULL) return -1;
 
 	//SPR0transfer(pMem, qwc << 2);
-	qwc <<= 4;
-	if ((psHu32(DMAC_CTRL) & 0xC) == 0xC || // GIF MFIFO
-		(psHu32(DMAC_CTRL) & 0xC) == 0x8) { // VIF1 MFIFO
-		hwMFIFOWrite(spr0->madr, (u8*)&PS2MEM_SCRATCH[spr0->sadr & 0x3fff], qwc);
-		spr0->madr += (spr0->qwc * 16);
+	
+	if ((psHu32(DMAC_CTRL) & 0xC) >= 0x8) { // 0x8 VIF1 MFIFO, 0xC GIF MFIFO
+		if((spr0->madr & ~psHu32(DMAC_RBSR)) != psHu32(DMAC_RBOR)) SysPrintf("SPR MFIFO Write outside MFIFO area\n");
+		hwMFIFOWrite(spr0->madr, (u8*)&PS2MEM_SCRATCH[spr0->sadr & 0x3fff], spr0->qwc << 4);
+		spr0->madr += spr0->qwc << 4;
 		spr0->madr = psHu32(DMAC_RBOR) + (spr0->madr & psHu32(DMAC_RBSR));
 	} else {
-		memcpy_fast((u8*)pMem, &PS2MEM_SCRATCH[spr0->sadr & 0x3fff], qwc);
+		memcpy_fast((u8*)pMem, &PS2MEM_SCRATCH[spr0->sadr & 0x3fff], spr0->qwc << 4);
 
-		Cpu->Clear(spr0->madr, qwc>>2);
+		Cpu->Clear(spr0->madr, spr0->qwc<<2);
 		// clear VU mem also!
-		TestClearVUs(spr0->madr, qwc>>2);
+		TestClearVUs(spr0->madr, spr0->qwc << 2);
 		
-		spr0->madr += qwc;
+		spr0->madr += spr0->qwc << 4;
 	}
-	spr0->sadr += qwc;
+	spr0->sadr += spr0->qwc << 4;
 
-	spr0->qwc = 0;
-    return (qwc>>4) * BIAS; // bus is 1/2 the ee speed
+	
+    return (spr0->qwc) * BIAS; // bus is 1/2 the ee speed
 }
 
 #define SPR0chain() \
-	if (spr0->qwc) { \
-		cycles += _SPR0chain(); \
-/*		cycles+= spr0->qwc / BIAS;*/ /* guessing */ \
-	}
+	cycles += _SPR0chain(); \
+	spr0->qwc = 0;
+
 
 void _SPR0interleave() {
 	int qwc = spr0->qwc;
@@ -239,11 +237,13 @@ void dmaSPR0() { // fromSPR
 
 	_dmaSPR0();
 	if ((psHu32(DMAC_CTRL) & 0xC) == 0xC) { // GIF MFIFO
+		if((spr0->madr & ~psHu32(DMAC_RBSR)) != psHu32(DMAC_RBOR)) SysPrintf("GIF MFIFO Write outside MFIFO area\n");
 		spr0->madr = psHu32(DMAC_RBOR) + (spr0->madr & psHu32(DMAC_RBSR));
 		//SysPrintf("mfifoGIFtransfer %x madr %x, tadr %x\n", gif->chcr, gif->madr, gif->tadr);
 		mfifoGIFtransfer(qwc);
 	} else
 	if ((psHu32(DMAC_CTRL) & 0xC) == 0x8) { // VIF1 MFIFO
+		if((spr0->madr & ~psHu32(DMAC_RBSR)) != psHu32(DMAC_RBOR)) SysPrintf("VIF MFIFO Write outside MFIFO area\n");
 		spr0->madr = psHu32(DMAC_RBOR) + (spr0->madr & psHu32(DMAC_RBSR));
 		//SysPrintf("mfifoVIF1transfer %x madr %x, tadr %x\n", vif1ch->chcr, vif1ch->madr, vif1ch->tadr);
 		//vifqwc+= qwc;
@@ -270,25 +270,23 @@ __inline static void SPR1transfer(u32 *data, int size) {
 }
 
 int  _SPR1chain() {
-	u32 qwc = spr1->qwc;
 	u32 *pMem;
 
-	if (qwc == 0) return 0;
+	if (spr1->qwc == 0) return 0;
 
 	pMem = (u32*)dmaGetAddr(spr1->madr);
 	if (pMem == NULL) return -1;
 
-	SPR1transfer(pMem, qwc << 2);
+	SPR1transfer(pMem, spr1->qwc << 2);
 	spr1->madr+= spr1->qwc << 4;
-	spr1->qwc = 0;
-	return (qwc) * BIAS;
+	
+	return (spr1->qwc) * BIAS;
 }
 
 #define SPR1chain() \
-	if (spr1->qwc) { \
 		cycles += _SPR1chain(); \
-/*		cycles+= spr1->qwc / BIAS;*/ /* guessing */ \
-	}
+		spr1->qwc = 0;
+
 
 void _SPR1interleave() {
 	int qwc = spr1->qwc;

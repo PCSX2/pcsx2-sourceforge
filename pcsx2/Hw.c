@@ -1349,14 +1349,13 @@ void hwDmacIrq(int n) {
 
 /* Write 'size' bytes to memory address 'addr' from 'data'. */
 int hwMFIFOWrite(u32 addr, u8 *data, int size) {
-	u32 maddr = psHu32(DMAC_RBOR);
-	int msize = psHu32(DMAC_RBSR)+16;
+	int msize = psHu32(DMAC_RBOR) + psHu32(DMAC_RBSR)+16;
 	u8 *dst;
 
 	addr = psHu32(DMAC_RBOR) + (addr & psHu32(DMAC_RBSR));
 	/* Check if the transfer should wrap around the ring buffer */
-	if ((addr+size) >= (maddr+msize)) {
-		int s1 = (maddr+msize) - addr;
+	if ((addr+size) >= msize) {
+		int s1 = msize - addr;
 		int s2 = size - s1;
 
 		/* it does, so first copy 's1' bytes from 'data' to 'addr' */
@@ -1366,9 +1365,9 @@ int hwMFIFOWrite(u32 addr, u8 *data, int size) {
 		memcpy_fast(dst, data, s1);
 
 		/* and second copy 's2' bytes from '&data[s1]' to 'maddr' */
-		dst = PSM(maddr);
+		dst = PSM(psHu32(DMAC_RBOR));
 		if (dst == NULL) return -1;
-		Cpu->Clear(maddr, s2/4);
+		Cpu->Clear(psHu32(DMAC_RBOR), s2/4);
 		memcpy_fast(dst, &data[s1], s2);
 	} else {
 		//u32 * tempptr, * tempptr2;

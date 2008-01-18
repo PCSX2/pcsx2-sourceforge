@@ -1450,7 +1450,7 @@ void gifMFIFOInterrupt()
 {
 	mfifocycles = 0;
 
-	if(gifqwc <= 0 && gifdone == 0) {
+	if(gifqwc <= 0 && gifdone != 1) {
 		//SysPrintf("Empty\n");
 		psHu32(GIF_STAT)&= ~0xE00; // OPH=0 | APATH=0
 		hwDmacIrq(14);
@@ -1468,6 +1468,7 @@ void gifMFIFOInterrupt()
 		cpuRegs.interrupt &= ~(1 << 11);
 		return;
 	}
+	//if(gifqwc > 0)SysPrintf("GIF MFIFO ending with stuff in it %x\n", gifqwc);
 	gifqwc = 0;
 	gifdone = 0;
 	gif->chcr &= ~0x100;
