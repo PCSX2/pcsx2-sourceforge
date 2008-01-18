@@ -1248,7 +1248,15 @@ void  vif0Interrupt() {
 				vif0ch->chcr &= ~0x100;
 				cpuRegs.interrupt &= ~1;
 				return;
-			}					
+			}		
+			if(vif0ch->qwc > 0 || vif0.irqoffset > 0){
+				if(vif0.stallontag == 1) {
+					_chainVIF0();
+					}
+				else _VIF0chain();
+				INT(0, g_vifCycles);
+				return;
+			}
 		}
 		
 	//}
@@ -1281,7 +1289,7 @@ void  vif0Interrupt() {
 	
 
 	if(vif0ch->qwc > 0) SysPrintf("VIF0 Ending with QWC left\n");
-
+	if(vif0.cmd != 0) SysPrintf("vif0.cmd still set %x\n", vif0.cmd);
 	vif0ch->chcr &= ~0x100;
 	hwDmacIrq(DMAC_VIF0);
 	vif0Regs->stat&= ~0xF000000; // FQC=0
@@ -1847,7 +1855,7 @@ static void Vif1CMDNull(){ // invalid opcode
             vif1Regs->stat |= 1 << 13;
 			vif1.irq++;
      }
-	 vif1.cmd &= ~0x7f;
+	 vif1.cmd = 0;
 }
 
 //  Vif1 Data Transfer Table
@@ -2151,8 +2159,11 @@ void vif1Interrupt() {
 					return;
 				} 
 			//return 0;
-			if(vif1ch->qwc > 0){
-				_VIF1chain();
+			if(vif1ch->qwc > 0 || vif1.irqoffset > 0){
+				if(vif1.stallontag == 1) {
+					_chainVIF1();
+					}
+				else _VIF1chain();
 				INT(1, g_vifCycles);
 				return;
 			}
@@ -2189,6 +2200,7 @@ void vif1Interrupt() {
 		return;
 	}
 	if(vif1ch->qwc > 0) SysPrintf("VIF1 Ending with QWC left\n");
+	if(vif1.cmd != 0) SysPrintf("vif1.cmd still set %x\n", vif1.cmd);
 	//SysPrintf("VIF Interrupt\n");
 	//if((gif->chcr & 0x100) && vif1Regs->mskpath3) gsInterrupt();
 	prevviftag = NULL;

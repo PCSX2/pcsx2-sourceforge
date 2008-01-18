@@ -489,7 +489,7 @@ void mfifoVIF1transfer(int qwc) {
 #ifdef VIF_LOG
 			VIF_LOG("Added %x qw to mfifo, total now %x\n", qwc, vifqwc);
 #endif
-		if((vif1ch->chcr & 0x100) == 0) return;
+		if((vif1ch->chcr & 0x100) == 0 || vif1.vifstalled == 1) return;
 	}
 
 	 if(vif1ch->qwc == 0 && vifqwc > 0){
@@ -632,6 +632,7 @@ void vifMFIFOInterrupt()
 		return;
 	}
 
+	//if(vifqwc > 0)SysPrintf("VIF MFIFO ending with stuff in it %x\n", vifqwc);
 	vifqwc = 0;
 	vif1.done = 0;
 	vif1ch->chcr &= ~0x100;
