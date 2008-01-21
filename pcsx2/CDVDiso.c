@@ -168,7 +168,7 @@ int CdRead(u32 lsn, u32 sectors, void *buf, CdRMode *mode){
 			return 0;
 		buff = CDVDgetBuffer();
 		if (buff==NULL) return 0;
-
+		FreezeMMXRegs(1);
 		switch (mode->datapattern){
 			case CdSecS2048:
 				memcpy_fast((void*)((uptr)buf+2048*i), buff, 2048);break;//only data
@@ -177,6 +177,7 @@ int CdRead(u32 lsn, u32 sectors, void *buf, CdRMode *mode){
 			case CdSecS2340:
 				memcpy_fast((void*)((uptr)buf+2340*i), buff, 2340);break;//without sync
 		}
+		FreezeMMXRegs(0);
 	}
 	return 1;
 }
@@ -194,7 +195,9 @@ int DvdRead(u32 lsn, u32 sectors, void *buf, CdRMode *mode){
 //		switch (mode->datapattern){
 //			case CdSecS2064:
 				((u32*)buf)[0] = i + 0x30000;
+				FreezeMMXRegs(1);
 				memcpy_fast((u8*)buf+12, buff, 2048); 
+				FreezeMMXRegs(0);
 				buf = (char*)buf + 2064; break;
 //			default:
 //				return 0;
@@ -231,7 +234,9 @@ int CDVD_GetVolumeDescriptor(void){
 			if ((localVolDesc.filesystemType == 1) ||
 				(localVolDesc.filesystemType == 2))
 			{
+				FreezeMMXRegs(1);
 				memcpy_fast(&CDVolDesc, &localVolDesc, sizeof(struct cdVolDesc));
+				FreezeMMXRegs(0);
 			}
 		}
 		else

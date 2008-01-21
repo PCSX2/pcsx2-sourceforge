@@ -436,7 +436,9 @@ void cpuBranchTest()
 	psxCpu->ExecuteBlock();
 	
 	if (VU0.VI[REG_VPU_STAT].UL & 0x1) {
+		FreezeXMMRegs(1);
 		Cpu->ExecuteVU0Block();
+		FreezeXMMRegs(0);
 	}
 
 	if( (int)cpuRegs.cycle-(int)g_nextBranchCycle > 0 )

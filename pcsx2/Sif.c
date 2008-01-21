@@ -62,21 +62,22 @@ int sifInit() {
 
 	return 0;
 }
-
+int wP0;
+int wP1;
 void SIF0write(u32 *from, int words)
 {
-	if(words > (FIFO_SIF0_W-sif0.fifoWritePos)) {
-		int wP0 = (FIFO_SIF0_W-sif0.fifoWritePos);
-		int wP1 = words - wP0;
+	/*if(FIFO_SIF0_W < (words+sif0.fifoWritePos)) {*/
+		wP0 = min((FIFO_SIF0_W-sif0.fifoWritePos),words);
+		wP1 = words - wP0;
 		memcpy_fast(&sif0.fifoData[sif0.fifoWritePos], from, wP0 << 2);
 		memcpy_fast(&sif0.fifoData[0], &from[wP0], wP1 << 2);
-		sif0.fifoWritePos = wP1;
-	}
+		sif0.fifoWritePos = (sif0.fifoWritePos + words) & (FIFO_SIF0_W-1);
+	/*}
 	else
 	{
 		memcpy_fast(&sif0.fifoData[sif0.fifoWritePos], from, words << 2);
 		sif0.fifoWritePos += words;
-	}
+	}*/
 
 	sif0.fifoSize += words;
 #ifdef SIF_LOG
@@ -96,19 +97,19 @@ void SIF0write(u32 *from, int words)
 
 void SIF0read(u32 *to, int words)
 {
-	if(words > (FIFO_SIF0_W-sif0.fifoReadPos))
-	{
-		int wP0 = (FIFO_SIF0_W-sif0.fifoReadPos);
-		int wP1 = words - wP0;
+	/*if(FIFO_SIF0_W < (words+sif0.fifoReadPos)) 
+	{*/
+		wP0 = min((FIFO_SIF0_W-sif0.fifoReadPos),words);
+		wP1 = words - wP0;
 		memcpy_fast(to, &sif0.fifoData[sif0.fifoReadPos], wP0 << 2);
 		memcpy_fast(&to[wP0], &sif0.fifoData[0], wP1 << 2);
-		sif0.fifoReadPos = wP1;
-	}
+		sif0.fifoReadPos = (sif0.fifoReadPos + words) & (FIFO_SIF0_W-1);
+	/*}
 	else
 	{
 		memcpy_fast(to, &sif0.fifoData[sif0.fifoReadPos], words << 2);
 		sif0.fifoReadPos += words;
-	}
+	}*/
 
 	sif0.fifoSize -= words;
 #ifdef SIF_LOG
@@ -118,19 +119,19 @@ void SIF0read(u32 *to, int words)
 
 void SIF1write(u32 *from, int words)
 {
-	if(words > (FIFO_SIF1_W-sif1.fifoWritePos))
-	{
-		int wP0 = (FIFO_SIF1_W-sif1.fifoWritePos);
-		int wP1 = words - wP0;
+	/*if(FIFO_SIF1_W < (words+sif1.fifoWritePos)) 
+	{*/
+		wP0 = min((FIFO_SIF1_W-sif1.fifoWritePos),words);
+		wP1 = words - wP0;
 		memcpy_fast(&sif1.fifoData[sif1.fifoWritePos], from, wP0 << 2);
 		memcpy_fast(&sif1.fifoData[0], &from[wP0], wP1 << 2);
-		sif1.fifoWritePos = wP1;
-	}
+		sif1.fifoWritePos = (sif1.fifoWritePos + words) & (FIFO_SIF1_W-1);
+	/*}
 	else
 	{
 		memcpy_fast(&sif1.fifoData[sif1.fifoWritePos], from, words << 2);
 		sif1.fifoWritePos += words;
-	}
+	}*/
 
 	sif1.fifoSize += words;
 #ifdef SIF_LOG
@@ -144,19 +145,19 @@ void SIF1write(u32 *from, int words)
 
 void SIF1read(u32 *to, int words)
 {
-	if(words > (FIFO_SIF1_W-sif1.fifoReadPos))
-	{
-		int wP0 = (FIFO_SIF1_W-sif1.fifoReadPos);
-		int wP1 = words - wP0;
+	/*if(FIFO_SIF1_W < (words+sif1.fifoReadPos)) 
+	{*/
+		wP0 = min((FIFO_SIF1_W-sif1.fifoReadPos),words);
+		wP1 = words - wP0;
 		memcpy_fast(to, &sif1.fifoData[sif1.fifoReadPos], wP0 << 2);
 		memcpy_fast(&to[wP0], &sif1.fifoData[0], wP1 << 2);
-		sif1.fifoReadPos = wP1;
-	}
+		sif1.fifoReadPos = (sif1.fifoReadPos + words) & (FIFO_SIF1_W-1);
+	/*}
 	else
 	{
 		memcpy_fast(to, &sif1.fifoData[sif1.fifoReadPos], words << 2);
 		sif1.fifoReadPos += words;
-	}
+	}*/
 
 	sif1.fifoSize -= words;
 #ifdef SIF_LOG
@@ -169,7 +170,7 @@ void SIF0Dma()
 	u32 *ptag;
 	int notDone;
 	//int cycles = 0, psxCycles = 0;
-
+	FreezeMMXRegs(1);
 #ifdef SIF_LOG
 	SIF_LOG("SIF0 DMA start...\n");
 #endif
@@ -182,9 +183,9 @@ void SIF0Dma()
 		}*/
 		if(HW_DMA9_CHCR & 0x01000000) // If EE SIF0 is enabled
 		{
-			int size = sif0.counter; //HW_DMA9_BCR >> 16;
+			//int size = sif0.counter; //HW_DMA9_BCR >> 16;
 
-			if(size == 0) // If there's no more to transfer
+			if(sif0.counter == 0) // If there's no more to transfer
 			{
 				// Note.. add normal mode here
 				if (sif0.sifData.data & 0xC0000000) // If NORMAL mode or end of CHAIN, or interrupt then stop DMA
@@ -199,7 +200,7 @@ void SIF0Dma()
 					//hwIntcIrq(INTC_SBUS);
 					sif0.sifData.data = 0;
 				}
-				else if(FIFO_SIF1_W-sif0.fifoSize >= 2) // Chain mode
+				else  // Chain mode
 				{
 					// Process DMA tag at HW_DMA9_TADR
 					sif0.sifData = *(struct sifData *)PSXM(HW_DMA9_TADR);
@@ -235,11 +236,9 @@ void SIF0Dma()
 			}
 			else // There's some data ready to transfer into the fifo..
 			{
-				int wTransfer = sif0.counter; // HW_DMA9_BCR >> 16;
+				int wTransfer = min(sif0.counter, FIFO_SIF0_W-sif0.fifoSize); // HW_DMA9_BCR >> 16;
 
-				if (wTransfer > (FIFO_SIF0_W-sif0.fifoSize))
-					wTransfer = (FIFO_SIF0_W-sif0.fifoSize);
-
+				
 #ifdef SIF_LOG
 				SIF_LOG("+++++++++++ %lX of %lX\n", wTransfer, sif0.counter /*(HW_DMA9_BCR >> 16)*/ );
 #endif
@@ -262,12 +261,9 @@ void SIF0Dma()
 			}
 			if(size > 0) // If we're reading something continue to do so
 			{
-				if(sif0.fifoSize > 0)
-				{
-					int readSize = size;
-
-					if(readSize > (sif0.fifoSize/4))
-						readSize = (sif0.fifoSize/4);
+				/*if(sif0.fifoSize > 0)
+				{*/
+					int readSize = min(size, (sif0.fifoSize>>2));
 
 					//SIF_LOG(" EE SIF doing transfer %04Xqw to %08X\n", readSize, sif0dma->madr);
 #ifdef SIF_LOG
@@ -276,7 +272,7 @@ void SIF0Dma()
 
 					_dmaGetAddr(sif0dma, ptag, sif0dma->madr, 5);
 
-					SIF0read((u32*)ptag, readSize*4);
+					SIF0read((u32*)ptag, readSize<<2);
 //                    {
 //                        int i;
 //                        for(i = 0; i < readSize; ++i) {
@@ -291,7 +287,7 @@ void SIF0Dma()
 					sif0dma->madr += readSize << 4;
 
 					notDone = 1;
-				}
+				//}
 			}
 			else
 			{
@@ -339,9 +335,7 @@ void SIF0Dma()
 			}
 		}
 	}while(notDone);
-
 	FreezeMMXRegs(0);
-	FreezeXMMRegs(0)
 }
 
 void SIF1Dma()
@@ -350,7 +344,7 @@ void SIF1Dma()
 	u32 *ptag;
 	int notDone;
 	//int cycles = 0, psxCycles = 0;
-
+	FreezeMMXRegs(1);
 	do
 	{
 		notDone = 0;
@@ -463,8 +457,8 @@ void SIF1Dma()
 			
 			if(size > 0) // If we're reading something continue to do so
 			{
-				if(sif1.fifoSize > 0)
-				{
+				/*if(sif1.fifoSize > 0)
+				{*/
 					int readSize = size;
 
 					if(readSize > sif1.fifoSize)
@@ -480,10 +474,10 @@ void SIF1Dma()
 					sif1.counter = size-readSize;
 					HW_DMA10_MADR += readSize << 2;
 					notDone = 1;
-				}
+				//}
 			}
 
-			if(size <= 0 || sif1.fifoSize == 0)
+			if(sif1.counter <= 0)
 			{
 				if(sif1.tagMode & 0x80) // Stop on tag IRQ
 				{
@@ -526,9 +520,7 @@ void SIF1Dma()
 			}
 		}
 	}while(notDone);
-
 	FreezeMMXRegs(0);
-	FreezeXMMRegs(0);
 }
 
 int  sif0Interrupt() {

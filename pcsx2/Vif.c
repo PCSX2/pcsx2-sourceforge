@@ -412,13 +412,13 @@ extern int g_vifCycles;
 int vifqwc = 0;
 int mfifoVIF1rbTransfer() {
 	u32 maddr = psHu32(DMAC_RBOR);
-	int msize = psHu32(DMAC_RBSR)+16, ret;
+	int msize = psHu32(DMAC_RBOR) + psHu32(DMAC_RBSR) + 16, ret;
 	int mfifoqwc = min(vif1ch->qwc, vifqwc);
 	u32 *src;
 	
 	/* Check if the transfer should wrap around the ring buffer */
-	if ((vif1ch->madr+(mfifoqwc << 4)) >= (maddr+msize)) {
-		int s1 = (maddr+msize) - vif1ch->madr;
+	if ((vif1ch->madr+(mfifoqwc << 4)) >= (msize)) {
+		int s1 = (msize) - vif1ch->madr;
 		int s2 = (mfifoqwc << 4) - s1;
 
 		/* it does, so first copy 's1' bytes from 'addr' to 'data' */
@@ -432,6 +432,7 @@ int mfifoVIF1rbTransfer() {
 	
 		/* and second copy 's2' bytes from 'maddr' to '&data[s1]' */
 		vif1ch->madr = maddr;
+		
 		src = (u32*)PSM(maddr);
 		if (src == NULL) return -1;
 		ret = VIF1transfer(src, s2>>2, 0); 
@@ -444,7 +445,6 @@ int mfifoVIF1rbTransfer() {
 		else
 			ret = VIF1transfer(src, mfifoqwc << 2, 0); 
 		if(ret == -2) return ret;
-		vif1ch->madr = psHu32(DMAC_RBOR) + (vif1ch->madr & psHu32(DMAC_RBSR));
 	}
 	
 
@@ -493,16 +493,16 @@ void mfifoVIF1transfer(int qwc) {
 	}
 
 	 if(vif1ch->qwc == 0 && vifqwc > 0){
-			if(vif1ch->tadr == spr0->madr) {
+			/*if(vif1ch->tadr == spr0->madr) {
 		
 	#ifdef PCSX2_DEVBUILD
 				SysPrintf("vif mfifo tadr==madr but qwc = %d\n", vifqwc);	
 	#endif	
-				/*FreezeMMXRegs(0);
+				FreezeMMXRegs(0);
 				FreezeXMMRegs(0);
 				//hwDmacIrq(14);
-				return;*/
-			}
+				return;
+			}*/
 			
 			ptag = (u32*)dmaGetAddr(vif1ch->tadr);
 
@@ -515,8 +515,6 @@ void mfifoVIF1transfer(int qwc) {
 #endif
 					vif1.stallontag	= 1;				
 					INT(10,cycles+g_vifCycles);
-					FreezeMMXRegs(0);
-				    FreezeXMMRegs(0);
 					return;        //IRQ set by VIFTransfer
 				} else {
 					vif1.vifstalled = 0;
@@ -588,8 +586,6 @@ void mfifoVIF1transfer(int qwc) {
 #ifdef VIF_LOG
 			VIF_LOG("MFIFO Stall\n");
 #endif
-			FreezeMMXRegs(0);
-			FreezeXMMRegs(0);
 			INT(10,g_vifCycles);
 			return;
 		}
@@ -601,8 +597,6 @@ void mfifoVIF1transfer(int qwc) {
 #ifdef VIF_LOG
 	VIF_LOG("mfifoVIF1transfer end %x madr %x, tadr %x vifqwc %x\n", vif1ch->chcr, vif1ch->madr, vif1ch->tadr, vifqwc);
 #endif
-	FreezeMMXRegs(0);
-	FreezeXMMRegs(0);
 }
 
 void vifMFIFOInterrupt()

@@ -254,8 +254,9 @@ static void recCTC2()
 
 				MOV32ItoM((uptr)&VU1.VI[REG_TPC].UL, g_cpuConstRegs[_Rt_].UL[0]&0xffff);
                 // Execute VU1 Micro SubRoutine
+				FreezeXMMRegs(1);
 				_callFunctionArg1((uptr)vu1ExecMicro, MEM_CONSTTAG, g_cpuConstRegs[_Rt_].UL[0]&0xffff);
-
+				FreezeXMMRegs(0);
 				x86SetJ8( j8Ptr[0] );
 				break;
 			default:
@@ -326,9 +327,9 @@ static void recCTC2()
 
 				_eeMoveGPRtoR(EAX, _Rt_);
 				MOV16RtoM((uptr)&VU1.VI[REG_TPC].UL,EAX);
-
+				FreezeXMMRegs(1);
 				_callFunctionArg1((uptr)vu1ExecMicro, MEM_X86TAG|EAX, 0);	// Execute VU1 Micro SubRoutine
-
+				FreezeXMMRegs(0);
 				x86SetJ8( j8Ptr[0] );
 				break;
 			default:

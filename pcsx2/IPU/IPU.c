@@ -1053,12 +1053,10 @@ void IPUCMD_WRITE(u32 val) {
 				if(ipu0dma->qwc > 0 && (ipu0dma->chcr & 0x100)) INT(DMAC_FROM_IPU,0);
 				IPU_INTERRUPT(DMAC_FROM_IPU);
 				FreezeMMXRegs(0);
-				FreezeXMMRegs(0)
 				return;
 			}
 
 			FreezeMMXRegs(0);
-			FreezeXMMRegs(0)
 			break;
 		case SCE_IPU_PACK:
 
@@ -1069,12 +1067,10 @@ void IPUCMD_WRITE(u32 val) {
 			if( ipuPACK(ipuRegs->cmd.DATA) ) {
 				IPU_INTERRUPT(DMAC_TO_IPU);
 				FreezeMMXRegs(0);
-				FreezeXMMRegs(0)
 				return;
 			}
 
 			FreezeMMXRegs(0);
-			FreezeXMMRegs(0)
 			break;
 
 		case SCE_IPU_IDEC:
@@ -1083,7 +1079,6 @@ void IPUCMD_WRITE(u32 val) {
 				// idec done, ipu0 done too
 				if(ipu0dma->qwc > 0 && (ipu0dma->chcr & 0x100)) INT(DMAC_FROM_IPU,0);
 				FreezeMMXRegs(0);
-				FreezeXMMRegs(0)
 				return;
 			}
 
@@ -1092,7 +1087,6 @@ void IPUCMD_WRITE(u32 val) {
 			ipuCurCmd = val>>28;
 			ipuRegs->ctrl.BUSY = 1;
 			FreezeMMXRegs(0);
-			FreezeXMMRegs(0)
 
 			return;
 
@@ -1101,7 +1095,6 @@ void IPUCMD_WRITE(u32 val) {
 			if( ipuBDEC(val)) {
 				if(ipu0dma->qwc > 0 && (ipu0dma->chcr & 0x100)) INT(DMAC_FROM_IPU,0);
 				FreezeMMXRegs(0);
-				FreezeXMMRegs(0)
 				return;
 			}
 
@@ -1109,7 +1102,6 @@ void IPUCMD_WRITE(u32 val) {
 			ipuCurCmd = val>>28;
 			ipuRegs->ctrl.BUSY = 1;
 			FreezeMMXRegs(0);
-			FreezeXMMRegs(0)
 			
 			return;
 	}
@@ -1184,11 +1176,8 @@ void IPUWorker()
 			break;
 
 		case SCE_IPU_IDEC:
-			FreezeMMXRegs(1);
 			so_call(s_routine);
 			if( !s_RoutineDone ) {
-				FreezeMMXRegs(0);
-				FreezeXMMRegs(0)
 				return;
 			}
 
@@ -1206,17 +1195,12 @@ void IPUWorker()
 			// CHECK!: IPU0dma remains when IDEC is done, so we need to clear it
 			if(ipu0dma->qwc > 0 && (ipu0dma->chcr & 0x100))
                 INT(DMAC_FROM_IPU,0);
-            FreezeMMXRegs(0);
-			FreezeXMMRegs(0)
 			return;
 		case SCE_IPU_BDEC:
-			FreezeMMXRegs(1);
             so_call(s_routine);
 			if(!s_RoutineDone)
 			{
 				//hwIntcIrq(INTC_IPU);
-				FreezeMMXRegs(0);
-				FreezeXMMRegs(0)
 				return;
 			}
 
@@ -1226,8 +1210,6 @@ void IPUWorker()
 			ipuCurCmd = 0xffffffff;
 			if(ipu0dma->qwc > 0 && (ipu0dma->chcr & 0x100)) INT(DMAC_FROM_IPU,0);
 			
-			FreezeMMXRegs(0);
-			FreezeXMMRegs(0)
 			return;
 
 		default:

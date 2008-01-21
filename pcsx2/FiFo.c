@@ -104,7 +104,6 @@ void WriteFIFO(u32 mem, u64 *value) {
 		vif0ch->qwc += 1;
 		ret = VIF0transfer((u32*)value, 4, 0);
 		assert(ret == 0 ); // vif stall code not implemented
-		FreezeXMMRegs(0);
 	}
 	else if ((mem >= 0x10005000) && (mem < 0x10006000)) {
 #ifdef VIF_LOG
@@ -123,7 +122,6 @@ void WriteFIFO(u32 mem, u64 *value) {
 		vif1ch->qwc += 1;
 		ret = VIF1transfer((u32*)value, 4, 0);
 		assert(ret == 0 ); // vif stall code not implemented
-		FreezeXMMRegs(0);
 	}
 	else if ((mem >= 0x10006000) && (mem < 0x10007000)) {
 		u64* data;

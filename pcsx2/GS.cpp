@@ -1007,8 +1007,6 @@ static u64 s_gstag=0; // used for querying the last tag
 		if( !CHECK_DUALCORE ) GS_SETEVENT(); \
 	} \
 	else { \
-		FreezeMMXRegs(1); \
-		FreezeXMMRegs(1); \
 		GSGIFTRANSFER3(pMem, qwc); \
         if( GSgetLastTag != NULL ) { \
             GSgetLastTag(&s_gstag); \
@@ -1065,7 +1063,8 @@ void GIFdma() {
 	u32 *ptag;
 	gscycles= prevcycles ? prevcycles: gscycles;
 	u32 id;
-
+	
+	 
 	/*if ((psHu32(DMAC_CTRL) & 0xC0)) { 
 			SysPrintf("DMA Stall Control %x\n",(psHu32(DMAC_CTRL) & 0xC0));
 			}*/
@@ -1074,10 +1073,12 @@ void GIFdma() {
 	if( (psHu32(GIF_CTRL) & 8) ) {
 		// temporarily stop
 		SysPrintf("Gif dma temp paused?\n");
+
 		return;
 	}
 
-
+	FreezeXMMRegs(1); 
+	FreezeMMXRegs(1);
 #ifdef GIF_LOG
 			GIF_LOG("dmaGIFstart chcr = %lx, madr = %lx, qwc  = %lx\n"
 			"        tadr = %lx, asr0 = %lx, asr1 = %lx\n",
@@ -1103,6 +1104,8 @@ void GIFdma() {
 		if( gif->madr + (gif->qwc * 16) > psHu32(DMAC_STADR) ) {
 			INT(2, gscycles);
 			gscycles = 0;
+			FreezeXMMRegs(0);
+			FreezeMMXRegs(0);
 			return;
 		}
 		prevcycles = 0;
@@ -1134,16 +1137,19 @@ void GIFdma() {
 			GIF_LOG("PTH3 MASK gifdmaChain %8.8x_%8.8x size=%d, id=%d, addr=%lx\n",
 					ptag[1], ptag[0], gif->qwc, id, gif->madr);
 #endif
-				}
-			}
-
-			GIFchain();
-		if ((gif->chcr & 0x80) && ptag[0] >> 31) {			 //Check TIE bit of CHCR and IRQ bit of tag
+			if ((gif->chcr & 0x80) && ptag[0] >> 31) {			 //Check TIE bit of CHCR and IRQ bit of tag
 #ifdef GIF_LOG
 				GIF_LOG("PATH3 MSK dmaIrq Set\n");
 #endif
 				SysPrintf("GIF TIE\n");
+				gspath3done |= 1;
 			}
+			
+				}
+			}
+
+			GIFchain();
+		
 
 		if((gspath3done == 1 || (gif->chcr & 0xc) == 0) && gif->qwc == 0){ 
 			if(gif->qwc > 0)SysPrintf("Horray\n");
@@ -1157,8 +1163,11 @@ void GIFdma() {
 			psHu32(GIF_STAT)&= ~0x1F000000; // QFC=0
 			hwDmacIrq(DMAC_GIF);
 		}
-		FreezeMMXRegs(0);
-		FreezeXMMRegs(0);
+		//Dont unfreeze xmm regs here, Masked PATH3 can only be called by VIF, which is already handling it.
+		if((vif1ch->chcr & 0x100) == 0){
+			FreezeXMMRegs(0);
+			FreezeMMXRegs(0);
+			}
 		return;
 	}
 #endif
@@ -1179,7 +1188,9 @@ void GIFdma() {
 //#endif
 			ptag = (u32*)dmaGetAddr(gif->tadr);  //Set memory pointer to TADR
 			if (ptag == NULL) {					 //Is ptag empty?
-				psHu32(DMAC_STAT)|= 1<<15;		 //If yes, set BEIS (BUSERR) in DMAC_STAT register
+				psHu32(DMAC_STAT)|= 1<<15;		 //If yes, set BEIS (BUSERR) in DMAC_STAT register				
+				FreezeXMMRegs(0);
+				FreezeMMXRegs(0);
 				return;
 			}
 			gscycles+=2; // Add 1 cycles from the QW read for the tag
@@ -1219,8 +1230,8 @@ void GIFdma() {
 					hwDmacIrq(13);
 					INT(2, gscycles);
 					gscycles = 0;
+					FreezeXMMRegs(0); 
 					FreezeMMXRegs(0);
-					FreezeXMMRegs(0);
 					return;
 				}
 			}
@@ -1249,8 +1260,9 @@ void GIFdma() {
 		gscycles = 0;
 	}
 	
+	FreezeXMMRegs(0); 
 	FreezeMMXRegs(0);
-	FreezeXMMRegs(0);
+	
 }
 void dmaGIF() {
 	/*if(vif1Regs->mskpath3 || (psHu32(GIF_MODE) & 0x1)){
@@ -1328,7 +1340,7 @@ int mfifoGIFchain() {
 	/* Is QWC = 0? if so there is nothing to transfer */
 
 	if (gif->qwc == 0) return 0;
-
+	
 	if (gif->madr >= psHu32(DMAC_RBOR) &&
 		gif->madr <= (psHu32(DMAC_RBOR)+psHu32(DMAC_RBSR))) {
 		if (mfifoGIFrbTransfer() == -1) return -1;
@@ -1366,6 +1378,8 @@ void mfifoGIFtransfer(int qwc) {
 	GIF_LOG("mfifoGIFtransfer %x madr %x, tadr %x\n", gif->chcr, gif->madr, gif->tadr);
 #endif
 
+	
+		
  if(gif->qwc == 0 && gifqwc > 0){
 			if(gif->tadr == spr0->madr) {
 	#ifdef PCSX2_DEVBUILD
@@ -1422,13 +1436,16 @@ void mfifoGIFtransfer(int qwc) {
 					break;
 				}
 	 }
-
+		FreezeXMMRegs(1); 
+		FreezeMMXRegs(1);
 		if (mfifoGIFchain() == -1) {
 			SysPrintf("GIF dmaChain error %8.8x_%8.8x size=%d, id=%d, madr=%lx, tadr=%lx\n",
 					ptag[1], ptag[0], gif->qwc, id, gif->madr, gif->tadr);
 			gifdone = 1;
 			INT(11,mfifocycles+g_gifCycles);
 		}
+		FreezeXMMRegs(0); 
+		FreezeMMXRegs(0);
 		
 		if ((gif->chcr & 0x80) && (ptag[0] >> 31)) {
 #ifdef GIF_LOG
@@ -1444,12 +1461,13 @@ void mfifoGIFtransfer(int qwc) {
 #ifdef GIF_LOG
 	GIF_LOG("mfifoGIFtransfer end %x madr %x, tadr %x\n", gif->chcr, gif->madr, gif->tadr);
 #endif
+	
 }
 
 void gifMFIFOInterrupt()
 {
 	mfifocycles = 0;
-
+	
 	if(gifqwc <= 0 && gifdone != 1) {
 		//SysPrintf("Empty\n");
 		psHu32(GIF_STAT)&= ~0xE00; // OPH=0 | APATH=0
@@ -1461,6 +1479,7 @@ void gifMFIFOInterrupt()
 	
 	if(gifdone != 1) {
 		mfifoGIFtransfer(0);
+		
 		return;
 	}
 	if(gifdone == 0 || gif->qwc > 0) {
@@ -1599,8 +1618,8 @@ void* GSThreadProc(void* lpParam)
 							break;
 						case GS_RINGTYPE_VSYNC:
 							GSvsync(*(int*)(g_pGSRingPos+4));
-                            if( PAD1update != NULL ) PAD1update(0);
-                            if( PAD2update != NULL ) PAD2update(1);
+                            /*if( PAD1update != NULL ) PAD1update(0);  *OBSOLETE*
+                            if( PAD2update != NULL ) PAD2update(1);*/
 							InterlockedExchangeAdd((long*)&g_pGSRingPos, 16);
 							break;
 

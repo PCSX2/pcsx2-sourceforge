@@ -769,8 +769,10 @@ void FreezeMMXRegs_(int save)
 	assert( g_EEFreezeRegs );
 
 	if( save ) {
-		if( g_globalMMXSaved )
+		if( g_globalMMXSaved ){
+			SysPrintf("MMX Already Saved!\n");
 			return;
+			}
 		g_globalMMXSaved = 1;
 
 #ifdef _MSC_VER
@@ -801,8 +803,10 @@ void FreezeMMXRegs_(int save)
 
 	}
 	else {
-		if( !g_globalMMXSaved )
+		if( !g_globalMMXSaved ){
+			SysPrintf("MMX Not Saved!\n");
 			return;
+			}
 		g_globalMMXSaved = 0;
 
 #ifdef _MSC_VER

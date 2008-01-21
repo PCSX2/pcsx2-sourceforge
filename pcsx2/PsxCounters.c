@@ -61,7 +61,7 @@ static void psxRcntSet() {
 		if (c < psxNextCounter) {
 			psxNextCounter = (u32)c;
 		}
-		if((psxCounters[i].mode & 0x10) == 0 /*|| (psxCounters[i].target & 0xffff) == 0*/) continue;
+		if((psxCounters[i].mode & 0x10) == 0 || psxCounters[i].target > 0xffff) continue;
 		 c = (u64)(psxCounters[i].target - psxRcntCycles(i)) * psxCounters[i].rate;
 		if (c < psxNextCounter && c > 0) {
 			psxNextCounter = (u32)c;
@@ -74,7 +74,7 @@ static void psxRcntSet() {
 			psxNextCounter = (u32)c;
 		}
 		
-		if((psxCounters[i].mode & 0x10) == 0/* || (psxCounters[i].target & 0xffffffff) == 0*/) continue;
+		if((psxCounters[i].mode & 0x10) == 0 || psxCounters[i].target > 0xffffffff) continue;
 		c = (u64)(psxCounters[i].target - psxRcntCycles(i)) * psxCounters[i].rate;
 		if (c < psxNextCounter && c > 0) {
 			psxNextCounter = (u32)c;

@@ -154,13 +154,12 @@ void vu1ExecMicro(u32 addr)
 	if (addr != -1) VU1.VI[REG_TPC].UL = addr;
 	_vuExecMicroDebug(VU1);
 
-	FreezeXMMRegs(1);
+	
 	//do {
 		Cpu->ExecuteVU1Block();
 	//} while(VU0.VI[REG_VPU_STAT].UL & 0x100);
 	// rec can call vu1ExecMicro
-	FreezeXMMRegs(0);
-	FreezeMMXRegs(0);
+	
 }
 
 void _vu1ExecUpper(VURegs* VU, u32 *ptr) {
