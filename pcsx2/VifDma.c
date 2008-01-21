@@ -1056,7 +1056,6 @@ int VIF0transfer(u32 *data, int size, int istag) {
 			//vif0Regs->stat |= VIF0_STAT_VPS_T;
 			ret = Vif0TransTLB[(vif0.cmd & 0x7f)](data);
 			data+= ret; vif0.vifpacketsize-= ret;
-			transferred+= ret;
 			//vif0Regs->stat &= ~VIF0_STAT_VPS_T;
 			continue;
 		}
@@ -1093,8 +1092,7 @@ int VIF0transfer(u32 *data, int size, int istag) {
 		if(vif0.tag.size > 0) vif0Regs->stat |= VIF0_STAT_VPS_W;
 		++data; 
 		--vif0.vifpacketsize;
-		++transferred;
-
+		
 		if ((vif0.cmd & 0x80) && !(vif0Regs->err & 0x1) ) { //i bit on vifcode and not masked by VIF0_ERR
 #ifdef VIF_LOG
 			VIF_LOG( "Interrupt on VIFcmd: %x (INTC_MASK = %x)\n", vif0.cmd, psHu32(INTC_MASK) );
