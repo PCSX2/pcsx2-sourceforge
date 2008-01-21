@@ -101,7 +101,6 @@ void _vu0WaitMicro() {
 	VU0.flags|= VUFLAG_BREAKONMFLAG;
 	VU0.flags&= ~VUFLAG_MFLAGSET;
 
-	FreezeXMMRegs(1);
 	do {
 		Cpu->ExecuteVU0Block();
         // knockout kings 2002 loops here
@@ -110,9 +109,6 @@ void _vu0WaitMicro() {
             break;
         }
 	} while ((VU0.VI[REG_VPU_STAT].UL & 0x1) && (VU0.flags & VUFLAG_MFLAGSET) == 0);
-
-	FreezeXMMRegs(0);
-	FreezeMMXRegs(0);
 
 	//NEW
 	cpuRegs.cycle += (VU0.cycle-startcycle)*2;
@@ -181,7 +177,9 @@ void CTC2() {
 		case REG_CMSAR1: // REG_CMSAR1
 			if (!(VU0.VI[REG_VPU_STAT].UL & 0x100) ) {
 				VU1.VI[REG_TPC].UL = cpuRegs.GPR.r[_Rt_].US[0];
+				FreezeXMMRegs(1);
 				vu1ExecMicro(VU1.VI[REG_TPC].UL);	// Execute VU1 Micro SubRoutine
+				FreezeXMMRegs(0);
 			}
 			break;
 		default:
@@ -374,16 +372,16 @@ void vu0Finish()
 
 void VCALLMS() {
 
+	FreezeMMXRegs(1);
 	vu0Finish();
 	vu0ExecMicro(((cpuRegs.code >> 6) & 0x7FFF) * 8);
-	FreezeXMMRegs(0);
 	FreezeMMXRegs(0);
 }     
 
 void VCALLMSR() {
+	FreezeMMXRegs(1);
 	vu0Finish();
 	vu0ExecMicro(VU0.VI[REG_CMSAR0].US[0] * 8);
-	FreezeXMMRegs(0);
 	FreezeMMXRegs(0);
 }  
 

@@ -185,7 +185,9 @@ int CDVDFS_read( int fd, char *buffer, int size ){
 #endif
 			return 0;
 		}
+		FreezeMMXRegs(1);
 		memcpy_fast(buffer, lb + off_sector, ssize);
+		FreezeMMXRegs(0);
 	}
 	if (asize)	if (CdRead(asector, asize >> 11, buffer+ssize, &cdReadMode) != TRUE){
 #ifdef RPC_LOG
@@ -199,7 +201,9 @@ int CDVDFS_read( int fd, char *buffer, int size ){
 #endif
 			return 0;
 		}
+		FreezeMMXRegs(1);
 		memcpy_fast(buffer+ssize+asize, lb, esize);
+		FreezeMMXRegs(0);
 	}
 /***********************
 	// Now work out where we want to start reading from

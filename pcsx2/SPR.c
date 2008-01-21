@@ -82,7 +82,6 @@ int  _SPR0chain() {
 		spr0->madr = psHu32(DMAC_RBOR) + (spr0->madr & psHu32(DMAC_RBSR));
 	} else {
 		memcpy_fast((u8*)pMem, &PS2MEM_SCRATCH[spr0->sadr & 0x3fff], spr0->qwc << 4);
-
 		Cpu->Clear(spr0->madr, spr0->qwc<<2);
 		// clear VU mem also!
 		TestClearVUs(spr0->madr, spr0->qwc << 2);
@@ -123,7 +122,6 @@ void _SPR0interleave() {
 			Cpu->Clear(spr0->madr, spr0->qwc<<2);
 			// clear VU mem also!
 			TestClearVUs(spr0->madr, spr0->qwc<<2);
-
 			memcpy_fast((u8*)pMem, &PS2MEM_SCRATCH[spr0->sadr & 0x3fff], spr0->qwc<<4);
 		}
 		cycles += tqwc * BIAS;
@@ -230,12 +228,14 @@ extern void mfifoGIFtransfer(int);
 #define gif ((DMACh*)&PS2MEM_HW[0xA000])
 void dmaSPR0() { // fromSPR
 	int qwc = spr0->qwc;
+	FreezeMMXRegs(1);
 #ifdef SPR_LOG 
 	SPR_LOG("dmaSPR0 chcr = %lx, madr = %lx, qwc  = %lx, sadr = %lx\n",
 			spr0->chcr, spr0->madr, spr0->qwc, spr0->sadr);
 #endif
 
 	_dmaSPR0();
+	FreezeMMXRegs(0);
 	if ((psHu32(DMAC_CTRL) & 0xC) == 0xC) { // GIF MFIFO
 		if((spr0->madr & ~psHu32(DMAC_RBSR)) != psHu32(DMAC_RBOR)) SysPrintf("GIF MFIFO Write outside MFIFO area\n");
 		spr0->madr = psHu32(DMAC_RBOR) + (spr0->madr & psHu32(DMAC_RBSR));
@@ -250,8 +250,6 @@ void dmaSPR0() { // fromSPR
 		mfifoVIF1transfer(qwc);
 	}
 	
-	FreezeMMXRegs(0);
-	FreezeXMMRegs(0);
 }
 
 __inline static void SPR1transfer(u32 *data, int size) {
@@ -318,7 +316,7 @@ void dmaSPR1() { // toSPR
 	u32 *ptag;
 	int id, done=0;
 	int cycles = 0;
-
+	FreezeMMXRegs(1);
 #ifdef SPR_LOG
 	SPR_LOG("dmaSPR1 chcr = 0x%x, madr = 0x%x, qwc  = 0x%x\n"
 			"        tadr = 0x%x, sadr = 0x%x\n",
@@ -329,7 +327,6 @@ void dmaSPR1() { // toSPR
 	if ((spr1->chcr & 0xc) == 0x8) { // Interleave Mode
 		_SPR1interleave();
 		FreezeMMXRegs(0);
-		FreezeXMMRegs(0)
 		return;
 	}
 
@@ -337,9 +334,8 @@ void dmaSPR1() { // toSPR
 	if ((spr1->chcr & 0xc) == 0 || spr1->qwc > 0) { // Normal Mode
 		// Transfer Dn_QWC from Dn_MADR to SPR1
 		SPR1chain();
-		INT(9, cycles);
+		INT(9, cycles); 
 		FreezeMMXRegs(0);
-		FreezeXMMRegs(0)
 		return;
 	}
 
@@ -389,10 +385,8 @@ void dmaSPR1() { // toSPR
 		}
 	}
 
-	
-	INT(9, cycles);
 	FreezeMMXRegs(0);
-	FreezeXMMRegs(0)
+	INT(9, cycles);
 }
 
 void SPRTOinterrupt()

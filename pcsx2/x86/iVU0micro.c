@@ -75,8 +75,7 @@ void recExecuteVU0Block( void )
 #endif
 
 	//while( (VU0.VI[ REG_VPU_STAT ].UL&1) ) {
-		if( CHECK_VU0REC) {
-			FreezeXMMRegs(1);
+		if( CHECK_VU0REC) {			
 			SuperVUExecuteProgram(VU0.VI[ REG_TPC ].UL&0xfff, 0);
 		}
 		else {

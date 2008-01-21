@@ -66,7 +66,7 @@ void rcntSet() {
 			}
 		
 		// the + 10 is just in case of overflow
-			if(!(counters[i].mode & 0x100) /*&& (counters[i].target & 0xffff) > 0*/) continue;
+			if(!(counters[i].mode & 0x100) || counters[i].target > 0xffff) continue;
 			 c = (counters[i].target - rcntCycle(i)) * counters[i].rate;
 			if (c < nextCounter) {
 			nextCounter = c;
@@ -231,9 +231,9 @@ void VSync()
 		else {
 			GSvsync(newfield);
 
-            // update here on single thread mode
-            if( PAD1update != NULL ) PAD1update(0);
-            if( PAD2update != NULL ) PAD2update(1);
+            // update here on single thread mode *OBSOLETE*
+            /*if( PAD1update != NULL ) PAD1update(0);
+            if( PAD2update != NULL ) PAD2update(1);*/
 		}
 
 		counters[5].mode&= ~0x10000;
@@ -326,15 +326,7 @@ void VSync()
 		}
 #endif
 
-		if(lastWasSkip)
-		{
-			if( CHECK_MULTIGS ) GSRingBufSimplePacket(GS_RINGTYPE_FRAMESKIP, 0, 0, 0);
-			else GSsetFrameSkip(0);
-			if( CHECK_FRAMELIMIT == PCSX2_FRAMELIMIT_VUSKIP ) {
-				Cpu->ExecuteVU1Block = s_prevExecuteVU1Block;
-			}
-			lastWasSkip=0;
-		}
+		
 
 		// used to limit frames
 		switch(CHECK_FRAMELIMIT) {
@@ -357,6 +349,15 @@ void VSync()
 				u32 uCurTime = timeGetTime();
 				u32 uDeltaTime = uCurTime - uLastTime;
 
+				if(lastWasSkip)
+					{
+						if( CHECK_MULTIGS ) GSRingBufSimplePacket(GS_RINGTYPE_FRAMESKIP, 0, 0, 0);
+						else GSsetFrameSkip(0);
+						if( CHECK_FRAMELIMIT == PCSX2_FRAMELIMIT_VUSKIP ) {
+							Cpu->ExecuteVU1Block = s_prevExecuteVU1Block;
+						}
+						lastWasSkip=0;
+					}
 				assert( GSsetFrameSkip != NULL );
 
 				if( uLastTime > 0 ) {
@@ -550,10 +551,11 @@ void rcntUpdate()
 		hblankend = 1;
 	}
 	
-	if ((cpuRegs.cycle - counters[5].sCycleT)
-		>= counters[5].CycleT && (counters[5].mode & 0x10000)){
-			counters[5].CycleT  = counters[5].rate-PS2VBLANKEND;
-			VSync();
+	if((counters[5].mode & 0x10000)){
+		if ((cpuRegs.cycle - counters[5].sCycleT)  >= counters[5].CycleT){
+				counters[5].CycleT  = counters[5].rate-PS2VBLANKEND;
+				VSync();
+			}
 	} else if ((cpuRegs.cycle - counters[5].sCycleT) >= counters[5].CycleT) {
 			counters[5].sCycleT = cpuRegs.cycle;
 			counters[5].sCycle = cpuRegs.cycle;

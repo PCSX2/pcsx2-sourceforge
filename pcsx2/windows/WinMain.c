@@ -1432,8 +1432,8 @@ void SysMessage(char *fmt, ...) {
 
 void SysUpdate() {
 
-    KeyEvent(PAD1keyEvent());
-	KeyEvent(PAD2keyEvent());
+    KeyEvent(PAD1keyEvent()); //Only need 1 as its used for windows keys only
+//	KeyEvent(PAD2keyEvent());
 }
 
 void SysRunGui() {

@@ -983,8 +983,10 @@ void FreezeXMMRegs_(int save)
 	assert( g_EEFreezeRegs );
 
 	if( save ) {
-		if( g_globalXMMSaved )
+		if( g_globalXMMSaved ){
+			SysPrintf("XMM Already saved\n");
 			return;
+			}
 		// only necessary for nonsse CPUs (very rare)
 		if( !cpucaps.hasStreamingSIMDExtensions )
 			return;
@@ -1027,8 +1029,10 @@ void FreezeXMMRegs_(int save)
 #endif // _MSC_VER
 	}
 	else {
-		if( !g_globalXMMSaved )
+		if( !g_globalXMMSaved ){
+			SysPrintf("XMM Regs not saved!\n");
 			return;
+			}
 
         // TODO: really need to backup all regs?
 		g_globalXMMSaved = 0;

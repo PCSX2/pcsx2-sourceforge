@@ -1352,6 +1352,7 @@ int hwMFIFOWrite(u32 addr, u8 *data, int size) {
 	int msize = psHu32(DMAC_RBOR) + psHu32(DMAC_RBSR)+16;
 	u8 *dst;
 
+
 	addr = psHu32(DMAC_RBOR) + (addr & psHu32(DMAC_RBSR));
 	/* Check if the transfer should wrap around the ring buffer */
 	if ((addr+size) >= msize) {
@@ -1378,6 +1379,7 @@ int hwMFIFOWrite(u32 addr, u8 *data, int size) {
 		Cpu->Clear(addr, size/4);
 		memcpy_fast(dst, data, size);
 	}
+	
 
 	return 0;
 }
@@ -1410,6 +1412,7 @@ int hwDmacSrcChainWithStack(DMACh *dma, int id) {
 		case 5: // Call - Transfer QWC following the tag, save succeeding tag
 			temp = dma->madr;								//Temporarily Store ADDR
 			finalAddress = dma->tadr + 16 + (dma->qwc << 4); //Store Address of Succeeding tag
+			dma->madr = dma->tadr + 16;						//Set MADR to data following the tag
 	
 			if ((dma->chcr & 0x30) == 0x0) {								//Check if ASR0 is empty
 				dma->asr0 = finalAddress;					//If yes store Succeeding tag
@@ -1421,7 +1424,7 @@ int hwDmacSrcChainWithStack(DMACh *dma, int id) {
 				SysPrintf("Call Stack Overflow (report if it fixes/breaks anything)\n");
 				return 1;										//Return done
 			}
-			dma->madr = dma->tadr + 16;						//Set MADR to data following the tag
+			
 			dma->tadr = temp;								//Set TADR to temporarily stored ADDR
 			return 0;
 

@@ -95,7 +95,7 @@ void checkregs()
 
 void * memcpy_amd_(void *dest, const void *src, size_t n)
 {
-	FreezeMMXRegs(1);
+	
 
 #ifdef _DEBUG
 	__asm call checkregs
@@ -309,7 +309,6 @@ $memcpy_final:
 // (zerofrog)
 u8 memcmp_mmx(const void* src1, const void* src2, int cmpsize)
 {
-	FreezeMMXRegs(1);
 	assert( (cmpsize&7) == 0 );
 
 	__asm {
@@ -587,6 +586,7 @@ Setup1:
 End:
 		emms
 	}
+	FreezeMMXRegs(0);
 }
 
 #endif
