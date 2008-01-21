@@ -1056,28 +1056,21 @@ int VIF0transfer(u32 *data, int size, int istag) {
 			//vif0Regs->stat |= VIF0_STAT_VPS_T;
 			ret = Vif0TransTLB[(vif0.cmd & 0x7f)](data);
 			data+= ret; vif0.vifpacketsize-= ret;
+			transferred+= ret;
 			//vif0Regs->stat &= ~VIF0_STAT_VPS_T;
 			continue;
 		}
 		
 		vif0Regs->stat &= ~VIF0_STAT_VPS_W;
 
-		//if(vif0.tag.size != 0) SysPrintf("no vif0 cmd but tag size is left last cmd read %x\n", vif0Regs->code);
+		if(vif0.tag.size != 0) SysPrintf("no vif0 cmd but tag size is left last cmd read %x\n", vif0Regs->code);
 		// if interrupt and new cmd is NOT MARK
 		if(vif0.irq) {
 			break;
 		}
 
-		while(vif0.vifpacketsize > 0){
-			--vif0.vifpacketsize;
-			if(data[0]){
-					vif0Regs->code = data[0];
-					vif0.cmd = (data[0] >> 24);
-					++data;
-					break;
-				}
-			++data;
-			}
+		vif0.cmd = (data[0] >> 24);
+		vif0Regs->code = data[0];
 		
 
 		//vif0Regs->stat |= VIF0_STAT_VPS_D;
@@ -1085,7 +1078,7 @@ int VIF0transfer(u32 *data, int size, int istag) {
 			vif0UNPACK(data);
 		} else {
 #ifdef VIF_LOG 
-		VIF_LOG( "VIFtransfer: cmd %x, num %x, imm %x, size %x\n", vif0.cmd, (vif0Regs->code >> 16) & 0xff, vif0Regs->code & 0xffff, size );
+		VIF_LOG( "VIFtransfer: cmd %x, num %x, imm %x, size %x\n", vif0.cmd, (data[0] >> 16) & 0xff, data[0] & 0xffff, size );
 #endif
 			if((vif0.cmd & 0x7f) > 0x4A){
 				if ((vif0Regs->err & 0x4) == 0) {  //Ignore vifcode and tag mismatch error
@@ -1098,7 +1091,9 @@ int VIF0transfer(u32 *data, int size, int istag) {
 		}
 		//vif0Regs->stat &= ~VIF0_STAT_VPS_D;
 		if(vif0.tag.size > 0) vif0Regs->stat |= VIF0_STAT_VPS_W;
-		
+		++data; 
+		--vif0.vifpacketsize;
+		++transferred;
 
 		if ((vif0.cmd & 0x80) && !(vif0Regs->err & 0x1) ) { //i bit on vifcode and not masked by VIF0_ERR
 #ifdef VIF_LOG
