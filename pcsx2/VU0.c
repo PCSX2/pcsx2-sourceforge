@@ -374,18 +374,18 @@ void vu0Finish()
 }
 
 void VCALLMS() {
-
-	FreezeMMXRegs(1);
+	FreezeXMMRegs(1);
+	
 	vu0Finish();
 	vu0ExecMicro(((cpuRegs.code >> 6) & 0x7FFF) * 8);
-	FreezeMMXRegs(0);
+	FreezeXMMRegs(0);
 }     
 
 void VCALLMSR() {
-	FreezeMMXRegs(1);
+	FreezeXMMRegs(1);
 	vu0Finish();
 	vu0ExecMicro(VU0.VI[REG_CMSAR0].US[0] * 8);
-	FreezeMMXRegs(0);
+	FreezeXMMRegs(0);
 }  
 
 #ifndef _MSC_VER
