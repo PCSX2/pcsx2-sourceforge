@@ -92,10 +92,11 @@ void SQC2() {
 //****************************************************************************
 void _vu0WaitMicro() {
 	int startcycle;
+	
 	if ((VU0.VI[REG_VPU_STAT].UL & 0x1) == 0) {
 		return;
 	}
-
+	FreezeXMMRegs(1);
 	startcycle = VU0.cycle;
 
 	VU0.flags|= VUFLAG_BREAKONMFLAG;
@@ -110,6 +111,7 @@ void _vu0WaitMicro() {
         }
 	} while ((VU0.VI[REG_VPU_STAT].UL & 0x1) && (VU0.flags & VUFLAG_MFLAGSET) == 0);
 
+	FreezeXMMRegs(0);
 	//NEW
 	cpuRegs.cycle += (VU0.cycle-startcycle)*2;
 	VU0.flags&= ~VUFLAG_BREAKONMFLAG;
@@ -355,6 +357,7 @@ void vu0Finish()
 {
 	if( (VU0.VI[REG_VPU_STAT].UL & 0x1) ) {
 		int i = 0;
+
 		while(i++ < 32) {
 			Cpu->ExecuteVU0Block();
 			if(!(VU0.VI[REG_VPU_STAT].UL & 0x1))

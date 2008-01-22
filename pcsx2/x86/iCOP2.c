@@ -254,9 +254,20 @@ static void recCTC2()
 
 				MOV32ItoM((uptr)&VU1.VI[REG_TPC].UL, g_cpuConstRegs[_Rt_].UL[0]&0xffff);
                 // Execute VU1 Micro SubRoutine
-				FreezeXMMRegs(1);
+#ifdef __x86_64__
+                _callFunctionArg1((uptr)FreezeXMMRegs_, MEM_CONSTTAG, 1);
+#else
+				PUSH32I(1);
+                CALLFunc((uptr)FreezeXMMRegs_);
+#endif
 				_callFunctionArg1((uptr)vu1ExecMicro, MEM_CONSTTAG, g_cpuConstRegs[_Rt_].UL[0]&0xffff);
-				FreezeXMMRegs(0);
+#ifdef __x86_64__
+                _callFunctionArg1((uptr)FreezeXMMRegs_, MEM_CONSTTAG, 0);
+#else
+				PUSH32I(0);
+                CALLFunc((uptr)FreezeXMMRegs_);
+                ADD32ItoR(ESP, 4);
+#endif
 				x86SetJ8( j8Ptr[0] );
 				break;
 			default:
@@ -276,14 +287,21 @@ static void recCTC2()
                 iFlushCall(IS_X8664?(FLUSH_FREE_TEMPX86|FLUSH_FREE_VU0):FLUSH_NOCONST);
                 TEST32ItoM((uptr)&VU0.VI[REG_VPU_STAT].UL, 1);
                 j8Ptr[0] = JZ8(0);
+
+#ifdef __x86_64__
+                _callFunctionArg1((uptr)FreezeXMMRegs_, MEM_CONSTTAG, 1);
+#else
+				PUSH32I(1);
+                CALLFunc((uptr)FreezeXMMRegs_);
+#endif
+			
                 CALLFunc((uptr)Cpu->ExecuteVU0Block);
 
 #ifdef __x86_64__
                 _callFunctionArg1((uptr)FreezeXMMRegs_, MEM_CONSTTAG, 0);
 #else
-                PUSH32I(0);
+				PUSH32I(0);
                 CALLFunc((uptr)FreezeXMMRegs_);
-                CALLFunc((uptr)FreezeMMXRegs_);
                 ADD32ItoR(ESP, 4);
 #endif
                 x86SetJ8(j8Ptr[0]);
@@ -346,14 +364,18 @@ static void recCTC2()
                 iFlushCall(IS_X8664?(FLUSH_FREE_VU0|FLUSH_FREE_TEMPX86):FLUSH_NOCONST);
                 TEST32ItoM((uptr)&VU0.VI[REG_VPU_STAT].UL, 1);
                 j8Ptr[0] = JZ8(0);
+#ifdef __x86_64__
+                _callFunctionArg1((uptr)FreezeXMMRegs_, MEM_CONSTTAG, 1);
+#else
+				PUSH32I(1);
+                CALLFunc((uptr)FreezeXMMRegs_);
+#endif
                 CALLFunc((uptr)Cpu->ExecuteVU0Block);
-
 #ifdef __x86_64__
                 _callFunctionArg1((uptr)FreezeXMMRegs_, MEM_CONSTTAG, 0);
 #else
-                PUSH32I(0);
+				PUSH32I(0);
                 CALLFunc((uptr)FreezeXMMRegs_);
-                CALLFunc((uptr)FreezeMMXRegs_);
                 ADD32ItoR(ESP, 4);
 #endif
                 x86SetJ8(j8Ptr[0]);
