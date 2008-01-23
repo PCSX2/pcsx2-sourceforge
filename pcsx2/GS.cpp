@@ -92,6 +92,8 @@ HANDLE g_hGsEvent = NULL, // set when path3 is ready to be processed
 HANDLE g_hGSOpen = NULL, g_hGSDone = NULL;
 HANDLE g_hVuGsThread = NULL;
 
+bool gsHasToExit=false;
+
 DWORD WINAPI GSThreadProc(LPVOID lpParam);
 
 #else
@@ -200,6 +202,8 @@ void gsInit()
 		g_hGSOpen = CreateEvent(NULL, FALSE, FALSE, NULL);
 		g_hGSDone = CreateEvent(NULL, FALSE, FALSE, NULL);
 
+		gsHasToExit=false;
+
 		SysPrintf("gsInit\n");
 
 		g_hVuGsThread = CreateThread(NULL, 0, GSThreadProc, NULL, 0, NULL);
@@ -240,9 +244,11 @@ void gsShutdown()
 	if( CHECK_MULTIGS ) {
 
 #if defined(_WIN32) && !defined(WIN32_PTHREADS)
+		gsHasToExit=true;
 		SetEvent(g_hVuGSExit);
 		SysPrintf("Closing gs thread\n");
 		WaitForSingleObject(g_hVuGsThread, INFINITE);
+		gsHasToExit=false;
 		CloseHandle(g_hVuGsThread);
 		CloseHandle(g_hGsEvent);
 		CloseHandle(g_hVuGSExit);
@@ -420,6 +426,8 @@ void gsReset()
 #if defined(_WIN32) && !defined(WIN32_PTHREADS)
 		ResetEvent(g_hGsEvent);
 		ResetEvent(g_hVuGSExit);
+
+		gsHasToExit=false;
 #else
         //TODO
 #endif
@@ -1500,6 +1508,11 @@ void gifMFIFOInterrupt()
 	cpuRegs.interrupt &= ~(1 << 11);
 }
 
+int HasToExit()
+{
+	return (gsHasToExit!=0);
+}
+
 #if defined(_WIN32) && !defined(WIN32_PTHREADS)
 DWORD WINAPI GSThreadProc(LPVOID lpParam)
 {
@@ -1546,19 +1559,14 @@ void* GSThreadProc(void* lpParam)
 	u32 tag;
 	u32 counter = 0;
 
-	while(1) {
+	while(!gsHasToExit) {
 
 #if defined(_WIN32) && !defined(WIN32_PTHREADS)
-		if( !CHECK_DUALCORE ) {
-			if( WaitForMultipleObjects(2, handles, FALSE, INFINITE) == WAIT_OBJECT_0+1 ) {
-				GSclose();
-				return 0;
-			}
-		}
-		else if( !(counter++ & 0xffff) ) {
-			if( WaitForSingleObject(g_hVuGSExit, 0) == WAIT_OBJECT_0 ) {
-				GSclose();
-				return 0;
+		if( !CHECK_DUALCORE ) 
+		{
+			if( WaitForMultipleObjects(2, handles, FALSE, INFINITE) == WAIT_OBJECT_0+1 ) 
+			{
+				break; //exit thread and close gs
 			}
 		}
 #else
@@ -1776,6 +1784,7 @@ ExitGS:
 		// process vu1
 	}
 
+	GSclose();
 	return 0;
 }
 
