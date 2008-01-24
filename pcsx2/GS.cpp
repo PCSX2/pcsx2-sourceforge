@@ -1297,33 +1297,28 @@ void dmaGIF() {
 
 static unsigned int mfifocycles;
 static unsigned int giftempqwc = 0;
-static unsigned int g_gifCycles = 0;
 static unsigned int gifqwc = 0;
 static unsigned int gifdone = 0;
 
 int mfifoGIFrbTransfer() {
-	u32 maddr = psHu32(DMAC_RBOR);
-	int msize = psHu32(DMAC_RBSR)+16;
 	u32 qwc = (psHu32(GIF_MODE) & 0x4) ? min(8, (int)gif->qwc) : gif->qwc;
 	int mfifoqwc = min(gifqwc, qwc);
 	u32 *src;
 
-	if (qwc == 0) return 0;
 
 	/* Check if the transfer should wrap around the ring buffer */
-	if ((gif->madr+mfifoqwc*16) >= (maddr+msize)) {
-		int s1 = (maddr+msize) - gif->madr;
-		int s2 = mfifoqwc*16 - s1;
-
+	if ((gif->madr+mfifoqwc*16) > (psHu32(DMAC_RBOR) + psHu32(DMAC_RBSR)+16)) {
+		int s1 = ((psHu32(DMAC_RBOR) + psHu32(DMAC_RBSR)+16) - gif->madr) >> 4;
+		
 		/* it does, so first copy 's1' bytes from 'addr' to 'data' */
 		src = (u32*)PSM(gif->madr);
 		if (src == NULL) return -1;
-		WRITERING_DMA(src, s1>>4);
+		WRITERING_DMA(src, s1);
 
 		/* and second copy 's2' bytes from 'maddr' to '&data[s1]' */
-		src = (u32*)PSM(maddr);
+		src = (u32*)PSM(psHu32(DMAC_RBOR));
 		if (src == NULL) return -1;
-		WRITERING_DMA(src, s2>>4);
+		WRITERING_DMA(src, (mfifoqwc - s1));
 		
 	} else {
 		/* it doesn't, so just transfer 'qwc*16' words 
@@ -1332,13 +1327,14 @@ int mfifoGIFrbTransfer() {
 		if (src == NULL) return -1;
 		
 		WRITERING_DMA(src, mfifoqwc);
+		gif->madr = psHu32(DMAC_RBOR) + (gif->madr & psHu32(DMAC_RBSR));
 	}
 
 	gifqwc -= mfifoqwc;
 	gif->qwc -= mfifoqwc;
 	gif->madr+= mfifoqwc*16;
 	mfifocycles+= (mfifoqwc) * 2; /* guessing */
-	gif->madr = psHu32(DMAC_RBOR) + (gif->madr & psHu32(DMAC_RBSR));
+	
 
 	return 0;
 }
@@ -1353,8 +1349,7 @@ int mfifoGIFchain() {
 		gif->madr <= (psHu32(DMAC_RBOR)+psHu32(DMAC_RBSR))) {
 		if (mfifoGIFrbTransfer() == -1) return -1;
 	} else {
-		u32 qwc = (psHu32(GIF_MODE) & 0x4) ? min(8, (int)gif->qwc) : gif->qwc;
-		int mfifoqwc = gif->qwc;
+		int mfifoqwc = (psHu32(GIF_MODE) & 0x4) ? min(8, (int)gif->qwc) : gif->qwc;
 		u32 *pMem = (u32*)dmaGetAddr(gif->madr);
 		if (pMem == NULL) return -1;
 
@@ -1377,18 +1372,18 @@ void mfifoGIFtransfer(int qwc) {
 	int id;
 	u32 temp = 0;
 	mfifocycles = 0;
-	gifqwc += qwc;
-	g_gifCycles = 0;
-	if(gifqwc == 0 || !(gif->chcr & 0x100)) {
-				return;
+	
+	if(qwc > 0 ) {
+				gifqwc += qwc;
+				if(!(gif->chcr & 0x100))return;
 			}
-#ifdef GIF_LOG
-	GIF_LOG("mfifoGIFtransfer %x madr %x, tadr %x\n", gif->chcr, gif->madr, gif->tadr);
+#ifdef SPR_LOG
+	SPR_LOG("mfifoGIFtransfer %x madr %x, tadr %x\n", gif->chcr, gif->madr, gif->tadr);
 #endif
 
 	
 		
- if(gif->qwc == 0 && gifqwc > 0){
+	if(gif->qwc == 0){
 			if(gif->tadr == spr0->madr) {
 	#ifdef PCSX2_DEVBUILD
 				/*if( gifqwc > 1 )
@@ -1407,8 +1402,8 @@ void mfifoGIFtransfer(int qwc) {
 			
 			gif->chcr = ( gif->chcr & 0xFFFF ) | ( (*ptag) & 0xFFFF0000 );
 	 
-	#ifdef GIF_LOG
-			GIF_LOG("dmaChain %8.8x_%8.8x size=%d, id=%d, madr=%lx, tadr=%lx mfifo qwc = %x spr0 madr = %x\n",
+	#ifdef SPR_LOG
+			SPR_LOG("dmaChain %8.8x_%8.8x size=%d, id=%d, madr=%lx, tadr=%lx mfifo qwc = %x spr0 madr = %x\n",
 					ptag[1], ptag[0], gif->qwc, id, gif->madr, gif->tadr, gifqwc, spr0->madr);
 	#endif
 			gifqwc--;
@@ -1450,14 +1445,13 @@ void mfifoGIFtransfer(int qwc) {
 			SysPrintf("GIF dmaChain error %8.8x_%8.8x size=%d, id=%d, madr=%lx, tadr=%lx\n",
 					ptag[1], ptag[0], gif->qwc, id, gif->madr, gif->tadr);
 			gifdone = 1;
-			INT(11,mfifocycles+g_gifCycles);
 		}
 		FreezeXMMRegs(0); 
 		FreezeMMXRegs(0);
 		
 		if ((gif->chcr & 0x80) && (ptag[0] >> 31)) {
-#ifdef GIF_LOG
-			GIF_LOG("dmaIrq Set\n");
+#ifdef SPR_LOG
+			SPR_LOG("dmaIrq Set\n");
 #endif
 			gifdone = 2;
 		}
@@ -1466,26 +1460,26 @@ void mfifoGIFtransfer(int qwc) {
 	if(gif->qwc == 0 && gifdone == 2) gifdone = 1;
 	INT(11,mfifocycles);
 
-#ifdef GIF_LOG
-	GIF_LOG("mfifoGIFtransfer end %x madr %x, tadr %x\n", gif->chcr, gif->madr, gif->tadr);
+#ifdef SPR_LOG
+	SPR_LOG("mfifoGIFtransfer end %x madr %x, tadr %x\n", gif->chcr, gif->madr, gif->tadr);
 #endif
 	
 }
 
 void gifMFIFOInterrupt()
 {
-	mfifocycles = 0;
 	
-	if(gifqwc <= 0 && gifdone != 1) {
-		//SysPrintf("Empty\n");
-		psHu32(GIF_STAT)&= ~0xE00; // OPH=0 | APATH=0
-		hwDmacIrq(14);
-		cpuRegs.interrupt &= ~(1 << 11); 
-		return;
-		}
+	
 	if(!(gif->chcr & 0x100)) { SysPrintf("WTF GIFMFIFO\n");cpuRegs.interrupt &= ~(1 << 11); return ; }
 	
 	if(gifdone != 1) {
+		if(gifqwc <= 0) {
+		//SysPrintf("Empty\n");
+			psHu32(GIF_STAT)&= ~0xE00; // OPH=0 | APATH=0
+			hwDmacIrq(14);
+			cpuRegs.interrupt &= ~(1 << 11); 
+			return;
+		}
 		mfifoGIFtransfer(0);
 		
 		return;
