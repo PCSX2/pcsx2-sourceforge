@@ -395,6 +395,9 @@ extern void gsWaitGS();
 void cpuBranchTest()
 {
 #ifndef PCSX2_NORECBUILD
+    // dont' remove this check unless doing an official release
+    if( g_globalXMMSaved || g_globalMMXSaved )
+        SysPrintf("frozen regs have not been restored!!!\n");
 	assert( !g_globalXMMSaved X86_32CODE(&& !g_globalMMXSaved) );
 	g_EEFreezeRegs = 0;
 #endif
