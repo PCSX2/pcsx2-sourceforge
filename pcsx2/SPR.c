@@ -19,7 +19,6 @@
 #include <string.h>
 #include "Common.h"
 #include "SPR.h"
-
 #include "iR5900.h"
 
 #define spr0 ((DMACh*)&PS2MEM_HW[0xD000])
@@ -69,7 +68,6 @@ int  _SPR0chain() {
 	u32 *pMem;
 
 	if (spr0->qwc == 0) return 0;
-
 	pMem = (u32*)dmaGetAddr(spr0->madr);
 	if (pMem == NULL) return -1;
 
@@ -105,7 +103,6 @@ void _SPR0interleave() {
 	int tqwc = (psHu32(DMAC_SQWC) >> 16) & 0xff;
 	int cycles = 0;
 	u32 *pMem;
-
 	if(tqwc == 0) tqwc = qwc;
 	//SysPrintf("dmaSPR0 interleave\n");
 #ifdef SPR_LOG
@@ -134,31 +131,36 @@ void _SPR0interleave() {
 }
 
 void _dmaSPR0() {
-	u32 *ptag;
-	int id;
-	int cycles = 0;
-	int done = 0;
+	
 
 	if ((psHu32(DMAC_CTRL) & 0x30) == 0x20) { // STS == fromSPR
 		SysPrintf("SPR0 stall %d\n", (psHu32(DMAC_CTRL)>>6)&3);
 	}
 
-	if ((spr0->chcr & 0xc) == 0x8) { // Interleave Mode
-		_SPR0interleave();
-		return;
-	}
+	
 
 	// Transfer Dn_QWC from SPR to Dn_MADR
 	
 	
 
-	if ((spr0->chcr & 0xc) == 0 || spr0->qwc > 0) { // Normal Mode
+	if ((spr0->chcr & 0xc) == 0x0) { // Normal Mode
+		int cycles = 0;
 		SPR0chain();
-			INT(8, cycles);
+		INT(8, cycles);
 		
 		return;
-	}
-
+	} else if ((spr0->chcr & 0xc) == 0x4) {
+			int cycles = 0;
+			u32 *ptag;
+			int id;			
+			int done = 0;
+		
+			if(spr0->qwc > 0){
+				SPR0chain();
+				INT(8, cycles);
+		
+				return;			
+				}
 	// Destination Chain Mode
 
 	while (done == 0) {  // Loop while Dn_CHCR.STR is 1
@@ -211,9 +213,13 @@ void _dmaSPR0() {
 			hwDmacIrq(8);
 			return;
 		}*/
-	}
-	
+		}
 		INT(8, cycles);
+	} else { // Interleave Mode
+		_SPR0interleave();
+	} 
+	
+		
 	
 }
 
@@ -313,9 +319,8 @@ void _SPR1interleave() {
 }
 
 void dmaSPR1() { // toSPR
-	u32 *ptag;
-	int id, done=0;
-	int cycles = 0;
+	
+	
 	FreezeMMXRegs(1);
 #ifdef SPR_LOG
 	SPR_LOG("dmaSPR1 chcr = 0x%x, madr = 0x%x, qwc  = 0x%x\n"
@@ -324,21 +329,31 @@ void dmaSPR1() { // toSPR
 			spr1->tadr, spr1->sadr);
 #endif
 
-	if ((spr1->chcr & 0xc) == 0x8) { // Interleave Mode
-		_SPR1interleave();
-		FreezeMMXRegs(0);
-		return;
-	}
+	
 
 	
-	if ((spr1->chcr & 0xc) == 0 || spr1->qwc > 0) { // Normal Mode
+	if ((spr1->chcr & 0xc) == 0) { // Normal Mode
+		int cycles = 0;
+		//if(spr1->qwc == 0 && (spr1->chcr & 0xc) == 1) spr1->qwc = 0xffff;
+		// Transfer Dn_QWC from Dn_MADR to SPR1
+		SPR1chain();
+		INT(9, cycles); 
+		FreezeMMXRegs(0);
+		return;
+	} else if ((spr1->chcr & 0xc) == 0x4){
+			int cycles = 0;
+			u32 *ptag;
+			int id, done=0;
+		
+
+	if(spr1->qwc > 0){
+		//if(spr1->qwc == 0 && (spr1->chcr & 0xc) == 1) spr1->qwc = 0xffff;
 		// Transfer Dn_QWC from Dn_MADR to SPR1
 		SPR1chain();
 		INT(9, cycles); 
 		FreezeMMXRegs(0);
 		return;
 	}
-
 	// Chain Mode
 
 	while (done == 0) {  // Loop while Dn_CHCR.STR is 1
@@ -384,9 +399,12 @@ void dmaSPR1() { // toSPR
 			break;
 		}
 	}
-
-	FreezeMMXRegs(0);
 	INT(9, cycles);
+	} else { // Interleave Mode
+		_SPR1interleave();
+	} 
+	FreezeMMXRegs(0);
+	
 }
 
 void SPRTOinterrupt()

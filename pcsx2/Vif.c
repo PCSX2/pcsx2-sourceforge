@@ -410,24 +410,26 @@ void UNPACK_V4_5(u32 *dest, u32 *data, int size) {
 static int cycles;
 extern int g_vifCycles;
 int vifqwc = 0;
-int mfifoVIF1rbTransfer() {
+__inline int mfifoVIF1rbTransfer() {
 	u32 maddr = psHu32(DMAC_RBOR);
 	int msize = psHu32(DMAC_RBOR) + psHu32(DMAC_RBSR) + 16, ret;
 	int mfifoqwc = min(vif1ch->qwc, vifqwc);
 	u32 *src;
 	
 	/* Check if the transfer should wrap around the ring buffer */
-	if ((vif1ch->madr+(mfifoqwc << 4)) >= (msize)) {
-		int s1 = (msize) - vif1ch->madr;
-		int s2 = (mfifoqwc << 4) - s1;
+	if ((vif1ch->madr+(mfifoqwc << 4)) > (msize)) {
+		int s1 = ((msize) - vif1ch->madr) >> 2;
 
+#ifdef SPR_LOG
+			SPR_LOG("Split MFIFO\n");
+#endif
 		/* it does, so first copy 's1' bytes from 'addr' to 'data' */
 		src = (u32*)PSM(vif1ch->madr);
 		if (src == NULL) return -1;
 		if(vif1.vifstalled == 1){
-			ret = VIF1transfer(src+vif1.irqoffset, s1/4-vif1.irqoffset, 0);
+			ret = VIF1transfer(src+vif1.irqoffset, s1-vif1.irqoffset, 0);
 		}else
-			ret = VIF1transfer(src, s1>>2, 0); 
+			ret = VIF1transfer(src, s1, 0); 
 		if(ret == -2) return ret;
 	
 		/* and second copy 's2' bytes from 'maddr' to '&data[s1]' */
@@ -435,8 +437,11 @@ int mfifoVIF1rbTransfer() {
 		
 		src = (u32*)PSM(maddr);
 		if (src == NULL) return -1;
-		ret = VIF1transfer(src, s2>>2, 0); 
+		ret = VIF1transfer(src, ((mfifoqwc << 2) - s1), 0); 
 	} else {
+#ifdef SPR_LOG
+			SPR_LOG("Direct MFIFO\n");
+#endif
 		/* it doesn't, so just transfer 'qwc*4' words */
 		src = (u32*)PSM(vif1ch->madr);
 		if (src == NULL) return -1;
@@ -451,7 +456,7 @@ int mfifoVIF1rbTransfer() {
 	return ret;
 }
 
-int mfifoVIF1chain() {
+__inline int mfifoVIF1chain() {
 	int ret;
 	
 	/* Is QWC = 0? if so there is nothing to transfer */
@@ -465,6 +470,9 @@ int mfifoVIF1chain() {
 		vifqwc -= startqwc - vif1ch->qwc;
 	} else {
 		u32 *pMem = (u32*)dmaGetAddr(vif1ch->madr);
+#ifdef SPR_LOG
+			SPR_LOG("Non-MFIFO Location\n");
+#endif
 		if (pMem == NULL) return -1;
 		if(vif1.vifstalled == 1){
 			ret = VIF1transfer(pMem+vif1.irqoffset, vif1ch->qwc*4-vif1.irqoffset, 0);
@@ -482,17 +490,18 @@ void mfifoVIF1transfer(int qwc) {
 	u32 *ptag;
 	int id;
 	int ret, temp;
-	vifqwc += qwc;
+	
 	g_vifCycles = 0;
 
 	if(qwc > 0){
-#ifdef VIF_LOG
-			VIF_LOG("Added %x qw to mfifo, total now %x\n", qwc, vifqwc);
+		vifqwc += qwc;
+#ifdef SPR_LOG
+			SPR_LOG("Added %x qw to mfifo, total now %x\n", qwc, vifqwc);
 #endif
 		if((vif1ch->chcr & 0x100) == 0 || vif1.vifstalled == 1) return;
 	}
 
-	 if(vif1ch->qwc == 0 && vifqwc > 0){
+	 if(vif1ch->qwc == 0){
 			/*if(vif1ch->tadr == spr0->madr) {
 		
 	#ifdef PCSX2_DEVBUILD
@@ -510,16 +519,13 @@ void mfifoVIF1transfer(int qwc) {
 				if( vif1.stallontag == 1) ret = VIF1transfer(ptag+(2+vif1.irqoffset), 2-vif1.irqoffset, 1);  //Transfer Tag on Stall
 				else ret = VIF1transfer(ptag+2, 2, 1);  //Transfer Tag
 				if (ret == -2) {
-#ifdef VIF_LOG
+#ifdef SPR_LOG
 			VIF_LOG("MFIFO Stallon tag\n");
 #endif
 					vif1.stallontag	= 1;				
 					INT(10,cycles+g_vifCycles);
 					return;        //IRQ set by VIFTransfer
-				} else {
-					vif1.vifstalled = 0;
-					vif1.stallontag = 0;
-				}
+				} 
 			}
 
 			id        = (ptag[0] >> 28) & 0x7;
@@ -529,8 +535,8 @@ void mfifoVIF1transfer(int qwc) {
 			
 			vif1ch->chcr = ( vif1ch->chcr & 0xFFFF ) | ( (*ptag) & 0xFFFF0000 );
 			
-#ifdef VIF_LOG
-			VIF_LOG("dmaChain %8.8x_%8.8x size=%d, id=%d, madr=%lx, tadr=%lx mfifo qwc = %x spr0 madr = %x\n",
+#ifdef SPR_LOG
+			SPR_LOG("dmaChain %8.8x_%8.8x size=%d, id=%d, madr=%lx, tadr=%lx mfifo qwc = %x spr0 madr = %x\n",
 					ptag[1], ptag[0], vif1ch->qwc, id, vif1ch->madr, vif1ch->tadr, vifqwc, spr0->madr);
 #endif	
 			vifqwc--;
@@ -551,6 +557,7 @@ void mfifoVIF1transfer(int qwc) {
 					temp = vif1ch->madr;								//Temporarily Store ADDR
 					vif1ch->madr = psHu32(DMAC_RBOR) + ((vif1ch->tadr + 16) & psHu32(DMAC_RBSR)); 					  //Set MADR to QW following the tag
 					vif1ch->tadr = temp;								//Copy temporarily stored ADDR to Tag
+					if((temp & psHu32(DMAC_RBSR)) != psHu32(DMAC_RBOR)) SysPrintf("Next tag = %x outside ring %x size %x\n", temp, psHu32(DMAC_RBOR), psHu32(DMAC_RBSR));
 					vif1.done = 0;
 					break;
 
@@ -568,7 +575,7 @@ void mfifoVIF1transfer(int qwc) {
 				}
 			
 			if ((vif1ch->chcr & 0x80) && (ptag[0] >> 31)) {
-#ifdef VIF_LOG
+#ifdef SPR_LOG
 			VIF_LOG("dmaIrq Set\n");
 #endif
 			vif1.done = 2;
@@ -594,8 +601,8 @@ void mfifoVIF1transfer(int qwc) {
 	
 	 INT(10,g_vifCycles);
 
-#ifdef VIF_LOG
-	VIF_LOG("mfifoVIF1transfer end %x madr %x, tadr %x vifqwc %x\n", vif1ch->chcr, vif1ch->madr, vif1ch->tadr, vifqwc);
+#ifdef SPR_LOG
+	SPR_LOG("mfifoVIF1transfer end %x madr %x, tadr %x vifqwc %x\n", vif1ch->chcr, vif1ch->madr, vif1ch->tadr, vifqwc);
 #endif
 }
 
