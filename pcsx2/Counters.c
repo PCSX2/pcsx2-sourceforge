@@ -232,8 +232,8 @@ void VSync()
 			GSvsync(newfield);
 
             // update here on single thread mode *OBSOLETE*
-            /*if( PAD1update != NULL ) PAD1update(0);
-            if( PAD2update != NULL ) PAD2update(1);*/
+            if( PAD1update != NULL ) PAD1update(0);
+            if( PAD2update != NULL ) PAD2update(1);
 		}
 
 		counters[5].mode&= ~0x10000;
