@@ -1386,7 +1386,7 @@ int hwMFIFOWrite(u32 addr, u8 *data, int size) {
 
 
 int hwDmacSrcChainWithStack(DMACh *dma, int id) {
-	u32 temp,finalAddress;
+	u32 temp;
 
 	switch (id) {
 		case 0: // Refe - Transfer Packet According to ADDR field
@@ -1411,25 +1411,26 @@ int hwDmacSrcChainWithStack(DMACh *dma, int id) {
 
 		case 5: // Call - Transfer QWC following the tag, save succeeding tag
 			temp = dma->madr;								//Temporarily Store ADDR
-			finalAddress = dma->tadr + 16 + (dma->qwc << 4); //Store Address of Succeeding tag
+															
 			dma->madr = dma->tadr + 16;						//Set MADR to data following the tag
-	
-			if ((dma->chcr & 0x30) == 0x0) {								//Check if ASR0 is empty
-				dma->asr0 = finalAddress;					//If yes store Succeeding tag
+			
+			if ((dma->chcr & 0x30) == 0x0) {						//Check if ASR0 is empty
+				dma->asr0 = dma->madr + (dma->qwc << 4);			//If yes store Succeeding tag
 				dma->chcr = (dma->chcr & 0xffffffcf) | 0x10; //1 Address in call stack
 			}else if((dma->chcr & 0x30) == 0x10){
 				dma->chcr = (dma->chcr & 0xffffffcf) | 0x20; //2 Addresses in call stack
-				dma->asr1 = finalAddress;					//If no store Succeeding tag in ASR1
+				dma->asr1 = dma->madr + (dma->qwc << 4);	//If no store Succeeding tag in ASR1
 			}else {
 				SysPrintf("Call Stack Overflow (report if it fixes/breaks anything)\n");
 				return 1;										//Return done
 			}
-			
 			dma->tadr = temp;								//Set TADR to temporarily stored ADDR
+											
 			return 0;
 
 		case 6: // Ret - Transfer QWC following the tag, load next tag
 			dma->madr = dma->tadr + 16;						//Set MADR to data following the tag
+
 			if ((dma->chcr & 0x30) == 0x20) {							//If ASR1 is NOT equal to 0 (Contains address)
 				dma->chcr = (dma->chcr & 0xffffffcf) | 0x10; //1 Address left in call stack
 				dma->tadr = dma->asr1;						//Read ASR1 as next tag

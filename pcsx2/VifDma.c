@@ -605,14 +605,15 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 
 			if(unpackType == 0xC && vifRegs->cycle.cl == vifRegs->cycle.wl) { //No use when SSE is available
 				// v4-32
-				if(vifRegs->mode == 0 && !(vifRegs->code & 0x10000000)){
+				if(vifRegs->mode == 0 && !(vifRegs->code & 0x10000000) && vif->usn == 0){
+					
 					if (v->size != size){
 						vifRegs->num -= size>>2;
 						ProcessMemSkip(size << 2, unpackType, VIFdmanum);
 						} 
 					else vifRegs->num = 0;
 					
-					memcpy_fast((u8*)dest, cdata, size << 2);
+					memcpy_fast((u8*)dest, cdata, size);
 					size = 0;
 					return;
 				}
@@ -866,7 +867,7 @@ __inline void _vif0mpgTransfer(u32 addr, u32 *data, int size) {
 
 static int Vif0TransNull(u32 *data){ // Shouldnt go here
 	SysPrintf("VIF0 Shouldnt go here CMD = %x\n", vif0Regs->code);
-	vif0.cmd &= ~0x7f;
+	vif0.cmd = 0;
 	return 0;
 }
 static int Vif0TransSTMask(u32 *data){ // STMASK
@@ -876,7 +877,7 @@ static int Vif0TransSTMask(u32 *data){ // STMASK
 	VIF_LOG("STMASK == %x\n", vif0Regs->mask);
 #endif
 	vif0.tag.size = 0;
-	vif0.cmd &= ~0x7f;
+	vif0.cmd = 0;
 	return 1;
 }
 
@@ -899,7 +900,7 @@ static int Vif0TransSTRow(u32 *data){ // STROW
 	}
     vif0.tag.addr += ret;
     vif0.tag.size -= ret;
-	if(vif0.tag.size == 0) vif0.cmd &= ~0x7f;
+	if(vif0.tag.size == 0) vif0.cmd = 0;
 
 	return ret;
 }
@@ -921,7 +922,7 @@ static int Vif0TransSTCol(u32 *data){ // STCOL
 	}
 	vif0.tag.addr += ret;
     vif0.tag.size -= ret;
-	if(vif0.tag.size == 0) vif0.cmd &= ~0x7f;
+	if(vif0.tag.size == 0) vif0.cmd = 0;
 	return ret;
 }
 
@@ -936,7 +937,7 @@ static int Vif0TransMPG(u32 *data){ // MPG
 		_vif0mpgTransfer(vif0.tag.addr, data, vif0.tag.size);
 		ret = vif0.tag.size;
         vif0.tag.size = 0;
-		vif0.cmd &= ~0x7f;
+		vif0.cmd = 0;
 		return ret;
     }
 }
@@ -958,7 +959,7 @@ static int Vif0TransUnpack(u32 *data){ // UNPACK
 			//g_vifCycles+= vif0.tag.size >> 1;
 			ret = vif0.tag.size;
 			vif0.tag.size = 0;
-			vif0.cmd &= ~0x7f;
+			vif0.cmd = 0;
 			//FreezeXMMRegs(0);
 			return ret;
 		}
@@ -1052,7 +1053,7 @@ int VIF0transfer(u32 *data, int size, int istag) {
 	FreezeMMXRegs(1);
 	while (vif0.vifpacketsize > 0) {
 
-		if (vif0.cmd & 0x7f) {
+		if (vif0.cmd) {
 			//vif0Regs->stat |= VIF0_STAT_VPS_T;
 			ret = Vif0TransTLB[(vif0.cmd & 0x7f)](data);
 			data+= ret; vif0.vifpacketsize-= ret;
@@ -1093,19 +1094,21 @@ int VIF0transfer(u32 *data, int size, int istag) {
 		++data; 
 		--vif0.vifpacketsize;
 		
-		if ((vif0.cmd & 0x80) && !(vif0Regs->err & 0x1) ) { //i bit on vifcode and not masked by VIF0_ERR
+		if ((vif0.cmd & 0x80)) { //i bit on vifcode and not masked by VIF0_ERR
+			if(!(vif0Regs->err & 0x1)){
 #ifdef VIF_LOG
 			VIF_LOG( "Interrupt on VIFcmd: %x (INTC_MASK = %x)\n", vif0.cmd, psHu32(INTC_MASK) );
 #endif
 			
-			++vif0.irq;
-			vif0.cmd &= 0x7f;
-			if(istag && vif0.tag.size == 0) vif0.stallontag = 1;
+				++vif0.irq;
+				if(istag && vif0.tag.size <= vif0.vifpacketsize) vif0.stallontag = 1;
+				}
+				vif0.cmd &= 0x7f;
 		} 
 	}
 	FreezeXMMRegs(0);
 	FreezeMMXRegs(0);
-	transferred += size - vif1.vifpacketsize;
+	transferred += size - vif0.vifpacketsize;
 	g_vifCycles+= (transferred >> 2)*BIAS; /* guessing */
 	// use tag.size because some game doesn't like .cmd
 	//if( !vif0.cmd )
@@ -1561,7 +1564,7 @@ __inline void _vif1mpgTransfer(u32 addr, u32 *data, int size) {
 
 static int Vif1TransNull(u32 *data){ // Shouldnt go here
 	SysPrintf("Shouldnt go here CMD = %x\n", vif1Regs->code);
-	vif1.cmd &= ~0x7f;
+	vif1.cmd = 0;
 	return 0;
 }
 static int Vif1TransSTMask(u32 *data){ // STMASK
@@ -1571,7 +1574,7 @@ static int Vif1TransSTMask(u32 *data){ // STMASK
 	VIF_LOG("STMASK == %x\n", vif1Regs->mask);
 #endif
 	vif1.tag.size = 0;
-	vif1.cmd &= ~0x7f;
+	vif1.cmd = 0;
 	return 1;
 }
 
@@ -1594,7 +1597,7 @@ static int Vif1TransSTRow(u32 *data){
 	}
     vif1.tag.addr += ret;
     vif1.tag.size -= ret;
-	if(vif1.tag.size == 0) vif1.cmd &= ~0x7f;
+	if(vif1.tag.size == 0) vif1.cmd = 0;
 
 	return ret;
 }
@@ -1616,7 +1619,7 @@ static int Vif1TransSTCol(u32 *data){
 	}
 	vif1.tag.addr += ret;
     vif1.tag.size -= ret;
-	if(vif1.tag.size == 0) vif1.cmd &= ~0x7f;
+	if(vif1.tag.size == 0) vif1.cmd = 0;
 	return ret;
 }
 
@@ -1631,7 +1634,7 @@ static int Vif1TransMPG(u32 *data){
 		_vif1mpgTransfer(vif1.tag.addr, data, vif1.tag.size);
 		ret = vif1.tag.size;
         vif1.tag.size = 0;
-		vif1.cmd &= ~0x7f;
+		vif1.cmd = 0;
 		return ret;
     }
 }
@@ -1668,7 +1671,7 @@ static int Vif1TransDirectHL(u32 *data){
 			/*FreezeMMXRegs(0);
 			FreezeXMMRegs(0);*/
 		}
-		if(vif1.tag.size == 0) vif1.cmd &= ~0x7f;
+		if(vif1.tag.size == 0) vif1.cmd = 0;
 		splitptr = 0;
 		return ret;
 	}
@@ -1689,7 +1692,7 @@ static int Vif1TransDirectHL(u32 *data){
     } else {
         ret = vif1.tag.size;
         vif1.tag.size = 0;
-		vif1.cmd &= ~0x7f;
+		vif1.cmd = 0;
     }
 
 	
@@ -1730,7 +1733,7 @@ static int Vif1TransUnpack(u32 *data){
 			//g_vifCycles+= vif1.tag.size >> 1;
 			ret = vif1.tag.size;
 			vif1.tag.size = 0;
-			vif1.cmd &= ~0x7f;
+			vif1.cmd = 0;
 			//FreezeXMMRegs(0);
 			return ret;
 		}
@@ -2195,7 +2198,7 @@ void vif1Interrupt() {
 		INT(1, g_vifCycles);
 		return 0;
 	}*/
-	if ((vif1ch->chcr & 0x104) == 0x104 && vif1.done == 0 && vif1.vifstalled == 0) {
+	if ((vif1ch->chcr & 0x104) == 0x104 && vif1.done == 0) {
 
 		if( !(psHu32(DMAC_CTRL) & 0x1) ) {
 			SysPrintf("vif1 dma masked\n");
@@ -2273,6 +2276,7 @@ void dmaVIF1()
 
 	if (((psHu32(DMAC_CTRL) & 0xC) == 0x8)) { // VIF MFIFO
 		//SysPrintf("VIFMFIFO\n");
+		if(!(vif1ch->chcr & 0x4)) SysPrintf("MFIFO mode != Chain! %x\n", vif1ch->chcr);
 		if(vif1ch->madr != spr0->madr)vifMFIFOInterrupt();
 		return;
 	}
