@@ -1626,8 +1626,8 @@ void* GSThreadProc(void* lpParam)
 							break;
 						case GS_RINGTYPE_VSYNC:
 							GSvsync(*(int*)(g_pGSRingPos+4));
-                            /*if( PAD1update != NULL ) PAD1update(0);  *OBSOLETE*
-                            if( PAD2update != NULL ) PAD2update(1);*/
+                            if( PAD1update != NULL ) PAD1update(0);
+                            if( PAD2update != NULL ) PAD2update(1);
 							InterlockedExchangeAdd((long*)&g_pGSRingPos, 16);
 							break;
 
