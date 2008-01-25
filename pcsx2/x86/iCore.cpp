@@ -984,7 +984,7 @@ void FreezeXMMRegs_(int save)
 
 	if( save ) {
 		if( g_globalXMMSaved ){
-			SysPrintf("XMM Already saved\n");
+			//SysPrintf("XMM Already saved\n");
 			return;
 			}
 		// only necessary for nonsse CPUs (very rare)
@@ -1030,7 +1030,7 @@ void FreezeXMMRegs_(int save)
 	}
 	else {
 		if( !g_globalXMMSaved ){
-			SysPrintf("XMM Regs not saved!\n");
+			//SysPrintf("XMM Regs not saved!\n");
 			return;
 			}
 
