@@ -203,7 +203,9 @@ __forceinline void vif0FLUSH() {
 	int _cycles;
 	_cycles = VU0.cycle;
 
+	FreezeXMMRegs(1);
 	vu0Finish();
+	FreezeXMMRegs(0);
 	g_vifCycles+= (VU0.cycle - _cycles)*BIAS;
 }
 
@@ -212,14 +214,14 @@ __forceinline void vif1FLUSH() {
 	_cycles = VU1.cycle;
 
 	if( VU0.VI[REG_VPU_STAT].UL & 0x100 ) {
-		//FreezeXMMRegs(1);
+		FreezeXMMRegs(1);
 		do {
 			Cpu->ExecuteVU1Block();
 		} while(VU0.VI[REG_VPU_STAT].UL & 0x100);
 
 //		FreezeXMMRegs(0);
 //		FreezeMMXRegs(0);
-		//FreezeXMMRegs(0);
+		FreezeXMMRegs(0);
 		g_vifCycles+= (VU1.cycle - _cycles)*BIAS;
 	}
 }
@@ -612,8 +614,9 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 						ProcessMemSkip(size << 2, unpackType, VIFdmanum);
 						} 
 					else vifRegs->num = 0;
-					
+					FreezeMMXRegs(1);
 					memcpy_fast((u8*)dest, cdata, size);
+					FreezeMMXRegs(0);
 					size = 0;
 					return;
 				}
@@ -784,6 +787,7 @@ static void vuExecMicro( u32 addr, const u32 VIFdmanum )
 			VU->vifRegs->stat |= 0x80;
 		}
 	}
+	FreezeXMMRegs(1);
 	if (VIFdmanum == 0) {
 		_cycles = VU0.cycle;
 		vu0ExecMicro(addr);
@@ -795,6 +799,7 @@ static void vuExecMicro( u32 addr, const u32 VIFdmanum )
 		// too much delay
 		//g_vifCycles+= (VU1.cycle - _cycles)*BIAS;
 	}
+	FreezeXMMRegs(0);
 }
 
 u8 s_maskwrite[256];
@@ -855,7 +860,9 @@ __inline void _vif0mpgTransfer(u32 addr, u32 *data, int size) {
 		fclose(f);
 	}*/
 	if (memcmp(VU0.Micro + addr, data, size << 2)) {
+		FreezeMMXRegs(1);
 		memcpy_fast(VU0.Micro + addr, data, size << 2);
+		FreezeMMXRegs(0);
 		Cpu->ClearVU0(addr, size);
 	}
 }
@@ -943,6 +950,7 @@ static int Vif0TransMPG(u32 *data){ // MPG
 }
 
 static int Vif0TransUnpack(u32 *data){ // UNPACK
+	FreezeXMMRegs(1);
 	if (vif0.vifpacketsize < vif0.tag.size) {
 			/* size is less that the total size, transfer is 
 			   'in pieces' */
@@ -950,7 +958,7 @@ static int Vif0TransUnpack(u32 *data){ // UNPACK
 		//	g_vifCycles+= size >> 1;
 			//vif0.tag.addr += size << 2;
 			vif0.tag.size -= vif0.vifpacketsize; 
-			//FreezeXMMRegs(0);
+			FreezeXMMRegs(0);
 			return vif0.vifpacketsize;
 		} else {
 			int ret;
@@ -960,9 +968,10 @@ static int Vif0TransUnpack(u32 *data){ // UNPACK
 			ret = vif0.tag.size;
 			vif0.tag.size = 0;
 			vif0.cmd = 0;
-			//FreezeXMMRegs(0);
+			FreezeXMMRegs(0);
 			return ret;
 		}
+	
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1049,8 +1058,8 @@ int VIF0transfer(u32 *data, int size, int istag) {
 	vif0.stallontag = 0;
 	vif0.vifstalled = 0;
 	vif0.vifpacketsize = size;
-	FreezeXMMRegs(1);
-	FreezeMMXRegs(1);
+	
+
 	while (vif0.vifpacketsize > 0) {
 
 		if (vif0.cmd) {
@@ -1106,8 +1115,6 @@ int VIF0transfer(u32 *data, int size, int istag) {
 				vif0.cmd &= 0x7f;
 		} 
 	}
-	FreezeXMMRegs(0);
-	FreezeMMXRegs(0);
 	transferred += size - vif0.vifpacketsize;
 	g_vifCycles+= (transferred >> 2)*BIAS; /* guessing */
 	// use tag.size because some game doesn't like .cmd
@@ -1553,7 +1560,9 @@ __inline void _vif1mpgTransfer(u32 addr, u32 *data, int size) {
 	}*/
     assert( VU1.Micro > 0 );
 	if (memcmp(VU1.Micro + addr, data, size << 2)) {
+		FreezeMMXRegs(1);
 		memcpy_fast(VU1.Micro + addr, data, size << 2);
+		FreezeMMXRegs(0);
 		Cpu->ClearVU1(addr, size);
 	}
 }
@@ -1644,6 +1653,7 @@ u32 splitptr = 0;
 static int Vif1TransDirectHL(u32 *data){
 	int ret = 0;
 	
+	
 	if(splitptr > 0){  //Leftover data from the last packet, filling the rest and sending to the GS
 		if(splitptr < 4 && vif1.vifpacketsize >= (4-splitptr)){
 		
@@ -1657,20 +1667,20 @@ static int Vif1TransDirectHL(u32 *data){
 		if( CHECK_MULTIGS ) {
 			u8* gsmem = GSRingBufCopy((u32*)splittransfer[0], 16, GS_RINGTYPE_P2);
 			if( gsmem != NULL ) {
+				FreezeMMXRegs(1);
 				memcpy_fast(gsmem, (u32*)splittransfer[0], 16);
 				GSRINGBUF_DONECOPY(gsmem, 16);
 				GSgifTransferDummy(1, (u32*)splittransfer[0], 1);
 			}
-
+				FreezeMMXRegs(0);
 			if( !CHECK_DUALCORE  ) GS_SETEVENT();
 		}
 		else {
-			/*FreezeMMXRegs(1);
-			FreezeXMMRegs(1);*/
+			FreezeXMMRegs(1);
 			GSGIFTRANSFER2((u32*)splittransfer[0], 1);
-			/*FreezeMMXRegs(0);
-			FreezeXMMRegs(0);*/
+			FreezeXMMRegs(0);
 		}
+		
 		if(vif1.tag.size == 0) vif1.cmd = 0;
 		splitptr = 0;
 		return ret;
@@ -1696,27 +1706,34 @@ static int Vif1TransDirectHL(u32 *data){
     }
 
 	
+	
 	if( CHECK_MULTIGS ) {
 		u8* gsmem = GSRingBufCopy(data, ret<<2, GS_RINGTYPE_P2);
+		
 		if( gsmem != NULL ) {
+			FreezeMMXRegs(1);
 			memcpy_fast(gsmem, data, ret<<2);
+			FreezeMMXRegs(0);
 			GSRINGBUF_DONECOPY(gsmem, ret<<2);
 			GSgifTransferDummy(1, data, ret>>2);
 		}
-
+		
 		if( !CHECK_DUALCORE  ) GS_SETEVENT();
 	}
 	else {
-		/*FreezeMMXRegs(1);
-		FreezeXMMRegs(1);*/
+		
+		FreezeXMMRegs(1);
 		GSGIFTRANSFER2(data, (ret >> 2));
-	/*	FreezeMMXRegs(0);
-		FreezeXMMRegs(0);*/
+		FreezeXMMRegs(0);
 	}
+	
+	
 	return ret;
 }
 
 static int Vif1TransUnpack(u32 *data){
+	
+	FreezeXMMRegs(1);
 	if (vif1.vifpacketsize < vif1.tag.size) {
 			/* size is less that the total size, transfer is 
 			   'in pieces' */
@@ -1724,7 +1741,7 @@ static int Vif1TransUnpack(u32 *data){
 		//	g_vifCycles+= size >> 1;
 			//vif1.tag.addr += size << 2;
 			vif1.tag.size -= vif1.vifpacketsize; 
-			//FreezeXMMRegs(0);
+			FreezeXMMRegs(0);
 			return vif1.vifpacketsize;
 		} else {
 			int ret;
@@ -1734,9 +1751,10 @@ static int Vif1TransUnpack(u32 *data){
 			ret = vif1.tag.size;
 			vif1.tag.size = 0;
 			vif1.cmd = 0;
-			//FreezeXMMRegs(0);
+			FreezeXMMRegs(0);
 			return ret;
 		}
+	
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1920,11 +1938,10 @@ int VIF1transfer(u32 *data, int size, int istag) {
 	vif1.vifstalled = 0;
 	vif1.stallontag = 0;
 	vif1.vifpacketsize = size;
-	FreezeXMMRegs(1);
-	FreezeMMXRegs(1);
+		
 	//vif1.irq = 0;
 	while (vif1.vifpacketsize > 0) { 		
-
+		
 		if (vif1.cmd) {
 			//vif1Regs->stat |= VIF1_STAT_VPS_T;
 			ret = Vif1TransTLB[vif1.cmd](data);
@@ -1982,8 +1999,6 @@ int VIF1transfer(u32 *data, int size, int istag) {
 			vif1.cmd &= 0x7f;
 		} 
 	}
-	FreezeXMMRegs(0);
-	FreezeMMXRegs(0);
 	//if(vif1.cmd != 0 && vif1.tag.size == 0) SysPrintf("cmd but no tag size is left %x\n", vif1.cmd);
 	//if(vif1.cmd == 0 && vif1.tag.size != 0) SysPrintf("no cmd but tag size is left last cmd read %x\n", vif1Regs->code);
 	transferred += size - vif1.vifpacketsize;
@@ -2304,8 +2319,8 @@ void dmaVIF1()
             INT(1, g_vifCycles);
 		} else { // from Memory
 			
-			FreezeMMXRegs(1);
-			FreezeXMMRegs(1);
+			
+			
 			if( CHECK_MULTIGS ) {
 				u8* pTempMem, *pEndMem;
 
@@ -2313,7 +2328,7 @@ void dmaVIF1()
 				*(u32*)(pMem-16) = GS_RINGTYPE_VIFFIFO|(vif1ch->qwc<<16); // hack
 				*(u32*)(pMem-12) = vif1ch->madr;
 				*(u32*)(pMem-8) = cpuRegs.cycle;
-
+			
 				// touch all the pages to make sure they are in memory
 				pTempMem = dmaGetAddr(vif1ch->madr);
 				pEndMem = (u8*)((uptr)(pTempMem + vif1ch->qwc*16 + 0xfff)&~0xfff);
@@ -2331,6 +2346,7 @@ void dmaVIF1()
 
                 g_MTGSVifStart = cpuRegs.cycle;
                 g_MTGSVifCount = 4000000; // a little less than 1/60th of a second
+				
 				// wait is, the safest option
                 //gsWaitGS();
                 //SysPrintf("waiting for gs\n");
@@ -2346,11 +2362,10 @@ void dmaVIF1()
 					vif1Regs->stat&= ~0x1f000000;
 					vif1ch->qwc = 0;
 					INT(1, g_vifCycles);
-					FreezeMMXRegs(0);
-					FreezeXMMRegs(0);
+
 					return;						   //Return -1 as an error has occurred	
 				}
-
+				FreezeXMMRegs(1);
 				if( GSreadFIFO2 == NULL ) {
 					for (size=vif1ch->qwc; size>0; --size) {
 						if (size > 1) GSreadFIFO((u64*)&PS2MEM_HW[0x5000]);
@@ -2365,6 +2380,7 @@ void dmaVIF1()
 					psHu64(0x5000) = pMem[2*vif1ch->qwc-2];
 					psHu64(0x5008) = pMem[2*vif1ch->qwc-1];
 				}
+				FreezeXMMRegs(0);
 
 				
 				if(vif1Regs->mskpath3 == 0)vif1Regs->stat&= ~0x1f000000;
@@ -2373,8 +2389,7 @@ void dmaVIF1()
 				vif1ch->qwc = 0;
 				INT(1, g_vifCycles);
 			}
-			FreezeMMXRegs(0);
-			FreezeXMMRegs(0);
+
 		}
 		
 		vif1.done = 1;
