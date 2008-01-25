@@ -92,8 +92,6 @@ HANDLE g_hGsEvent = NULL, // set when path3 is ready to be processed
 HANDLE g_hGSOpen = NULL, g_hGSDone = NULL;
 HANDLE g_hVuGsThread = NULL;
 
-bool gsHasToExit=false;
-
 DWORD WINAPI GSThreadProc(LPVOID lpParam);
 
 #else
@@ -107,6 +105,7 @@ void* GSThreadProc(void* idp);
 
 #endif
 
+bool gsHasToExit=false;
 int g_FFXHack=0;
 
 #ifdef PCSX2_DEVBUILD
@@ -195,14 +194,14 @@ void gsInit()
 		g_fMTGSRead = fopen("mtgsread.txt", "w");
 #endif
 
+        gsHasToExit=false;
+
 #if defined(_WIN32) && !defined(WIN32_PTHREADS)
 		g_hGsEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
 
 		g_hVuGSExit = CreateEvent(NULL, FALSE, FALSE, NULL);
 		g_hGSOpen = CreateEvent(NULL, FALSE, FALSE, NULL);
 		g_hGSDone = CreateEvent(NULL, FALSE, FALSE, NULL);
-
-		gsHasToExit=false;
 
 		SysPrintf("gsInit\n");
 
@@ -243,12 +242,12 @@ void gsShutdown()
 {
 	if( CHECK_MULTIGS ) {
 
+        gsHasToExit=true;
+		
 #if defined(_WIN32) && !defined(WIN32_PTHREADS)
-		gsHasToExit=true;
 		SetEvent(g_hVuGSExit);
 		SysPrintf("Closing gs thread\n");
 		WaitForSingleObject(g_hVuGsThread, INFINITE);
-		gsHasToExit=false;
 		CloseHandle(g_hVuGsThread);
 		CloseHandle(g_hGsEvent);
 		CloseHandle(g_hVuGSExit);
@@ -265,6 +264,7 @@ void gsShutdown()
 
         SysPrintf("thread terminated\n");
 #endif
+        gsHasToExit=false;
 
 #ifdef _WIN32
 		VirtualFree(GS_RINGBUFFERBASE, GS_RINGBUFFERSIZE, MEM_DECOMMIT|MEM_RELEASE);
@@ -423,14 +423,14 @@ void gsReset()
 	//if( GSreset ) GSreset();
 
 	if( CHECK_MULTIGS ) {
+
 #if defined(_WIN32) && !defined(WIN32_PTHREADS)
 		ResetEvent(g_hGsEvent);
 		ResetEvent(g_hVuGSExit);
-
-		gsHasToExit=false;
 #else
         //TODO
 #endif
+        gsHasToExit=false;
 		g_pGSRingPos = g_pGSWritePos;
 	}
 

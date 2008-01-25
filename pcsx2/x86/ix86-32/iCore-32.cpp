@@ -770,7 +770,7 @@ void FreezeMMXRegs_(int save)
 
 	if( save ) {
 		if( g_globalMMXSaved ){
-			SysPrintf("MMX Already Saved!\n");
+			//SysPrintf("MMX Already Saved!\n");
 			return;
 			}
 		g_globalMMXSaved = 1;
@@ -804,7 +804,7 @@ void FreezeMMXRegs_(int save)
 	}
 	else {
 		if( !g_globalMMXSaved ){
-			SysPrintf("MMX Not Saved!\n");
+			//SysPrintf("MMX Not Saved!\n");
 			return;
 			}
 		g_globalMMXSaved = 0;
