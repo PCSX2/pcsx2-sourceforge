@@ -998,7 +998,6 @@ static u64 s_gstag=0; // used for querying the last tag
 		if( pgsmem != NULL ) { \
 			int sizetoread = (qwc)<<4; \
 			u32 pendmem = (u32)gif->madr + sizetoread; \
-			FreezeMMXRegs(1); \
 			/* check if page of endmem is valid (dark cloud2) */ \
 			if( dmaGetAddr(pendmem-16) == NULL ) { \
 				pendmem = ((pendmem-16)&~0xfff)-16; \
@@ -1009,7 +1008,6 @@ static u64 s_gstag=0; // used for querying the last tag
 			} \
 			else memcpy_fast(pgsmem, pMem, sizetoread); \
 			\
-			FreezeMMXRegs(0); \
 			GSRINGBUF_DONECOPY(pgsmem, sizetoread); \
 			GSgifTransferDummy(2, pMem, qwc); \
 		} \
@@ -1017,8 +1015,6 @@ static u64 s_gstag=0; // used for querying the last tag
 		if( !CHECK_DUALCORE ) GS_SETEVENT(); \
 	} \
 	else { \
-		FreezeXMMRegs(1); \
-		FreezeMMXRegs(1); \
 		GSGIFTRANSFER3(pMem, qwc); \
         if( GSgetLastTag != NULL ) { \
             GSgetLastTag(&s_gstag); \
@@ -1026,8 +1022,6 @@ static u64 s_gstag=0; // used for querying the last tag
                 Path3transfer = 0; /* fixes SRS and others */ \
             } \
         } \
-		FreezeXMMRegs(0);  \
-		FreezeMMXRegs(0);  \
 	} \
 } \
 
@@ -1109,13 +1103,17 @@ void GIFdma() {
 		return;
 	}
 #endif
-
+	
+	FreezeXMMRegs(1); 
+	FreezeMMXRegs(1); 
 	if ((psHu32(DMAC_CTRL) & 0xC0) == 0x80 && prevcycles != 0) { // STD == GIF
 		SysPrintf("GS Stall Control Source = %x, Drain = %x\n MADR = %x, STADR = %x", (psHu32(0xe000) >> 4) & 0x3, (psHu32(0xe000) >> 6) & 0x3,gif->madr, psHu32(DMAC_STADR));
 
 		if( gif->madr + (gif->qwc * 16) > psHu32(DMAC_STADR) ) {
 			INT(2, gscycles);
 			gscycles = 0;
+			FreezeXMMRegs(0); 
+			FreezeMMXRegs(0); 
 			return;
 		}
 		prevcycles = 0;
@@ -1135,6 +1133,8 @@ void GIFdma() {
 
 					if (ptag == NULL) {					 //Is ptag empty?
 						psHu32(DMAC_STAT)|= 1<<15;		 //If yes, set BEIS (BUSERR) in DMAC_STAT register
+						FreezeXMMRegs(0);  
+						FreezeMMXRegs(0);  
 						return;
 					}	
 					gscycles += 2;
@@ -1173,6 +1173,8 @@ void GIFdma() {
 			psHu32(GIF_STAT)&= ~0x1F000000; // QFC=0
 			hwDmacIrq(DMAC_GIF);
 		}
+		FreezeXMMRegs(0);  
+		FreezeMMXRegs(0);  
 		//Dont unfreeze xmm regs here, Masked PATH3 can only be called by VIF, which is already handling it.
 		return;
 	}
@@ -1195,6 +1197,8 @@ void GIFdma() {
 			ptag = (u32*)dmaGetAddr(gif->tadr);  //Set memory pointer to TADR
 			if (ptag == NULL) {					 //Is ptag empty?
 				psHu32(DMAC_STAT)|= 1<<15;		 //If yes, set BEIS (BUSERR) in DMAC_STAT register				
+				FreezeXMMRegs(0);  
+				FreezeMMXRegs(0);  
 				return;
 			}
 			gscycles+=2; // Add 1 cycles from the QW read for the tag
@@ -1234,6 +1238,8 @@ void GIFdma() {
 					hwDmacIrq(13);
 					INT(2, gscycles);
 					gscycles = 0;
+					FreezeXMMRegs(0);  
+					FreezeMMXRegs(0);  
 					return;
 				}
 			}
@@ -1261,6 +1267,9 @@ void GIFdma() {
 		INT(2, gscycles);
 		gscycles = 0;
 	}
+	
+		FreezeXMMRegs(0);  
+		FreezeMMXRegs(0);  
 	
 	
 }
@@ -1382,6 +1391,7 @@ void mfifoGIFtransfer(int qwc) {
 					SysPrintf("gif mfifo tadr==madr but qwc = %d\n", gifqwc);*/
 	#endif
 				//hwDmacIrq(14);
+
 				return;
 			}
 			gif->tadr = psHu32(DMAC_RBOR) + (gif->tadr & psHu32(DMAC_RBSR));
@@ -1431,12 +1441,15 @@ void mfifoGIFtransfer(int qwc) {
 					break;
 				}
 	 }
+	FreezeXMMRegs(1); 
+	FreezeMMXRegs(1);
 		if (mfifoGIFchain() == -1) {
 			SysPrintf("GIF dmaChain error %8.8x_%8.8x size=%d, id=%d, madr=%lx, tadr=%lx\n",
 					ptag[1], ptag[0], gif->qwc, id, gif->madr, gif->tadr);
 			gifdone = 1;
 		}
-		
+	FreezeXMMRegs(0); 
+	FreezeMMXRegs(0);
 		if ((gif->chcr & 0x80) && (ptag[0] >> 31)) {
 #ifdef SPR_LOG
 			SPR_LOG("dmaIrq Set\n");
@@ -1447,7 +1460,7 @@ void mfifoGIFtransfer(int qwc) {
 	
 	if(gif->qwc == 0 && gifdone == 2) gifdone = 1;
 	INT(11,mfifocycles);
-
+	
 #ifdef SPR_LOG
 	SPR_LOG("mfifoGIFtransfer end %x madr %x, tadr %x\n", gif->chcr, gif->madr, gif->tadr);
 #endif
@@ -1469,7 +1482,6 @@ void gifMFIFOInterrupt()
 			return;
 		}
 		mfifoGIFtransfer(0);
-		
 		return;
 	}
 	if(gifdone == 0 || gif->qwc > 0) {

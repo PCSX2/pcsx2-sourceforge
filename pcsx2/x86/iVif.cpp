@@ -79,7 +79,7 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
     u32 i;
 	u32 prev = 0;
 	if( !cpucaps.hasStreamingSIMD2Extensions ) return;
-	
+	FreezeXMMRegs(1);
 	for(i = 0; i < 4; ++i, mask >>= 8, oldmask >>= 8, vif1masks += 16) {
 
 		prev |= s_maskwrite[mask&0xff];//((mask&3)==3)||((mask&0xc)==0xc)||((mask&0x30)==0x30)||((mask&0xc0)==0xc0);
@@ -106,7 +106,9 @@ void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask)
 			_mm_storeh_pi((__m64*)&vif1masks[14], *(__m128*)&r3);
 		}
 	}
+	FreezeXMMRegs(0);
 }
+
 
 #else // gcc
 
