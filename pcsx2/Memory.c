@@ -1647,7 +1647,7 @@ int recMemConstWrite32(u32 mem, int mmreg)
 			CALLFunc((u32)DEV9write32);
 			return 0;
 
-		case 0x1100:
+		case 0x11000000:
 			_eeWriteConstMem32(PS2MEM_BASE_+mem, mmreg);
 
 			if( mem < 0x11004000 ) {
@@ -1882,7 +1882,7 @@ int recMemConstWrite128(u32 mem, int mmreg)
 		case 0x10000000: hwConstWrite128(mem, mmreg); return 0;
 		case 0x12000000: gsConstWrite128(mem, mmreg); return 0;
 
-		case 0x1100:
+		case 0x11000000:
 			_eeWriteConstMem128(PS2MEM_BASE_+mem, mmreg);
 
 			if( mem < 0x11004000 ) {
