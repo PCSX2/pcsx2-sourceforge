@@ -583,8 +583,8 @@ void mfifoVIF1transfer(int qwc) {
 	 }
 		ret = mfifoVIF1chain();
 		if (ret == -1) {
-			SysPrintf("VIF dmaChain error %8.8x_%8.8x size=%d, id=%d, madr=%lx, tadr=%lx\n",
-					ptag[1], ptag[0], vif1ch->qwc, id, vif1ch->madr, vif1ch->tadr);
+			SysPrintf("VIF dmaChain error size=%d, madr=%lx, tadr=%lx\n",
+					vif1ch->qwc, vif1ch->madr, vif1ch->tadr);
 			vif1.done = 1;
 			INT(10,g_vifCycles);
 		}
