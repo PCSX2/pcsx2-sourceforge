@@ -1440,22 +1440,23 @@ void mfifoGIFtransfer(int qwc) {
 					gifdone = 2;										//End Transfer
 					break;
 				}
+				if ((gif->chcr & 0x80) && (ptag[0] >> 31)) {
+#ifdef SPR_LOG
+				SPR_LOG("dmaIrq Set\n");
+#endif
+				gifdone = 2;
+			}
 	 }
 	FreezeXMMRegs(1); 
 	FreezeMMXRegs(1);
 		if (mfifoGIFchain() == -1) {
-			SysPrintf("GIF dmaChain error %8.8x_%8.8x size=%d, id=%d, madr=%lx, tadr=%lx\n",
-					ptag[1], ptag[0], gif->qwc, id, gif->madr, gif->tadr);
+			SysPrintf("GIF dmaChain error size=%d, madr=%lx, tadr=%lx\n",
+					gif->qwc, gif->madr, gif->tadr);
 			gifdone = 1;
 		}
 	FreezeXMMRegs(0); 
 	FreezeMMXRegs(0);
-		if ((gif->chcr & 0x80) && (ptag[0] >> 31)) {
-#ifdef SPR_LOG
-			SPR_LOG("dmaIrq Set\n");
-#endif
-			gifdone = 2;
-		}
+		
 
 	
 	if(gif->qwc == 0 && gifdone == 2) gifdone = 1;

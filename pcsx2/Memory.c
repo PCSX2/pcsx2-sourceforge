@@ -703,7 +703,7 @@ u32 VM_RETRANSLATE(u32 mem)
 	if( (mem&0xffff0000) == 0x50000000 ) // reserved scratch pad mem
 		return PS2MEM_BASE_+mem;
 
-	p = (u8*)dmaGetAddrBase(mem), *pbase;
+	p = (u8*)dmaGetAddrBase(mem);
 
 #ifdef _WIN32	
 	// do manual LUT since IPU/SPR seems to use addrs 0x3000xxxx quite often
