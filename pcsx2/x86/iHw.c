@@ -691,7 +691,7 @@ void hwConstWrite8(u32 mem, int mmreg)
 
 void hwConstWrite16(u32 mem, int mmreg)
 {
-	switch(mem&~3) {
+	switch(mem) {
 		CONSTWRITE_TIMERS(16)
 		case 0x10008000: // dma0 - vif0
 			recDmaExec16(VIF0, 0);
