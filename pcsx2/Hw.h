@@ -324,7 +324,7 @@ extern __forceinline u8* dmaGetAddr(u32 mem)
 	if( mem == 0x50000000 ) // reserved scratch pad mem
 		return NULL;
 
-	p = (u8*)dmaGetAddrBase(mem), *pbase;
+	p = (u8*)dmaGetAddrBase(mem); //, *pbase;
 	
 #ifdef _WIN32
     // do manual LUT since IPU/SPR seems to use addrs 0x3000xxxx quite often
