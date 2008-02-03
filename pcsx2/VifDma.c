@@ -1677,7 +1677,9 @@ static int Vif1TransDirectHL(u32 *data){
 		}
 		else {
 			FreezeXMMRegs(1);
+			FreezeMMXRegs(1);
 			GSGIFTRANSFER2((u32*)splittransfer[0], 1);
+			FreezeMMXRegs(0);
 			FreezeXMMRegs(0);
 		}
 		
@@ -1723,7 +1725,9 @@ static int Vif1TransDirectHL(u32 *data){
 	else {
 		
 		FreezeXMMRegs(1);
+		FreezeMMXRegs(1);
 		GSGIFTRANSFER2(data, (ret >> 2));
+		FreezeMMXRegs(0);
 		FreezeXMMRegs(0);
 	}
 	

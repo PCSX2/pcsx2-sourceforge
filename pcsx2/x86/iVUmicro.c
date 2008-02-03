@@ -4934,7 +4934,11 @@ void recVUMI_XGKICK( VURegs *VU, int info )
 #endif
 	}
 	else {
+		FreezeMMXRegs(1);
+		FreezeXMMRegs(1);
 		CALLFunc((uptr)GSgifTransfer1);
+		FreezeMMXRegs(0);
+		FreezeXMMRegs(0);
 	}
 }
 
