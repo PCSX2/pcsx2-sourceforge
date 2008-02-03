@@ -344,7 +344,7 @@ void SIF1Dma()
 	u32 *ptag;
 	int notDone;
 	//int cycles = 0, psxCycles = 0;
-	FreezeMMXRegs(1);
+	
 	do
 	{
 		notDone = 0;
@@ -520,7 +520,7 @@ void SIF1Dma()
 			}
 		}
 	}while(notDone);
-	FreezeMMXRegs(0);
+	
 }
 
 int  sif0Interrupt() {
@@ -606,7 +606,7 @@ void dmaSIF1() {
 //        sif1dma->chcr &= ~4; //Halflife sets a QWC amount in chain mode, no tadr set.
 //        SysPrintf("yo2\n");
 //    }
-
+	FreezeMMXRegs(1);
 	psHu32(0x1000F240) |= 0x4000;
 	if(sif1dma->chcr & 0x100 && HW_DMA10_CHCR & 0x01000000) {
 		SIF1Dma();
@@ -614,6 +614,7 @@ void dmaSIF1() {
 		psHu32(0x1000F240) &= ~0x100;
 		psHu32(0x1000F240) &= ~0x4000;
 	}
+	FreezeMMXRegs(0);
 }
 
 void dmaSIF2() {
