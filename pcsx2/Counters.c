@@ -498,7 +498,7 @@ void rcntUpdate()
 					hwIntcIrq(counters[i].interrupt);
 					if (counters[i].mode & 0x40) { //The PS2 only resets if the interrupt is enabled - Tested on PS2
 						
-						counters[i].count = 0; // Reset on target	
+						counters[i].count -= counters[i].target; // Reset on target	
 					} 
 					else counters[i].target += 0x10000000;
 				} 
@@ -515,7 +515,7 @@ void rcntUpdate()
 				hwIntcIrq(counters[i].interrupt);
 				//SysPrintf("counter[%d] overflow interrupt (%x)\n", i, cpuRegs.cycle);
 			}
-			counters[i].count = 0;
+			counters[i].count -= 0xffff;
 			if(counters[i].target > 0xffff) {
 				//SysPrintf("EE %x Correcting target on overflow\n", i);
 				counters[i].target &= 0xffff;
