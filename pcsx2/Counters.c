@@ -66,7 +66,7 @@ void rcntSet() {
 			}
 		
 		// the + 10 is just in case of overflow
-			if(!(counters[i].mode & 0x100) || counters[i].target > 0xffff) continue;
+			//if(!(counters[i].mode & 0x100) || counters[i].target > 0xffff) continue;
 			 c = (counters[i].target - rcntCycle(i)) * counters[i].rate;
 			if (c < nextCounter) {
 			nextCounter = c;
