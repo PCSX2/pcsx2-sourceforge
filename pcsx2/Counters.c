@@ -501,7 +501,7 @@ void rcntUpdate()
 						counters[i].count -= counters[i].target; // Reset on target	
 					} 
 					else counters[i].target += 0x10000000;
-				} 
+				} else counters[i].target += 0x10000000;
 			
 		}
 		if (counters[i].count > 0xffff) {
@@ -515,7 +515,7 @@ void rcntUpdate()
 				hwIntcIrq(counters[i].interrupt);
 				//SysPrintf("counter[%d] overflow interrupt (%x)\n", i, cpuRegs.cycle);
 			}
-			counters[i].count -= 0xffff;
+			counters[i].count -= 0x10000;
 			if(counters[i].target > 0xffff) {
 				//SysPrintf("EE %x Correcting target on overflow\n", i);
 				counters[i].target &= 0xffff;
