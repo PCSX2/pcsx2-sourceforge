@@ -526,14 +526,13 @@ void rcntUpdate()
 	
 	if ((cpuRegs.cycle - counters[4].sCycleT) >= counters[4].CycleT && hblankend == 1){
 		
-		if(counters[5].mode & 0x10000){
-			if (!(GSCSRr & 0x4)){
-				GSCSRr |= 4; // signal
-				
-			}
-			if (!(GSIMR&0x400) )
-					gsIrq();
+		if (!(GSCSRr & 0x4)){
+			GSCSRr |= 4; // signal
+			
 		}
+		if (!(GSIMR&0x400) )
+				gsIrq();
+		
 		if(gates)rcntEndGate(0);
 		if(psxhblankgate)psxCheckEndGate(0);
 		hblankend = 0;
