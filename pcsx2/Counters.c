@@ -60,14 +60,14 @@ void rcntSet() {
 	for (i = 0; i < 4; i++) {
 		if (!(counters[i].mode & 0x80)) continue; // Stopped
 
-			c = (0x10000 - rcntCycle(i)) * counters[i].rate;
+			c = ((0x10000 - counters[i].count) * counters[i].rate) - (cpuRegs.cycle - counters[i].sCycleT);
 			if (c < nextCounter) {
 				nextCounter = c;
 			}
 		
 		// the + 10 is just in case of overflow
 			//if(!(counters[i].mode & 0x100) || counters[i].target > 0xffff) continue;
-			 c = (counters[i].target - rcntCycle(i)) * counters[i].rate;
+			c = ((counters[i].target - counters[i].count) * counters[i].rate) - (cpuRegs.cycle - counters[i].sCycleT);
 			if (c < nextCounter) {
 			nextCounter = c;
 			}
@@ -582,12 +582,21 @@ void rcntWcount(int index, u32 value) {
 void rcntWmode(int index, u32 value)  
 {
 
-
 	if (value & 0xc00) { //Clear status flags, the ps2 only clears what is given in the value
 		counters[index].mode &= ~(value & 0xc00);
 	}
 
-	if((value & 0x80) && !(counters[index].mode & 0x80)) rcntUpd(index); //Counter wasnt started, so set the start cycle
+	if(counters[index].mode & 0x80){
+		counters[index].count += (int)((cpuRegs.cycle - counters[index].sCycleT) / counters[index].rate);
+		counters[index].sCycleT = cpuRegs.cycle - ((cpuRegs.cycle - counters[index].sCycleT) % counters[index].rate);
+		if(!(value & 0x80)) SysPrintf("Stopping\n");
+		}
+	else {
+		SysPrintf("Counter %d not running c%x s%x c%x\n", index, counters[index].count, counters[index].sCycleT, cpuRegs.cycle);
+		if(value & 0x80) SysPrintf("Starting %d, v%x\n", index, value);
+		counters[index].sCycleT = cpuRegs.cycle;
+		}
+	//if((value & 0x80) && !(counters[index].mode & 0x80)) rcntUpd(index); //Counter wasnt started, so set the start cycle
 		
 	counters[index].mode = (counters[index].mode & 0xc00) | (value & 0x3ff);
 
@@ -603,8 +612,9 @@ void rcntWmode(int index, u32 value)
 	}
 
 	if((counters[index].mode & 0xF) == 0x7) {
-			gates &= ~(1<<index);
-			counters[index].mode &= ~0x80;
+		gates &= ~(1<<index);
+		SysPrintf("Gate Disabled\n");
+		//	counters[index].mode &= ~0x80;
 	}else if(counters[index].mode & 0x4){
 		    SysPrintf("Gate enable on counter %x mode %x\n", index, counters[index].mode);
 			gates |= 1<<index;
