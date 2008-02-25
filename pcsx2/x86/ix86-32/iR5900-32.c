@@ -2241,7 +2241,7 @@ void iFlushCall(int flushtype)
 //	assert( !g_globalXMMSaved );
 //}
 
-#define EECYCLE_MULT 9/8
+#define EECYCLE_MULT ((Config.Hacks & 1) ? 2.25 : (9/8))
 
 static void iBranchTest(u32 newpc, u32 cpuBranch)
 {
