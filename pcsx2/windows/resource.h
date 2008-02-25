@@ -25,7 +25,6 @@
 #define IDD_RDEBUGPARAMS                121
 #define ID_DEBUG_REMOTEDEBUGGING        122
 #define IDD_RDEBUG                      123
-#define IDD_DIALOGBAR                   124
 #define IDD_IOP_DEBUG                   125
 #define IDD_CPUDLG                      126
 #define IDD_ADVANCED                    127
@@ -33,6 +32,7 @@
 #define IDD_USERNAME                    129
 #define IDB_PS2SILVER                   132
 #define IDD_CHEATS                      133
+#define IDD_HACKS                       135
 #define IDD_DUMP                        136
 #define IDD_DUMPMEM                     137
 #define IDD_PATCHBROWSER                138
@@ -476,6 +476,7 @@
 #define IDC_ADVRESET                    1214
 #define IDC_FASTIOPCLK                  1215
 #define IDC_CHECK2                      1217
+#define IDC_SYNCHACK                    1217
 #define IDC_SPU2HACK                    1218
 #define IDC_VSYNCRATE                   1219
 #define IDC_IOPGPR0                     1220
@@ -545,6 +546,8 @@
 #define IDC_CUSTOM_FPS                  1276
 #define IDC_DEBUG_STEP_TO_CURSOR        1277
 #define IDC_DEBUG_BREAK                 1278
+#define IDC_ABSHACK                     1278
+#define IDC_HACKDESC                    1279
 #define IDC_LOG                         1500
 #define IDC_CPULOG                      1500
 #define IDC_MEMLOG                      1501
@@ -669,15 +672,16 @@
 #define ID_HELP_HELP                    40063
 #define ID_CHEAT_FINDER_SHOW            40100
 #define ID_CHEAT_BROWSER_SHOW           40101
+#define ID_HACKS                        40102
 #define ID_LANGS                        50000
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        134
+#define _APS_NEXT_RESOURCE_VALUE        136
 #define _APS_NEXT_COMMAND_VALUE         40018
-#define _APS_NEXT_CONTROL_VALUE         1277
-#define _APS_NEXT_SYMED_VALUE           101
+#define _APS_NEXT_CONTROL_VALUE         1280
+#define _APS_NEXT_SYMED_VALUE           102
 #endif
 #endif

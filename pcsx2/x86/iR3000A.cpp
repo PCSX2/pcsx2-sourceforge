@@ -969,8 +969,8 @@ void psxSetBranchImm( u32 imm )
 	*ptr = (uptr)JMP32((uptr)psxDispatcher - ( (uptr)x86Ptr + 5 ));
 }
 
-#define USE_FAST_BRANCHES 0
-#define PSXCYCLE_MULT 17/16
+#define USE_FAST_BRANCHES (Config.Hacks & 1)
+#define PSXCYCLE_MULT ((Config.Hacks & 1) ? 2.125 : (17/16))
 
 static void iPsxBranchTest(u32 newpc, u32 cpuBranch)
 {

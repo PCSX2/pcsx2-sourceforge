@@ -692,6 +692,34 @@ BOOL APIENTRY AdvancedProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam
     return FALSE;
 }
 
+BOOL APIENTRY HacksProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
+	//char str[256];
+
+    switch (message) {
+        case WM_INITDIALOG:
+			if(Config.Hacks & 1) CheckDlgButton(hDlg, IDC_SYNCHACK, TRUE);
+			if(Config.Hacks & 2) CheckDlgButton(hDlg, IDC_ABSHACK, TRUE);
+            return TRUE;
+
+        case WM_COMMAND:
+            if (LOWORD(wParam) == IDOK) {
+				Config.Hacks = 0;
+				Config.Hacks |= IsDlgButtonChecked(hDlg, IDC_SYNCHACK) ? 1 : 0;
+				Config.Hacks |= IsDlgButtonChecked(hDlg, IDC_ABSHACK) ? 2 : 0;
+			
+				SaveConfig();              
+
+                EndDialog(hDlg, TRUE);
+            } else
+            if (LOWORD(wParam) == IDCANCEL) {
+                EndDialog(hDlg, FALSE);
+            } else
+            return TRUE;
+    }
+
+    return FALSE;
+}
+
 HBITMAP hbitmap_background;//the background image
 
 LRESULT WINAPI MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -727,7 +755,9 @@ LRESULT WINAPI MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 		case WM_COMMAND:
 			switch (LOWORD(wParam)) 
 			{
-
+			case ID_HACKS:
+				 DialogBox(gApp.hInstance, MAKEINTRESOURCE(IDD_HACKS), hWnd, (DLGPROC)HacksProc);
+				 return TRUE;
 			case ID_CHEAT_FINDER_SHOW:
 				ShowFinder(pInstance,hWnd);
 				return TRUE;
@@ -1056,6 +1086,7 @@ void CreateMainMenu() {
 #ifdef PCSX2_DEVBUILD
 //	ADDMENUITEM(0,_("&Advanced"), ID_CONFIG_ADVANCED);
 #endif
+	ADDMENUITEM(0,_("Speed &Hacks"), ID_HACKS);
 	ADDMENUITEM(0,_("&Patches"), ID_PATCHBROWSER);
 	ADDMENUITEM(0,_("C&pu"), ID_CONFIG_CPU);
 	ADDMENUITEM(0,_("&Memcards"), ID_CONFIG_MEMCARDS);

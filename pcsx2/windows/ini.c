@@ -96,6 +96,8 @@ int LoadConfig() {
 	GetPrivateProfileString("Misc", "varLog", NULL, szValue, 20, szIniFile);
     varLog = strtoul(szValue, NULL, 16);
 #endif
+	GetPrivateProfileString("Misc", "Hacks", NULL, szValue, 20, szIniFile);
+    Conf->Hacks = strtoul(szValue, NULL, 16);
 
 #ifdef ENABLE_NLS
 	sprintf(text, "LANGUAGE=%s", Conf->Lang);
@@ -166,6 +168,8 @@ void SaveConfig() {
     WritePrivateProfileString("Misc","Patch",szValue,szIniFile);
 	sprintf(szValue,"%x",varLog);
     WritePrivateProfileString("Misc","varLog",szValue,szIniFile);
+	sprintf(szValue,"%u",Conf->Hacks);
+    WritePrivateProfileString("Misc","Hacks",szValue,szIniFile);
 
 
 }

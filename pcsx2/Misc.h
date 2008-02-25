@@ -52,7 +52,7 @@
 #define CHECK_DUALCORE (Config.Options&PCSX2_DUALCORE)
 #define CHECK_EEREC (Config.Options&PCSX2_EEREC)
 #define CHECK_COP2REC (Config.Options&PCSX2_COP2REC) // goes with ee option
-#define CHECK_FORCEABS 1// always on, (Config.Options&PCSX2_FORCEABS)
+#define CHECK_FORCEABS (~(Config.Hacks >> 1) & 1) // always on, (Config.Options&PCSX2_FORCEABS)
 
 #define CHECK_FRAMELIMIT (Config.Options&PCSX2_FRAMELIMIT_MASK)
 
@@ -89,6 +89,7 @@ typedef struct {
 	int Patch;
 	int ThPriority;
 	int CustomFps;
+	int Hacks;
 } PcsxConfig;
 
 extern PcsxConfig Config;
