@@ -2218,7 +2218,7 @@ void iFlushCall(int flushtype)
 	}
 }
 
-#define USE_FAST_BRANCHES 0
+#define USE_FAST_BRANCHES (Config.Hacks & 1)
 
 //void testfpu()
 //{
