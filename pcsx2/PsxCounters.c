@@ -28,11 +28,11 @@ u8 psxvblankgate = 0;
 u8 psxcntmask = 0;
 
 static void psxRcntUpd16(u32 index) {
-	psxCounters[index].sCycleT = psxRegs.cycle;
+	psxCounters[index].sCycleT = psxRegs.cycle  - (psxRegs.cycle % psxCounters[index].rate);;
 }
 
 static void psxRcntUpd32(u32 index) {
-	psxCounters[index].sCycleT = psxRegs.cycle;
+	psxCounters[index].sCycleT = psxRegs.cycle  - (psxRegs.cycle % psxCounters[index].rate);;
 }
 
 static void psxRcntReset16(u32 index) {
@@ -62,20 +62,20 @@ static void psxRcntSet() {
 			psxNextCounter = (u32)c;
 		}
 		//if((psxCounters[i].mode & 0x10) == 0 || psxCounters[i].target > 0xffff) continue;
-		 c = (u64)(psxCounters[i].target - psxRcntCycles(i)) * psxCounters[i].rate;
+		c = (u64)((psxCounters[i].target - psxCounters[i].count) * psxCounters[i].rate) - (psxRegs.cycle - psxCounters[i].sCycleT);
 		if (c < psxNextCounter && c > 0) {
 			psxNextCounter = (u32)c;
 		}
 			
 	}
 	for (i=3; i<6; i++) {
-		c = (u64)(0x100000000 - psxRcntCycles(i)) * psxCounters[i].rate;
+		c = (u64)((0x100000000 - psxCounters[i].count) * psxCounters[i].rate) - (psxRegs.cycle - psxCounters[i].sCycleT);
 		if (c < psxNextCounter) {
 			psxNextCounter = (u32)c;
 		}
 		
 		//if((psxCounters[i].mode & 0x10) == 0 || psxCounters[i].target > 0xffffffff) continue;
-		c = (u64)(psxCounters[i].target - psxRcntCycles(i)) * psxCounters[i].rate;
+		c = (u64)((psxCounters[i].target - psxCounters[i].count) * psxCounters[i].rate) - (psxRegs.cycle - psxCounters[i].sCycleT);
 		if (c < psxNextCounter && c > 0) {
 			psxNextCounter = (u32)c;
 		}
@@ -115,6 +115,8 @@ void psxRcntInit() {
 		psxCounters[i].target = 0x0;
 	}
 
+	psxCounters[9].rate = 1;
+
 	psxCounters[0].interrupt = 0x10;
 	psxCounters[1].interrupt = 0x20;
 	psxCounters[2].interrupt = 0x40;
@@ -127,7 +129,7 @@ void psxRcntInit() {
 		
 
 		psxCounters[6].rate = 1;
-		psxCounters[6].CycleT = 48000;
+		psxCounters[6].CycleT = 768/*48000*/;
 		psxCounters[6].mode = 0x8;
 	}
 
@@ -283,6 +285,10 @@ void _testRcnt16target(int i) {
 		
 	if (psxCounters[i].mode & 0x08) { // Reset on target
 		psxCounters[i].count -= psxCounters[i].target;
+		if((psxCounters[i].mode & 0x40) == 0){
+				SysPrintf("Counter %x repeat intr not set on zero ret, ignoring target\n", i);
+				psxCounters[i].target += 0x1000000000;
+				}
 		
 	} else psxCounters[i].target += 0x1000000000;
 	
@@ -304,7 +310,7 @@ void _testRcnt16overflow(int i) {
 	psxCounters[i].count -= 0x10000;
 	psxRcntUpd16(i);
 	if(psxCounters[i].target > 0xffff) {
-		
+		if((psxCounters[i].mode & 0x50) <= 0x40 && (psxCounters[i].mode & 0x50) != 0) SysPrintf("Counter %x overflowing, no repeat interrupt mode = %x\n", i, psxCounters[i].mode);
 		psxCounters[i].target &= 0xffff;
 		//SysPrintf("IOP 16 Correcting target ovf %x\n", psxCounters[i].target);
 		}
@@ -334,6 +340,10 @@ void _testRcnt32target(int i) {
 	
 	if (psxCounters[i].mode & 0x08) { // Reset on target
 			psxCounters[i].count -= psxCounters[i].target;
+			if((psxCounters[i].mode & 0x40) == 0){
+				SysPrintf("Counter %x repeat intr not set on zero ret, ignoring target\n", i);
+				psxCounters[i].target += 0x1000000000;
+				}
 			
 	} else psxCounters[i].target += 0x1000000000;
 	
@@ -354,6 +364,7 @@ void _testRcnt32overflow(int i) {
 	psxCounters[i].count -= 0x100000000;
 	if(psxCounters[i].target > 0xffffffff) {
 		//SysPrintf("IOP 32 Correcting target on overflow\n");
+		if((psxCounters[i].mode & 0x50) <= 0x40 && (psxCounters[i].mode & 0x50) != 0) SysPrintf("Counter %x overflowing, no repeat interrupt mode = %x\n", i, psxCounters[i].mode);
 		psxCounters[i].target &= 0xffffffff;
 		}
 }
@@ -381,14 +392,18 @@ void _testRcnt32(int i) {
 
 void psxRcntUpdate() {
 	int i;
+	u32 change = 0;
 
 	for (i=0; i<=5; i++) {
 		if((psxCounters[i].mode & 0x1) != 0){
-			//SysPrintf("Stopped accidental update of psx counter %x when using a gate\n", i);
+			SysPrintf("Stopped accidental update of psx counter %x when using a gate\n", i);
 			continue;
 			}
-		psxCounters[i].count += (psxRegs.cycle - psxCounters[i].sCycleT) / psxCounters[i].rate;
-		psxCounters[i].sCycleT = psxRegs.cycle - ((psxRegs.cycle - psxCounters[i].sCycleT) % psxCounters[i].rate);
+		change = psxRegs.cycle - psxCounters[i].sCycleT;
+		psxCounters[i].count += change / psxCounters[i].rate;
+		change -= (change / psxCounters[i].rate) * psxCounters[i].rate;
+		psxCounters[i].sCycleT = psxRegs.cycle - change;
+		if(change > 0) SysPrintf("PSX Change saved on %x = %x\n", i, change);
 	}
 
 	_testRcnt16(0);
@@ -458,10 +473,13 @@ void psxRcnt0Wmode(u32 value)  {
 	psxCounters[0].mode|= 0x0400;
 	psxCounters[0].rate = 1;
 
-	if(value & 0x100) psxCounters[0].rate = PSXPIXEL;
+	if(value & 0x100) {
+		SysPrintf("Timer 0 Set to Pixel clock %x\n", value);
+		psxCounters[0].rate = PSXPIXEL;
+		} else SysPrintf("Timer 0 Set to 1 %x\n", value);
 	
 	if(psxCounters[0].mode & 0x1){
-		SysPrintf("Gate Check set on Counter 0\n");
+		SysPrintf("Gate Check set on Counter 0 %x\n", value);
 		psxCounters[0].mode|= 0x1000000;
 		psxhblankgate |= 1;
 	}else
@@ -490,10 +508,13 @@ void psxRcnt1Wmode(u32 value)  {
 	psxCounters[1].mode|= 0x0400;
 	psxCounters[1].rate = 1;
 
-	if(value & 0x100)psxCounters[1].rate = PSXHBLANK;
+	if(value & 0x100){
+		SysPrintf("Timer 1 Set to HBlank clock %x\n", value);
+		psxCounters[1].rate = PSXHBLANK;
+		} else SysPrintf("Timer 1 Set to 1 clock %x\n", value);
 
 	if(psxCounters[1].mode & 0x1){
-		SysPrintf("Gate Check set on Counter 1\n");
+		SysPrintf("Gate Check set on Counter 1 %x\n", value);
 		psxCounters[1].mode|= 0x1000000;
 		psxvblankgate |= 1<<1;
 	}else
@@ -523,9 +544,11 @@ void psxRcnt2Wmode(u32 value)  {
 
 	switch(value & 0x200){
 		case 0x200:
+			SysPrintf("Timer 2 Set to 8 %x\n", value);
 			psxCounters[2].rate = 8;
 			break;
 		case 0x000:
+			SysPrintf("Timer 2 Set to 1 %x\n", value);
 			psxCounters[2].rate = 1;
 			break;
 	}
@@ -557,7 +580,10 @@ void psxRcnt3Wmode(u32 value)  {
 	psxCounters[3].rate = 1;
 	psxCounters[3].mode|= 0x0400;
 
-	if(value & 0x100)psxCounters[3].rate = PSXHBLANK;
+	if(value & 0x100){
+		SysPrintf("Timer 3 Set to HBLANK clock %x\n", value);
+		psxCounters[3].rate = PSXHBLANK;
+		}else SysPrintf("Timer 3 Set to 1 %x\n", value);
   
 	if(psxCounters[3].mode & 0x1){
 		SysPrintf("Gate Check set on Counter 3\n");
@@ -590,15 +616,19 @@ void psxRcnt4Wmode(u32 value)  {
 
 	switch(value & 0x6000){
 		case 0x0000:
+			SysPrintf("Timer 4 Set to 1 %x\n", value);
             psxCounters[4].rate = 1;
 			break;
 		case 0x2000:
+			SysPrintf("Timer 4 Set to 8 %x\n", value);
 			psxCounters[4].rate = 8;
 			break;
 		case 0x4000:
+			SysPrintf("Timer 4 Set to 16 %x\n", value);
 			psxCounters[4].rate = 16;
 			break;
 		case 0x6000:
+			SysPrintf("Timer 4 Set to 256 %x\n", value);
 			psxCounters[4].rate = 256;
 			break;
 	}
@@ -630,15 +660,19 @@ void psxRcnt5Wmode(u32 value)  {
 
 	switch(value & 0x6000){
 		case 0x0000:
+			SysPrintf("Timer 5 Set to 1 %x\n", value);
             psxCounters[5].rate = 1;
 			break;
 		case 0x2000:
+			SysPrintf("Timer 5 Set to 8 %x\n", value);
 			psxCounters[5].rate = 8;
 			break;
 		case 0x4000:
+			SysPrintf("Timer 5 Set to 16 %x\n", value);
 			psxCounters[5].rate = 16;
 			break;
 		case 0x6000:
+			SysPrintf("Timer 5 Set to 256 %x\n", value);
 			psxCounters[5].rate = 256;
 			break;
 	}

@@ -36,11 +36,11 @@ LARGE_INTEGER lfreq;
 u32 eecntmask = 0;
 
 void rcntUpdTarget(int index) {
-	counters[index].sCycleT = cpuRegs.cycle/* - (cpuRegs.cycle % counters[index].rate)*/;
+	counters[index].sCycleT = cpuRegs.cycle;
 }
 
 void rcntUpd(int index) {
-	counters[index].sCycle = cpuRegs.cycle /*- (cpuRegs.cycle % counters[index].rate)*/;
+	counters[index].sCycle = cpuRegs.cycle;
 	rcntUpdTarget(index);
 }
 
@@ -472,13 +472,19 @@ void VSync()
 void rcntUpdate()
 {
 	int i;
+	u32 change = 0;
 	for (i=0; i<=3; i++) {
 		if(gates & (1<<i)){
-			//SysPrintf("Stopped accidental update of ee counter %x when using a gate\n", i);
+			SysPrintf("Stopped accidental update of ee counter %x when using a gate\n", i);
 			continue;
 			}
-		if ((counters[i].mode & 0x80)) counters[i].count += (int)((cpuRegs.cycle - counters[i].sCycleT) / counters[i].rate);
-		counters[i].sCycleT = cpuRegs.cycle - ((cpuRegs.cycle - counters[i].sCycleT) % counters[i].rate);
+		if ((counters[i].mode & 0x80)){
+		change = cpuRegs.cycle - counters[i].sCycleT;
+		 counters[i].count += (int)(change / counters[i].rate);
+		change -= (change / counters[i].rate) * counters[i].rate;
+			} else change = 0;
+		counters[i].sCycleT = cpuRegs.cycle - change;
+		//if(change > 0) SysPrintf("Change saved on %x = %x\n", i, change);
 	}
 	for (i=0; i<=3; i++) {
 		if (!(counters[i].mode & 0x80)) continue; // Stopped
