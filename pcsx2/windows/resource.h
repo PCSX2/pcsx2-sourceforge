@@ -25,6 +25,7 @@
 #define IDD_RDEBUGPARAMS                121
 #define ID_DEBUG_REMOTEDEBUGGING        122
 #define IDD_RDEBUG                      123
+#define IDD_DIALOGBAR                   124
 #define IDD_IOP_DEBUG                   125
 #define IDD_CPUDLG                      126
 #define IDD_ADVANCED                    127
@@ -38,6 +39,10 @@
 #define IDD_PATCHBROWSER                138
 #define IDD_FINDER                      174
 #define IDD_ADD                         175
+#define IDD_ADDGS                       176
+#define IDD_EDITPATCH                   177
+#define IDD_ADDRAW                      178
+#define IDD_PNACHWRITER                 179
 #define IDC_MEM_SCROLL                  1001
 #define IDC_EXECBP                      1001
 #define IDC_CNTBP                       1002
@@ -49,10 +54,14 @@
 #define IDC_VU0_VF02                    1007
 #define IDC_MCDSEL2                     1007
 #define IDC_VU0_VF03                    1008
+#define IDC_LOADICO1                    1008
 #define IDC_VU0_VF04                    1009
+#define IDC_SAVE1                       1009
 #define IDC_DEBUG_DISASM                1010
 #define IDC_VU0_VF05                    1010
+#define IDC_LOADICO2                    1010
 #define IDC_VU0_VF06                    1011
+#define IDC_SAVE2                       1011
 #define IDC_VU0_VF07                    1012
 #define IDC_VU0_VF08                    1013
 #define IDC_PCSX_ABOUT_TEXT             1014
@@ -62,8 +71,11 @@
 #define IDC_VU0_VF10                    1015
 #define IDC_VSYNCHACK                   1016
 #define IDC_VU0_VF11                    1016
+#define IDC_ENABLED                     1016
 #define IDC_VU0_VF12                    1017
+#define IDC_PLACETOPATCH                1017
 #define IDC_VU0_VF13                    1018
+#define IDC_TYPE                        1018
 #define IDC_VU0_VF14                    1019
 #define IDC_CP07                        1020
 #define IDC_VU0_VF15                    1020
@@ -545,9 +557,37 @@
 #define IDC_DEBUG_RUN_TO_CURSOR         1276
 #define IDC_CUSTOM_FPS                  1276
 #define IDC_DEBUG_STEP_TO_CURSOR        1277
+#define IDC_ENABLEBUTTON                1277
 #define IDC_DEBUG_BREAK                 1278
 #define IDC_ABSHACK                     1278
 #define IDC_HACKDESC                    1279
+#define IDC_ADDGS                       1278
+#define IDC_CONVERTEDCODE               1278
+#define IDC_CONVERT                     1279
+#define IDC_EDITPATCH                   1279
+#define IDC_READY                       1280
+#define IDC_ADDPATCH                    1280
+#define IDC_GROUP                       1281
+#define IDC_ADDRAW                      1281
+#define IDC_DATA                        1282
+#define IDC_PNACHWRITER                 1282
+#define IDC_PNACHWRITER2                1283
+#define IDC_SKIPMPEG                    1283
+#define IDC_SPIN1                       1284
+#define IDC_SAVE                        1286
+#define IDC_CRC                         1287
+#define IDC_COMMENT                     1288
+#define IDC_GAMETITLE                   1289
+#define IDC_FASTMEMORY                  1290
+#define IDC_ZEROGS                      1291
+#define IDC_ROUND1                      1292
+#define IDC_ROUND2                      1293
+#define IDC_PATH3HACK                   1294
+#define IDC_VUNANMODE                   1295
+#define IDC_TREE1                       1297
+#define IDC_TREE2                       1298
+#define IDC_ICON1                       1299
+#define IDC_ICON2                       1300
 #define IDC_LOG                         1500
 #define IDC_CPULOG                      1500
 #define IDC_MEMLOG                      1501
@@ -597,6 +637,7 @@
 #define IDC_STATUS                      1716
 #define IDC_FW                          1716
 #define IDC_FRAMELIMIT                  1716
+#define IDC_ADDRESS                     1716
 #define IDC_UNSIGNED                    1717
 #define IDC_8B                          1718
 #define IDC_16B                         1719
@@ -681,7 +722,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        136
 #define _APS_NEXT_COMMAND_VALUE         40018
-#define _APS_NEXT_CONTROL_VALUE         1280
+#define _APS_NEXT_CONTROL_VALUE         1300
 #define _APS_NEXT_SYMED_VALUE           102
 #endif
 #endif
