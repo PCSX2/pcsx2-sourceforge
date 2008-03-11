@@ -403,7 +403,7 @@ void psxRcntUpdate() {
 		psxCounters[i].count += change / psxCounters[i].rate;
 		change -= (change / psxCounters[i].rate) * psxCounters[i].rate;
 		psxCounters[i].sCycleT = psxRegs.cycle - change;
-		if(change > 0) SysPrintf("PSX Change saved on %x = %x\n", i, change);
+		//if(change > 0) SysPrintf("PSX Change saved on %x = %x\n", i, change);
 	}
 
 	_testRcnt16(0);
