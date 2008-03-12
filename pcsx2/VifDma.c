@@ -605,7 +605,7 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 			if( writemask > 0 ) {
 				
 				cdata += size-writemask;
-				//dest = (u32*)((u8*)dest + ((left/vifRegs->cycle.wl)*vifRegs->cycle.cl + left%vifRegs->cycle.wl)*16);
+				dest = (u32*)((u8*)dest + (((size-writemask)/vifRegs->cycle.wl)*vifRegs->cycle.cl + (size-writemask)%vifRegs->cycle.wl)*16);
 				vifRegs->num -= (size-writemask)/ft->gsize;
 				// Add split transfer skipping
 				//vif->tag.addr += (size / (ft->gsize* vifRegs->cycle.wl)) * ((vifRegs->cycle.cl - vifRegs->cycle.wl)*16);
