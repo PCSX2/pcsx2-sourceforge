@@ -466,12 +466,13 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
         ft = &VIFfuncTable[ unpackType ];
         func = vif->usn ? ft->funcU : ft->funcS;
         if(vifRegs->offset < (u32)ft->qsize){
-            unpacksize = (ft->qsize - vifRegs->offset);
+            unpacksize = ((ft->gsize >> 2) - vifRegs->offset);
         } else {
             unpacksize = 0;
             SysPrintf("Unpack align offset = 0\n");
         }
-        destinc = 4 - vifRegs->offset;
+        destinc = ((16 - ft->gsize) + (unpacksize*ft->dsize)) >> 2;
+		if(destinc != 4 - vifRegs->offset)SysPrintf("Destinc %x old %x\n", destinc, 4 - vifRegs->offset);
         func(dest, (u32*)cdata, unpacksize);
         size -= unpacksize*ft->dsize;
         cdata += unpacksize*ft->dsize;
@@ -603,10 +604,10 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 
 			// if size is left over, update the src,dst pointers
 			if( writemask > 0 ) {
-				
-				cdata += size-writemask;
-				dest = (u32*)((u8*)dest + (((size-writemask)/vifRegs->cycle.wl)*vifRegs->cycle.cl + (size-writemask)%vifRegs->cycle.wl)*16);
-				vifRegs->num -= (size-writemask)/ft->gsize;
+				int left = (size-writemask)/ft->gsize;
+				cdata += left * ft->gsize;
+				dest = (u32*)((u8*)dest + ((left/vifRegs->cycle.wl)*vifRegs->cycle.cl + left%vifRegs->cycle.wl)*16);
+				vifRegs->num -= left;
 				// Add split transfer skipping
 				//vif->tag.addr += (size / (ft->gsize* vifRegs->cycle.wl)) * ((vifRegs->cycle.cl - vifRegs->cycle.wl)*16);
 				// check for left over write cycles (so can spill to next transfer)
