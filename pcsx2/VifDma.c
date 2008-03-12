@@ -613,7 +613,10 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 				// check for left over write cycles (so can spill to next transfer)
 				_vif->cl = (size % (ft->gsize*vifRegs->cycle.wl)) / ft->gsize;
 			}
-			else vifRegs->num -= size/ft->gsize;
+			else {
+				vifRegs->num -= size/ft->gsize;
+				_vif->cl = (size % (ft->gsize*vifRegs->cycle.wl)) / ft->gsize;
+			}
 			
 			size = writemask;
 
