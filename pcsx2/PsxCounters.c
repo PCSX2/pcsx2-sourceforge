@@ -28,11 +28,11 @@ u8 psxvblankgate = 0;
 u8 psxcntmask = 0;
 
 static void psxRcntUpd16(u32 index) {
-	psxCounters[index].sCycleT = psxRegs.cycle  - (psxRegs.cycle % psxCounters[index].rate);;
+	psxCounters[index].sCycleT = psxRegs.cycle;
 }
 
 static void psxRcntUpd32(u32 index) {
-	psxCounters[index].sCycleT = psxRegs.cycle  - (psxRegs.cycle % psxCounters[index].rate);;
+	psxCounters[index].sCycleT = psxRegs.cycle;
 }
 
 static void psxRcntReset16(u32 index) {
@@ -57,13 +57,13 @@ static void psxRcntSet() {
 	psxNextsCounter = psxRegs.cycle;
 
 	for (i=0; i<3; i++) {
-		c = (u64)(0x10000 - psxRcntCycles(i)) * psxCounters[i].rate;
+		c = (u64)((0x10000 - psxCounters[i].count) * psxCounters[i].rate) - (psxRegs.cycle - psxCounters[i].sCycleT);
 		if (c < psxNextCounter) {
 			psxNextCounter = (u32)c;
 		}
 		//if((psxCounters[i].mode & 0x10) == 0 || psxCounters[i].target > 0xffff) continue;
 		c = (u64)((psxCounters[i].target - psxCounters[i].count) * psxCounters[i].rate) - (psxRegs.cycle - psxCounters[i].sCycleT);
-		if (c < psxNextCounter && c > 0) {
+		if (c < psxNextCounter) {
 			psxNextCounter = (u32)c;
 		}
 			
@@ -76,7 +76,7 @@ static void psxRcntSet() {
 		
 		//if((psxCounters[i].mode & 0x10) == 0 || psxCounters[i].target > 0xffffffff) continue;
 		c = (u64)((psxCounters[i].target - psxCounters[i].count) * psxCounters[i].rate) - (psxRegs.cycle - psxCounters[i].sCycleT);
-		if (c < psxNextCounter && c > 0) {
+		if (c < psxNextCounter) {
 			psxNextCounter = (u32)c;
 		}
 		
@@ -114,8 +114,6 @@ void psxRcntInit() {
 		psxCounters[i].mode|= 0x0400;
 		psxCounters[i].target = 0x0;
 	}
-
-	psxCounters[9].rate = 1;
 
 	psxCounters[0].interrupt = 0x10;
 	psxCounters[1].interrupt = 0x20;
@@ -399,11 +397,14 @@ void psxRcntUpdate() {
 			SysPrintf("Stopped accidental update of psx counter %x when using a gate\n", i);
 			continue;
 			}
-		change = psxRegs.cycle - psxCounters[i].sCycleT;
-		psxCounters[i].count += change / psxCounters[i].rate;
-		change -= (change / psxCounters[i].rate) * psxCounters[i].rate;
-		psxCounters[i].sCycleT = psxRegs.cycle - change;
-		//if(change > 0) SysPrintf("PSX Change saved on %x = %x\n", i, change);
+		
+			change = psxRegs.cycle - psxCounters[i].sCycleT;
+			psxCounters[i].count += change / psxCounters[i].rate;
+			if(psxCounters[i].rate != 1){
+				change -= (change / psxCounters[i].rate) * psxCounters[i].rate;
+				psxCounters[i].sCycleT = psxRegs.cycle - change;
+			//if(change > 0) SysPrintf("PSX Change saved on %x = %x\n", i, change);
+			} else psxCounters[i].sCycleT = psxRegs.cycle;
 	}
 
 	_testRcnt16(0);
@@ -439,7 +440,7 @@ void psxRcntWcount16(int index, u32 value) {
 	psxCounters[index].count = value & 0xffff;
 	if(psxCounters[index].target > 0xffff) {
 		//SysPrintf("IOP 16 Correcting target on count write\n");
-		psxCounters[index].target -= 0x10000;
+		psxCounters[index].target &= 0xffff;
 		}
 	
 	psxRcntUpd16(index);

@@ -212,6 +212,7 @@ extern u32 vu0time;
 extern void DummyExecuteVU1Block(void);
 
 static u32 lastWasSkip=0;
+//extern u32 unpacktotal;
 
 #include "VU.h"
 void VSync() 
@@ -244,7 +245,11 @@ void VSync()
 		SysUpdate();
 	} else { // VSync Start (240 hsyncs) 
 		//UpdateVSyncRateEnd();
-		
+		/*if( (iFrame%20) == 0 ) {
+			SysPrintf("Cycles for unpacks at %d frames %x\n", iFrame, unpacktotal);
+            unpacktotal = 0;
+        }*/
+
 
 		//SysPrintf("c: %x, %x\n", cpuRegs.cycle, *(u32*)&VU1.Micro[16]);
 		//if( (iFrame%20) == 0 ) SysPrintf("svu time: %d\n", SuperVUGetRecTimes(1) * 100000 / lfreq.QuadPart);
@@ -475,7 +480,7 @@ void rcntUpdate()
 	u32 change = 0;
 	for (i=0; i<=3; i++) {
 		if(gates & (1<<i)){
-			SysPrintf("Stopped accidental update of ee counter %x when using a gate\n", i);
+			//SysPrintf("Stopped accidental update of ee counter %x when using a gate\n", i);
 			continue;
 			}
 		if ((counters[i].mode & 0x80)){
