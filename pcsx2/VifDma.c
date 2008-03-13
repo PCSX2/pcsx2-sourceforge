@@ -447,7 +447,8 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 	_vifMaskRegs = VIFdmanum ? g_vif1Masks : g_vif0Masks;
     _vif = vif;
 	_vifRow = VIFdmanum ? g_vifRow1 : g_vifRow0;
-
+	ft = &VIFfuncTable[ unpackType ];
+	func = _vif->usn ? ft->funcU : ft->funcS;
 	// Unpacking
 	//vif->wl = 0; vif->cl = 0;
 	
@@ -463,15 +464,13 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
         // SSE doesn't handle such small data
 		if (v->size != (size>>2))ProcessMemSkip(size, unpackType, VIFdmanum);
 
-        ft = &VIFfuncTable[ unpackType ];
-        func = vif->usn ? ft->funcU : ft->funcS;
         if(vifRegs->offset < (u32)ft->qsize){
-            unpacksize = ((ft->gsize >> 2) - vifRegs->offset);
+            unpacksize = (ft->qsize - vifRegs->offset);
         } else {
             unpacksize = 0;
             SysPrintf("Unpack align offset = 0\n");
         }
-        destinc = ((16 - ft->gsize) + (unpacksize*ft->dsize)) >> 2;
+        destinc = (4 - ft->qsize) + unpacksize;
 		if(destinc != 4 - vifRegs->offset)SysPrintf("Destinc %x old %x\n", destinc, 4 - vifRegs->offset);
         func(dest, (u32*)cdata, unpacksize);
         size -= unpacksize*ft->dsize;
@@ -501,8 +500,7 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
         //skipmeminc += (((vifRegs->cycle.cl - vifRegs->cycle.wl)<<2)*4) * skipped;
     } else if (v->size != (size>>2))ProcessMemSkip(size, unpackType, VIFdmanum);
 
-	ft = &VIFfuncTable[ unpackType ];
-	func = vif->usn ? ft->funcU : ft->funcS;
+	
 	if (vifRegs->cycle.cl >= vifRegs->cycle.wl) { // skipping write
 
 #ifdef _DEBUG
@@ -529,6 +527,7 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 			    ++vif->cl;
 			    if (vif->cl == vifRegs->cycle.wl) {
 				    dest += incdest;
+					vif->cl = 0;
 				    break;
 			    }
 			    
@@ -540,7 +539,7 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 		    _vifRow[1] = _vifRegs->r1;
 		    _vifRow[2] = _vifRegs->r2;
 		    _vifRow[3] = _vifRegs->r3;
-            vif->cl = 0;
+            
         }
 
 #if !defined(PCSX2_NORECBUILD)
@@ -703,7 +702,7 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 //		}
 //		s_count++;
 
-		if( size >= ft->dsize) {
+		if( size >= ft->dsize && vifRegs->num > 0) {
 	#ifdef VIF_LOG
 			VIF_LOG("warning, end with size = %d\n", size);
 	#endif
