@@ -615,7 +615,7 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 			}
 			else {
 				vifRegs->num -= size/ft->gsize;
-				_vif->cl = (size % (ft->gsize*vifRegs->cycle.wl)) / ft->gsize;
+				if(vifRegs->num > 0) _vif->cl = (size % (ft->gsize*vifRegs->cycle.wl)) / ft->gsize;
 			}
 			
 			size = writemask;
