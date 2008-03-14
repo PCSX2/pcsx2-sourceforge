@@ -346,6 +346,10 @@ static void ProcessMemSkip(int size, unsigned int unpackType, const unsigned int
 		vif->tag.addr += (size / unpack->gsize) * ((vifRegs->cycle.cl - vifRegs->cycle.wl)*16);
 		//if(vifRegs->cycle.cl != vifRegs->cycle.wl)SysPrintf("Adjusting\n");
 	//}
+		if((vif->tag.addr & 0xf) == unpack->gsize) {
+			//SysPrintf("Making up for lost bit Addr %x Gsize %x new addr %x\n", vif->tag.addr, unpack->gsize, vif->tag.addr + (16 - unpack->gsize));
+			vif->tag.addr += 16 - unpack->gsize;
+		}
 }
 
 #ifdef _MSC_VER
@@ -471,7 +475,7 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
             SysPrintf("Unpack align offset = 0\n");
         }
         destinc = (4 - ft->qsize) + unpacksize;
-		if(destinc != 4 - vifRegs->offset)SysPrintf("Destinc %x old %x\n", destinc, 4 - vifRegs->offset);
+
         func(dest, (u32*)cdata, unpacksize);
         size -= unpacksize*ft->dsize;
         cdata += unpacksize*ft->dsize;
@@ -512,10 +516,7 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 		//ft = &VIFfuncTable[ unpackType ];
         if( vif->cl != 0 ) {
             // continuation from last stream
-            
-			
-
-			
+            		
 		   // func = vif->usn ? ft->funcU : ft->funcS;
 		    incdest = ((vifRegs->cycle.cl - vifRegs->cycle.wl)<<2) + 4;
 		    while (size >= ft->gsize && vifRegs->num > 0) {
@@ -593,8 +594,8 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 				oldcycle = *(u32*)&vifRegs->cycle;
 				vifRegs->cycle.cl = vifRegs->cycle.wl = 1;
 			}
-
-			//size = min(size, (int)vifRegs->num*ft->gsize); //size will always be the same or smaller
+			size = min(size, (int)vifRegs->num*ft->gsize); //size will always be the same or smaller
+			
 			pfn = vif->usn ? VIFfuncTableSSE[unpackType].funcU: VIFfuncTableSSE[unpackType].funcS;
 			writemask = VIFdmanum ? g_vif1HasMask3[min(vifRegs->cycle.wl,3)] : g_vif0HasMask3[min(vifRegs->cycle.wl,3)];
 			writemask = pfn[(((vifRegs->code & 0x10000000)>>28)<<writemask)*3+vifRegs->mode](dest, (u32*)cdata, size);
