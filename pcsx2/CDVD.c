@@ -558,7 +558,7 @@ s32 cdvdGetTrayStatus()
 }
 // Note: Is tray status being kept as a var here somewhere?
 //   cdvdNewDiskCB() can update it's status as well...
-
+extern int needReset;
 // Modified by (efp) - 16/01/2006
 s32 cdvdGetDiskType() {
 	// defs 0.9.0
@@ -570,7 +570,7 @@ s32 cdvdGetDiskType() {
 	//   or just throw it out. CDVDgetDiskType() sets type to "NODISC" anyway.
 
 	cdvd.Type = CDVDgetDiskType();
-	if (cdvd.Type == CDVD_TYPE_PS2CD) {
+	if (cdvd.Type == CDVD_TYPE_PS2CD && needReset == 1) {
 		char str[256];
 		if (GetPS2ElfName(str) == 1) {
 			cdvd.Type = CDVD_TYPE_PSCD;
