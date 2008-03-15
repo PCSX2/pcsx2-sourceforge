@@ -423,11 +423,13 @@ void psxRcntUpdate() {
 			if(spu2interrupts[0] > 0)spu2interrupts[0] -= (psxRegs.cycle - psxCounters[6].sCycleT);
 			if(spu2interrupts[1] > 0)spu2interrupts[1] -= (psxRegs.cycle - psxCounters[6].sCycleT);
 			psxCounters[6].sCycleT = psxRegs.cycle;
-			if(spu2interrupts[0] > 0 && spu2interrupts[0] < ((spu2interrupts[1] > 0) ? spu2interrupts[1] : 36864)) {
+
+			if(spu2interrupts[0] > 0) {
 				if(psxCounters[6].CycleT > spu2interrupts[0])psxCounters[6].CycleT = spu2interrupts[0];				
-			} else if(spu2interrupts[1] > 0) {
+			} 
+			if(spu2interrupts[1] > 0) {
 				if(psxCounters[6].CycleT > spu2interrupts[1])psxCounters[6].CycleT = spu2interrupts[1];
-			} else	if(psxCounters[6].CycleT > 36864)psxCounters[6].CycleT = 36864;
+			} else if(psxCounters[6].CycleT > 36864)psxCounters[6].CycleT = 36864;
 		//}
 	}
 	if(USBasync)
