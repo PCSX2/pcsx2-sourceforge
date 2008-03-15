@@ -96,7 +96,7 @@ TDStretch::TDStretch() : FIFOProcessor(&outputBuffer)
     pRefMidBufferUnaligned = NULL;
     overlapLength = 0;
 
-    setParameters(44100, DEFAULT_SEQUENCE_MS, DEFAULT_SEEKWINDOW_MS, DEFAULT_OVERLAP_MS);
+    setParameters(48000, DEFAULT_SEQUENCE_MS, DEFAULT_SEEKWINDOW_MS, DEFAULT_OVERLAP_MS);
 
     setTempo(1.0f);
 }
