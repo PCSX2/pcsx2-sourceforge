@@ -38,13 +38,13 @@ void psxDma4(u32 madr, u32 bcr, u32 chcr) { // SPU
 	{
 		
 		SPU2async(psxRegs.cycle - psxCounters[6].sCycleT);	
-		psxCounters[6].CycleT -= psxRegs.cycle - psxCounters[6].sCycleT;
+		psxCounters[6].CycleT -= (psxRegs.cycle - psxCounters[6].sCycleT);
 		psxCounters[6].sCycleT = psxRegs.cycle;
 		
-		spu2interrupts[0] = ((bcr >> 16) * (bcr & 0xFFFF))*4;
+		spu2interrupts[0] = ((bcr >> 16) * (bcr & 0xFFFF))*2;
 		if(psxCounters[6].CycleT > spu2interrupts[0]) psxCounters[6].CycleT = spu2interrupts[0];
-		else spu2interrupts[0] -= psxCounters[6].CycleT;
-		if (psxCounters[6].CycleT < psxNextCounter) {
+	
+		if (psxCounters[6].CycleT < (psxNextCounter - (psxRegs.cycle - psxNextsCounter))) {
 			psxNextCounter = psxCounters[6].CycleT;
 		} 
 	}
@@ -123,11 +123,10 @@ void psxDma7(u32 madr, u32 bcr, u32 chcr) {
 		SPU2async(psxRegs.cycle - psxCounters[6].sCycleT);	
 		psxCounters[6].CycleT -= psxRegs.cycle - psxCounters[6].sCycleT;
 		psxCounters[6].sCycleT = psxRegs.cycle;
-		spu2interrupts[1] = ((bcr >> 16) * (bcr & 0xFFFF))*4;
+		spu2interrupts[1] = ((bcr >> 16) * (bcr & 0xFFFF))*2;
 		if(psxCounters[6].CycleT > spu2interrupts[1]) psxCounters[6].CycleT = spu2interrupts[1];
-		else spu2interrupts[1] -= psxCounters[6].CycleT;
-		
-		if (psxCounters[6].CycleT < psxNextCounter) {
+			
+		if (psxCounters[6].CycleT < (psxNextCounter - (psxRegs.cycle - psxNextsCounter))) {
 			psxNextCounter = psxCounters[6].CycleT;
 		} 
 	}
