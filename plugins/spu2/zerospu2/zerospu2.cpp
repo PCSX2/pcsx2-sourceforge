@@ -1108,7 +1108,7 @@ int ADMAS4Write()
     if(Adma4.AmountLeft == 0) 
     {
         SPUStartCycle[0] = SPUCycles;
-        SPUTargetCycle[0] = 1;//512*48000;
+        SPUTargetCycle[0] = 512;//512*48000;
         spu2Ru16(REG_C0_SPUSTAT)&=~0x80;
         interrupt |= (1<<1);
         //return 1;
@@ -1138,7 +1138,7 @@ int ADMAS7Write()
     if(Adma7.AmountLeft == 0) 
     {
         SPUStartCycle[1] = SPUCycles;
-        SPUTargetCycle[1] = 1;//512*48000;
+        SPUTargetCycle[1] = 512;//512*48000;
         spu2Ru16(REG_C1_SPUSTAT)&=~0x80;
         interrupt |= (1<<2);
     }
@@ -1194,7 +1194,7 @@ void CALLBACK SPU2writeDMA4Mem(u16* pMem, int size)
     MemAddr[0] += size<<1;
     spu2Ru16(REG_C0_SPUSTAT)&=~0x80;
     SPUStartCycle[0] = SPUCycles;
-    SPUTargetCycle[0] = 1;//iSize;
+    SPUTargetCycle[0] = size;
     interrupt |= (1<<1);
 }
 
@@ -1251,7 +1251,7 @@ void CALLBACK SPU2writeDMA7Mem(u16* pMem, int size)
     MemAddr[1] += size<<1;
     spu2Ru16(REG_C1_SPUSTAT)&=~0x80;
     SPUStartCycle[1] = SPUCycles;
-    SPUTargetCycle[1] = 1;//iSize;
+    SPUTargetCycle[1] = size;
     interrupt |= (1<<2);
 }
 
