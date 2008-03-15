@@ -89,7 +89,7 @@ extern FILE *spu2Log;
 #define  SPU2_VERSION  PS2E_SPU2_VERSION
 #define SPU2_REVISION 0
 #define  SPU2_BUILD    4    // increase that with each version
-#define SPU2_MINOR 4
+#define SPU2_MINOR 5
 
 #define OPTION_TIMESTRETCH 1 // stretches samples without changing pitch to reduce cracking
 #define OPTION_REALTIME 2 // sync to real time instead of ps2 time
