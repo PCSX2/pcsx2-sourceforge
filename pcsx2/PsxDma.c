@@ -25,6 +25,8 @@
 // Dma8     in PsxSpd.c
 // Dma11/12 in PsxSio2.c
 //static int spudmaenable[2];
+int spu2interrupts[2];
+
 void psxDma4(u32 madr, u32 bcr, u32 chcr) { // SPU
 	int size;
 
@@ -32,7 +34,20 @@ void psxDma4(u32 madr, u32 bcr, u32 chcr) { // SPU
 	if(chcr & 0x40000000) SysPrintf("SPU 2 DMA 4 Unusual bit set on 'to' direction chcr = %x madr = %x bcr = %x\n", chcr, madr, bcr);
 	if((chcr & 0x1) == 0) SysPrintf("SPU 2 DMA 4 loading from spu2 memory chcr = %x madr = %x bcr = %x\n", chcr, madr, bcr);
 */
-	
+	if(SPU2async)
+	{
+		
+		SPU2async(psxRegs.cycle - psxCounters[6].sCycleT);	
+		psxCounters[6].CycleT -= psxRegs.cycle - psxCounters[6].sCycleT;
+		psxCounters[6].sCycleT = psxRegs.cycle;
+		
+		spu2interrupts[0] = ((bcr >> 16) * (bcr & 0xFFFF))*8;
+		if(psxCounters[6].CycleT > spu2interrupts[0]) psxCounters[6].CycleT = spu2interrupts[0];
+		else spu2interrupts[0] -= psxCounters[6].CycleT;
+		if (psxCounters[6].CycleT < psxNextCounter) {
+			psxNextCounter = psxCounters[6].CycleT;
+		} 
+	}
 	switch (chcr) {
 		case 0x01000201: //cpu to spu transfer
 #ifdef PSXDMA_LOG
@@ -102,7 +117,20 @@ void psxDma7(u32 madr, u32 bcr, u32 chcr) {
 	if(chcr & 0x40000000) SysPrintf("SPU 2 DMA 7 Unusual bit set on 'to' direction chcr = %x madr = %x bcr = %x\n", chcr, madr, bcr);
 	if((chcr & 0x1) == 0) SysPrintf("SPU 2 DMA 7 loading from spu2 memory chcr = %x madr = %x bcr = %x\n", chcr, madr, bcr);
 */
-	
+	if(SPU2async)
+	{
+		
+		SPU2async(psxRegs.cycle - psxCounters[6].sCycleT);	
+		psxCounters[6].CycleT -= psxRegs.cycle - psxCounters[6].sCycleT;
+		psxCounters[6].sCycleT = psxRegs.cycle;
+		spu2interrupts[1] = ((bcr >> 16) * (bcr & 0xFFFF))*8;
+		if(psxCounters[6].CycleT > spu2interrupts[1]) psxCounters[6].CycleT = spu2interrupts[1];
+		else spu2interrupts[1] -= psxCounters[6].CycleT;
+		
+		if (psxCounters[6].CycleT < psxNextCounter) {
+			psxNextCounter = psxCounters[6].CycleT;
+		} 
+	}
 	switch (chcr) {
 		case 0x01000201: //cpu to spu2 transfer
 #ifdef PSXDMA_LOG

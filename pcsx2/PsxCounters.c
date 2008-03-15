@@ -127,7 +127,7 @@ void psxRcntInit() {
 		
 
 		psxCounters[6].rate = 1;
-		psxCounters[6].CycleT = 768/*48000*/;
+		psxCounters[6].CycleT = 36864;
 		psxCounters[6].mode = 0x8;
 	}
 
@@ -387,7 +387,7 @@ void _testRcnt32(int i) {
 	
 	
 }
-
+extern int spu2interrupts[2];
 void psxRcntUpdate() {
 	int i;
 	u32 change = 0;
@@ -416,10 +416,19 @@ void psxRcntUpdate() {
 
 	if(SPU2async)
 	{
-		if ((psxRegs.cycle - psxCounters[6].sCycleT) >= psxCounters[6].CycleT) {
+		//if ((psxRegs.cycle - psxCounters[6].sCycleT) >= psxCounters[6].CycleT) {
 			SPU2async(psxRegs.cycle - psxCounters[6].sCycleT);	
+			psxCounters[6].CycleT -= psxRegs.cycle - psxCounters[6].sCycleT;
+			
+			if(spu2interrupts[0] > 0)spu2interrupts[0] -= (psxRegs.cycle - psxCounters[6].sCycleT);
+			if(spu2interrupts[1] > 0)spu2interrupts[1] -= (psxRegs.cycle - psxCounters[6].sCycleT);
 			psxCounters[6].sCycleT = psxRegs.cycle;
-		}
+			if(spu2interrupts[0] > 0 && spu2interrupts[0] < ((spu2interrupts[1] > 0) ? spu2interrupts[1] : 36864)) {
+				if(psxCounters[6].CycleT > spu2interrupts[0])psxCounters[6].CycleT = spu2interrupts[0];				
+			} else if(spu2interrupts[1] > 0) {
+				if(psxCounters[6].CycleT > spu2interrupts[1])psxCounters[6].CycleT = spu2interrupts[1];
+			} else	if(psxCounters[6].CycleT > 36864)psxCounters[6].CycleT = 36864;
+		//}
 	}
 	if(USBasync)
 	{
