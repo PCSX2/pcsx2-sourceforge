@@ -45,7 +45,7 @@ void psxDma4(u32 madr, u32 bcr, u32 chcr) { // SPU
 		if(psxCounters[6].CycleT > spu2interrupts[0]) psxCounters[6].CycleT = spu2interrupts[0];
 	
 		if (psxCounters[6].CycleT < (psxNextCounter - (psxRegs.cycle - psxNextsCounter))) {
-			psxNextCounter = psxCounters[6].CycleT;
+			psxNextCounter = psxCounters[6].CycleT + (psxRegs.cycle - psxNextsCounter); //Need to keep difference in NextsCounter
 		} 
 	}
 	switch (chcr) {
@@ -127,7 +127,7 @@ void psxDma7(u32 madr, u32 bcr, u32 chcr) {
 		if(psxCounters[6].CycleT > spu2interrupts[1]) psxCounters[6].CycleT = spu2interrupts[1];
 			
 		if (psxCounters[6].CycleT < (psxNextCounter - (psxRegs.cycle - psxNextsCounter))) {
-			psxNextCounter = psxCounters[6].CycleT;
+			psxNextCounter = psxCounters[6].CycleT + (psxRegs.cycle - psxNextsCounter); //Need to keep difference in NextsCounter
 		} 
 	}
 	switch (chcr) {
