@@ -915,6 +915,7 @@ LRESULT WINAPI MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 
 			case ID_CONFIG_MEMCARDS:
 				DialogBox(gApp.hInstance, MAKEINTRESOURCE(IDD_MCDCONF), hWnd, (DLGPROC)ConfigureMcdsDlgProc);
+				SaveConfig();
 				return TRUE;
 			case ID_PROCESSLOW: 
                Config.ThPriority = THREAD_PRIORITY_LOWEST;
