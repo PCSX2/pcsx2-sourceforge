@@ -699,6 +699,7 @@ BOOL APIENTRY HacksProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
         case WM_INITDIALOG:
 			if(Config.Hacks & 1) CheckDlgButton(hDlg, IDC_SYNCHACK, TRUE);
 			if(Config.Hacks & 2) CheckDlgButton(hDlg, IDC_ABSHACK, TRUE);
+			if(Config.Hacks & 4) CheckDlgButton(hDlg, IDC_SOUNDHACK, TRUE);
             return TRUE;
 
         case WM_COMMAND:
@@ -706,6 +707,7 @@ BOOL APIENTRY HacksProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
 				Config.Hacks = 0;
 				Config.Hacks |= IsDlgButtonChecked(hDlg, IDC_SYNCHACK) ? 1 : 0;
 				Config.Hacks |= IsDlgButtonChecked(hDlg, IDC_ABSHACK) ? 2 : 0;
+				Config.Hacks |= IsDlgButtonChecked(hDlg, IDC_SOUNDHACK) ? 4 : 0;
 			
 				SaveConfig();              
 
