@@ -127,7 +127,7 @@ void psxRcntInit() {
 		
 
 		psxCounters[6].rate = 1;
-		psxCounters[6].CycleT = 36864;
+		psxCounters[6].CycleT = ((Config.Hacks & 0x4) ? 768 : 36864);
 		psxCounters[6].mode = 0x8;
 	}
 
@@ -211,6 +211,17 @@ void psxCheckEndGate(int counter) { //Check Gate events when Vsync Ends
 void psxCheckStartGate(int counter) {  //Check Gate events when Vsync Starts
 	int i = counter;
 
+	if(counter == 0){
+		if((psxCounters[1].mode & 0x101) == 0x100 || (psxCounters[3].mode & 0x10000101) == 0x101)psxCounters[1].count++;
+		if((psxCounters[3].mode & 0x101) == 0x100 || (psxCounters[3].mode & 0x10000101) == 0x101)psxCounters[3].count++;
+		/*if(SPU2async)
+			{	
+				SPU2async(psxRegs.cycle - psxCounters[6].sCycleT);	
+				//SysPrintf("cycles sent to SPU2 %x\n", psxRegs.cycle - psxCounters[6].sCycleT);
+				psxCounters[6].sCycleT = psxRegs.cycle;
+			}*/
+	}
+	
 	if(counter < 3){  //Gates for 16bit counters
 		if((psxCounters[i].mode & 0x1) == 0) return; //Ignore Gate
 		//SysPrintf("PSX Gate %x\n", i);
@@ -414,24 +425,17 @@ void psxRcntUpdate() {
 	_testRcnt32(4);
 	_testRcnt32(5);
 
-	if(SPU2async)
-	{
-		//if ((psxRegs.cycle - psxCounters[6].sCycleT) >= psxCounters[6].CycleT) {
-			SPU2async(psxRegs.cycle - psxCounters[6].sCycleT);	
-			psxCounters[6].CycleT -= psxRegs.cycle - psxCounters[6].sCycleT;
-			
-			if(spu2interrupts[0] > 0)spu2interrupts[0] -= (psxRegs.cycle - psxCounters[6].sCycleT);
-			if(spu2interrupts[1] > 0)spu2interrupts[1] -= (psxRegs.cycle - psxCounters[6].sCycleT);
-			psxCounters[6].sCycleT = psxRegs.cycle;
 
-			if(spu2interrupts[0] > 0) {
-				if(psxCounters[6].CycleT > spu2interrupts[0])psxCounters[6].CycleT = spu2interrupts[0];				
-			} 
-			if(spu2interrupts[1] > 0) {
-				if(psxCounters[6].CycleT > spu2interrupts[1])psxCounters[6].CycleT = spu2interrupts[1];
-			} else if(psxCounters[6].CycleT > 36864)psxCounters[6].CycleT = 36864;
-		//}
+	if(SPU2async)
+			{	
+				if((psxRegs.cycle - psxCounters[6].sCycleT) >= psxCounters[6].CycleT){
+				SPU2async(psxRegs.cycle - psxCounters[6].sCycleT);	
+				//SysPrintf("cycles sent to SPU2 %x\n", psxRegs.cycle - psxCounters[6].sCycleT);
+				psxCounters[6].sCycleT = psxRegs.cycle;
+				psxCounters[6].CycleT = ((Config.Hacks & 0x4) ? 768 : 36864);
+			}
 	}
+
 	if(USBasync)
 	{
 		if ((psxRegs.cycle - psxCounters[7].sCycleT) >= psxCounters[7].CycleT) {

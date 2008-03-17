@@ -34,20 +34,21 @@ void psxDma4(u32 madr, u32 bcr, u32 chcr) { // SPU
 	if(chcr & 0x40000000) SysPrintf("SPU 2 DMA 4 Unusual bit set on 'to' direction chcr = %x madr = %x bcr = %x\n", chcr, madr, bcr);
 	if((chcr & 0x1) == 0) SysPrintf("SPU 2 DMA 4 loading from spu2 memory chcr = %x madr = %x bcr = %x\n", chcr, madr, bcr);
 */
+
 	if(SPU2async)
-	{
-		
-		SPU2async(psxRegs.cycle - psxCounters[6].sCycleT);	
-		psxCounters[6].CycleT -= (psxRegs.cycle - psxCounters[6].sCycleT);
-		psxCounters[6].sCycleT = psxRegs.cycle;
-		
-		spu2interrupts[0] = ((bcr >> 16) * (bcr & 0xFFFF))*2;
-		if(psxCounters[6].CycleT > spu2interrupts[0]) psxCounters[6].CycleT = spu2interrupts[0];
-	
-		if (psxCounters[6].CycleT < (psxNextCounter - (psxRegs.cycle - psxNextsCounter))) {
-			psxNextCounter = psxCounters[6].CycleT + (psxRegs.cycle - psxNextsCounter); //Need to keep difference in NextsCounter
-		} 
+			{	
+				//if((psxRegs.cycle - psxCounters[6].sCycleT) >= psxCounters[6].CycleT){
+				SPU2async(psxRegs.cycle - psxCounters[6].sCycleT);	
+				//SysPrintf("cycles sent to SPU2 %x\n", psxRegs.cycle - psxCounters[6].sCycleT);
+				psxCounters[6].sCycleT = psxRegs.cycle;
+				psxCounters[6].CycleT = ((bcr >> 16) * (bcr & 0xFFFF)) * 2;
+			//}
+				psxNextCounter -= (psxRegs.cycle-psxNextsCounter);
+				psxNextsCounter = psxRegs.cycle;
+				if(psxCounters[6].CycleT < psxNextCounter) psxNextCounter = psxCounters[6].CycleT;
+
 	}
+
 	switch (chcr) {
 		case 0x01000201: //cpu to spu transfer
 #ifdef PSXDMA_LOG
@@ -112,24 +113,22 @@ void psxDma6(u32 madr, u32 bcr, u32 chcr) {
 
 void psxDma7(u32 madr, u32 bcr, u32 chcr) {
 	int size;
-/*
-	if(chcr & 0x400) SysPrintf("SPU 2 DMA 7 linked list chain mode! chcr = %x madr = %x bcr = %x\n", chcr, madr, bcr);
-	if(chcr & 0x40000000) SysPrintf("SPU 2 DMA 7 Unusual bit set on 'to' direction chcr = %x madr = %x bcr = %x\n", chcr, madr, bcr);
-	if((chcr & 0x1) == 0) SysPrintf("SPU 2 DMA 7 loading from spu2 memory chcr = %x madr = %x bcr = %x\n", chcr, madr, bcr);
-*/
+
 	if(SPU2async)
-	{
-		
-		SPU2async(psxRegs.cycle - psxCounters[6].sCycleT);	
-		psxCounters[6].CycleT -= psxRegs.cycle - psxCounters[6].sCycleT;
-		psxCounters[6].sCycleT = psxRegs.cycle;
-		spu2interrupts[1] = ((bcr >> 16) * (bcr & 0xFFFF))*2;
-		if(psxCounters[6].CycleT > spu2interrupts[1]) psxCounters[6].CycleT = spu2interrupts[1];
-			
-		if (psxCounters[6].CycleT < (psxNextCounter - (psxRegs.cycle - psxNextsCounter))) {
-			psxNextCounter = psxCounters[6].CycleT + (psxRegs.cycle - psxNextsCounter); //Need to keep difference in NextsCounter
-		} 
+			{	
+				//if((psxRegs.cycle - psxCounters[6].sCycleT) >= psxCounters[6].CycleT){
+				SPU2async(psxRegs.cycle - psxCounters[6].sCycleT);	
+				//SysPrintf("cycles sent to SPU2 %x\n", psxRegs.cycle - psxCounters[6].sCycleT);
+				psxCounters[6].sCycleT = psxRegs.cycle;
+				psxCounters[6].CycleT = ((bcr >> 16) * (bcr & 0xFFFF)) * 2;
+			//}
+				psxNextCounter -= (psxRegs.cycle-psxNextsCounter);
+				psxNextsCounter = psxRegs.cycle;
+				if(psxCounters[6].CycleT < psxNextCounter) psxNextCounter = psxCounters[6].CycleT;
+
 	}
+
+
 	switch (chcr) {
 		case 0x01000201: //cpu to spu2 transfer
 #ifdef PSXDMA_LOG

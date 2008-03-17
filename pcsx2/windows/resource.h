@@ -560,9 +560,9 @@
 #define IDC_ENABLEBUTTON                1277
 #define IDC_DEBUG_BREAK                 1278
 #define IDC_ABSHACK                     1278
-#define IDC_HACKDESC                    1279
 #define IDC_ADDGS                       1278
 #define IDC_CONVERTEDCODE               1278
+#define IDC_HACKDESC                    1279
 #define IDC_CONVERT                     1279
 #define IDC_EDITPATCH                   1279
 #define IDC_READY                       1280
@@ -588,6 +588,8 @@
 #define IDC_TREE2                       1298
 #define IDC_ICON1                       1299
 #define IDC_ICON2                       1300
+#define IDC_CHECK1                      1300
+#define IDC_SOUNDHACK                   1300
 #define IDC_LOG                         1500
 #define IDC_CPULOG                      1500
 #define IDC_MEMLOG                      1501
@@ -722,7 +724,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        136
 #define _APS_NEXT_COMMAND_VALUE         40018
-#define _APS_NEXT_CONTROL_VALUE         1300
+#define _APS_NEXT_CONTROL_VALUE         1301
 #define _APS_NEXT_SYMED_VALUE           102
 #endif
 #endif

@@ -938,17 +938,19 @@ BEGIN
     CONTROL         132,IDC_PS2SILVER_RECT,"Static",SS_BITMAP,0,167,70,74
 END
 
-IDD_HACKS DIALOGEX 0, 0, 186, 94
+IDD_HACKS DIALOGEX 0, 0, 186, 103
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "PCSX2 Speed Hacks"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    DEFPUSHBUTTON   "OK",IDOK,41,73,50,14
-    PUSHBUTTON      "Cancel",IDCANCEL,96,73,50,14
+    DEFPUSHBUTTON   "OK",IDOK,41,82,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,96,82,50,14
     CONTROL         "EE/IOP Sync Hack - General Speedup",IDC_SYNCHACK,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,46,172,10
     CONTROL         "Disable Forced ABS - Speeds up intense 3D",IDC_ABSHACK,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,34,160,10
-    CTEXT           "These hacks will speed up PCSX2 but possibly comprimise on compatability",IDC_HACKDESC,7,7,172,17
+    CTEXT           "These hacks will effect the speed of PCSX2 but possibly comprimise on compatability",IDC_HACKDESC,7,7,172,17
+    CONTROL         "Tighter SPU2 Sync ( FFXII vids) - slower",IDC_SOUNDHACK,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,59,154,9
 END
 
 
@@ -971,7 +973,7 @@ BEGIN
         LEFTMARGIN, 7
         RIGHTMARGIN, 179
         TOPMARGIN, 7
-        BOTTOMMARGIN, 87
+        BOTTOMMARGIN, 96
     END
 END
 #endif    // APSTUDIO_INVOKED
