@@ -532,7 +532,7 @@ void rcntUpdate()
 		psxCheckStartGate(0);
 		hblankend = 1;
 		/*if(cpuRegs.cycle > 0xffff0000 || cpuRegs.cycle < 0x10000)
-		SysPrintf("%d hsync done in %d cycles cpuRegs.cycle = %d next will happen on %x\n", counters[4].count, counters[4].CycleT, cpuRegs.cycle, (u32)(counters[4].sCycleT + counters[4].CycleT));
+		SysPrintf("%d hsync done in %d cycles cpuRegs.cycle = %d next will happen on %x\n", counters[4].count, counters[4].CycleT, cpuRegs.cycle, (u32)(counters[4].sCycleT + counters[4].CycleT));*/
 	}
 	
 	if((counters[5].mode & 0x10000)){
