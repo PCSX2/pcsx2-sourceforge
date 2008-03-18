@@ -490,9 +490,9 @@ void psxRcnt0Wmode(u32 value)  {
 	psxCounters[0].rate = 1;
 
 	if(value & 0x100) {
-		SysPrintf("Timer 0 Set to Pixel clock %x\n", value);
+		//SysPrintf("Timer 0 Set to Pixel clock %x\n", value);
 		psxCounters[0].rate = PSXPIXEL;
-		} else SysPrintf("Timer 0 Set to 1 %x\n", value);
+		}// else SysPrintf("Timer 0 Set to 1 %x\n", value);
 	
 	if(psxCounters[0].mode & 0x1){
 		SysPrintf("Gate Check set on Counter 0 %x\n", value);
@@ -525,9 +525,9 @@ void psxRcnt1Wmode(u32 value)  {
 	psxCounters[1].rate = 1;
 
 	if(value & 0x100){
-		SysPrintf("Timer 1 Set to HBlank clock %x\n", value);
+		//SysPrintf("Timer 1 Set to HBlank clock %x\n", value);
 		psxCounters[1].rate = PSXHBLANK;
-		} else SysPrintf("Timer 1 Set to 1 clock %x\n", value);
+		}// else SysPrintf("Timer 1 Set to 1 clock %x\n", value);
 
 	if(psxCounters[1].mode & 0x1){
 		SysPrintf("Gate Check set on Counter 1 %x\n", value);
@@ -560,11 +560,11 @@ void psxRcnt2Wmode(u32 value)  {
 
 	switch(value & 0x200){
 		case 0x200:
-			SysPrintf("Timer 2 Set to 8 %x\n", value);
+			//SysPrintf("Timer 2 Set to 8 %x\n", value);
 			psxCounters[2].rate = 8;
 			break;
 		case 0x000:
-			SysPrintf("Timer 2 Set to 1 %x\n", value);
+			//SysPrintf("Timer 2 Set to 1 %x\n", value);
 			psxCounters[2].rate = 1;
 			break;
 	}
@@ -597,12 +597,12 @@ void psxRcnt3Wmode(u32 value)  {
 	psxCounters[3].mode|= 0x0400;
 
 	if(value & 0x100){
-		SysPrintf("Timer 3 Set to HBLANK clock %x\n", value);
+		//SysPrintf("Timer 3 Set to HBLANK clock %x\n", value);
 		psxCounters[3].rate = PSXHBLANK;
-		}else SysPrintf("Timer 3 Set to 1 %x\n", value);
+		}//else SysPrintf("Timer 3 Set to 1 %x\n", value);
   
 	if(psxCounters[3].mode & 0x1){
-		SysPrintf("Gate Check set on Counter 3\n");
+		//SysPrintf("Gate Check set on Counter 3\n");
 		psxCounters[3].mode|= 0x1000000;
 		psxvblankgate |= 1<<3;
 	}else
@@ -632,19 +632,19 @@ void psxRcnt4Wmode(u32 value)  {
 
 	switch(value & 0x6000){
 		case 0x0000:
-			SysPrintf("Timer 4 Set to 1 %x\n", value);
+			//SysPrintf("Timer 4 Set to 1 %x\n", value);
             psxCounters[4].rate = 1;
 			break;
 		case 0x2000:
-			SysPrintf("Timer 4 Set to 8 %x\n", value);
+			//SysPrintf("Timer 4 Set to 8 %x\n", value);
 			psxCounters[4].rate = 8;
 			break;
 		case 0x4000:
-			SysPrintf("Timer 4 Set to 16 %x\n", value);
+			//SysPrintf("Timer 4 Set to 16 %x\n", value);
 			psxCounters[4].rate = 16;
 			break;
 		case 0x6000:
-			SysPrintf("Timer 4 Set to 256 %x\n", value);
+			//SysPrintf("Timer 4 Set to 256 %x\n", value);
 			psxCounters[4].rate = 256;
 			break;
 	}
@@ -676,19 +676,19 @@ void psxRcnt5Wmode(u32 value)  {
 
 	switch(value & 0x6000){
 		case 0x0000:
-			SysPrintf("Timer 5 Set to 1 %x\n", value);
+			//SysPrintf("Timer 5 Set to 1 %x\n", value);
             psxCounters[5].rate = 1;
 			break;
 		case 0x2000:
-			SysPrintf("Timer 5 Set to 8 %x\n", value);
+			//SysPrintf("Timer 5 Set to 8 %x\n", value);
 			psxCounters[5].rate = 8;
 			break;
 		case 0x4000:
-			SysPrintf("Timer 5 Set to 16 %x\n", value);
+			//SysPrintf("Timer 5 Set to 16 %x\n", value);
 			psxCounters[5].rate = 16;
 			break;
 		case 0x6000:
-			SysPrintf("Timer 5 Set to 256 %x\n", value);
+			//SysPrintf("Timer 5 Set to 256 %x\n", value);
 			psxCounters[5].rate = 256;
 			break;
 	}
