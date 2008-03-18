@@ -58,8 +58,7 @@ void rcntSet() {
 	nextsCounter = cpuRegs.cycle;
 
 	for (i = 0; i < 4; i++) {
-		if (!(counters[i].mode & 0x80)) continue; // Stopped
-
+		if (!(counters[i].mode & 0x80) || (counters[i].mode & 0x3) == 0x3) continue; // Stopped
 			c = ((0x10000 - counters[i].count) * counters[i].rate) - (cpuRegs.cycle - counters[i].sCycleT);
 			if (c < nextCounter) {
 				nextCounter = c;
@@ -604,6 +603,7 @@ void rcntUpdate()
 
 
 void rcntWcount(int index, u32 value) {
+	u32 change = 0;
 #ifdef EECNT_LOG
 	EECNT_LOG("EE count write %d count %x with %x target %x eecycle %x\n", index, counters[index].count, value, counters[index].target, cpuRegs.eCycle);
 #endif
@@ -612,20 +612,35 @@ void rcntWcount(int index, u32 value) {
 		counters[index].target &= 0xffff;
 		//SysPrintf("EE Counter %x count write, target > 0xffff\n", index);
 		}
-	rcntUpd(index);
+	//rcntUpd(index);
+	if((counters[index].mode & 0x3) != 0x3){
+	change = cpuRegs.cycle - counters[index].sCycleT;
+	change -= (change / counters[index].rate) * counters[index].rate;
+	counters[index].sCycleT = cpuRegs.cycle - change;
+	}/* else {
+		SysPrintf("EE Counter %x count write %x\n", index, value);
+	}*/
 	rcntSet();
 }
 
 void rcntWmode(int index, u32 value)  
 {
+	u32 change = 0;
+
 
 	if (value & 0xc00) { //Clear status flags, the ps2 only clears what is given in the value
 		counters[index].mode &= ~(value & 0xc00);
 	}
 
 	if(counters[index].mode & 0x80){
-		counters[index].count += (int)((cpuRegs.cycle - counters[index].sCycleT) / counters[index].rate);
-		counters[index].sCycleT = cpuRegs.cycle - ((cpuRegs.cycle - counters[index].sCycleT) % counters[index].rate);
+		if((counters[index].mode & 0x3) != 0x3){
+			change = cpuRegs.cycle - counters[index].sCycleT;
+			counters[index].count += (int)(change / counters[index].rate);
+			change -= (change / counters[index].rate) * counters[index].rate;
+			counters[index].sCycleT = cpuRegs.cycle - change;
+		}
+		//if(change != 0) SysPrintf("Weee\n");
+		//counters[index].sCycleT = cpuRegs.cycle - ((cpuRegs.cycle - counters[index].sCycleT) % counters[index].rate);
 		if(!(value & 0x80)) SysPrintf("Stopping\n");
 		}
 	else {
