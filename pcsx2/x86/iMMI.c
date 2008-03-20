@@ -1836,10 +1836,10 @@ CPU_SSE_XMMCACHE_END
 ////////////////////////////////////////////////////
 void recQFSRV()
 {
-	u8* pshift1, *pshift2, *poldptr, *pnewptr;
+	//u8* pshift1, *pshift2, *poldptr, *pnewptr;
 
 	if ( ! _Rd_ ) return;
-
+/*
 CPU_SSE2_XMMCACHE_START((_Rs_!=0?XMMINFO_READS:0)|XMMINFO_READT|XMMINFO_WRITED)
 
 	if( _Rs_ == 0 ) {
@@ -1891,7 +1891,7 @@ CPU_SSE2_XMMCACHE_START((_Rs_!=0?XMMINFO_READS:0)|XMMINFO_READT|XMMINFO_WRITED)
 		_freeXMMreg(t0reg);
 	}
 
-CPU_SSE_XMMCACHE_END
+CPU_SSE_XMMCACHE_END*/
 
 	REC_FUNC_INLINE( QFSRV, _Rd_ );
 }
@@ -2473,9 +2473,10 @@ void recPREVH( void )
 {
 	if (!_Rd_) return;
 
+	
 CPU_SSE2_XMMCACHE_START(XMMINFO_READT|XMMINFO_WRITED)
-	SSE2_PSHUFLW_XMM_to_XMM(EEREC_D, EEREC_T, 0x17);
-	SSE2_PSHUFHW_XMM_to_XMM(EEREC_D, EEREC_D, 0x17);
+	SSE2_PSHUFLW_XMM_to_XMM(EEREC_D, EEREC_T, 0x1B);
+	SSE2_PSHUFHW_XMM_to_XMM(EEREC_D, EEREC_D, 0x1B);
 CPU_SSE_XMMCACHE_END
 
 	REC_FUNC_INLINE( PREVH, _Rd_ );
