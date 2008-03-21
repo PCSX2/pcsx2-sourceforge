@@ -744,7 +744,7 @@ ENDX:
     }
 
     // mix all channels
-    if( (spu2Ru16(REG_C0_MMIX) & 0xF0) && (spu2Ru16(REG_C0_ADMAS) & 0x1) && !(spu2Ru16(REG_C0_CTRL) & 0x30)) {
+    if( (spu2Ru16(REG_C0_MMIX) & 0xF0) && (spu2Ru16(REG_C0_ADMAS) & 0x1) /*&& !(spu2Ru16(REG_C0_CTRL) & 0x30)*/) {
         for(int ns=0;ns<NSSIZE;ns++) { 
         
             if((spu2Ru16(REG_C0_MMIX) & 0x80)) s_buffers[ns][0] += (((short*)spu2mem)[0x2000+Adma4.Index]*(int)spu2Ru16(REG_C0_BVOLL))>>16;
@@ -759,14 +759,20 @@ ENDX:
 			    if(ADMAS4Write())
 			    {
 				    //if( Adma4.AmountLeft == 0 )
-                    spu2Ru16(REG_C0_SPUSTAT)&=~0x80;
+                    //spu2Ru16(REG_C0_SPUSTAT)&=~0x80;
+					//printf("ADMA4 end spu cycle %x\n", SPUCycles);
+					if(interrupt & 0x2){
+						interrupt &= ~0x2;
+						printf("Stopping double interrupt DMA4\n");
+					}
                     irqCallbackDMA4();
+					
 			    }
-                else {
+                //else {
                     Adma4.Enabled = 2;
 //                    if( Adma4.AmountLeft > 0 )
 //                        MemAddr[0] += 1024;
-                }
+               // }
 		    }
         	
             if(Adma4.Index == 512) {
@@ -782,7 +788,7 @@ ENDX:
         //LogRawSound(s_buffers, 4, &s_buffers[0][1], 4, NSSIZE);
     }
 
-    if( (spu2Ru16(REG_C1_MMIX) & 0xF0) && (spu2Ru16(REG_C1_ADMAS) & 0x2) && !(spu2Ru16(REG_C1_CTRL) & 0x30)) {
+    if( (spu2Ru16(REG_C1_MMIX) & 0xF0) && (spu2Ru16(REG_C1_ADMAS) & 0x2) /*&& !(spu2Ru16(REG_C1_CTRL) & 0x30)*/) {
 
         for(int ns=0;ns<NSSIZE;ns++) { 
             if((spu2Ru16(REG_C1_MMIX) & 0x80)) s_buffers[ns][0] += (((short*)spu2mem)[0x2400+Adma7.Index]*(int)spu2Ru16(REG_C1_BVOLL))>>16;
@@ -795,13 +801,19 @@ ENDX:
 		    {
 			    if(ADMAS7Write())
 			    {
-				    spu2Ru16(REG_C1_SPUSTAT)&=~0x80;
+				   // spu2Ru16(REG_C1_SPUSTAT)&=~0x80;
+					//printf("ADMA7 end spu cycle %x\n", SPUCycles);
+					if(interrupt & 0x4){
+						interrupt &= ~0x4;
+						printf("Stopping double interrupt DMA7\n");
+					}
 				    irqCallbackDMA7();
+					
 			    }
-                else {
+                //else {
                     Adma7.Enabled = 2;
                     //MemAddr[1] += 1024;
-                }
+               // }
 		    }
 
             if(Adma7.Index == 512) {
@@ -1089,10 +1101,14 @@ void CALLBACK SPU2readDMA7Mem(u16* pMem, int size)
 int ADMAS4Write()
 {
     u32 spuaddr;
-    if(interrupt & 0x2)
+    if(interrupt & 0x2){
+		printf("4 returning for interrupt\n");
         return 0;
-    if(Adma4.AmountLeft <= 0)
+	}
+	if(Adma4.AmountLeft <= 0){
+		printf("4 amount left is 0\n");
         return 1;
+	}
 
     assert( Adma4.AmountLeft >= 512 );
     spuaddr = C0_SPUADDR;
@@ -1101,28 +1117,41 @@ int ADMAS4Write()
     Adma4.MemAddr += 256;
     memcpy((short*)(spu2mem + spuaddr + 0x2200),(short*)Adma4.MemAddr,512);
     Adma4.MemAddr += 256;
+	if( (spu2Ru16(REG_C0_CTRL)&0x40) && ((spuaddr + 0x2400) <= C0_IRQA &&  (spuaddr + 0x2400 + 256) >= C0_IRQA)){
+        //spu2Ru16(SPDIF_OUT) |= 0x4;
+        IRQINFO |= 4;
+        printf("ADMA 4 Mem access:interrupt\n");
+        irqCallbackSPU2();
+    }
+	if( (spu2Ru16(REG_C0_CTRL)&0x40) && ((spuaddr + 0x2600) <= C0_IRQA &&  (spuaddr + 0x2600 + 256) >= C0_IRQA)){
+        //spu2Ru16(SPDIF_OUT) |= 0x4;
+        IRQINFO |= 4;
+        printf("ADMA 4 Mem access:interrupt\n");
+        irqCallbackSPU2();
+    }
+
     spuaddr = (spuaddr + 256) & 511;
     C0_SPUADDR_SET(spuaddr);
-
+	
     Adma4.AmountLeft-=512;
-    if(Adma4.AmountLeft == 0) 
-    {
-        SPUStartCycle[0] = SPUCycles;
-        SPUTargetCycle[0] = 512;//512*48000;
-        spu2Ru16(REG_C0_SPUSTAT)&=~0x80;
-        interrupt |= (1<<1);
-        //return 1;
-    }
-    return 0;//Adma4.AmountLeft == 0x2000;
+
+    
+	
+    if(Adma4.AmountLeft > 0) return 0;
+	else return 1;
 }
 
 int ADMAS7Write()
 {
     u32 spuaddr;
-    if(interrupt & 0x4)
+	if(interrupt & 0x4){
+		printf("7 returning for interrupt\n");
         return 0;
-    if(Adma7.AmountLeft <= 0)
+	}
+	if(Adma7.AmountLeft <= 0){
+		printf("7 amount left is 0\n");
         return 1;
+	}
 
     assert( Adma7.AmountLeft >= 512 );
     spuaddr = C1_SPUADDR;
@@ -1131,19 +1160,27 @@ int ADMAS7Write()
     Adma7.MemAddr += 256;
     memcpy((short*)(spu2mem + spuaddr + 0x2600),(short*)Adma7.MemAddr,512);
     Adma7.MemAddr += 256;
+	if( (spu2Ru16(REG_C1_CTRL)&0x40) && ((spuaddr + 0x2400) <= C1_IRQA &&  (spuaddr + 0x2400 + 256) >= C1_IRQA)){
+        //spu2Ru16(SPDIF_OUT) |= 0x4;
+        IRQINFO |= 8;
+       printf("ADMA 7 Mem access:interrupt\n");
+        irqCallbackSPU2();
+    }
+	if( (spu2Ru16(REG_C1_CTRL)&0x40) && ((spuaddr + 0x2600) <= C1_IRQA &&  (spuaddr + 0x2600 + 256) >= C1_IRQA)){
+        //spu2Ru16(SPDIF_OUT) |= 0x4;
+        IRQINFO |= 8;
+       printf("ADMA 7 Mem access:interrupt\n");
+        irqCallbackSPU2();
+    }
     spuaddr = (spuaddr + 256) & 511;
     C1_SPUADDR_SET(spuaddr);
-
+	
     Adma7.AmountLeft-=512;
-    if(Adma7.AmountLeft == 0) 
-    {
-        SPUStartCycle[1] = SPUCycles;
-        SPUTargetCycle[1] = 512;//512*48000;
-        spu2Ru16(REG_C1_SPUSTAT)&=~0x80;
-        interrupt |= (1<<2);
-    }
+   
     assert( Adma7.AmountLeft >= 0 );
-    return 0;
+
+    if(Adma7.AmountLeft > 0) return 0;
+	else return 1;
 }
 
 void CALLBACK SPU2writeDMA4Mem(u16* pMem, int size)
@@ -1160,6 +1197,7 @@ void CALLBACK SPU2writeDMA4Mem(u16* pMem, int size)
 //            ptempmem += 512;
 //        }
     
+		//printf("ADMA4 size %x\n", size);
         // if still active, don't destroy adma4
         if( !Adma4.Enabled )
             Adma4.Index = 0;
@@ -1167,11 +1205,19 @@ void CALLBACK SPU2writeDMA4Mem(u16* pMem, int size)
         //memset(&Adma4,0,sizeof(ADMA));
         Adma4.MemAddr = pMem;
         Adma4.AmountLeft = size;
-
+		SPUTargetCycle[0] = size;
+		spu2Ru16(REG_C0_SPUSTAT)&=~0x80;
         if( !Adma4.Enabled || Adma4.Index > 384 ) {
             C0_SPUADDR_SET(0);
-            ADMAS4Write();
+			if(ADMAS4Write()){
+				SPUStartCycle[0] = SPUCycles;
+			   // SPUTargetCycle[0] = 512;//512*48000;
+				//spu2Ru16(REG_C0_SPUSTAT)&=~0x80;
+				interrupt |= (1<<1);
+			}
         }
+
+		//if(interrupt & 0x2) printf("start ADMA4 interrupt target cycle %x start cycle %x spu cycle %x\n", SPUTargetCycle[0], SPUStartCycle[0], SPUCycles);
         Adma4.Enabled = 1;
         return;
     }
@@ -1212,17 +1258,24 @@ void CALLBACK SPU2writeDMA7Mem(u16* pMem, int size)
 //            ptempmem += 512;
 //        }
 
+		//printf("ADMA7 size %x\n", size);
         if( !Adma7.Enabled )
             Adma7.Index = 0;
 
         //memset(&Adma7,0,sizeof(ADMA));
         Adma7.MemAddr = pMem;
         Adma7.AmountLeft = size;
-
+		SPUTargetCycle[1] = size;
+		spu2Ru16(REG_C1_SPUSTAT)&=~0x80;
         if( !Adma7.Enabled || Adma7.Index > 384 ) {
             C1_SPUADDR_SET(0);
-            ADMAS7Write();
+			if(ADMAS7Write()){
+				SPUStartCycle[1] = SPUCycles;
+			   // SPUTargetCycle[0] = 512;//512*48000;
+				interrupt |= (1<<2);
+			}
         }
+		//if(interrupt & 0x4) printf("start ADMA7 interrupt target cycle %x start cycle %x spu cycle %x\n", SPUTargetCycle[1], SPUStartCycle[1], SPUCycles);
         Adma7.Enabled = 1;
 
         return;
