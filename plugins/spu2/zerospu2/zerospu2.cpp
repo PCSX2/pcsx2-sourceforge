@@ -985,8 +985,8 @@ void* SPU2ThreadProc(void* lpParam)
 
             int oldsamples = s_pAudioBuffers[nReadBuf].len/4;
 
-            if( NewSamples < oldsamples/2 )
-                NewSamples = oldsamples/2;
+            /*if( NewSamples < oldsamples/2 )
+                NewSamples = oldsamples/2;*/
 
             if( (nReadBuf&3)==0 ) { // wow, this if statement makes the whole difference
                 pSoundTouch->setTempoChange(100.0f*(float)oldsamples/(float)NewSamples - 100.0f);
