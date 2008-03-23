@@ -129,7 +129,7 @@ void psxRcntInit() {
 		
 
 		psxCounters[6].rate = 1;
-		psxCounters[6].CycleT = ((Config.Hacks & 0x4) ? 768 : 36864);
+		psxCounters[6].CycleT = ((Config.Hacks & 0x4) ? 768 : 9216);
 		psxCounters[6].mode = 0x8;
 	}
 
@@ -434,7 +434,7 @@ void psxRcntUpdate() {
 				SPU2async(psxRegs.cycle - psxCounters[6].sCycleT);	
 				//SysPrintf("cycles sent to SPU2 %x\n", psxRegs.cycle - psxCounters[6].sCycleT);
 				psxCounters[6].sCycleT = psxRegs.cycle;
-				psxCounters[6].CycleT = ((Config.Hacks & 0x4) ? 768 : 36864);
+				psxCounters[6].CycleT = ((Config.Hacks & 0x4) ? 768 : 9216);
 			}
 	}
 

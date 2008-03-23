@@ -477,7 +477,6 @@ void CSRwrite(u32 value)
 	GSwriteCSR(CSRw);
 
 	GSCSRr = ((GSCSRr&~value)&0x1f)|(GSCSRr&~0x1f);
-
 	if( value & 0x100 ) { // FLUSH
 		//SysPrintf("GS_CSR FLUSH GS fifo: %x (CSRr=%x)\n", value, GSCSRr);
 	}
@@ -719,26 +718,29 @@ static void GSRegHandlerSIGNAL(u32* data)
 {
 	GSSIGLBLID->SIGID = (GSSIGLBLID->SIGID&~data[1])|(data[0]&data[1]);
 	
-	if (!(GSCSRr & 0x1)) {
+	if ((CSRw & 0x1)) {
+		if (!(GSIMR&0x100) )
+			gsIrq();
+
 		GSCSRr |= 1; // signal
 		//CSRw &= ~1;
 		
 	}
-	if (!(GSIMR&0x100) )
-		gsIrq();
+	
 	
 }
 
 static void GSRegHandlerFINISH(u32* data)
 {
 	
-	if (!(GSCSRr & 0x2)) {
+	if ((CSRw & 0x2)) {
+		if (!(GSIMR&0x200) )
+			gsIrq();
 		//CSRw &= ~2;
 		GSCSRr |= 2; // finish
 		
 	}
-	if (!(GSIMR&0x200) )
-		gsIrq();
+	
 }
 
 static void GSRegHandlerLABEL(u32* data)

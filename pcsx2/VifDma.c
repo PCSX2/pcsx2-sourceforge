@@ -1082,6 +1082,9 @@ int VIF0transfer(u32 *data, int size, int istag) {
 	vif0.vifstalled = 0;
 	vif0.vifpacketsize = size;
 	
+	if ((vif0ch->chcr & 0x40) == 0 && istag == 1 && vif0.tag.size > 0) {
+		return 0;
+	}
 
 	while (vif0.vifpacketsize > 0) {
 
@@ -1223,7 +1226,7 @@ int _chainVIF0() {
 	vif0ch->chcr = ( vif0ch->chcr & 0xFFFF ) | ( (*ptag) & 0xFFFF0000 ); //Transfer upper part of tag to CHCR bits 31-15
 	// Transfer dma tag if tte is set
 	
-	if (vif0ch->chcr & 0x40) {
+	//if (vif0ch->chcr & 0x40) {
 		if(vif0.vifstalled == 1) ret = VIF0transfer(ptag+(2+vif0.irqoffset), 2-vif0.irqoffset, 1);  //Transfer Tag on stall
 		else ret = VIF0transfer(ptag+2, 2, 1);  //Transfer Tag
 		if (ret == -1) return -1;       //There has been an error
@@ -1232,7 +1235,7 @@ int _chainVIF0() {
 			//vif0.vifstalled = 1;
 			return vif0.done;        //IRQ set by VIFTransfer
 		}
-	}
+	//}
 	
 	vif0.done |= hwDmacSrcChainWithStack(vif0ch, id);
 
@@ -1538,40 +1541,42 @@ void vif1Init() {
 __inline void vif1UNPACK(u32 *data) {
 	int vifNum;
     int vl, vn;
-    int len;
-
-	if(vif1Regs->cycle.wl == 0 && vif1Regs->cycle.wl < vif1Regs->cycle.cl){
-		SysPrintf("Vif1 CL %d, WL %d\n", vif1Regs->cycle.cl, vif1Regs->cycle.wl);
-		vif1.cmd &= ~0x7f;
-		return;
+    //int len;
+	if(vif1Regs->cycle.wl == 0){
+		if(vif1Regs->cycle.wl < vif1Regs->cycle.cl){
+			SysPrintf("Vif1 CL %d, WL %d\n", vif1Regs->cycle.cl, vif1Regs->cycle.wl);
+			vif1.cmd &= ~0x7f;
+			return;
+}
 	}
 	vif1FLUSH();
 
     vl = (vif1.cmd     ) & 0x3;
     vn = (vif1.cmd >> 2) & 0x3;
-    vif1.tag.addr = (vif1Regs->code & 0x3ff);
+    
     vif1.usn = (vif1Regs->code >> 14) & 0x1;
     vifNum = (vif1Regs->code >> 16) & 0xff;
     if ( vifNum == 0 ) vifNum = 256;
 	vif1Regs->num = vifNum;
 
     if ( vif1Regs->cycle.wl <= vif1Regs->cycle.cl ) {
-        len = ((( 32 >> vl ) * ( vn + 1 )) * vifNum + 31) >> 5;
+        vif1.tag.size = ((( 32 >> vl ) * ( vn + 1 )) * vifNum + 31) >> 5;
     } else {
         int n = vif1Regs->cycle.cl * (vifNum / vif1Regs->cycle.wl) + 
                 _limit( vifNum % vif1Regs->cycle.wl, vif1Regs->cycle.cl );
-        len = ( ((( 32 >> vl ) * ( vn + 1 )) * n) + 31 ) >> 5;
+        vif1.tag.size = ( ((( 32 >> vl ) * ( vn + 1 )) * n) + 31 ) >> 5;
     }
    if ( ( vif1Regs->code >> 15) & 0x1 ) {
-        vif1.tag.addr += (vif1Regs->tops & 0x3ff);
-    }    
-	vif1.wl = 0; vif1.cl = 0;
+        vif1.tag.addr = (vif1Regs->code + vif1Regs->tops) & 0x3ff;
+    } else vif1.tag.addr = vif1Regs->code & 0x3ff;
+   
+	//vif1.wl = 0; 
+    vif1.cl = 0;
     vif1.tag.addr <<= 4;
 	//if((vif1.tag.addr + (vifNum * 16)) > 0x4000) SysPrintf("Oops, Addr %x, NUM %x overlaps to %x\n", vif1.tag.addr, vifNum, (vif1.tag.addr + (vifNum * 16)));
-	vif1.tag.addr &= 0x3fff;
+	
     vif1.tag.cmd  = vif1.cmd;
-	vif1.tag.size = len;
-    vif1Regs->offset = 0;
+   // vif1Regs->offset = 0;
 }
 
 __inline void _vif1mpgTransfer(u32 addr, u32 *data, int size) {
@@ -1957,11 +1962,16 @@ void (*Vif1CMDTLB[82])() =
 int VIF1transfer(u32 *data, int size, int istag) {
 	int ret;
 	transferred=vif1.vifstalled ? vif1.irqoffset : 0; // irqoffset necessary to add up the right qws, or else will spin (spiderman)
-	vif1.irqoffset = 0;
+	
 #ifdef VIF_LOG 
 	VIF_LOG( "VIF1transfer: size %x (vif1.cmd %x)\n", size, vif1.cmd );
 #endif
 
+	
+	if ((vif1ch->chcr & 0x40) == 0 && istag == 1 && vif1.cmd) {
+		return 0;
+	}
+	vif1.irqoffset = 0;
 	vif1.vifstalled = 0;
 	vif1.stallontag = 0;
 	vif1.vifpacketsize = size;
@@ -2152,7 +2162,7 @@ int _chainVIF1() {
 			}
 	//prevvifcycles = 0;
 
-	if (vif1ch->chcr & 0x40) {
+	//if (vif1ch->chcr & 0x40) {
 		if(vif1.vifstalled == 1) ret = VIF1transfer(vifptag+(2+vif1.irqoffset), 2-vif1.irqoffset, 1);  //Transfer Tag on stall
 		else ret = VIF1transfer(vifptag+2, 2, 1);  //Transfer Tag
 		if (ret == -1) return -1;       //There has been an error
@@ -2160,7 +2170,7 @@ int _chainVIF1() {
 			//if(vif1.tag.size > 0)SysPrintf("VIF1 Stall on tag %x code %x\n", vif1.irqoffset, vif1Regs->code);
 			return 0;        //IRQ set by VIFTransfer
 		}
-	}
+	//}
 	//if((psHu32(DMAC_CTRL) & 0xC0) != 0x40 || id != 4)
 	vif1.done |= hwDmacSrcChainWithStack(vif1ch, id);
 
@@ -2258,6 +2268,7 @@ void vif1Interrupt() {
 	//if((gif->chcr & 0x100) && vif1Regs->mskpath3) gsInterrupt();
 	prevviftag = NULL;
 	prevvifcycles = 0;
+
 	vif1ch->chcr &= ~0x100;
 	hwDmacIrq(DMAC_VIF1);
 	if(vif1Regs->mskpath3 == 0 || (vif1ch->chcr & 0x1) == 0x1)vif1Regs->stat&= ~0x1F000000; // FQC=0

@@ -41,7 +41,7 @@ void psxDma4(u32 madr, u32 bcr, u32 chcr) { // SPU
 				SPU2async(psxRegs.cycle - psxCounters[6].sCycleT);	
 				//SysPrintf("cycles sent to SPU2 %x\n", psxRegs.cycle - psxCounters[6].sCycleT);
 				psxCounters[6].sCycleT = psxRegs.cycle;
-				psxCounters[6].CycleT = ((bcr >> 16) * (bcr & 0xFFFF)) * 2;
+				psxCounters[6].CycleT = ((bcr >> 16) * (bcr & 0xFFFF)) * 3;
 			//}
 				psxNextCounter -= (psxRegs.cycle-psxNextsCounter);
 				psxNextsCounter = psxRegs.cycle;
@@ -120,7 +120,7 @@ void psxDma7(u32 madr, u32 bcr, u32 chcr) {
 				SPU2async(psxRegs.cycle - psxCounters[6].sCycleT);	
 				//SysPrintf("cycles sent to SPU2 %x\n", psxRegs.cycle - psxCounters[6].sCycleT);
 				psxCounters[6].sCycleT = psxRegs.cycle;
-				psxCounters[6].CycleT = ((bcr >> 16) * (bcr & 0xFFFF)) * 2;
+				psxCounters[6].CycleT = ((bcr >> 16) * (bcr & 0xFFFF)) * 3;
 			//}
 				psxNextCounter -= (psxRegs.cycle-psxNextsCounter);
 				psxNextsCounter = psxRegs.cycle;
@@ -153,7 +153,6 @@ void psxDma7(u32 madr, u32 bcr, u32 chcr) {
 			SysPrintf("*** DMA 7 - SPU unknown *** %lx addr = %lx size = %lx\n", chcr, madr, bcr);
 			break;
 	}
-	HW_DMA7_CHCR &= ~0x01000000;
 	
 }
 
