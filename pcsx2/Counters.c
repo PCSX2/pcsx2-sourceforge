@@ -46,7 +46,7 @@ void rcntUpd(int index) {
 
 void rcntReset(int index) {
 	counters[index].count = 0;
-	counters[index].mode&= ~0x00400C00;
+	//counters[index].mode&= ~0x00400C00;
 	rcntUpd(index);
 }
 
@@ -159,6 +159,7 @@ u64 GetCPUTicks()
 #endif
 }
 
+
 void UpdateVSyncRate() {
 	if (Config.PsxType & 1) {
 		SysPrintf("PAL\n");
@@ -175,6 +176,7 @@ void UpdateVSyncRate() {
 		
 		counters[5].Cycle  = 60;
 	}	
+
 	//rcntUpdTarget(4);
 	//counters[4].CycleT  = counters[4].rate;
 	///rcntUpdTarget(5);
@@ -463,13 +465,15 @@ void VSync()
 		//SysPrintf("vif: %d\n", (((LARGE_INTEGER*)g_nCounters)->QuadPart * 1000000) / lfreq.QuadPart);
 		//memset(g_nCounters, 0, 16);
 		counters[5].mode|= 0x10000;
-	
-		if (!(GSCSRr & 0x8)){
-			GSCSRr|= 0x8;
+		if ((CSRw & 0x8)){
+			GSCSRr|= 0x8;			
+			
+		
+			if (!(GSIMR&0x800) )
+					gsIrq();
+
 			
 		}
-		if (!(GSIMR&0x800) )
-				gsIrq();
 		hwIntcIrq(2);
 		psxVSyncStart();
 		
@@ -502,13 +506,16 @@ void rcntUpdate()
 	}
 	
 	if ((u32)(cpuRegs.cycle - counters[4].sCycleT) >= (u32)counters[4].CycleT && hblankend == 1){
-		if (!(GSCSRr & 0x4)){
+		
+		
+		if ((CSRw & 0x4)){
 			GSCSRr |= 4; // signal
 			
-		}
+		
 		if (!(GSIMR&0x400) )
 				gsIrq();
 
+		}
 		if(gates)rcntEndGate(0);
 		if(psxhblankgate)psxCheckEndGate(0);
 		hblankend = 0;
@@ -561,6 +568,7 @@ void rcntUpdate()
 							//SysPrintf("EE Correcting target %x after reset on target\n", i);
 							counters[i].target &= 0xffff;
 						}
+
 				if(counters[i].mode & 0x100 ) {
 #ifdef EECNT_LOG
 	EECNT_LOG("EE counter %d target reached mode %x count %x target %x\n", i, counters[i].mode, counters[i].count, counters[i].target);
@@ -672,7 +680,7 @@ void rcntWmode(int index, u32 value)
 		SysPrintf("Gate Disabled\n");
 		//	counters[index].mode &= ~0x80;
 	}else if(counters[index].mode & 0x4){
-		    SysPrintf("Gate enable on counter %x mode %x\n", index, counters[index].mode);
+		   // SysPrintf("Gate enable on counter %x mode %x\n", index, counters[index].mode);
 			gates |= 1<<index;
 			counters[index].mode &= ~0x80;
 			rcntReset(index);
@@ -709,6 +717,7 @@ void rcntStartGate(int mode){
 			case 0x1: //Reset and start counting on Vsync start
 				counters[i].mode |= 0x80;
 				rcntReset(i);
+				counters[i].target &= 0xffff;
 				break;
 			case 0x2: //Reset and start counting on Vsync end
 				//Do Nothing
@@ -716,6 +725,7 @@ void rcntStartGate(int mode){
 			case 0x3: //Reset and start counting on Vsync start and end
 				counters[i].mode |= 0x80;
 				rcntReset(i);
+				counters[i].target &= 0xffff;
 				break;
 			default:
 				SysPrintf("EE Start Counter %x Gate error\n", i);
@@ -741,10 +751,12 @@ void rcntEndGate(int mode){
 			case 0x2: //Reset and start counting on Vsync end
 				counters[i].mode |= 0x80;
 				rcntReset(i);
+				counters[i].target &= 0xffff;
 				break;
 			case 0x3: //Reset and start  counting on Vsync start and end
 				counters[i].mode |= 0x80;
-				rcntReset(i);				
+				rcntReset(i);			
+				counters[i].target &= 0xffff;
 				break;
 			default:
 				SysPrintf("EE Start Counter %x Gate error\n", i);
