@@ -214,7 +214,7 @@ void psxCheckStartGate(int counter) {  //Check Gate events when Vsync Starts
 	int i = counter;
 
 	if(counter == 0){
-		if((psxCounters[1].mode & 0x101) == 0x100 || (psxCounters[3].mode & 0x10000101) == 0x101)psxCounters[1].count++;
+		if((psxCounters[1].mode & 0x101) == 0x100 || (psxCounters[1].mode & 0x10000101) == 0x101)psxCounters[1].count++;
 		if((psxCounters[3].mode & 0x101) == 0x100 || (psxCounters[3].mode & 0x10000101) == 0x101)psxCounters[3].count++;
 		/*if(SPU2async)
 			{	
