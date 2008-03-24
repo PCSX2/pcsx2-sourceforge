@@ -1282,7 +1282,7 @@ void CALLBACK SPU2writeDMA7Mem(u16* pMem, int size)
     }
 
 #ifdef _DEBUG
-    if( conf.Log )
+    if( conf.Log && conf.options & OPTION_RECORDING )
         LogPacketSound(pMem, 0x8000);
 #endif
 
