@@ -770,11 +770,13 @@ static BOOL ipuVDEC(u32 val) {
 
 static BOOL ipuFDEC(u32 val)
 {
+	u32 temp;
 	if( !getBits32((u8*)&ipuRegs->cmd.DATA, 0) )
         return FALSE;
 
 	BigEndian(ipuRegs->cmd.DATA, ipuRegs->cmd.DATA);
-	ipuRegs->top = ipuRegs->cmd.DATA;
+	temp = ipuRegs->cmd.DATA;
+	ipuRegs->top = temp;
 
 #ifdef IPU_LOG
     IPU_LOG("FDEC read: 0x%8.8x\n", ipuRegs->top);
