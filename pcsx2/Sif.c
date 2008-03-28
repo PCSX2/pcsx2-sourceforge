@@ -454,7 +454,7 @@ void SIF1Dma()
 					}
 				}
 			}
-			if(sif1dma->qwc > 0) // There's some data ready to transfer into the fifo..
+			else // There's some data ready to transfer into the fifo..
 			{
 				int qwTransfer = sif1dma->qwc;
 				u32 *data;
