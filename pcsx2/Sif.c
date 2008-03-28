@@ -176,10 +176,10 @@ void SIF0Dma()
 #ifdef SIF_LOG
 	SIF_LOG("SIF0 DMA start...\n");
 #endif
-
+notDone = 1;
 	do
 	{
-		notDone = 0;
+		
 		/*if ((psHu32(DMAC_CTRL) & 0xC0)) { 
 			SysPrintf("DMA Stall Control %x\n",(psHu32(DMAC_CTRL) & 0xC0));
 		}*/
@@ -203,6 +203,7 @@ void SIF0Dma()
 					PSX_INT(9, psxCycles);
 					//hwIntcIrq(INTC_SBUS);
 					sif0.sifData.data = 0;
+					notDone = 0;
 				}
 				else  // Chain mode
 				{
@@ -253,7 +254,7 @@ void SIF0Dma()
 				psxCycles += (wTransfer / 4) * BIAS;
 				sif0.counter -= wTransfer;
 
-				notDone = 1;		
+				//notDone = 1;		
 			}
 		}
 
@@ -290,7 +291,7 @@ void SIF0Dma()
 					sif0dma->qwc -= readSize;
 					sif0dma->madr += readSize << 4;
 
-					notDone = 1;
+					//notDone = 1;
 				//}
 			}
 			
@@ -346,7 +347,7 @@ void SIF0Dma()
 				}
 			}
 		}
-	}while(iopsifbusy[0] == 1 && eesifbusy[0] == 1);
+	}while(notDone);
 	FreezeMMXRegs(0);
 }
 
@@ -356,10 +357,10 @@ void SIF1Dma()
 	u32 *ptag;
 	int notDone;
 	int cycles = 0, psxCycles = 0;
-	
+	notDone = 1;
 	do
 	{
-		notDone = 0;
+		
 
 		if(eesifbusy[1] == 1) // If EE SIF1 is enabled
 		{
@@ -374,7 +375,11 @@ void SIF1Dma()
 					// Stop & signal interrupts on EE
 					//sif1dma->chcr &= ~0x100;
 					//hwDmacIrq(6);
+#ifdef SIF_LOG
+					SIF_LOG("EE SIF1 End %x\n", sif1.end);
+#endif
 					eesifbusy[1] = 0;
+					notDone = 0;
 					INT(6, cycles*BIAS);
 					sif1.chain = 0;
 					sif1.end = 0;
@@ -449,13 +454,12 @@ void SIF1Dma()
 					}
 				}
 			}
-
 			if(sif1dma->qwc > 0) // There's some data ready to transfer into the fifo..
 			{
 				int qwTransfer = sif1dma->qwc;
 				u32 *data;
 
-				notDone = 1;
+				//notDone = 1;
 				
 				_dmaGetAddr(sif1dma, data, sif1dma->madr, 6);
 
@@ -492,7 +496,7 @@ void SIF1Dma()
 					psxCycles += readSize / 4;
 					sif1.counter = size-readSize;
 					HW_DMA10_MADR += readSize << 2;
-					notDone = 1;
+					//notDone = 1;
 				//}
 			}
 
@@ -542,7 +546,7 @@ void SIF1Dma()
 				}
 			}
 		}
-	}while(iopsifbusy[1] == 1 && eesifbusy[1] == 1);
+	}while(notDone);
 	
 }
 
