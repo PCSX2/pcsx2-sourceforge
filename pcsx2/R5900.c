@@ -347,8 +347,8 @@ void _cpuTestInterrupts() {
 	TESTINT(2, gsInterrupt);
 	TESTINT(3, ipu0Interrupt);
 	TESTINT(4, ipu1Interrupt);
-	/*TESTINT(5, EEsif0Interrupt);
-	TESTINT(6, EEsif1Interrupt);*/
+	TESTINT(5, EEsif0Interrupt);
+	TESTINT(6, EEsif1Interrupt);
 	TESTINT(8, SPRFROMinterrupt);
 	TESTINT(9, SPRTOinterrupt);
 

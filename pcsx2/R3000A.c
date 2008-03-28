@@ -149,6 +149,8 @@ static void _psxTestInterrupts() {
 	/*PSX_TESTINT(4, psxDma4Interrupt);
 	PSX_TESTINT(7, psxDma7Interrupt);*/
 
+	PSX_TESTINT(9, sif0Interrupt);	// SIF0
+	PSX_TESTINT(10, sif1Interrupt);	// SIF1
 	PSX_TESTINT(11, psxDMA11Interrupt);	// SIO2
 	PSX_TESTINT(12, psxDMA12Interrupt);	// SIO2
 	PSX_TESTINT(16, sioInterrupt);

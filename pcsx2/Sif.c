@@ -30,6 +30,8 @@
 #define FIFO_SIF0_W 128
 #define FIFO_SIF1_W 128
 
+int eesifbusy[2] = { 0, 0 };
+extern int iopsifbusy[2];
 typedef struct {
 	u32 fifoData[FIFO_SIF0_W];	
 	int fifoReadPos;
@@ -169,7 +171,7 @@ void SIF0Dma()
 {
 	u32 *ptag;
 	int notDone;
-	//int cycles = 0, psxCycles = 0;
+	int cycles = 0, psxCycles = 0;
 	FreezeMMXRegs(1);
 #ifdef SIF_LOG
 	SIF_LOG("SIF0 DMA start...\n");
@@ -181,7 +183,7 @@ void SIF0Dma()
 		/*if ((psHu32(DMAC_CTRL) & 0xC0)) { 
 			SysPrintf("DMA Stall Control %x\n",(psHu32(DMAC_CTRL) & 0xC0));
 		}*/
-		if(HW_DMA9_CHCR & 0x01000000) // If EE SIF0 is enabled
+		if(iopsifbusy[0] == 1) // If EE SIF0 is enabled
 		{
 			//int size = sif0.counter; //HW_DMA9_BCR >> 16;
 
@@ -195,8 +197,10 @@ void SIF0Dma()
 #endif
 
 					// Stop & signal interrupts on IOP
-					HW_DMA9_CHCR &= ~0x01000000; //reset TR flag
-					psxDmaInterrupt2(2);
+					//HW_DMA9_CHCR &= ~0x01000000; //reset TR flag
+					//psxDmaInterrupt2(2);
+					iopsifbusy[0] = 0;
+					PSX_INT(9, psxCycles);
 					//hwIntcIrq(INTC_SBUS);
 					sif0.sifData.data = 0;
 				}
@@ -246,14 +250,14 @@ void SIF0Dma()
 				SIF0write((u32*)PSXM(HW_DMA9_MADR), wTransfer);
 				HW_DMA9_MADR += wTransfer << 2;
 				//HW_DMA9_BCR = (HW_DMA9_BCR & 0xFFFF) | (((HW_DMA9_BCR >> 16) - wTransfer)<<16);
-				//psxCycles += (wTransfer / 4) * BIAS;
+				psxCycles += (wTransfer / 4) * BIAS;
 				sif0.counter -= wTransfer;
 
 				notDone = 1;		
 			}
 		}
 
-	if(sif0dma->chcr & 0x100) // If EE SIF enabled and there's something to transfer
+	if(eesifbusy[0] == 1) // If EE SIF enabled and there's something to transfer
 		{
 			int size = sif0dma->qwc;
 			if ((psHu32(DMAC_CTRL) & 0x30) == 0x10) { // STS == fromSIF0
@@ -282,7 +286,7 @@ void SIF0Dma()
 
 					Cpu->Clear(sif0dma->madr, readSize*4);
 
-					//cycles += readSize * BIAS;
+					cycles += readSize * BIAS;
 					sif0dma->qwc -= readSize;
 					sif0dma->madr += readSize << 4;
 
@@ -291,14 +295,16 @@ void SIF0Dma()
 			}
 			else
 			{
-				if(sif0.chain && sif0dma->chcr & 0x80000000) // Stop on tag IRQ
+				if((sif0dma->chcr & 0x80000080) == 0x80000080) // Stop on tag IRQ
 				{
 					// Tag interrupt
 #ifdef SIF_LOG
 					SIF_LOG(" EE SIF interrupt\n");
 #endif
-					sif0dma->chcr &= ~0x100;
-					hwDmacIrq(5);
+					//sif0dma->chcr &= ~0x100;
+					eesifbusy[0] = 0;
+					INT(5, cycles*BIAS);
+					//hwDmacIrq(5);
 					notDone = 0;
 				}
 				else if(sif0.end) // Stop on tag END
@@ -307,8 +313,10 @@ void SIF0Dma()
 #ifdef SIF_LOG
 					SIF_LOG(" EE SIF end\n");
 #endif
-					sif0dma->chcr &= ~0x100;
-					hwDmacIrq(5);
+					//sif0dma->chcr &= ~0x100;
+					//hwDmacIrq(5);
+					eesifbusy[0] = 0;
+					INT(5, cycles*BIAS);
 					notDone = 0;
 				}
 				else if(sif0.fifoSize >= 4) // Read a tag
@@ -321,6 +329,9 @@ void SIF0Dma()
 					sif0dma->madr = tag[1];
 					sif0dma->chcr = (sif0dma->chcr & 0xffff) | (tag[0] & 0xffff0000);
 
+					/*if ((sif0dma->chcr & 0x80) && (tag[0] >> 31)) {	
+						SysPrintf("SIF0 TIE\n");
+					}*/
 #ifdef SIF_LOG
 					SIF_LOG(" EE SIF dest chain tag madr:%08X qwc:%04X id:%X irq:%d(%08X_%08X)\n", sif0dma->madr, sif0dma->qwc, (tag[0]>>28)&3, (tag[0]>>31)&1, tag[1], tag[0]);
 #endif
@@ -343,13 +354,13 @@ void SIF1Dma()
 	int id;
 	u32 *ptag;
 	int notDone;
-	//int cycles = 0, psxCycles = 0;
+	int cycles = 0, psxCycles = 0;
 	
 	do
 	{
 		notDone = 0;
 
-		if(sif1dma->chcr & 0x100) // If EE SIF1 is enabled
+		if(eesifbusy[1] == 1) // If EE SIF1 is enabled
 		{
 			if ((psHu32(DMAC_CTRL) & 0xC0) == 0xC0) { // STS == fromSIF1
 				SysPrintf("SIF1 stall control\n");
@@ -360,8 +371,10 @@ void SIF1Dma()
 				if ((sif1dma->chcr & 0xc) == 0 || sif1.end) // If NORMAL mode or end of CHAIN then stop DMA
 				{
 					// Stop & signal interrupts on EE
-					sif1dma->chcr &= ~0x100;
-					hwDmacIrq(6);
+					//sif1dma->chcr &= ~0x100;
+					//hwDmacIrq(6);
+					eesifbusy[1] = 0;
+					INT(6, cycles*BIAS);
 					sif1.chain = 0;
 					sif1.end = 0;
 				}
@@ -377,7 +390,7 @@ void SIF1Dma()
 						SysPrintf("SIF1 TTE\n");
 						SIF1write(ptag+2, 2);
 					}
-
+				
 					sif1.chain = 1;
 					id        = (ptag[0] >> 28) & 0x7;
 
@@ -429,6 +442,10 @@ void SIF1Dma()
 						default:
 							SysPrintf("Bad addr1 source chain\n");
 					}
+					if ((sif1dma->chcr & 0x80) && (ptag[0] >> 31)) {	
+						SysPrintf("SIF1 TIE\n");
+						sif1.end = 1;
+					}
 				}
 			}
 			else // There's some data ready to transfer into the fifo..
@@ -446,12 +463,12 @@ void SIF1Dma()
 				SIF1write(data, qwTransfer << 2);
 				
 				sif1dma->madr += qwTransfer << 4;
-				//cycles += qwTransfer * BIAS;
+				cycles += qwTransfer * BIAS;
 				sif1dma->qwc -= qwTransfer;
 			}
 		}
 
-		if(HW_DMA10_CHCR & 0x01000000 ) // If IOP SIF enabled and there's something to transfer
+		if(iopsifbusy[1] == 1) // If IOP SIF enabled and there's something to transfer
 		{
 			int size = sif1.counter; 
 			
@@ -470,7 +487,7 @@ void SIF1Dma()
 
 					SIF1read((u32*)PSXM(HW_DMA10_MADR), readSize);
 					psxCpu->Clear(HW_DMA10_MADR, readSize);
-					//psxCycles += readSize / 4;
+					psxCycles += readSize / 4;
 					sif1.counter = size-readSize;
 					HW_DMA10_MADR += readSize << 2;
 					notDone = 1;
@@ -485,8 +502,10 @@ void SIF1Dma()
 #ifdef SIF_LOG
 					SIF_LOG(" IOP SIF interrupt\n");
 #endif
-					HW_DMA10_CHCR &= ~0x01000000; //reset TR flag
-					psxDmaInterrupt2(3);
+					//HW_DMA10_CHCR &= ~0x01000000; //reset TR flag
+					//psxDmaInterrupt2(3);
+					iopsifbusy[1] = 0;
+					PSX_INT(10, psxCycles);
 					//hwIntcIrq(INTC_SBUS);
 					sif1.tagMode = 0;
 					notDone = 0;
@@ -497,8 +516,10 @@ void SIF1Dma()
 #ifdef SIF_LOG
 					SIF_LOG(" IOP SIF end\n");
 #endif
-					HW_DMA10_CHCR &= ~0x01000000; //reset TR flag
-					psxDmaInterrupt2(3);
+					//HW_DMA10_CHCR &= ~0x01000000; //reset TR flag
+					//psxDmaInterrupt2(3);
+					iopsifbusy[1] = 0;
+					PSX_INT(10, psxCycles);
 					//hwIntcIrq(INTC_SBUS);
 					sif1.tagMode = 0;
 					notDone = 0;
@@ -523,18 +544,20 @@ void SIF1Dma()
 	
 }
 
-int  sif0Interrupt() {
+void  sif0Interrupt() {
 	/*if (psxHu32(0x1070) & 8) {
 		PSX_INT(9, 0x800);
 		return 0;
 	}*/
 
+	HW_DMA9_CHCR &= ~0x01000000;
 	psxDmaInterrupt2(2);
 	//hwIntcIrq(INTC_SBUS);
-	return 1;
+	psxRegs.interrupt&= ~(1 << 9);
+	//return 1;
 }
 
-int  sif1Interrupt() {
+void  sif1Interrupt() {
 	/*if (psxHu32(0x1070) & 8) {
 		PSX_INT(10, 0x800);
 		return 0;
@@ -543,28 +566,32 @@ int  sif1Interrupt() {
 	HW_DMA10_CHCR &= ~0x01000000; //reset TR flag
 	psxDmaInterrupt2(3);
 	//hwIntcIrq(INTC_SBUS);
-	return 1;
+	psxRegs.interrupt&= ~(1 << 10);
+	//return 1;
 }
 
-int  EEsif0Interrupt() {
+void  EEsif0Interrupt() {
 	/*if (psHu32(DMAC_STAT) & (1<<5)) {
 		INT(5, 0x800);
 		return 0;
 	}*/
 	sif0dma->chcr &= ~0x100;
 	hwDmacIrq(5);
+	cpuRegs.interrupt &= ~(1 << 5);
 
-	return 1;
+	//return 1;
 }
 
-int  EEsif1Interrupt() {
+void  EEsif1Interrupt() {
 	/*if (psHu32(DMAC_STAT) & (1<<6)) {
 		INT(6, 0x800);
 		return 0;
 	}*/
 	hwDmacIrq(6);
+	sif1dma->chcr &= ~0x100;
+	cpuRegs.interrupt &= ~(1 << 6);
 
-	return 1;
+//	return 1;
 }
 
 void dmaSIF0() {
@@ -583,7 +610,8 @@ void dmaSIF0() {
 //    }
 
 	psHu32(0x1000F240) |= 0x2000;
-	if(sif0dma->chcr & 0x100 && HW_DMA9_CHCR & 0x01000000) {
+	eesifbusy[0] = 1;
+	if(eesifbusy[0] == 1 && iopsifbusy[0] == 1) {
 		hwIntcIrq(INTC_SBUS);
 		SIF0Dma();
 		psHu32(0x1000F240) &= ~0x20;
@@ -608,7 +636,8 @@ void dmaSIF1() {
 //    }
 	FreezeMMXRegs(1);
 	psHu32(0x1000F240) |= 0x4000;
-	if(sif1dma->chcr & 0x100 && HW_DMA10_CHCR & 0x01000000) {
+	eesifbusy[1] = 1;
+	if(eesifbusy[1] == 1 && iopsifbusy[1] == 1) {
 		SIF1Dma();
 		psHu32(0x1000F240) &= ~0x40;
 		psHu32(0x1000F240) &= ~0x100;

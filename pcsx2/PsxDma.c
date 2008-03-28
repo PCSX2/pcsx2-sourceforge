@@ -26,7 +26,7 @@
 // Dma11/12 in PsxSio2.c
 //static int spudmaenable[2];
 int spu2interrupts[2];
-
+int iopsifbusy[2] = { 0, 0 };
 void psxDma4(u32 madr, u32 bcr, u32 chcr) { // SPU
 	int size;
 
@@ -163,7 +163,7 @@ int  psxDma7Interrupt() {
 		return 1;
 	
 }
-
+extern int eesifbusy[2];
 void psxDma9(u32 madr, u32 bcr, u32 chcr) {
 
 	DMACh *dma = (DMACh*)&PS2MEM_HW[0xc000];
@@ -172,8 +172,9 @@ void psxDma9(u32 madr, u32 bcr, u32 chcr) {
 	SIF_LOG("IOP: dmaSIF0 chcr = %lx, madr = %lx, bcr = %lx, tadr = %lx\n",	chcr, madr, bcr, HW_DMA9_TADR);
 #endif
 
+	iopsifbusy[0] = 1;
 	psHu32(0x1000F240) |= 0x2000;
-	if (dma->chcr & 0x100 && HW_DMA9_CHCR & 0x01000000) {
+	if (eesifbusy[0] == 1 && iopsifbusy[0] == 1) {
 		SIF0Dma();
 		psHu32(0x1000F240) &= ~0x20;
 		psHu32(0x1000F240) &= ~0x2000;
@@ -187,8 +188,9 @@ void psxDma10(u32 madr, u32 bcr, u32 chcr) {
 	SIF_LOG("IOP: dmaSIF1 chcr = %lx, madr = %lx, bcr = %lx\n",	chcr, madr, bcr);
 #endif
 
+	iopsifbusy[1] = 1;
 	psHu32(0x1000F240) |= 0x4000;
-	if (dma->chcr & 0x100 && HW_DMA10_CHCR & 0x01000000) {
+	if (eesifbusy[1] == 1 && iopsifbusy[1] == 1) {
 		SIF1Dma();
 		psHu32(0x1000F240) &= ~0x40;
 		psHu32(0x1000F240) &= ~0x100;
