@@ -716,30 +716,31 @@ void gsIrq() {
 
 static void GSRegHandlerSIGNAL(u32* data)
 {
+#ifdef GIF_LOG
+	GIF_LOG("GS SIGNAL data %x_%x CSRw %x\n",data[0], data[1], CSRw);
+#endif
 	GSSIGLBLID->SIGID = (GSSIGLBLID->SIGID&~data[1])|(data[0]&data[1]);
 	
-	if ((CSRw & 0x1)) {
-		if (!(GSIMR&0x100) )
-			gsIrq();
-
+	if ((CSRw & 0x1)) 
 		GSCSRr |= 1; // signal
-		//CSRw &= ~1;
 		
-	}
+	
+	if (!(GSIMR&0x100) ) 
+		gsIrq();
 	
 	
 }
 
 static void GSRegHandlerFINISH(u32* data)
 {
-	
-	if ((CSRw & 0x2)) {
-		if (!(GSIMR&0x200) )
-			gsIrq();
-		//CSRw &= ~2;
+#ifdef GIF_LOG
+	GIF_LOG("GS FINISH data %x_%x CSRw %x\n",data[0], data[1], CSRw);
+#endif
+	if ((CSRw & 0x2)) 
 		GSCSRr |= 2; // finish
 		
-	}
+	if (!(GSIMR&0x200) )
+			gsIrq();
 	
 }
 

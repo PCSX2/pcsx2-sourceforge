@@ -1822,7 +1822,7 @@ static void Vif1CMDSTMod(){ // STMOD
 }
 
 static void Vif1CMDMskPath3(){ // MSKPATH3
-	int qwc;
+
 	vif1Regs->mskpath3 = (vif1Regs->code >> 15) & 0x1; 
 	//SysPrintf("VIF MSKPATH3 %x\n", vif1Regs->mskpath3);
 #ifdef GSPATH3FIX
@@ -1830,9 +1830,9 @@ static void Vif1CMDMskPath3(){ // MSKPATH3
     if ( (vif1Regs->code >> 15) & 0x1 ) {
 		while((gif->chcr & 0x100)){ //Can be done 2 different ways, depends on the game/company 
 			if(path3hack == 0)if(Path3transfer == 0 && gif->qwc == 0) break;
-			qwc = gif->qwc;
+			
 			gsInterrupt();
-			g_vifCycles += qwc - gif->qwc;
+
 			if(path3hack == 1)if(gif->qwc == 0) break; //add games not working with it to elfheader.c to enable this instead
 		}
 		//while(gif->chcr & 0x100) gsInterrupt();		// Finish the transfer first
@@ -1859,15 +1859,14 @@ static void Vif1CMDMark(){ // MARK
 	vif1.cmd &= ~0x7f;
 }
 static void Vif1CMDFlush(){ // FLUSH/E/A
-	int qwc;
+
 	vif1FLUSH();
+
 	if((vif1.cmd & 0x7f) == 0x13) {
 		//SysPrintf("FlushA\n");
 		while((gif->chcr & 0x100)){
 			if(Path3transfer == 0 && gif->qwc == 0) break;
-			qwc = gif->qwc;
 			gsInterrupt();
-			g_vifCycles += qwc - gif->qwc;
 		}
 	}
 	
