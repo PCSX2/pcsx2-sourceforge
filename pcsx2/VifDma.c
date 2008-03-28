@@ -469,7 +469,10 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 		if (v->size != (size>>2))ProcessMemSkip(size, unpackType, VIFdmanum);
 
         if(vifRegs->offset < (u32)ft->qsize){
-            unpacksize = (ft->qsize - vifRegs->offset);
+			if((size/ft->dsize) < (ft->qsize - vifRegs->offset)){
+				SysPrintf("wasnt enough left size/dsize = %x left to write %x\n", (size/ft->dsize), (ft->qsize - vifRegs->offset));
+			}
+            unpacksize = min((size/ft->dsize), (ft->qsize - vifRegs->offset));
         } else {
             unpacksize = 0;
             SysPrintf("Unpack align offset = 0\n");
@@ -500,7 +503,6 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
         SysPrintf("aligning packet done size = %d offset %d addr %x\n", size, vifRegs->offset, vif->tag.addr);
 #endif
         //}
-        
         //skipmeminc += (((vifRegs->cycle.cl - vifRegs->cycle.wl)<<2)*4) * skipped;
     } else if (v->size != (size>>2))ProcessMemSkip(size, unpackType, VIFdmanum);
 
@@ -1082,9 +1084,6 @@ int VIF0transfer(u32 *data, int size, int istag) {
 	vif0.vifstalled = 0;
 	vif0.vifpacketsize = size;
 	
-	if ((vif0ch->chcr & 0x40) == 0 && istag == 1 && vif0.tag.size > 0) {
-		return 0;
-	}
 
 	while (vif0.vifpacketsize > 0) {
 
@@ -1226,7 +1225,7 @@ int _chainVIF0() {
 	vif0ch->chcr = ( vif0ch->chcr & 0xFFFF ) | ( (*ptag) & 0xFFFF0000 ); //Transfer upper part of tag to CHCR bits 31-15
 	// Transfer dma tag if tte is set
 	
-	//if (vif0ch->chcr & 0x40) {
+	if (vif0ch->chcr & 0x40) {
 		if(vif0.vifstalled == 1) ret = VIF0transfer(ptag+(2+vif0.irqoffset), 2-vif0.irqoffset, 1);  //Transfer Tag on stall
 		else ret = VIF0transfer(ptag+2, 2, 1);  //Transfer Tag
 		if (ret == -1) return -1;       //There has been an error
@@ -1235,7 +1234,7 @@ int _chainVIF0() {
 			//vif0.vifstalled = 1;
 			return vif0.done;        //IRQ set by VIFTransfer
 		}
-	//}
+	}
 	
 	vif0.done |= hwDmacSrcChainWithStack(vif0ch, id);
 
@@ -1823,6 +1822,7 @@ static void Vif1CMDSTMod(){ // STMOD
 }
 
 static void Vif1CMDMskPath3(){ // MSKPATH3
+	int qwc;
 	vif1Regs->mskpath3 = (vif1Regs->code >> 15) & 0x1; 
 	//SysPrintf("VIF MSKPATH3 %x\n", vif1Regs->mskpath3);
 #ifdef GSPATH3FIX
@@ -1830,13 +1830,15 @@ static void Vif1CMDMskPath3(){ // MSKPATH3
     if ( (vif1Regs->code >> 15) & 0x1 ) {
 		while((gif->chcr & 0x100)){ //Can be done 2 different ways, depends on the game/company 
 			if(path3hack == 0)if(Path3transfer == 0 && gif->qwc == 0) break;
+			qwc = gif->qwc;
 			gsInterrupt();
+			g_vifCycles += qwc - gif->qwc;
 			if(path3hack == 1)if(gif->qwc == 0) break; //add games not working with it to elfheader.c to enable this instead
 		}
 		//while(gif->chcr & 0x100) gsInterrupt();		// Finish the transfer first
 		psHu32(GIF_STAT) |= 0x2;
     } else {
-		if(gif->chcr & 0x100) INT(2, ((transferred>>2)*BIAS));	// Restart Path3 on its own, time it right!
+		if(gif->chcr & 0x100) INT(2, g_vifCycles * BIAS);	// Restart Path3 on its own, time it right!
 		psHu32(GIF_STAT) &= ~0x2;
     }
 #else
@@ -1857,15 +1859,18 @@ static void Vif1CMDMark(){ // MARK
 	vif1.cmd &= ~0x7f;
 }
 static void Vif1CMDFlush(){ // FLUSH/E/A
-	
+	int qwc;
+	vif1FLUSH();
 	if((vif1.cmd & 0x7f) == 0x13) {
 		//SysPrintf("FlushA\n");
 		while((gif->chcr & 0x100)){
 			if(Path3transfer == 0 && gif->qwc == 0) break;
-			gsInterrupt();	
+			qwc = gif->qwc;
+			gsInterrupt();
+			g_vifCycles += qwc - gif->qwc;
 		}
 	}
-	vif1FLUSH();
+	
 	vif1.cmd &= ~0x7f;
 }
 static void Vif1CMDMSCALF(){ //MSCAL/F
@@ -1968,9 +1973,6 @@ int VIF1transfer(u32 *data, int size, int istag) {
 #endif
 
 	
-	if ((vif1ch->chcr & 0x40) == 0 && istag == 1 && vif1.cmd) {
-		return 0;
-	}
 	vif1.irqoffset = 0;
 	vif1.vifstalled = 0;
 	vif1.stallontag = 0;
@@ -2162,7 +2164,7 @@ int _chainVIF1() {
 			}
 	//prevvifcycles = 0;
 
-	//if (vif1ch->chcr & 0x40) {
+	if (vif1ch->chcr & 0x40) {
 		if(vif1.vifstalled == 1) ret = VIF1transfer(vifptag+(2+vif1.irqoffset), 2-vif1.irqoffset, 1);  //Transfer Tag on stall
 		else ret = VIF1transfer(vifptag+2, 2, 1);  //Transfer Tag
 		if (ret == -1) return -1;       //There has been an error
@@ -2170,7 +2172,7 @@ int _chainVIF1() {
 			//if(vif1.tag.size > 0)SysPrintf("VIF1 Stall on tag %x code %x\n", vif1.irqoffset, vif1Regs->code);
 			return 0;        //IRQ set by VIFTransfer
 		}
-	//}
+	}
 	//if((psHu32(DMAC_CTRL) & 0xC0) != 0x40 || id != 4)
 	vif1.done |= hwDmacSrcChainWithStack(vif1ch, id);
 

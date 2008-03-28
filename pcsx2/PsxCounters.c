@@ -285,10 +285,13 @@ void _testRcnt16target(int i) {
 			psxCounters[i].target &= 0xffff;
 			//SysPrintf("IOP 16 Correcting target target %x\n", psxCounters[i].target);			
 		}
-	psxCounters[i].mode|= 0x0800; // Target flag
 	
-	if(psxCounters[i].mode & 0x80)
-		if (psxCounters[i].mode & 0x10)psxCounters[i].mode&= ~0x0400; // Interrupt flag
+	if (psxCounters[i].mode & 0x10){
+			if(psxCounters[i].mode & 0x80)psxCounters[i].mode&= ~0x0400; // Interrupt flag
+			psxCounters[i].mode|= 0x0800; // Target flag
+		}
+	
+		
 	
 	if (psxCounters[i].mode & 0x10) { // Target interrupt
 		psxHu32(0x1070)|= psxCounters[i].interrupt;			
@@ -311,11 +314,14 @@ void _testRcnt16overflow(int i) {
 		PSXCNT_LOG("[%d] overflow 0x%x >= 0x%x (Cycle); Rcount=0x%x, count=0x%x\n", i, (psxRegs.cycle - psxCounters[i].sCycle) / psxCounters[i].rate, psxCounters[i].Cycle, psxRcntRcount16(i), psxCounters[i].count);
 #endif	
 
-	psxCounters[i].mode|= 0x1000; // Overflow flag
+	
 	if (psxCounters[i].mode & 0x0020) { // Overflow interrupt
 		psxHu32(0x1070)|= psxCounters[i].interrupt;
-		if(psxCounters[i].mode & 0x80)
+		psxCounters[i].mode|= 0x1000; // Overflow flag
+		if(psxCounters[i].mode & 0x80){
+			
 			psxCounters[i].mode&= ~0x0400; // Interrupt flag
+		}
 		//SysPrintf("Overflow 16\n");
 	}
 	psxCounters[i].count -= 0x10000;
@@ -337,11 +343,14 @@ void _testRcnt32target(int i) {
 				psxCounters[i].target &= 0xffffffff;
 			}	
 
-	psxCounters[i].mode|= 0x0800; // Target flag
+	
 //	newtarget[i] = 0;
 
-	if(psxCounters[i].mode & 0x80)
-		if (psxCounters[i].mode & 0x10)psxCounters[i].mode&= ~0x0400; // Interrupt flag
+	
+		if (psxCounters[i].mode & 0x10){
+			if(psxCounters[i].mode & 0x80)psxCounters[i].mode&= ~0x0400; // Interrupt flag
+			psxCounters[i].mode|= 0x0800; // Target flag
+		}
 			
 
 	if (psxCounters[i].mode & 0x10) { // Target interrupt
@@ -366,11 +375,13 @@ void _testRcnt32overflow(int i) {
 	PSXCNT_LOG("[%d] overflow 0x%x >= 0x%x (Cycle); Rcount=0x%x, count=0x%x\n", i, (psxRegs.cycle - psxCounters[i].sCycle), psxCounters[i].Cycle, psxRcntRcount32(i), psxCounters[i].count);
 #endif	
 	//SysPrintf("Overflow 32\n");
-	psxCounters[i].mode|= 0x1000; // Overflow flag
 	if (psxCounters[i].mode & 0x0020) { // Overflow interrupt
 		psxHu32(0x1070)|= psxCounters[i].interrupt;
-		if(psxCounters[i].mode & 0x80)
+		psxCounters[i].mode|= 0x1000; // Overflow flag
+		if(psxCounters[i].mode & 0x80){
+			
 			psxCounters[i].mode&= ~0x0400; // Interrupt flag
+		}
 	}
 	psxCounters[i].count -= 0x100000000;
 	if(psxCounters[i].target > 0xffffffff) {

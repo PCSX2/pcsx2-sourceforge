@@ -40,8 +40,10 @@ void SIF1Dma();
 void dmaSIF0();
 void dmaSIF1();
 void dmaSIF2();
-int  EEsif1Interrupt();
-int  EEsif0Interrupt();
+void  sif1Interrupt();
+void  sif0Interrupt();
+void  EEsif1Interrupt();
+void  EEsif0Interrupt();
 int  EEsif2Interrupt();
 int  sifFreeze(gzFile f, int Mode);
 
