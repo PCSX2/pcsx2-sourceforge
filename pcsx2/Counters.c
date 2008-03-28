@@ -465,15 +465,12 @@ void VSync()
 		//SysPrintf("vif: %d\n", (((LARGE_INTEGER*)g_nCounters)->QuadPart * 1000000) / lfreq.QuadPart);
 		//memset(g_nCounters, 0, 16);
 		counters[5].mode|= 0x10000;
-		if ((CSRw & 0x8)){
-			GSCSRr|= 0x8;			
-			
-		
-			if (!(GSIMR&0x800) )
+		if ((CSRw & 0x8))
+			GSCSRr|= 0x8;
+
+		if (!(GSIMR&0x800) )
 					gsIrq();
 
-			
-		}
 		hwIntcIrq(2);
 		psxVSyncStart();
 		
@@ -508,14 +505,13 @@ void rcntUpdate()
 	if ((u32)(cpuRegs.cycle - counters[4].sCycleT) >= (u32)counters[4].CycleT && hblankend == 1){
 		
 		
-		if ((CSRw & 0x4)){
+		if ((CSRw & 0x4))
 			GSCSRr |= 4; // signal
 			
 		
 		if (!(GSIMR&0x400) )
 				gsIrq();
 
-		}
 		if(gates)rcntEndGate(0);
 		if(psxhblankgate)psxCheckEndGate(0);
 		hblankend = 0;

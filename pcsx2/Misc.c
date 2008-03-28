@@ -712,7 +712,7 @@ int LoadState(char *file) {
     if( CHECK_MULTIGS ) {
         // have to call in thread, otherwise weird stuff will start happening
         uptr uf = (uptr)f;
-        GSRingBufSimplePacket(GS_RINGTYPE_SAVE, (int)(uf&0xffffffff), (int)(uf>>32), 0);
+        GSRingBufSimplePacket(GS_RINGTYPE_LOAD, (int)(uf&0xffffffff), (int)(uf>>32), 0);
         gsWaitGS();
     }
     else {

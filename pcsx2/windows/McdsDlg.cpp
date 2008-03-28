@@ -740,10 +740,11 @@ class MemoryCard
 
 		void Read(u32 cluster, Dir *d)
 		{
+			int i;
 			s8 file1[512], file2[512];
 			Dir D1, D2;
 
-			for(;;)
+			for(i = 0; i < 0xffff; i++)
 			{
 				
 				// Read first page containing the first dir
@@ -1089,6 +1090,7 @@ class MemoryCard
 		void SaveRootDir(Dir *Di)
 		{
 			// Open memcard
+			int i;
 			fclose(fp);
 			fp = fopen(FileName, "rb+");
 			if(fp == NULL)
@@ -1102,7 +1104,7 @@ class MemoryCard
 			//s8 file1[256], file2[256];
 			int Lenght = Root.Sons[0].Lenght;
 
-			for(;;)
+			for(i = 0; i < 0xffff; i++)
 			{	
 				// Get next cluster from the FAT table
 				oldcluster = cluster;
@@ -1287,6 +1289,7 @@ class MemoryCard
 
 		void SaveRootDir(char *name)
 		{
+			int i;
 			// Open memcard
 			fclose(fp);
 			fp = fopen(FileName, "rb+");
@@ -1301,7 +1304,7 @@ class MemoryCard
 			//s8 file1[256], file2[256];
 			int Lenght = Root.Sons[0].Lenght;
 
-			for(;;)
+			for(i = 0; i < 0xffff; i++)
 			{	
 				// Get next cluster from the FAT table
 				oldcluster = cluster;
@@ -1627,14 +1630,14 @@ BOOL CALLBACK ConfigureMcdsDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lPa
 			Edit_SetText(GetDlgItem(hW,IDC_MCD1), Config.Mcd1);
 			Edit_SetText(GetDlgItem(hW,IDC_MCD2), Config.Mcd2);
 
-			MC1.Load(Config.Mcd1);		
-			MC2.Load(Config.Mcd2);
+			//MC1.Load(Config.Mcd1);		
+			//MC2.Load(Config.Mcd2);
 
 			//MC1.AddCardToTreeView(GetDlgItem(hW, IDC_TREE1));
 			//MC2.AddCardToTreeView(GetDlgItem(hW, IDC_TREE2));
 
-			MC1.AddToListView(GetDlgItem(hW,IDC_LIST1));
-			MC2.AddToListView(GetDlgItem(hW,IDC_LIST2));
+			//MC1.AddToListView(GetDlgItem(hW,IDC_LIST1));
+			//MC2.AddToListView(GetDlgItem(hW,IDC_LIST2));
 
 			return TRUE;
 

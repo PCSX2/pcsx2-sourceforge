@@ -293,7 +293,8 @@ void SIF0Dma()
 					notDone = 1;
 				//}
 			}
-			else
+			
+			if(sif0dma->qwc == 0)
 			{
 				if((sif0dma->chcr & 0x80000080) == 0x80000080) // Stop on tag IRQ
 				{
@@ -345,7 +346,7 @@ void SIF0Dma()
 				}
 			}
 		}
-	}while(notDone);
+	}while(iopsifbusy[0] == 1 && eesifbusy[0] == 1);
 	FreezeMMXRegs(0);
 }
 
@@ -448,7 +449,8 @@ void SIF1Dma()
 					}
 				}
 			}
-			else // There's some data ready to transfer into the fifo..
+
+			if(sif1dma->qwc > 0) // There's some data ready to transfer into the fifo..
 			{
 				int qwTransfer = sif1dma->qwc;
 				u32 *data;
@@ -540,7 +542,7 @@ void SIF1Dma()
 				}
 			}
 		}
-	}while(notDone);
+	}while(iopsifbusy[1] == 1 && eesifbusy[1] == 1);
 	
 }
 
