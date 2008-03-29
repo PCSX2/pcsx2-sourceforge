@@ -343,7 +343,7 @@ static void ProcessMemSkip(int size, unsigned int unpackType, const unsigned int
 			break;
 	}
 	//if(vifRegs->offset == 0) {
-		vif->tag.addr += (size / unpack->gsize) * ((vifRegs->cycle.cl - vifRegs->cycle.wl)*16);
+		//vif->tag.addr += (size / unpack->gsize) * ((vifRegs->cycle.cl - vifRegs->cycle.wl)*16);
 		//if(vifRegs->cycle.cl != vifRegs->cycle.wl)SysPrintf("Adjusting\n");
 	//}
 		if((vif->tag.addr & 0xf) == unpack->gsize) {
@@ -505,7 +505,6 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
         //}
         //skipmeminc += (((vifRegs->cycle.cl - vifRegs->cycle.wl)<<2)*4) * skipped;
     } else if (v->size != (size>>2))ProcessMemSkip(size, unpackType, VIFdmanum);
-
 	
 	if (vifRegs->cycle.cl >= vifRegs->cycle.wl) { // skipping write
 
@@ -1762,9 +1761,11 @@ static int Vif1TransDirectHL(u32 *data){
 	return ret;
 }
 
+
 static int Vif1TransUnpack(u32 *data){
 	
 	FreezeXMMRegs(1);
+
 	if (vif1.vifpacketsize < vif1.tag.size) {
 			/* size is less that the total size, transfer is 
 			   'in pieces' */
