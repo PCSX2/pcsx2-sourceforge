@@ -1839,7 +1839,7 @@ static void Vif1CMDMskPath3(){ // MSKPATH3
 		//while(gif->chcr & 0x100) gsInterrupt();		// Finish the transfer first
 		psHu32(GIF_STAT) |= 0x2;
     } else {
-		if(gif->chcr & 0x100) INT(2, g_vifCycles * BIAS);	// Restart Path3 on its own, time it right!
+		if(gif->chcr & 0x100) INT(2, (transferred>>2) * BIAS);	// Restart Path3 on its own, time it right!
 		psHu32(GIF_STAT) &= ~0x2;
     }
 #else
