@@ -106,14 +106,14 @@ void rcntInit() {
 	
 	
 	UpdateVSyncRate();
-	hblankend = 0;
+	/*hblankend = 0;
 	counters[5].mode &= ~0x10000;
 	counters[4].sCycleT = cpuRegs.cycle;
 	counters[4].CycleT = HBLANKCNT(1);
 	counters[4].count = 1;
 	counters[5].CycleT = VBLANKCNT(1);
 	counters[5].count = 1;
-	counters[5].sCycleT = cpuRegs.cycle;
+	counters[5].sCycleT = cpuRegs.cycle;*/
 	
 #ifdef _WIN32
     QueryPerformanceFrequency(&lfreq);
@@ -163,20 +163,29 @@ u64 GetCPUTicks()
 void UpdateVSyncRate() {
 	if (Config.PsxType & 1) {
 		SysPrintf("PAL\n");
-		counters[4].Cycle = 60;
+		counters[4].Cycle = 227000;
 		/*if(Config.PsxType & 2)counters[5].rate = PS2VBLANK_PAL_INT;
 		else counters[5].rate = PS2VBLANK_PAL;*/
 	
-		counters[5].Cycle  = 50;
+		counters[5].Cycle  = 720;
 	} else {
 		SysPrintf("NTSC\n");
-		counters[4].Cycle = 60;
+		counters[4].Cycle = 227000;
 		/*if(Config.PsxType & 2)counters[5].rate = PS2VBLANK_NTSC_INT;
 		else counters[5].rate = PS2VBLANK_NTSC;*/
 		
-		counters[5].Cycle  = 60;
+		counters[5].Cycle  = 720;
 	}	
 
+	hblankend = 0;
+	counters[5].mode &= ~0x10000;
+	counters[4].sCycleT = cpuRegs.cycle;
+	counters[4].CycleT = HBLANKCNT(1);
+	counters[4].count = 1;
+	counters[5].CycleT = VBLANKCNT(1);
+	counters[5].count = 1;
+	counters[5].sCycleT = cpuRegs.cycle;
+	
 	//rcntUpdTarget(4);
 	//counters[4].CycleT  = counters[4].rate;
 	///rcntUpdTarget(5);
@@ -544,12 +553,13 @@ void rcntUpdate()
 				VSync();
 			}
 	} else if ((cpuRegs.cycle - counters[5].sCycleT) >= counters[5].CycleT) {
-			/*if(counters[5].count >= counters[5].Cycle){
+			if(counters[5].count >= counters[5].Cycle){
 				counters[5].sCycleT = cpuRegs.cycle;
-				counters[5].count -= counters[5].Cycle;
-				SysPrintf("%d frames done in %d cycles cpuRegs.cycle = %d\n", counters[5].Cycle, counters[5].sCycleT, cpuRegs.cycle);							
-			}*/
-			counters[5].sCycleT += VBLANKCNT(1);
+				counters[5].count = 0;
+				//SysPrintf("%d frames done in %d cycles cpuRegs.cycle = %d\n", counters[5].Cycle, counters[5].sCycleT, cpuRegs.cycle);							
+			}
+			counters[5].count++;
+			//counters[5].sCycleT += VBLANKCNT(1);
 			counters[5].CycleT = VBLANKCNT(counters[5].count) - (VBLANKCNT(1)/2);
 			//SysPrintf("%d frames done in %d cycles cpuRegs.cycle = %d cycletdiff %d\n", counters[5].Cycle, counters[5].sCycleT, cpuRegs.cycle, (counters[5].CycleT - VBLANKCNT(1)) - (cpuRegs.cycle - counters[5].sCycleT));
 			VSync();

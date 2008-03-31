@@ -154,45 +154,44 @@ extern TESTRUNARGS g_TestRun;
 	 VBlank non-interlaced	59.82 Hz
 	 HBlank					15.73426573 KHz */
 
-#define VBLANKPS2PAL(count)		(((VBLANK_PAL / 60) * count))
-#define VBLANKPS2NTSC(count)	(((VBLANK_NTSC / 60) * count))
+//VBlanks per second
+#define VBLANK_NTSC			((Config.PsxType & 2) ? 59.94 : 59.82)
+#define VBLANK_PAL			((Config.PsxType & 2) ? 50.00 : 49.76)
+
+//HBlanks per second
+#define HBLANK_NTSC			(15734.26573)
+#define HBLANK_PAL			(15625)
+
+//VBlank timers for EE, bit more accurate.
 #define VBLANKCNT(count)		((u32)((Config.PsxType & 1) ? (VBLANKPALSELECT * count) : (VBLANKNTSCSELECT * count)))
 #define VBLANKPALSELECT			((Config.PsxType & 2) ? (PS2CLK / 50.00) : (PS2CLK / 49.76))
 #define VBLANKNTSCSELECT		((Config.PsxType & 2) ? (PS2CLK / 59.94) : (PS2CLK / 59.82))
 
-#define HBLANKSELECT(rate)  ((u32)((Config.PsxType & 1) ? (PS2VBLANKPAL * rate) : (PS2VBLANKNTSC * rate)))
-#define HBLANKCNT(count)	((u32)(PS2HBLANK * count))
-#define PS2HBLANKEND_PAL	((u32)(PS2HBLANK_PAL / 2))
-#define PS2HBLANKEND_NTSC	((u32)(PS2HBLANK_NTSC / 2))
-
-	
-
+//EE VBlank speeds
 #define PS2VBLANK_NTSC_INT		((PS2CLK / 59.94))
 #define PS2VBLANK_NTSC  		((PS2CLK / 59.82))
 #define PS2VBLANK_PAL_INT		((PS2CLK / 50.00))
 #define PS2VBLANK_PAL   		((PS2CLK / 49.76))
-#define VBLANK_NTSC			((Config.PsxType & 2) ? 59.94 : 59.82)
-#define VBLANK_PAL			((Config.PsxType & 2) ? 50.00 : 49.76)
-#define HBLANK_NTSC			(15734.26573)
-#define HBLANK_PAL			(15625)
 
-#define PS2VBLANKPAL	((Config.PsxType & 2) ? 312.5 : 314)
-#define PS2VBLANKNTSC	((Config.PsxType & 2) ? 262.5 : 263)
-#define PS2VBLANKEND_PAL	((int)((Config.PsxType & 2) ? PS2VBLANK_PAL_INT/2 : PS2VBLANK_PAL/2))
-#define PS2VBLANKEND_NTSC	((int)((Config.PsxType & 2) ? PS2VBLANK_NTSC_INT/2 : PS2VBLANK_NTSC/2))
+//HBlank timer for EE, bit more accurate.
+#define HBLANKCNT(count)	((u32)(PS2HBLANK * count))
 
+//EE HBlank speeds
 #define PS2HBLANK_NTSC	((int)(PS2CLK / HBLANK_NTSC))
 #define PS2HBLANK_PAL	((int)(PS2CLK / HBLANK_PAL))
-#define PS2VBLANK		((int)((Config.PsxType & 1) ? (PS2CLK/VBLANK_PAL) : (PS2CLK/VBLANK_NTSC)))
 #define PS2HBLANK		((int)((Config.PsxType & 1) ? PS2HBLANK_PAL : PS2HBLANK_NTSC))
-#define PS2HBLANKEND    ((int)((Config.PsxType & 1) ? PS2HBLANKEND_PAL : PS2HBLANKEND_NTSC))
-#define PS2VBLANKEND    ((int)((Config.PsxType & 1) ? PS2VBLANKEND_PAL : PS2VBLANKEND_NTSC))
+
+//IOP VBlank speeds
 #define PSXVBLANK_NTSC	((int)(PSXCLK / VBLANK_NTSC))
 #define PSXVBLANK_PAL	((int)(PSXCLK / VBLANK_PAL))
 #define PSXVBLANK		((int)((Config.PsxType & 1) ? PSXVBLANK_PAL : PSXVBLANK_NTSC))
+
+//IOP HBlank speeds
 #define PSXHBLANK_NTSC	((int)(PSXCLK / HBLANK_NTSC))
 #define PSXHBLANK_PAL	((int)(PSXCLK / HBLANK_PAL))
 #define PSXHBLANK		((int)((Config.PsxType & 1) ? PSXHBLANK_PAL : PSXHBLANK_NTSC))
+
+//Misc Clocks
 #define PSXPIXEL        ((int)(PSXCLK / 13500000))
 #define PSXSOUNDCLK		((int)(48000))
 
