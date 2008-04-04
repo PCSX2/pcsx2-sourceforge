@@ -1030,7 +1030,7 @@ static u64 s_gstag=0; // used for querying the last tag
 
 int  _GIFchain() {
 #ifdef GSPATH3FIX
-	u32 qwc = (psHu32(GIF_MODE) & 0x4) ? min(8, (int)gif->qwc) : gif->qwc;
+	u32 qwc = (psHu32(GIF_MODE) & 0x4 && vif1Regs->mskpath3) ? min(8, (int)gif->qwc) : gif->qwc;
 #else
 	u32 qwc = gif->qwc;
 #endif
@@ -1305,7 +1305,7 @@ static unsigned int gifqwc = 0;
 static unsigned int gifdone = 0;
 
 int mfifoGIFrbTransfer() {
-	u32 qwc = (psHu32(GIF_MODE) & 0x4) ? min(8, (int)gif->qwc) : gif->qwc;
+	u32 qwc = (psHu32(GIF_MODE) & 0x4 && vif1Regs->mskpath3) ? min(8, (int)gif->qwc) : gif->qwc;
 	int mfifoqwc = min(gifqwc, qwc);
 	u32 *src;
 
@@ -1353,7 +1353,7 @@ int mfifoGIFchain() {
 		gif->madr <= (psHu32(DMAC_RBOR)+psHu32(DMAC_RBSR))) {
 		if (mfifoGIFrbTransfer() == -1) return -1;
 	} else {
-		int mfifoqwc = (psHu32(GIF_MODE) & 0x4) ? min(8, (int)gif->qwc) : gif->qwc;
+		int mfifoqwc = (psHu32(GIF_MODE) & 0x4 && vif1Regs->mskpath3) ? min(8, (int)gif->qwc) : gif->qwc;
 		u32 *pMem = (u32*)dmaGetAddr(gif->madr);
 		if (pMem == NULL) return -1;
 
