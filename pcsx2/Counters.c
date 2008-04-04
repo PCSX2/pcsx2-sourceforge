@@ -530,9 +530,10 @@ void rcntUpdate()
 	if ((u32)(cpuRegs.cycle - counters[4].sCycleT) >= (u32)counters[4].CycleT) {
 		
 		if(counters[4].count >= counters[4].Cycle){
-				counters[4].sCycleT += HBLANKCNT(counters[4].count);
-				counters[4].count = 0;
-				//SysPrintf("%d hblanks reorder in %d cycles cpuRegs.cycle = %d\n", counters[4].count, counters[4].sCycleT, cpuRegs.cycle);							
+			//SysPrintf("%x of %x hblanks reorder in %x cycles cpuRegs.cycle = %x\n", counters[4].count, counters[4].Cycle, cpuRegs.cycle - counters[4].sCycleT, cpuRegs.cycle);								
+			counters[4].sCycleT += HBLANKCNT(counters[4].Cycle);
+			counters[4].count -= counters[4].Cycle;
+				
 			}
 		//counters[4].sCycleT += HBLANKCNT(1);
 		counters[4].count++;
@@ -542,8 +543,8 @@ void rcntUpdate()
 		rcntStartGate(0);
 		psxCheckStartGate(0);
 		hblankend = 1;
-		/*if(cpuRegs.cycle > 0xffff0000 || cpuRegs.cycle < 0x10000)
-		SysPrintf("%d hsync done in %d cycles cpuRegs.cycle = %d next will happen on %x\n", counters[4].count, counters[4].CycleT, cpuRegs.cycle, (u32)(counters[4].sCycleT + counters[4].CycleT));*/
+		//if(cpuRegs.cycle > 0xffff0000 || cpuRegs.cycle < 0x1000
+		//SysPrintf("%x hsync done in %x cycles cpuRegs.cycle = %x next will happen on %x\n", counters[4].count, counters[4].CycleT, cpuRegs.cycle, (u32)(counters[4].sCycleT + counters[4].CycleT));
 	}
 	
 	if((counters[5].mode & 0x10000)){
@@ -554,14 +555,14 @@ void rcntUpdate()
 			}
 	} else if ((cpuRegs.cycle - counters[5].sCycleT) >= counters[5].CycleT) {
 			if(counters[5].count >= counters[5].Cycle){
-				counters[5].sCycleT = cpuRegs.cycle;
-				counters[5].count = 0;
-				//SysPrintf("%d frames done in %d cycles cpuRegs.cycle = %d\n", counters[5].Cycle, counters[5].sCycleT, cpuRegs.cycle);							
+				//SysPrintf("reset %x  of %x frames done in %x cycles cpuRegs.cycle = %x\n", counters[5].count, counters[5].Cycle, cpuRegs.cycle - counters[5].sCycleT, cpuRegs.cycle);	
+				counters[5].sCycleT += VBLANKCNT(counters[5].Cycle);
+				counters[5].count -= counters[5].Cycle;
 			}
 			counters[5].count++;
 			//counters[5].sCycleT += VBLANKCNT(1);
 			counters[5].CycleT = VBLANKCNT(counters[5].count) - (VBLANKCNT(1)/2);
-			//SysPrintf("%d frames done in %d cycles cpuRegs.cycle = %d cycletdiff %d\n", counters[5].Cycle, counters[5].sCycleT, cpuRegs.cycle, (counters[5].CycleT - VBLANKCNT(1)) - (cpuRegs.cycle - counters[5].sCycleT));
+			//SysPrintf("%x frames done in %x cycles cpuRegs.cycle = %x cycletdiff %x\n", counters[5].Cycle, counters[5].sCycleT, cpuRegs.cycle, (counters[5].CycleT - VBLANKCNT(1)) - (cpuRegs.cycle - counters[5].sCycleT));
 			VSync();
 		}
 
