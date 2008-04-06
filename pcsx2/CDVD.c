@@ -921,9 +921,10 @@ u8   cdvdRead05(void) { // N-READY
 
 u8   cdvdRead06(void) { // ERROR
 #ifdef CDR_LOG
-	CDR_LOG("cdvdRead06(Error) %x\n", 0);
+	CDR_LOG("cdvdRead06(Error) %x\n", cdvd.Error);
 #endif
-	return 0;
+	
+	return cdvd.Error;
 }
 
 u8   cdvdRead07(void) { // BREAK
@@ -1216,7 +1217,7 @@ void cdvdWrite04(u8 rt) { // NCOMMAND
 			SysPrintf("CdRead: Reading Sector %d(%d Blocks of Size %d) at Speed=%dx\n", cdvd.Sector, cdvd.nSectors,cdvd.BlockSize,cdvd.Speed);
 
 			cdvd.Readed = 0;
-			cdvd.PwOff = 1;//cmdcmplt
+			cdvd.PwOff = 2;//cmdcmplt
 			CDVDREAD_INT(1);
 			
 			break;
@@ -1244,7 +1245,7 @@ void cdvdWrite04(u8 rt) { // NCOMMAND
 			SysPrintf("CdAudioRead: Reading Sector %d(%d Blocks of Size %d) at Speed=%dx\n", cdvd.Sector, cdvd.nSectors,cdvd.BlockSize,cdvd.Speed);
 
 			cdvd.Readed = 0;
-			cdvd.PwOff = 1;//cmdcmplt
+			cdvd.PwOff = 2;//cmdcmplt
 			CDVDREAD_INT(1);
 			break;
 
@@ -1262,7 +1263,7 @@ void cdvdWrite04(u8 rt) { // NCOMMAND
 #endif
 			SysPrintf("DvdRead: Reading Sector %d(%d Blocks of Size %d) at Speed=%dx\n", cdvd.Sector, cdvd.nSectors,cdvd.BlockSize,cdvd.Speed);
 			cdvd.Readed = 0;
-			cdvd.PwOff = 1;//cmdcmplt
+			cdvd.PwOff = 2;//cmdcmplt
 			CDVDREAD_INT(1);
 			break;
 
@@ -1297,7 +1298,7 @@ void cdvdWrite04(u8 rt) { // NCOMMAND
 
 		case 0x0F: // CdChgSpdlCtrl
 			SysPrintf("sceCdChgSpdlCtrl(%d)\n", cdvd.Param[0]);
-			cdvd.PwOff = 1;//cmdcmplt
+			cdvd.PwOff = 2;//cmdcmplt
 			psxHu32(0x1070)|= 0x4;
 			//SBUS
 			hwIntcIrq(INTC_SBUS);
@@ -1336,6 +1337,18 @@ void cdvdWrite07(u8 rt) { // BREAK
 #endif
 	SysPrintf("*PCSX2*: CDVD BREAK %x\n" , rt);
 }
+
+/*
+Interrupts
+
+0x00	 No interrupt		  
+0x01	 Data Ready		  
+0x02	 Command Complete 	  
+0x03	 Acknowledge (reserved) 
+0x04	 End of Data Detected   
+0x05	 Error Detected 	  
+0x06	 Drive Not Ready	
+*/
 
 void cdvdWrite08(u8 rt) { // INTR_STAT
 #ifdef CDR_LOG
