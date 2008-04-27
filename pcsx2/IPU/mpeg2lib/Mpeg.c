@@ -203,8 +203,8 @@ static int get_luma_dc_dct_diff (decoder_t * const decoder)
 		tab = DC_lum_5 + UBITS (bit_buf, 5);
 		size = tab->size;
 		if (size) {
-			bits += tab->len + size;
-			bit_buf <<= tab->len;
+			DUMPBITS (bit_buf, bits, tab->len);
+			bits += size;
 			dc_diff =
 			UBITS (bit_buf, size) - UBITS (SBITS (~bit_buf, 1), size);
 			bit_buf <<= size;
@@ -215,7 +215,7 @@ static int get_luma_dc_dct_diff (decoder_t * const decoder)
 		}
     } 
 	
-	tab = DC_long + (UBITS (bit_buf, 9) - 0x1e0);
+	tab = DC_long + (UBITS (bit_buf, 9) - 0x1e0);//0x1e0);
 	size = tab->size;
 	DUMPBITS (bit_buf, bits, tab->len);
 	NEEDBITS (bit_buf, bits, bit_ptr);
@@ -241,8 +241,8 @@ static int get_chroma_dc_dct_diff (decoder_t * const decoder)
 		tab = DC_chrom_5 + UBITS (bit_buf, 5);
 		size = tab->size;
 		if (size) {
-			bits += tab->len + size;
-			bit_buf <<= tab->len;
+			DUMPBITS (bit_buf, bits, tab->len);
+			bits += size;
 			dc_diff =
 			UBITS (bit_buf, size) - UBITS (SBITS (~bit_buf, 1), size);
 			bit_buf <<= size;
@@ -375,7 +375,7 @@ static void get_intra_block_B14 (decoder_t * const decoder)
     dest[63] ^= mismatch & 1;
 	if( (bit_buf>>30) != 0x2 )
 		ipuRegs->ctrl.ECD = 1;
-    DUMPBITS (bit_buf, bits, 2);	/* dump end of block code */
+    DUMPBITS (bit_buf, bits, tab->len);	/* dump end of block code */
     decoder->bitstream_buf = bit_buf;
     decoder->bitstream_bits = bits;
 }
@@ -434,7 +434,7 @@ static void get_intra_block_B15 (decoder_t * const decoder)
 			} else {
 					/* end of block. I commented out this code because if we */
 					/* dont exit here we will still exit at the later test :) */
-					/* if (i >= 128) break;	*/	/* end of block */
+					 //if (i >= 128) break;		/* end of block */
 					/* escape code */
 
 					i += UBITS (bit_buf << 6, 6) - 64;
@@ -480,7 +480,7 @@ static void get_intra_block_B15 (decoder_t * const decoder)
     dest[63] ^= mismatch & 1;
 	if( (bit_buf>>28) != 0x6 )
 		ipuRegs->ctrl.ECD = 1;
-    DUMPBITS (bit_buf, bits, 4);	/* dump end of block code */
+    DUMPBITS (bit_buf, bits, tab->len);	/* dump end of block code */
     decoder->bitstream_buf = bit_buf;
     decoder->bitstream_bits = bits;
 }
@@ -501,7 +501,7 @@ static int get_non_intra_block (decoder_t * const decoder)
     s16 * dest;
 
     i = -1;
-    mismatch = 1;
+    mismatch = -1;
     dest = decoder->DCTblock;
 
 
@@ -604,7 +604,7 @@ static int get_non_intra_block (decoder_t * const decoder)
 	if( (bit_buf>>30) != 0x2 )
 		ipuRegs->ctrl.ECD = 1;
 
-    DUMPBITS (bit_buf, bits, 2);	/* dump end of block code */
+    DUMPBITS (bit_buf, bits, tab->len);	/* dump end of block code */
     decoder->bitstream_buf = bit_buf;
     decoder->bitstream_bits = bits;
     return i;
@@ -877,6 +877,7 @@ static void slice_intra_DCT (decoder_t * const decoder, const int cc,
     /* Get the intra DC coefficient and inverse quantize it */
     if (cc == 0) decoder->dc_dct_pred[0] += get_luma_dc_dct_diff (decoder);
     else decoder->dc_dct_pred[cc] += get_chroma_dc_dct_diff (decoder);
+
     decoder->DCTblock[0] = decoder->dc_dct_pred[cc] << (3 - decoder->intra_dc_precision);
 
     if (decoder->mpeg1) get_mpeg1_intra_block (decoder);
@@ -901,7 +902,7 @@ static void slice_non_intra_DCT (decoder_t * const decoder,
 }
 
 extern int coded_block_pattern;
-extern u8 FillInternalBuffer(u32 * pointer, u32 advance);
+extern u16 FillInternalBuffer(u32 * pointer, u32 advance, u32 size);
 extern decoder_t g_decoder;
 extern int g_nIPU0Data; // or 0x80000000 whenever transferring
 extern u8* g_pIPU0Pointer;
@@ -967,42 +968,55 @@ void SaveRGB32(u8* ptr)
 
 void waitForSCD()
 {
-    u8 bit8;
-    while( !getBits8((u8*)&bit8, 0) )
+    u8 bit8 = 1;
+
+	while(!getBits8((u8*)&bit8, 0))
 		so_resume();
-    if (bit8==0) {
-        if( g_BP.BP & 7 )
-            g_BP.BP += 8 - (g_BP.BP&7);
-        ipuRegs->ctrl.SCD = 1;
-    }
-	
+
+	if (bit8==0) 
+	{
+		if (g_BP.BP & 7)
+			g_BP.BP += 8 - (g_BP.BP&7);
+
+		ipuRegs->ctrl.SCD = 1;
+	}
+
 	while(!getBits32((u8*)&ipuRegs->top, 0))
 	{
 		so_resume();
 	}
+
 	BigEndian(ipuRegs->top, ipuRegs->top);
 
-    if( ipuRegs->ctrl.SCD ) {
-        while( !(ipuRegs->top & 0x100) ) {
-            while(!getBits8((u8*)&bit8, 1))
-                so_resume();
-            while(!getBits32((u8*)&ipuRegs->top, 0))
-	            so_resume();
-            BigEndian(ipuRegs->top, ipuRegs->top);
-        }
+	if(ipuRegs->ctrl.SCD)
+	{
+		switch(ipuRegs->top & 0xFFFFFFF0)
+		{
+			case 0x100:
+			case 0x1A0:
+				break;
+			case 0x1B0:
+				ipuRegs->ctrl.SCD = 0;
+				if(ipuRegs->top == 0x1b4) ipuRegs->ctrl.ECD = 1;
+				//else
+				//{
+				//	do
+				//	{
+				//		while(!getBits32((u8*)&ipuRegs->top, 1))
+				//		{
+				//			so_resume();
+				//		}
 
-        if( ipuRegs->top == 0x1b3 ) {
-            // fixes srs
-            SysPrintf("bad start code %x, will manuall skip stream\n", ipuRegs->top);
-            while( ipuRegs->top != 0x100 ) {
-                while(!getBits8((u8*)&bit8, 1))
-                    so_resume();
-                while(!getBits32((u8*)&ipuRegs->top, 0))
-	                so_resume();
-                BigEndian(ipuRegs->top, ipuRegs->top);
-            }
-        }
-    }
+				//		BigEndian(ipuRegs->top, ipuRegs->top);
+				//	}
+				//	while((ipuRegs->top & 0xfffffff0) != 0x100);
+				//}
+				break;
+			default:
+				ipuRegs->ctrl.SCD = 0;
+				break;
+		}
+	}
 }
 
 void mpeg2sliceIDEC(void* pdone)
@@ -1070,7 +1084,9 @@ void mpeg2sliceIDEC(void* pdone)
 					while(g_nIPU0Data > 0) {
 						read = FIFOfrom_write((u32*)g_pIPU0Pointer,g_nIPU0Data);
 						if( read == 0 )
+						{
 							so_resume();
+						}
 						else {
 							g_pIPU0Pointer += read*16;
 							g_nIPU0Data -= read;
@@ -1119,21 +1135,11 @@ void mpeg2sliceIDEC(void* pdone)
 							continue;
 						default:	/* end of slice/frame, or error? */
 						{
-							//int i;
-
 							ipuRegs->ctrl.SCD = 0;
                             coded_block_pattern=decoder->coded_block_pattern;
                             
-//							for (i=0; i<2; i++) {
-//								u8 byte;
-//								while(!getBits8(&byte, 0))
-//									so_resume();
-//								if (byte == 0) break;
-//								g_BP.BP+= 8;
-//							}
-                            g_BP.BP+=decoder->bitstream_bits-16;
-                            //g_BP.BP-=32;//bitstream_init takes 32 bits
-
+							g_BP.BP+=decoder->bitstream_bits-16;
+                        
                             if((int)g_BP.BP < 0) {
 								g_BP.BP = 128 + (int)g_BP.BP;
 
@@ -1141,12 +1147,11 @@ void mpeg2sliceIDEC(void* pdone)
 								// so that reading may continue properly
 								ReorderBitstream();
 							}
-
-                            waitForSCD();
-                            if( ipuRegs->ctrl.SCD ) {
-                                //SysPrintf("top %d: %8.8x\n", s_frame++, ipuRegs->top);
-                            }
-									
+							
+							FillInternalBuffer(&g_BP.BP,1,0);
+							
+							waitForSCD();
+                        			
 							*(int*)pdone = 1;
 							so_exit();
 						}
@@ -1169,10 +1174,7 @@ void mpeg2sliceIDEC(void* pdone)
 
     coded_block_pattern=decoder->coded_block_pattern;
 
-	//ipuRegs->ctrl.ECD=!ipuRegs->ctrl.SCD;
-	//g_BP.BP-=32;//bitstream_init takes 32 bits
-
-    g_BP.BP+=decoder->bitstream_bits-16;
+	g_BP.BP+=decoder->bitstream_bits-16;
 
 	if((int)g_BP.BP < 0) {
 		g_BP.BP = 128 + (int)g_BP.BP;
@@ -1181,11 +1183,10 @@ void mpeg2sliceIDEC(void* pdone)
 		// so that reading may continue properly
 		ReorderBitstream();
 	}
-
-    waitForSCD();
-    if( ipuRegs->ctrl.SCD ) {
-        //SysPrintf("idectop: %8.8x, bp = %x\n", ipuRegs->top, g_BP.BP);
-    }
+	
+	FillInternalBuffer(&g_BP.BP,1,0);
+    
+	waitForSCD();
 
 	*(int*)pdone = 1;
 	so_exit();
@@ -1212,7 +1213,6 @@ void mpeg2_slice(void* pdone)
 		decoder->dc_dct_pred[0] = decoder->dc_dct_pred[1] =
 		decoder->dc_dct_pred[2] = 128 << decoder->intra_dc_precision;
 
-	NEEDBITS (decoder->bitstream_buf, decoder->bitstream_bits, decoder->bitstream_ptr);
 	if (decoder->macroblock_modes & DCT_TYPE_INTERLACED) {
 		DCT_offset = decoder->stride;
 		DCT_stride = decoder->stride * 2;
@@ -1249,11 +1249,8 @@ void mpeg2_slice(void* pdone)
 	ipuRegs->ctrl.SCD=0;
 	coded_block_pattern=decoder->coded_block_pattern;
 
-	//FillInternalBuffer(&g_BP.BP, 1);
-
 	bp = g_BP.BP;
-	g_BP.BP+=decoder->bitstream_bits-16;
-
+	g_BP.BP+=((int)decoder->bitstream_bits-16);
 	// BP goes from 0 to 128, so negative values mean to read old buffer
 	// so we minus from 128 to get the correct BP
 	if((int)g_BP.BP < 0) {
@@ -1263,6 +1260,8 @@ void mpeg2_slice(void* pdone)
 		// so that reading may continue properly
 		ReorderBitstream();
 	}
+
+	FillInternalBuffer(&g_BP.BP,1,0);
 
 	decoder->mbc = 1;
 	g_nIPU0Data = 48;
@@ -1277,14 +1276,9 @@ void mpeg2_slice(void* pdone)
 		}
 	}
 
-	IPU_LOG("BDEC %x, %d\n",g_BP.BP,g_BP.FP);
-
 	waitForSCD();
 
-    if( ipuRegs->ctrl.SCD ) {
-        //SysPrintf("bdectop: %8.8x, bp = %x\n", ipuRegs->top, g_BP.BP);
-    }
-
+	decoder->bitstream_bits = 0;
 	*(int*)pdone = 1;
 	so_exit();
 }
