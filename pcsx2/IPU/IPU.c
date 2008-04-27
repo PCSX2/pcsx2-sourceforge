@@ -68,7 +68,7 @@ PCSX2_ALIGNED16(u32 fifo_input[32]);
 PCSX2_ALIGNED16(u32 fifo_output[32]);
 
 void ReorderBitstream();
-u16 FillInternalBuffer(u32 * pointer, u32 advance);
+u16 FillInternalBuffer(u32 * pointer, u32 advance, u32 size);
 
 // the BP doesn't advance and returns -1 if there is no data to be read
 tIPU_BP g_BP;
@@ -605,9 +605,11 @@ static void ipuBCLR(u32 val) {
     FIFOto_clear();
 	g_BP.BP = val & 0x7F;
 	g_BP.FP = 0;
+	g_BP.bufferhasnew = 0;
 	g_BP.IFC = 0;
 	ipuRegs->ctrl.BUSY = 0;
 	ipuRegs->cmd.BUSY = 0;
+	memset(readbits,0,80);
 #ifdef IPU_LOG
 	IPU_LOG("Clear IPU input FIFO. Set Bit offset=0x%X\n", g_BP.BP);
 #endif
@@ -652,6 +654,9 @@ static BOOL ipuIDEC(u32 val)
 	s_routine = so_create(mpeg2sliceIDEC, &s_RoutineDone, s_tempstack, sizeof(s_tempstack));
 	assert( s_routine != NULL );
 	so_call(s_routine);
+	if(s_RoutineDone)
+		s_routine = NULL;
+
 	return s_RoutineDone;
 }
 
@@ -702,6 +707,8 @@ static BOOL ipuBDEC(u32 val)
 	s_routine = so_create(mpeg2_slice, &s_RoutineDone, s_tempstack, sizeof(s_tempstack));
 	assert( s_routine != NULL );
 	so_call(s_routine);
+		if(s_RoutineDone)
+		s_routine = NULL;
 	return s_RoutineDone;
 }
 
@@ -716,7 +723,6 @@ static BOOL ipuVDEC(u32 val) {
 			g_decoder.bitstream_bits = -16;	 
 			BigEndian(g_decoder.bitstream_buf, g_decoder.bitstream_buf);
 		 
-			//value = BigEndian(value);
 			switch((val >> 26) & 3){
 				case 0://Macroblock Address Increment
 					g_decoder.mpeg1			=ipuRegs->ctrl.MP1;
@@ -729,20 +735,19 @@ static BOOL ipuVDEC(u32 val) {
 					break;
 				case 2://Motion Code		//known issues: no error detected
 					ipuRegs->cmd.DATA=get_motion_delta(&g_decoder,0);
-					//g_BP.BP += ipuRegs->cmd.DATA >> 16;
 					break;
 				case 3://DMVector
 					ipuRegs->cmd.DATA=get_dmv(&g_decoder);
-					//g_BP.BP += ipuRegs->cmd.DATA >> 16;
 					break;
 			}
 
-			//g_BP.BP += ipuRegs->cmd.DATA >> 16;
 			g_BP.BP+=(g_decoder.bitstream_bits+16);
 			if((int)g_BP.BP < 0) {
 				g_BP.BP += 128;
 				ReorderBitstream();
 			}
+
+			FillInternalBuffer(&g_BP.BP,1,0);
 
 			ipuRegs->cmd.DATA = (ipuRegs->cmd.DATA & 0xFFFF) | ((g_decoder.bitstream_bits+16) << 16);
 			ipuRegs->ctrl.ECD = (ipuRegs->cmd.DATA==0);
@@ -770,13 +775,11 @@ static BOOL ipuVDEC(u32 val) {
 
 static BOOL ipuFDEC(u32 val)
 {
-	u32 temp;
 	if( !getBits32((u8*)&ipuRegs->cmd.DATA, 0) )
         return FALSE;
 
 	BigEndian(ipuRegs->cmd.DATA, ipuRegs->cmd.DATA);
-	temp = ipuRegs->cmd.DATA;
-	ipuRegs->top = temp;
+	ipuRegs->top = ipuRegs->cmd.DATA;
 
 #ifdef IPU_LOG
     IPU_LOG("FDEC read: 0x%8.8x\n", ipuRegs->top);
@@ -989,7 +992,6 @@ void IPUCMD_WRITE(u32 val) {
 	
 			// check if enough data in queue
 			if( ipuVDEC(val) ) {
-				IPU_INTERRUPT(DMAC_TO_IPU);
 				return;
 			}
 
@@ -1008,7 +1010,6 @@ void IPUCMD_WRITE(u32 val) {
 			g_BP.BP+= val & 0x3F;
 
 			if( ipuFDEC(val) ) {
-				IPU_INTERRUPT(DMAC_TO_IPU);
 				return;
 			}
 
@@ -1034,14 +1035,12 @@ void IPUCMD_WRITE(u32 val) {
 			g_BP.BP+= val & 0x3F;
 
 			if( ipuSETIQ(ipuRegs->cmd.DATA) ) {
-				IPU_INTERRUPT(DMAC_TO_IPU);
 				return;
 			}
 
 			break;
 		case SCE_IPU_SETVQ:
 			if( ipuSETVQ(ipuRegs->cmd.DATA) ) {
-				IPU_INTERRUPT(DMAC_TO_IPU);
 				return;
 			}
 
@@ -1053,7 +1052,6 @@ void IPUCMD_WRITE(u32 val) {
 			
 			if( ipuCSC(ipuRegs->cmd.DATA) ) {
 				if(ipu0dma->qwc > 0 && (ipu0dma->chcr & 0x100)) INT(DMAC_FROM_IPU,0);
-				IPU_INTERRUPT(DMAC_FROM_IPU);
 				FreezeMMXRegs(0);
 				return;
 			}
@@ -1067,7 +1065,6 @@ void IPUCMD_WRITE(u32 val) {
 			FreezeMMXRegs(1);
 
 			if( ipuPACK(ipuRegs->cmd.DATA) ) {
-				IPU_INTERRUPT(DMAC_TO_IPU);
 				FreezeMMXRegs(0);
 				return;
 			}
@@ -1096,6 +1093,9 @@ void IPUCMD_WRITE(u32 val) {
 			FreezeMMXRegs(1);
 			if( ipuBDEC(val)) {
 				if(ipu0dma->qwc > 0 && (ipu0dma->chcr & 0x100)) INT(DMAC_FROM_IPU,0);
+				if (ipuRegs->ctrl.SCD || ipuRegs->ctrl.ECD)
+					hwIntcIrq(INTC_IPU);
+
 				FreezeMMXRegs(0);
 				return;
 			}
@@ -1180,14 +1180,9 @@ void IPUWorker()
 		case SCE_IPU_IDEC:
 			so_call(s_routine);
 			if( !s_RoutineDone ) {
+				hwIntcIrq(INTC_IPU);
 				return;
 			}
-
-//            if( (g_nDMATransfer&IPU_DMA_ACTV1) && (ipu1dma->chcr&0x100) && g_BP.IFC > 0 ) {
-//                ipu1dma->madr -= g_BP.IFC * 16;
-//                ipu1dma->qwc += g_BP.IFC;
-//                g_BP.IFC = 0;
-//            }
 
 			ipuRegs->ctrl.OFC = 0;
 			ipuRegs->ctrl.BUSY = 0;
@@ -1197,12 +1192,14 @@ void IPUWorker()
 			// CHECK!: IPU0dma remains when IDEC is done, so we need to clear it
 			if(ipu0dma->qwc > 0 && (ipu0dma->chcr & 0x100))
                 INT(DMAC_FROM_IPU,0);
-			return;
+
+			s_routine = NULL;
+			break;
 		case SCE_IPU_BDEC:
             so_call(s_routine);
 			if(!s_RoutineDone)
 			{
-				//hwIntcIrq(INTC_IPU);
+				hwIntcIrq(INTC_IPU);
 				return;
 			}
 
@@ -1211,7 +1208,9 @@ void IPUWorker()
 			ipuRegs->cmd.BUSY = 0;
 			ipuCurCmd = 0xffffffff;
 			if(ipu0dma->qwc > 0 && (ipu0dma->chcr & 0x100)) INT(DMAC_FROM_IPU,0);
-			
+			s_routine = NULL;
+			if (ipuRegs->ctrl.SCD || ipuRegs->ctrl.ECD)
+				hwIntcIrq(INTC_IPU);
 			return;
 
 		default:
@@ -1222,7 +1221,6 @@ void IPUWorker()
 	// success
 	ipuRegs->ctrl.BUSY = 0;
 	ipuCurCmd = 0xffffffff;
-	IPU_INTERRUPT(DMAC_TO_IPU);
 }
 
 /////////////////
@@ -1232,13 +1230,13 @@ void IPUWorker()
 __forceinline void inc_readbits()
 {
 	readbits += 16;
-	if( readbits >= _readbits+64 ) {
-
+  	if( readbits >= _readbits+64 ) {
+  
 		// move back
-		*(u64*)(_readbits) = *(u64*)(_readbits+64);
-		*(u64*)(_readbits+8) = *(u64*)(_readbits+72);
-		readbits = _readbits;
-	}
+  		*(u64*)(_readbits) = *(u64*)(_readbits+64);
+  		*(u64*)(_readbits+8) = *(u64*)(_readbits+72);
+  		readbits = _readbits;
+  	}
 }
 
 // returns the pointer of readbits moved by 1 qword
@@ -1246,73 +1244,63 @@ __forceinline u8* next_readbits()
 {
 	return readbits + 16;
 }
-
+ 
 // returns the pointer of readbits moved by 1 qword
 u8* prev_readbits()
 {
 	if( readbits < _readbits+16 ) {
 		return _readbits+48-(readbits-_readbits);
 	}
-	
-	return readbits-16;
+ 
+ 	return readbits-16;
 }
-
+ 
 void ReorderBitstream()
 {
 	readbits = prev_readbits();
-	g_BP.bufferhasnew = 1;
-	//g_BP.FP++;
+	g_BP.FP = 2;
 }
+
 
 // IPU has a 2qword internal buffer whose status is pointed by FP.
 // If FP is 1, there's 1 qword in buffer. Second qword is only loaded
 // incase there are less than 32bits available in the first qword.
 // \return Number of bits available (clamps at 16 bits)
-u16 FillInternalBuffer(u32 * pointer, u32 advance)
+u16 FillInternalBuffer(u32 * pointer, u32 advance, u32 size)
 {
 	if(g_BP.FP == 0)
 	{
 		if( FIFOto_read(next_readbits()) == 0 )
-			return 0;
+				return 0;
 
-		g_BP.bufferhasnew = 0;
 		inc_readbits();
 		g_BP.FP = 1;
 	}
-   	else if(g_BP.FP < 2 && g_BP.bufferhasnew == 0) 
+	else if(g_BP.FP < 2 && (*(int*)pointer+size) >= 128)
 	{
-		// in reality, need only > 96, but IPU reads ahead
-		if( *(int*)pointer >= 96) {
-			if( FIFOto_read(next_readbits()) )
-			{
-				g_BP.FP += 1;
-			}else if(*(int*)pointer >= 128)
-				return 0;
-			
+		if( FIFOto_read(next_readbits()) )
+		{
+			g_BP.FP += 1;
 		}
 	}
 
 	if(*(int*)pointer >= 128)
 	{
-		assert( g_BP.FP >= 1 || g_BP.bufferhasnew);
-		inc_readbits();
+		assert( g_BP.FP >= 1);
+		
+		if(g_BP.FP > 1)
+		{
+			inc_readbits();
+		}
 
 		if(advance)
 		{
-			// Incase BDEC reorders bits, we need to make sure we have the old
-			// data backed up. So we store the last read qword into the 2nd slot
-			// of the internal buffer. After that we copy the new qword read in
-			// the 2nd slot to the 1st slot to be read.
-			if( !g_BP.bufferhasnew )
-				g_BP.FP--;
-			g_BP.bufferhasnew = 0;
+			g_BP.FP--;
+			*pointer &= 127;
 		}
-
-		*pointer &= 127;
 	}
 
-	// fixed : added (g_BP.FP+g_BP.bufferhasnew)*128 as fp could have been 0
-	return (g_BP.FP+g_BP.bufferhasnew) == 1 ? g_BP.FP*128-(*(int*)pointer) : 128;
+	return g_BP.FP >= 1 ? g_BP.FP*128-(*(int*)pointer) : 0;
 }
 
 // whenever reading fractions of bytes. The low bits always come from the next byte
@@ -1323,7 +1311,7 @@ u8 getBits32(u8 *address, u32 advance)
 	u8* readpos;
 
 	// Check if the current BP has exceeded or reached the limit of 128
-	if( FillInternalBuffer(&g_BP.BP,1) < 32 )
+	if( FillInternalBuffer(&g_BP.BP,1,32) < 32 )
 		return 0;
 
 	readpos = readbits+(int)g_BP.BP/8;
@@ -1339,7 +1327,9 @@ u8 getBits32(u8 *address, u32 advance)
 	else
 		*(u32*)address = *(u32*)readpos;
 
-	if (advance) g_BP.BP+=32;
+	if (advance)
+		g_BP.BP+=32;
+
 	return 1;
 }
 
@@ -1349,8 +1339,10 @@ u8 getBits16(u8 *address, u32 advance)
 	u8* readpos;
 
 	// Check if the current BP has exceeded or reached the limit of 128
-	if( FillInternalBuffer(&g_BP.BP,1) < 16 )
+	if( FillInternalBuffer(&g_BP.BP,1,16) < 16 )
+	{
 		return 0;
+	}
 
 	readpos = readbits+(int)g_BP.BP/8;
 
@@ -1365,7 +1357,9 @@ u8 getBits16(u8 *address, u32 advance)
 	else
 		*(u16*)address = *(u16*)readpos;
 
-	if (advance) g_BP.BP+=16;
+	if (advance)
+		g_BP.BP+=16;
+
 	return 1;
 }
 
@@ -1375,7 +1369,7 @@ u8 getBits8(u8 *address, u32 advance)
 	u8* readpos;
 
 	// Check if the current BP has exceeded or reached the limit of 128
-	if( FillInternalBuffer(&g_BP.BP,1) < 8 )
+	if( FillInternalBuffer(&g_BP.BP,1,8) < 8 )
 		return 0;
 
 	readpos = readbits+(int)g_BP.BP/8;
@@ -1390,7 +1384,9 @@ u8 getBits8(u8 *address, u32 advance)
 	else
 		*(u8*)address = *(u8*)readpos;
 
-	if (advance) g_BP.BP+=8;
+	if (advance)
+		g_BP.BP+=8;
+
 	return 1;
 }
 
@@ -1401,7 +1397,7 @@ int getBits(u8 *address, u32 size, u32 advance)
 	u32 pointer = 0;
 
 	// Check if the current BP has exceeded or reached the limit of 128
-	if( FillInternalBuffer(&g_BP.BP,1) < 8 )
+	if( FillInternalBuffer(&g_BP.BP,1,8) < 8 )
 		return 0;
 	
 	oldbits = readbits;
@@ -1418,11 +1414,19 @@ int getBits(u8 *address, u32 size, u32 advance)
 				*++address=0;
 				shift=8;
 			}
-			if( FillInternalBuffer(&pointer,advance) < 8 )
-				return address-oldaddr;
-			
+
 			howmuch   = min(min(8-(pointer&7), 128-pointer),
 						min(size, shift));
+
+			if( FillInternalBuffer(&pointer,advance,8) < 8 )
+			{
+				if(advance)
+				{
+					g_BP.BP = pointer;
+				}
+				return address-oldaddr;
+			}
+			
 			mask	  = ((0xFF >> (pointer&7)) << 
 					    (8-howmuch-(pointer&7))) & 0xFF;
 			mask     &= readbits[((pointer)>>3)];
@@ -1440,8 +1444,14 @@ int getBits(u8 *address, u32 size, u32 advance)
 		u8* readmem;
 		while (size)
 		{
-			if( FillInternalBuffer(&pointer,advance) < 8 )
+			if( FillInternalBuffer(&pointer,advance,8) < 8 )
+			{
+				if(advance)
+				{
+					g_BP.BP = pointer;
+				}
 				return address-oldaddr;
+			}
 			
 			howmuch  = min(128-pointer, size);
 			size    -= howmuch;
@@ -1473,7 +1483,11 @@ int getBits(u8 *address, u32 size, u32 advance)
 	}
 
 	// If not advance then reset the Reading buffer value
-	if(advance) g_BP.BP = pointer;
+	if(advance)
+	{
+		g_BP.BP = pointer;
+
+	}
 	else readbits = oldbits; // restore the last pointer
 
 	return address-oldaddr;
@@ -1597,8 +1611,9 @@ void ipu_copy(struct macroblock_8 *mb8, struct macroblock_16 *mb16){
 void FIFOto_clear()
 {
 	//assert( g_BP.IFC == 0 );
-	//memset(fifo_input,0,sizeof(fifo_input));
+	memset(fifo_input,0,sizeof(fifo_input));
 	g_BP.IFC = 0;
+	ipuRegs->ctrl.IFC = 0;
 	FIreadpos = 0;
 	FIwritepos = 0; 
 }
@@ -1737,11 +1752,16 @@ int IPU1dma()
 	// Transfer Dn_QWC from Dn_MADR to GIF
 	
 	if ((ipu1dma->chcr & 0xc) == 0 ||  ipu1dma->qwc > 0) { // Normal Mode
+#ifdef IPU_LOG
+			IPU_LOG("dmaIPU1 Normal size=%d, addr=%lx, fifosize=%x\n",
+				ipu1dma->qwc, ipu1dma->madr, 8 - g_BP.IFC);
+#endif
 		IPU1chain();
 		INT(DMAC_TO_IPU, (ipu1cycles+totalqwc)*BIAS);
 		return totalqwc;
 	}
-	else {
+	else 
+	{
 		// Chain Mode
 		//while (done == 0) {						 // Loop while Dn_CHCR.STR is 1
 			ptag = (u32*)dmaGetAddr(ipu1dma->tadr);  //Set memory pointer to TADR
@@ -1856,8 +1876,14 @@ int FIFOfrom_write(u32 *value,int size)
 {
 	int transsize;
 	int firsttrans;
-	
-	if((int)ipuRegs->ctrl.OFC >= 8) IPU0dma();
+
+	if((int)ipuRegs->ctrl.OFC >= 8)
+	{
+		if(IPU0dma() == 0)
+		{
+//			ipuRegs->ctrl.OFC = 0;
+		}
+	}
 
 	transsize = min(size,8-(int)ipuRegs->ctrl.OFC);
 	firsttrans = transsize;
@@ -1964,6 +1990,7 @@ void dmaIPU0() // fromIPU
 
 void dmaIPU1() // toIPU
 {
+	//g_nDMATransfer &= ~(IPU_DMA_ACTV1|IPU_DMA_DOTIE1);
 	IPU1dma();
 	if( ipuRegs->ctrl.BUSY )
 		IPUWorker();

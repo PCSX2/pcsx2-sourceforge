@@ -30,10 +30,15 @@
 
 static u8 data[2];
 static u8 dword[4];
+extern tIPU_BP g_BP;
+extern decoder_t g_decoder;
+extern void ReorderBitstream();
 static void GETWORD(u32 * bit_buf,int bits)
 {
 	while(!getBits16(data,1))
+	{
 		so_resume();
+	}
 	*bit_buf |= ((data[0] << 8) | data[1]) << (bits);
 }
 
