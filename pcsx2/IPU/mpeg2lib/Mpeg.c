@@ -988,7 +988,7 @@ void waitForSCD()
 
 	BigEndian(ipuRegs->top, ipuRegs->top);
 
-	if(ipuRegs->ctrl.SCD)
+	/*if(ipuRegs->ctrl.SCD)
 	{
 		switch(ipuRegs->top & 0xFFFFFFF0)
 		{
@@ -1016,7 +1016,7 @@ void waitForSCD()
 				ipuRegs->ctrl.SCD = 0;
 				break;
 		}
-	}
+	}*/
 }
 
 void mpeg2sliceIDEC(void* pdone)
