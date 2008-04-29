@@ -23,6 +23,9 @@
 #include "PsxCommon.h"
 #include "GS.h"
 
+u64 profile_starttick = 0;
+u64 profile_totalticks = 0;
+
 int gates = 0;
 extern u8 psxhblankgate;
 int hblankend = 0;
@@ -265,10 +268,12 @@ void VSync()
 		SysUpdate();
 	} else { // VSync Start (240 hsyncs) 
 		//UpdateVSyncRateEnd();
-		/*if( (iFrame%20) == 0 ) {
-			SysPrintf("Cycles for unpacks at %d frames %x\n", iFrame, unpacktotal);
-            unpacktotal = 0;
-        }*/
+#ifdef EE_PROFILING
+		if( (iFrame%20) == 0 ) {
+			SysPrintf("Profiled Cycles at %d frames %d\n", iFrame, profile_totalticks);
+			CLEAR_EE_PROFILE();
+        }
+#endif
 
 
 		//SysPrintf("c: %x, %x\n", cpuRegs.cycle, *(u32*)&VU1.Micro[16]);
@@ -613,6 +618,7 @@ void rcntUpdate()
 	
 	
 	rcntSet();
+
 }
 
 

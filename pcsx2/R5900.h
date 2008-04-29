@@ -277,5 +277,28 @@ extern u32 g_EEFreezeRegs;
 #define EXC_TLB_STORE 1
 #define EXC_TLB_LOAD  0
 
+//#define EE_PROFILING //EE Profiling enable
+
+#ifdef EE_PROFILING //EE Profiling code
+
+extern u64 profile_starttick;
+extern u64 profile_totalticks;
+
+#define START_EE_PROFILE() \
+		profile_starttick = GetCPUTick();
+
+#define END_EE_PROFILE() \
+		profile_totalticks += GetCPUTick()-profile_starttick;
+
+#define CLEAR_EE_PROFILE() \
+		profile_totalticks = 0;
+
+#else
+#define START_EE_PROFILE()
+
+#define END_EE_PROFILE()
+
+#define CLEAR_EE_PROFILE()
+#endif
 
 #endif /* __R5900_H__ */
