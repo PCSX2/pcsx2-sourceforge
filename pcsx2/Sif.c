@@ -71,8 +71,10 @@ void SIF0write(u32 *from, int words)
 	/*if(FIFO_SIF0_W < (words+sif0.fifoWritePos)) {*/
 		wP0 = min((FIFO_SIF0_W-sif0.fifoWritePos),words);
 		wP1 = words - wP0;
-		memcpy_fast(&sif0.fifoData[sif0.fifoWritePos], from, wP0 << 2);
-		memcpy_fast(&sif0.fifoData[0], &from[wP0], wP1 << 2);
+		
+		memcpy(&sif0.fifoData[sif0.fifoWritePos], from, wP0 << 2);
+		memcpy(&sif0.fifoData[0], &from[wP0], wP1 << 2);
+
 		sif0.fifoWritePos = (sif0.fifoWritePos + words) & (FIFO_SIF0_W-1);
 	/*}
 	else
@@ -103,8 +105,10 @@ void SIF0read(u32 *to, int words)
 	{*/
 		wP0 = min((FIFO_SIF0_W-sif0.fifoReadPos),words);
 		wP1 = words - wP0;
-		memcpy_fast(to, &sif0.fifoData[sif0.fifoReadPos], wP0 << 2);
-		memcpy_fast(&to[wP0], &sif0.fifoData[0], wP1 << 2);
+
+		memcpy(to, &sif0.fifoData[sif0.fifoReadPos], wP0 << 2);
+		memcpy(&to[wP0], &sif0.fifoData[0], wP1 << 2);
+
 		sif0.fifoReadPos = (sif0.fifoReadPos + words) & (FIFO_SIF0_W-1);
 	/*}
 	else
@@ -125,8 +129,10 @@ void SIF1write(u32 *from, int words)
 	{*/
 		wP0 = min((FIFO_SIF1_W-sif1.fifoWritePos),words);
 		wP1 = words - wP0;
-		memcpy_fast(&sif1.fifoData[sif1.fifoWritePos], from, wP0 << 2);
-		memcpy_fast(&sif1.fifoData[0], &from[wP0], wP1 << 2);
+
+		memcpy(&sif1.fifoData[sif1.fifoWritePos], from, wP0 << 2);
+		memcpy(&sif1.fifoData[0], &from[wP0], wP1 << 2);
+
 		sif1.fifoWritePos = (sif1.fifoWritePos + words) & (FIFO_SIF1_W-1);
 	/*}
 	else
@@ -151,8 +157,10 @@ void SIF1read(u32 *to, int words)
 	{*/
 		wP0 = min((FIFO_SIF1_W-sif1.fifoReadPos),words);
 		wP1 = words - wP0;
-		memcpy_fast(to, &sif1.fifoData[sif1.fifoReadPos], wP0 << 2);
-		memcpy_fast(&to[wP0], &sif1.fifoData[0], wP1 << 2);
+
+		memcpy(to, &sif1.fifoData[sif1.fifoReadPos], wP0 << 2);
+		memcpy(&to[wP0], &sif1.fifoData[0], wP1 << 2);
+
 		sif1.fifoReadPos = (sif1.fifoReadPos + words) & (FIFO_SIF1_W-1);
 	/*}
 	else
@@ -172,7 +180,7 @@ void SIF0Dma()
 	u32 *ptag;
 	int notDone;
 	int cycles = 0, psxCycles = 0;
-	FreezeMMXRegs(1);
+	
 #ifdef SIF_LOG
 	SIF_LOG("SIF0 DMA start...\n");
 #endif
@@ -348,7 +356,6 @@ notDone = 1;
 			}
 		}
 	}while(notDone);
-	FreezeMMXRegs(0);
 }
 
 void SIF1Dma()
@@ -618,10 +625,12 @@ void dmaSIF0() {
 	psHu32(0x1000F240) |= 0x2000;
 	eesifbusy[0] = 1;
 	if(eesifbusy[0] == 1 && iopsifbusy[0] == 1) {
+		FreezeXMMRegs(1);
 		hwIntcIrq(INTC_SBUS);
 		SIF0Dma();
 		psHu32(0x1000F240) &= ~0x20;
 		psHu32(0x1000F240) &= ~0x2000;
+		FreezeXMMRegs(0);
 	}
 }
 
@@ -640,16 +649,18 @@ void dmaSIF1() {
 //        sif1dma->chcr &= ~4; //Halflife sets a QWC amount in chain mode, no tadr set.
 //        SysPrintf("yo2\n");
 //    }
-	FreezeMMXRegs(1);
+	
 	psHu32(0x1000F240) |= 0x4000;
 	eesifbusy[1] = 1;
 	if(eesifbusy[1] == 1 && iopsifbusy[1] == 1) {
+		FreezeXMMRegs(1);
 		SIF1Dma();
 		psHu32(0x1000F240) &= ~0x40;
 		psHu32(0x1000F240) &= ~0x100;
 		psHu32(0x1000F240) &= ~0x4000;
+		FreezeXMMRegs(0);
 	}
-	FreezeMMXRegs(0);
+	
 }
 
 void dmaSIF2() {
