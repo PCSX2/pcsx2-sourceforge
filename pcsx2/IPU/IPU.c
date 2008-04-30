@@ -1048,36 +1048,28 @@ void IPUCMD_WRITE(u32 val) {
 		case SCE_IPU_CSC:
 			g_nCmdPos[1] = 0;
 			g_nCmdIndex = 0;
-			FreezeMMXRegs(1);
 			
 			if( ipuCSC(ipuRegs->cmd.DATA) ) {
 				if(ipu0dma->qwc > 0 && (ipu0dma->chcr & 0x100)) INT(DMAC_FROM_IPU,0);
-				FreezeMMXRegs(0);
 				return;
 			}
 
-			FreezeMMXRegs(0);
 			break;
 		case SCE_IPU_PACK:
 
 			g_nCmdPos[1] = 0;
 			g_nCmdIndex = 0;
-			FreezeMMXRegs(1);
 
 			if( ipuPACK(ipuRegs->cmd.DATA) ) {
-				FreezeMMXRegs(0);
 				return;
 			}
 
-			FreezeMMXRegs(0);
 			break;
 
 		case SCE_IPU_IDEC:
-			FreezeMMXRegs(1);
 			if( ipuIDEC(val) ) {
 				// idec done, ipu0 done too
 				if(ipu0dma->qwc > 0 && (ipu0dma->chcr & 0x100)) INT(DMAC_FROM_IPU,0);
-				FreezeMMXRegs(0);
 				return;
 			}
 
@@ -1085,25 +1077,21 @@ void IPUCMD_WRITE(u32 val) {
 			// have to resort to the thread
 			ipuCurCmd = val>>28;
 			ipuRegs->ctrl.BUSY = 1;
-			FreezeMMXRegs(0);
 
 			return;
 
 		case SCE_IPU_BDEC:
-			FreezeMMXRegs(1);
 			if( ipuBDEC(val)) {
 				if(ipu0dma->qwc > 0 && (ipu0dma->chcr & 0x100)) INT(DMAC_FROM_IPU,0);
 				if (ipuRegs->ctrl.SCD || ipuRegs->ctrl.ECD)
 					hwIntcIrq(INTC_IPU);
 
-				FreezeMMXRegs(0);
 				return;
 			}
 
 			ipuRegs->topbusy = 0x80000000;
 			ipuCurCmd = val>>28;
 			ipuRegs->ctrl.BUSY = 1;
-			FreezeMMXRegs(0);
 			
 			return;
 	}
