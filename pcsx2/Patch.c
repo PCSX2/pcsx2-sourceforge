@@ -319,7 +319,7 @@ void inifile_read( char * name )
 
    if( !f1 )
    {
-       SysPrintf( _( "patch file for this game not found. Can't apply any patches\n" ));
+       SysPrintf( _( "No patch found.Resuming execution without a patch (this is NOT an error).\n" ));
       return;
    }
 

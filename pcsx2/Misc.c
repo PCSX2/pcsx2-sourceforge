@@ -627,7 +627,7 @@ int LoadState(char *file) {
         // pcsx2 supports opening these formats
 		if( dwCurSaveStateVer != 0x7a30000d && dwCurSaveStateVer != 0x7a30000e  && dwCurSaveStateVer != 0x7a30000f) {
 			gzclose(f);
-			SysPrintf("Save state wrong version\n");
+			SysPrintf("State to load is a different version from current.\n");
 			return 0;
 		}
 	}

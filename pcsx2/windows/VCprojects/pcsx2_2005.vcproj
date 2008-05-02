@@ -1695,10 +1695,6 @@
 			>
 		</File>
 		<File
-			RelativePath="..\ps2_silver.jpg"
-			>
-		</File>
-		<File
 			RelativePath="..\..\Stats.c"
 			>
 		</File>
