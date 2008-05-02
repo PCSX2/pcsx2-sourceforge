@@ -67,7 +67,7 @@ END
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_NEU)
 #ifdef _WIN32
 LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
-#pragma code_page(1252)
+#pragma code_page(1253)
 #endif //_WIN32
 
 /////////////////////////////////////////////////////////////////////////////
@@ -75,31 +75,32 @@ LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
 // Dialog
 //
 
-IDD_ABOUT DIALOGEX 0, 0, 239, 175
+IDD_ABOUT DIALOGEX 0, 0, 239, 198
 STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "About the P.E.Op.S. SPU2 DSound Audio Driver..."
 FONT 8, "MS Sans Serif", 0, 0, 0x1
 BEGIN
-    DEFPUSHBUTTON   "OK",IDOK,98,155,44,14
-    RTEXT           "Version :",IDC_STATIC,5,5,74,9
+    DEFPUSHBUTTON   "OK",IDOK,98,178,44,14
+    RTEXT           "Version:",IDC_STATIC,5,7,74,9
     RTEXT           "Release date :",IDC_STATIC,5,16,74,9
     RTEXT           "Coded by :",IDC_STATIC,5,27,74,9
     RTEXT           "Pete's EMail :",IDC_STATIC,5,40,74,9
     RTEXT           "Pete's homepage :",IDC_STATIC,5,51,74,9
-    LTEXT           "1.03",IDC_STATIC,82,5,154,9
-    LTEXT           "02.09.2005",IDC_STATIC,81,16,154,9
+    LTEXT           "1.9.0",IDC_STATIC,81,7,155,9
+    LTEXT           "11.11.2007",IDC_STATIC,81,16,154,9
     LTEXT           "Pete Bernert and the P.E.Op.S. team",IDC_STATIC,81,27,154,9
     LTEXT           "BlackDove@addcom.de",IDC_STATIC,81,40,154,9
     LTEXT           "http://www.pbernert.com",IDC_STATIC,81,51,154,9
-    CONTROL         "",IDC_STATIC,"Static",SS_ETCHEDFRAME,9,107,218,41,WS_EX_DLGMODALFRAME
-    RTEXT           "Greetings to:",IDC_STATIC,16,116,45,9
-    LTEXT           "- Kanodin, Elly and zenogais (I wouldn't have started without their sources).\n- Neill Corlett (for his always excellent work)",IDC_STATIC,65,116,153,27
-    RTEXT           "P.E.Op.S. homepage :",IDC_STATIC,5,91,74,9
-    LTEXT           "https://sourceforge.net/projects/peops/",IDC_STATIC,81,91,154,9
+    CONTROL         "",IDC_STATIC,"Static",SS_ETCHEDFRAME,5,132,218,41,WS_EX_DLGMODALFRAME
+    RTEXT           "Greetings to:",IDC_STATIC,5,137,45,9
+    LTEXT           "- Kanodin, Elly and zenogais (I wouldn't have started without their sources).\n- Neill Corlett (for his always excellent work)",IDC_STATIC,56,137,153,27
+    RTEXT           "P.E.Op.S. homepage :",IDC_STATIC,5,87,74,9
+    LTEXT           "https://sourceforge.net/projects/peops/",IDC_STATIC,82,87,154,9
     RTEXT           "linuzappz :",IDC_STATIC,10,63,69,10
     LTEXT           "http://www.pcsx.net",IDC_STATIC,81,63,142,10
     RTEXT           "kode54 :",IDC_STATIC,10,75,69,10
     LTEXT           "http://home.earthlink.net/~kode54/",IDC_STATIC,81,75,142,10
+    LTEXT           "Additional changes by Refraction of PCSX2 team",IDC_STATIC,12,103,198,14
 END
 
 IDD_CFGDLG DIALOGEX 0, 0, 258, 150
@@ -271,10 +272,10 @@ GUIDELINES DESIGNINFO
 BEGIN
     IDD_ABOUT, DIALOG
     BEGIN
-        LEFTMARGIN, 7
+        LEFTMARGIN, 5
         RIGHTMARGIN, 236
         TOPMARGIN, 7
-        BOTTOMMARGIN, 168
+        BOTTOMMARGIN, 192
     END
 
     IDD_CFGDLG, DIALOG
