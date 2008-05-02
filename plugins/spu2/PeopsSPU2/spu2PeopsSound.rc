@@ -67,7 +67,7 @@ END
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_NEU)
 #ifdef _WIN32
 LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
-#pragma code_page(1253)
+#pragma code_page(1252)
 #endif //_WIN32
 
 /////////////////////////////////////////////////////////////////////////////
@@ -92,7 +92,7 @@ BEGIN
     LTEXT           "BlackDove@addcom.de",IDC_STATIC,81,40,154,9
     LTEXT           "http://www.pbernert.com",IDC_STATIC,81,51,154,9
     CONTROL         "",IDC_STATIC,"Static",SS_ETCHEDFRAME,5,132,218,41,WS_EX_DLGMODALFRAME
-    RTEXT           "Greetings to:",IDC_STATIC,5,137,45,9
+    RTEXT           "Greetings to:",IDC_STATIC,12,137,41,9
     LTEXT           "- Kanodin, Elly and zenogais (I wouldn't have started without their sources).\n- Neill Corlett (for his always excellent work)",IDC_STATIC,56,137,153,27
     RTEXT           "P.E.Op.S. homepage :",IDC_STATIC,5,87,74,9
     LTEXT           "https://sourceforge.net/projects/peops/",IDC_STATIC,82,87,154,9
