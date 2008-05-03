@@ -22,6 +22,10 @@ extern "C" {
 	} extern gApp;
 #	endif
 
+#ifdef _MSC_VER
+#pragma warning(disable:4996) //ignore the stricmp deprecated warning
+#endif
+
 	void SysPrintf(char *fmt, ...);
 	int LoadPatch(char *patchfile);
 }
