@@ -14,6 +14,7 @@ int CDVD_GetDir_RPC_get_entries(struct TocEntry tocEntry[], int req_entries);
 
 #if defined(_MSC_VER)
 #pragma pack(1)
+#pragma warning(disable:4996) //ignore the stricmp deprecated warning
 #endif
 
 struct rootDirTocHeader

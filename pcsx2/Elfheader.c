@@ -24,6 +24,10 @@
 #include "Common.h"
 #include "CDVDisodrv.h"
 
+#ifdef _MSC_VER
+#pragma warning(disable:4996) //ignore the stricmp deprecated warning
+#endif
+
 u32 ElfCRC;
 
 typedef struct {
@@ -627,7 +631,7 @@ int loadElfFile(char *filename) {
     if (Config.Patch) {
 		sprintf(str, "%8.8x", crc);
 #ifdef _WIN32
-		sprintf(str2,"patches not found can't apply patches crc=%8.8x",crc);//if patches found it will overwritten :p
+		sprintf(str2,"No patch found.Game will run normally. [CRC=%8.8x]",crc);//if patches found it will overwritten :p
 		if (gApp.hConsole) SetConsoleTitle(str2);
 #endif
 		if(LoadPatch(str)!=0)

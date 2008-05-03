@@ -590,7 +590,7 @@ class SaveGame
 
 		void DrawICO(HWND hWnd)
 		{
-			int px, py, pc=0;
+	//		int px, py, pc=0;
 			HDC dc = GetDC(hWnd);
 	/*		
 			for(px=0;px<128;px++){
@@ -801,7 +801,7 @@ class MemoryCard
 
 		}
 
-		int Load(char *filename)
+		void Load(char *filename)
 		{
 			strcpy(FileName, filename);
 
@@ -823,7 +823,7 @@ class MemoryCard
 			if(fp == NULL)
 			{
 				MessageBox(mcdDlg, "Unable to open memory card file.", "Error", 0);
-				return 0;
+				return;
 			}
 
 			// Build the FAT table for the card
@@ -1564,7 +1564,7 @@ void SaveFileDialog(HWND hW, int MC, char *dir, char *name) {
 	char szFileName[256];
 	char szFileTitle[256];
 	char szFilter[1024];
-	char *str;
+//	char *str;  (unused for now)
 
 	memset(szFileName,  0, sizeof(szFileName));
 	memset(szFileTitle, 0, sizeof(szFileTitle));

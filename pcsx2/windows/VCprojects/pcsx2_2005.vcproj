@@ -1274,11 +1274,7 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\Docs\Readme.txt"
-				>
-			</File>
-			<File
-				RelativePath="..\..\Docs\ToDo.txt"
+				RelativePath="..\..\Docs\readme 0.9.4.txt"
 				>
 			</File>
 		</Filter>
