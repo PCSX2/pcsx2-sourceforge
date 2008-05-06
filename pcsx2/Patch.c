@@ -62,6 +62,7 @@ PatchTextTable dataType[] =
    { "short", 2, NULL },
    { "word", 3, NULL },
    { "double", 4, NULL },
+   { "extended", 5, NULL },
    { "", 0, NULL }
 };
 
@@ -99,8 +100,22 @@ int PatchTableExecute( char * text1, char * text2, PatchTextTable * Table )
 
    return Table[ i ].code;
 }
+short SkipCount=0;
+short IterationCount=0;
+u32 IterationIncrement=0;
+u32 ValueIncrement=0;
+short PrevCheatType=0;
+u32 PrevCheataddr = 0;
+
+
 
 void _applypatch(int place, IniPatch *p) {
+	u32 Cheataddr = 0;	
+	u8 u8Val=0;
+	u16 u16Val=0;
+	u32 u32Val=0;
+	int i;
+
 	if (p->placetopatch != place) return;
 
 	if (p->enabled == 0) return;
@@ -118,6 +133,103 @@ void _applypatch(int place, IniPatch *p) {
 		if (p->type == 4) { //double
 			memWrite64(p->addr, p->data);
 		}
+		if (p->type == 5) { //extended
+			
+			if (SkipCount > 0){
+				SkipCount--;
+			}else if (PrevCheatType == 0x3050)	{
+				memRead32(PrevCheataddr,&u32Val);
+				memWrite32(PrevCheataddr, u32Val+(p->addr));
+			    PrevCheatType = 0;
+			}else if (PrevCheatType == 0x3060){
+				memRead32(PrevCheataddr,&u32Val);
+				memWrite32(PrevCheataddr, u32Val-(p->addr));
+			    PrevCheatType = 0;
+			}else if (PrevCheatType == 0x4000){
+				for(i=0;i<IterationCount;i++)
+					memWrite32((u32)(PrevCheataddr+(i*IterationIncrement)),(u32)((u32)p->addr+((u32)p->data*i)));
+			    PrevCheatType = 0;
+			}else if (p->addr < 0x10000000){
+				memWrite8(p->addr, (u8)p->data);
+				PrevCheatType = 0;
+			}else if (p->addr < 0x20000000){
+				memWrite16(p->addr, (u16)p->data);
+				PrevCheatType = 0;
+			}else if (p->addr < 0x30000000){
+				memWrite32(p->addr, (u32)p->data);
+				PrevCheatType = 0;
+			}else if (p->addr < 0x30200000){
+				memRead8((u32)p->data,&u8Val);
+				memWrite8((u32)p->data, u8Val+(p->addr&0x000000FF));
+				PrevCheatType = 0;
+			}else if (p->addr < 0x30300000){
+				memRead8((u32)p->data,&u8Val);
+				memWrite8((u32)p->data, u8Val-(p->addr&0x000000FF));
+				PrevCheatType = 0;
+			}else if (p->addr < 0x30400000){
+				memRead16((u32)p->data,&u16Val);
+				memWrite16((u32)p->data, u16Val+(p->addr&0x0000FFFF));
+				PrevCheatType = 0;
+			}else if (p->addr < 0x30500000){
+				memRead16((u32)p->data,&u16Val);
+				memWrite16((u32)p->data, u16Val-(p->addr&0x0000FFFF));
+				PrevCheatType = 0;
+			}else if (p->addr < 0x30600000){
+				PrevCheatType= 0x3050;
+				PrevCheataddr= (u32)p->data;
+			}else if (p->addr < 0x30700000){
+				PrevCheatType= 0x3060;
+				PrevCheataddr= (u32)p->data;
+			}else if  ((p->addr&0xF0000000) == 0x40000000){
+				IterationCount=((u32)p->data&0xFFFF0000)/0x10000;
+				IterationIncrement=((u32)p->data&0x0000FFFF)*4;
+				PrevCheataddr=(u32)p->addr&0x0FFFFFFF;
+				PrevCheatType= 0x4000;
+			}else if  ((p->addr&0xF0000000) == 0x50000000){
+				SkipCount = 1;
+				PrevCheatType= 0;
+			}else if ((p->addr < 0xE0000000)&&(((u32)p->data&0xFFFF0000)==0x00000000)){
+				memRead16((u32)p->addr&0x0FFFFFFF,&u16Val);
+				if (u16Val != (0x0000FFFF&(u32)p->data))
+					SkipCount = 1;
+				PrevCheatType= 0;
+			}else if ((p->addr < 0xE0000000)&&(((u32)p->data&0xFFFF0000)==0x00100000)){
+				memRead16((u32)p->addr&0x0FFFFFFF,&u16Val);
+				if (u16Val == (0x0000FFFF&(u32)p->data))
+					SkipCount = 1;
+				PrevCheatType= 0;
+			}else if ((p->addr < 0xE0000000)&&(((u32)p->data&0xFFFF0000)==0x00200000)){
+				memRead16((u32)p->addr&0x0FFFFFFF,&u16Val);
+				if (u16Val <= (0x0000FFFF&(u32)p->data))
+					SkipCount = 1;
+				PrevCheatType= 0;
+			}else if ((p->addr < 0xE0000000)&&(((u32)p->data&0xFFFF0000)==0x00300000)){
+				memRead16((u32)p->addr&0x0FFFFFFF,&u16Val);
+				if (u16Val >= (0x0000FFFF&(u32)p->data))
+					SkipCount = 1;
+				PrevCheatType= 0;
+			}else if ((p->addr < 0xF0000000)&&(((u32)p->data&0xF0000000)==0x00000000)){
+				memRead16((u32)p->data&0x0FFFFFFF,&u16Val);
+				if (u16Val != (0x0000FFFF&(u32)p->addr))
+					SkipCount = ((u32)p->addr&0xFFF0000)/0x10000;
+				PrevCheatType= 0;
+			}else if ((p->addr < 0xF0000000)&&(((u32)p->data&0xF0000000)==0x10000000)){
+				memRead16((u32)p->addr&0x0FFFFFFF,&u16Val);
+				if (u16Val == (0x0000FFFF&(u32)p->data))
+					SkipCount = ((u32)p->addr&0xFFF0000)/0x10000;
+				PrevCheatType= 0;
+			}else if ((p->addr < 0xF0000000)&&(((u32)p->data&0xF0000000)==0x20000000)){
+				memRead16((u32)p->addr&0x0FFFFFFF,&u16Val);
+				if (u16Val <= (0x0000FFFF&(u32)p->data))
+					SkipCount = ((u32)p->addr&0xFFF0000)/0x10000;
+				PrevCheatType= 0;
+			}else if ((p->addr < 0xF0000000)&&(((u32)p->data&0xF0000000)==0x30000000)){
+				memRead16((u32)p->addr&0x0FFFFFFF,&u16Val);
+				if (u16Val >= (0x0000FFFF&(u32)p->data))
+					SkipCount = ((u32)p->addr&0xFFF0000)/0x10000;
+				PrevCheatType= 0;
+			}
+		}
 	} else
 	if (p->cpu == 2) { //IOP
 		if (p->type == 1) { //byte
@@ -131,6 +243,7 @@ void _applypatch(int place, IniPatch *p) {
 		}
 	}
 }
+
 
 //this is for apply patches directly to memory
 void applypatch(int place) {
@@ -202,7 +315,7 @@ void patchFunc_patch( char * cmd, char * param )
       SysPrintf( "Unrecognized patch '%s'\n", pText );
       return;
    }
-
+	
    pText = strtok( NULL, "," );
    inifile_trim( pText );
    sscanf( pText, "%I64X", &patch[ patchnumber ].data );
