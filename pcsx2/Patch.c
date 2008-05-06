@@ -100,11 +100,11 @@ int PatchTableExecute( char * text1, char * text2, PatchTextTable * Table )
 
    return Table[ i ].code;
 }
-short SkipCount=0;
-short IterationCount=0;
+u32 SkipCount=0;
+u32 IterationCount=0;
 u32 IterationIncrement=0;
 u32 ValueIncrement=0;
-short PrevCheatType=0;
+u32 PrevCheatType=0;
 u32 PrevCheataddr = 0;
 
 
