@@ -266,6 +266,103 @@ void VSync()
 		
 		if(gates)rcntEndGate(0x8);
 		SysUpdate();
+		// used to limit frames
+		switch(CHECK_FRAMELIMIT) {
+			case PCSX2_FRAMELIMIT_LIMIT:
+				FrameLimiter();
+				break;
+
+			case PCSX2_FRAMELIMIT_SKIP:
+			case PCSX2_FRAMELIMIT_VUSKIP:
+			{
+				// the 6 was after trial and error
+				static u32 uPrevTimes[6] = {0}, uNextFrame = 0, uNumFrames = 0, uTotalTime = 0;
+				static u32 uLastTime = 0;
+				static int nConsecutiveSkip = 0, nConsecutiveRender = 0;
+				static short int changed = 0;
+				static short int nNoSkipFrames = 0;
+				
+				u32 uExpectedTime;
+				u32 uCurTime = timeGetTime();
+				u32 uDeltaTime = uCurTime - uLastTime;
+
+				if( uLastTime > 0 ) {
+
+					if( uNumFrames == ARRAYSIZE(uPrevTimes) ) uTotalTime -= uPrevTimes[uNextFrame];
+
+					uPrevTimes[uNextFrame] = uDeltaTime;
+					uNextFrame = (uNextFrame + 1) % ARRAYSIZE(uPrevTimes);
+					uTotalTime += uDeltaTime;
+
+					if( uNumFrames < ARRAYSIZE(uPrevTimes) ) ++uNumFrames;
+				}
+				//the +6 accounts for calling FrameLimiter() instead Sleep()
+				uExpectedTime = (Config.PsxType&1) ? (ARRAYSIZE(uPrevTimes) * 1000 / 50 +6) : (ARRAYSIZE(uPrevTimes) * 1000 / 60 +6); 
+
+				if( nNoSkipFrames > 0 )  --nNoSkipFrames;
+
+				// hmm... this might be more complicated than it needs to be... or not?
+				if( changed != 0 ) {
+					if( changed > 0 ) {
+						++nConsecutiveRender;
+						--changed;
+
+						if( nConsecutiveRender > 20 && uTotalTime + 1 < uExpectedTime ) nNoSkipFrames = ARRAYSIZE(uPrevTimes);
+	
+					}
+					else {
+						++nConsecutiveSkip;
+						++changed;
+					}
+				}
+				else {
+					
+					if( nNoSkipFrames == 0 && nConsecutiveRender > 1 && nConsecutiveSkip < 1 &&
+						(CHECK_MULTIGS? (uTotalTime >= uExpectedTime + uDeltaTime/4 && (uTotalTime >= uExpectedTime + uDeltaTime*3/4 || nConsecutiveSkip==0)) : 
+										(uTotalTime >= uExpectedTime + (uDeltaTime/4))) ) {
+
+
+						if( nConsecutiveSkip == 0 ) {
+
+							//first freeze GS regs THEN send dummy packet
+							if( CHECK_MULTIGS ) GSRingBufSimplePacket(GS_RINGTYPE_FRAMESKIP, 1, 0, 0);
+							else GSsetFrameSkip(1);
+							if( CHECK_FRAMELIMIT == PCSX2_FRAMELIMIT_VUSKIP ) {	
+							Cpu->ExecuteVU1Block = DummyExecuteVU1Block;
+							}
+						}
+
+						changed = -1;
+						nConsecutiveSkip++;
+					}
+					else {
+
+						if( nConsecutiveSkip > 1) {
+							//first set VU1 to enabled THEN unfreeze GS regs
+							if( CHECK_FRAMELIMIT == PCSX2_FRAMELIMIT_VUSKIP ) 
+								Cpu->ExecuteVU1Block = s_prevExecuteVU1Block;
+							if( CHECK_MULTIGS ) GSRingBufSimplePacket(GS_RINGTYPE_FRAMESKIP, 0, 0, 0);
+							else GSsetFrameSkip(0);
+				
+							nConsecutiveRender = 0;
+						}
+
+						changed = 3;
+						nConsecutiveRender++;
+						nConsecutiveSkip = 0;
+
+						if( nConsecutiveRender > 20 && uTotalTime + 1 < uExpectedTime ) {
+							
+							nNoSkipFrames = ARRAYSIZE(uPrevTimes);
+						}
+					}
+				}
+				uLastTime = uCurTime;
+				//dont get too fast, instead keep at smooth full fps
+				FrameLimiter();
+				break;
+			}
+		}
 	} else { // VSync Start (240 hsyncs) 
 		//UpdateVSyncRateEnd();
 #ifdef EE_PROFILING
@@ -358,119 +455,7 @@ void VSync()
 
 		
 
-		// used to limit frames
-		switch(CHECK_FRAMELIMIT) {
-			case PCSX2_FRAMELIMIT_LIMIT:
-				FrameLimiter();
-				break;
-
-			case PCSX2_FRAMELIMIT_SKIP:
-			case PCSX2_FRAMELIMIT_VUSKIP:
-			{
-				// the 6 was after trial and error
-				static u32 uPrevTimes[6] = {0}, uNextFrame = 0, uNumFrames = 0, uTotalTime = 0;
-				static u32 uLastTime = 0;
-				static int nConsecutiveSkip = 0, nConsecutiveRender = 0;
-				extern u32 g_bVUSkip;
-				static int changed = 0;
-				static int nNoSkipFrames = 0;
-
-				u32 uExpectedTime;
-				u32 uCurTime = timeGetTime();
-				u32 uDeltaTime = uCurTime - uLastTime;
-
-				if(lastWasSkip)
-					{
-						if( CHECK_MULTIGS ) GSRingBufSimplePacket(GS_RINGTYPE_FRAMESKIP, 0, 0, 0);
-						else GSsetFrameSkip(0);
-						if( CHECK_FRAMELIMIT == PCSX2_FRAMELIMIT_VUSKIP ) {
-							Cpu->ExecuteVU1Block = s_prevExecuteVU1Block;
-						}
-						lastWasSkip=0;
-					}
-				assert( GSsetFrameSkip != NULL );
-
-				if( uLastTime > 0 ) {
-
-					if( uNumFrames == ARRAYSIZE(uPrevTimes) )
-						uTotalTime -= uPrevTimes[uNextFrame];
-
-					uPrevTimes[uNextFrame] = uDeltaTime;
-					uNextFrame = (uNextFrame + 1) % ARRAYSIZE(uPrevTimes);
-					uTotalTime += uDeltaTime;
-
-					if( uNumFrames < ARRAYSIZE(uPrevTimes) )
-						++uNumFrames;
-				}
-
-				uExpectedTime = (Config.PsxType&1) ? (ARRAYSIZE(uPrevTimes) * 1000 / 50 -1) : (ARRAYSIZE(uPrevTimes) * 1000 / 60 - 1);
-
-				if( nNoSkipFrames > 0 )
-					--nNoSkipFrames;
-
-				// hmm... this might be more complicated than it needs to be
-				if( changed != 0 ) {
-					if( changed > 0 ) {
-						++nConsecutiveRender;
-						--changed;
-
-						if( nConsecutiveRender > 20 && uTotalTime + 1 < uExpectedTime ) {
-							Sleep(uExpectedTime-uTotalTime);
-							nNoSkipFrames = ARRAYSIZE(uPrevTimes);
-						}
-					}
-					else {
-						++nConsecutiveSkip;
-						++changed;
-					}
-				}
-				else {
-					if( nNoSkipFrames == 0 && nConsecutiveRender > 1 && nConsecutiveSkip < 20 &&
-						(CHECK_MULTIGS? (uTotalTime >= uExpectedTime + uDeltaTime/4 && (uTotalTime >= uExpectedTime + uDeltaTime*3/4 || nConsecutiveSkip==0)) : 
-										(uTotalTime >= uExpectedTime + (uDeltaTime/4))) ) {
-
-						if( CHECK_FRAMELIMIT == PCSX2_FRAMELIMIT_VUSKIP ) {
-							
-							Cpu->ExecuteVU1Block = DummyExecuteVU1Block;
-						}
-
-						if( nConsecutiveSkip == 0 ) {
-							if( CHECK_MULTIGS ) GSRingBufSimplePacket(GS_RINGTYPE_FRAMESKIP, 1, 0, 0);
-							else GSsetFrameSkip(1);
-						}
-
-						changed = -3;
-						nConsecutiveSkip++;
-					}
-					else {
-
-						if( CHECK_FRAMELIMIT == PCSX2_FRAMELIMIT_VUSKIP ) {
-							Cpu->ExecuteVU1Block = s_prevExecuteVU1Block;
-						}
-
-						if( nConsecutiveSkip ) {
-							if( CHECK_MULTIGS ) GSRingBufSimplePacket(GS_RINGTYPE_FRAMESKIP, 0, 0, 0);
-							else GSsetFrameSkip(0);
-
-							nConsecutiveRender = 0;
-						}
-
-						changed = 3;
-						nConsecutiveRender++;
-						nConsecutiveSkip = 0;
-
-						if( nConsecutiveRender > 20 && uTotalTime + 1 < uExpectedTime ) {
-							Sleep(uExpectedTime-uTotalTime);
-							nNoSkipFrames = ARRAYSIZE(uPrevTimes);
-						}
-					}
-				}
-
-				uLastTime = uCurTime;
-
-				break;
-			}
-		}
+		
 
 		//counters[5].mode&= ~0x10000;
 		//UpdateVSyncRate();
