@@ -1450,8 +1450,8 @@ void eeFPURecompileCode(R5900FNPTR_INFO xmmcode, R5900FNPTR_INFO fpucode, int xm
 ////////////////////////////////////////////////////
 extern u8 g_MACFlagTransform[256]; // for vus
 
-u32 g_sseMXCSR = 0x9f80; // disable all exception, round to 0, flush to 0
-u32 g_sseVUMXCSR = 0xff80;
+u32 g_sseMXCSR = 0x9fc0; // disable all exception, round to 0, flush to 0
+u32 g_sseVUMXCSR = 0xffc0;
 
 void SetCPUState(u32 sseMXCSR, u32 sseVUMXCSR)
 {
@@ -1462,6 +1462,7 @@ void SetCPUState(u32 sseMXCSR, u32 sseVUMXCSR)
 		g_sseMXCSR = sseMXCSR;
 		g_sseVUMXCSR = sseVUMXCSR;
 		// do NOT set Denormals-Are-Zero flag (charlie and chocfac messes up)
+		// Update 11/05/08 - Doesnt seem to effect it anymore, for the speed boost, its on :p
 		//g_sseMXCSR = 0x9f80; // changing the rounding mode to 0x2000 (near) kills grandia III!
 							// changing the rounding mode to 0x0000 or 0x4000 totally kills gitaroo
 							// so... grandia III wins (you can change individual games with the 'roundmode' patch command)
