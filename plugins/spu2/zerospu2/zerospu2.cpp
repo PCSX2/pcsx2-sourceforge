@@ -1508,8 +1508,8 @@ void CALLBACK SPU2write(u32 mem, u16 value)
             if(spuaddr>0xFFFFE)
                 spuaddr = 0x2800;
             C0_SPUADDR_SET(spuaddr);
-          //  spu2Ru16(REG_C0_SPUSTAT)&=~0x80;
-          //  spu2Ru16(REG_C0_CTRL)&=~0x30;
+            spu2Ru16(REG_C0_SPUSTAT)&=~0x80;
+            spu2Ru16(REG_C0_CTRL)&=~0x30;
             break;
         case REG_C1_SPUDATA:
             spuaddr = C1_SPUADDR;
@@ -1524,8 +1524,8 @@ void CALLBACK SPU2write(u32 mem, u16 value)
             if(spuaddr>0xFFFFE)
                 spuaddr = 0x2800;
             C1_SPUADDR_SET(spuaddr);
-            //spu2Ru16(REG_C1_SPUSTAT)&=~0x80;
-           // spu2Ru16(REG_C1_CTRL)&=~0x30;
+            spu2Ru16(REG_C1_SPUSTAT)&=~0x80;
+            spu2Ru16(REG_C1_CTRL)&=~0x30;
             break;
         case REG_C0_IRQA_HI:
         case REG_C0_IRQA_LO:
