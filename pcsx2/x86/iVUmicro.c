@@ -1059,74 +1059,81 @@ void recUpdateFlags(VURegs * VU, int reg, int info)
 	
 	// can do with 8 bits since only computing zero/sign flags
 	if( EEREC_TEMP != reg ) {
-		SSE_XORPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
-		SSE_CMPEQPS_XMM_to_XMM(EEREC_TEMP, reg);
+		SSE_XORPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);  //Clear EEREC_TEMP
+		SSE_CMPEQPS_XMM_to_XMM(EEREC_TEMP, reg);  // set all F's if each vector is zero
+ 
+		MOV32MtoR(x86oldflag, prevstataddr);        // load the previous status in to x86oldflag
 
-		MOV32MtoR(x86oldflag, prevstataddr);
+		SSE_MOVMSKPS_XMM_to_R32(x86newflag, EEREC_TEMP); // move the sign bits of the previous calculation (is reg vec zero) in to x86newflag
 
-		SSE_MOVMSKPS_XMM_to_R32(x86newflag, EEREC_TEMP); // zero
+		XOR32RtoR(EAX, EAX);  //Clear EAX
 
-		XOR32RtoR(EAX, EAX);
+		//if( !(g_VUGameFixes&VUFIX_SIGNEDZERO) ) {
+			SSE_ANDNPS_XMM_to_XMM(EEREC_TEMP, reg); // necessary!  //EEREC_TEMP = !EEREC_TEMP & reg, 
+													//  so if the result was zero before, EEREC_TEMP will now be blank.
+		//}
 
-		if( !(g_VUGameFixes&VUFIX_SIGNEDZERO) ) {
-			SSE_ANDNPS_XMM_to_XMM(EEREC_TEMP, reg); // necessary!
-		}
-
-		AND32ItoR(x86newflag, 0x0f&flagmask);
-		pjmp = JZ8(0);
-		OR32ItoR(EAX, 1);
+		AND32ItoR(x86newflag, 0x0f&flagmask);  //Grab "Is zero" bits from the first calculation
+		pjmp = JZ8(0); //Skip if none are
+		OR32ItoR(EAX, 1); // Set if they are
 		x86SetJ8(pjmp);
 
-		if( !(g_VUGameFixes&VUFIX_SIGNEDZERO) ) SSE_MOVMSKPS_XMM_to_R32(x86macflag, EEREC_TEMP); // sign
-		else SSE_MOVMSKPS_XMM_to_R32(x86macflag, reg); // sign
+		/*if( !(g_VUGameFixes&VUFIX_SIGNEDZERO) )*/ SSE_MOVMSKPS_XMM_to_R32(x86macflag, EEREC_TEMP); // Grab sign bits from before, remember if "reg"
+																								//Was zero, so will the sign bits
+		//else SSE_MOVMSKPS_XMM_to_R32(x86macflag, reg); // unless we are using the signed zero fix, in which case, we keep it either way ;)
 
-		SHL32ItoR(x86newflag, 4);
-		AND32ItoR(x86macflag, 0x0f&flagmask);
+		
+		AND32ItoR(x86macflag, 0x0f&flagmask); // Seperate the vectors we are using
 		pjmp = JZ8(0);
-		OR32ItoR(EAX, 2);
+		OR32ItoR(EAX, 2); // Set the "Signed" flag if it is signed
 		x86SetJ8(pjmp);
-
+		SHL32ItoR(x86newflag, 4); // Shift the zero flags left 4
 		OR32RtoR(x86macflag, x86newflag);
 	}
 	else {
-		SSE_MOVMSKPS_XMM_to_R32(x86macflag, reg); // mask is < 0 (including 80000000)
+		SSE_MOVMSKPS_XMM_to_R32(x86macflag, reg); // mask is < 0 (including 80000000) Get sign bits of all 4 vectors 
+												  // put results in lower 4 bits of x86macflag
 
-		MOV32MtoR(x86oldflag, prevstataddr);
-		XOR32RtoR(EAX, EAX);
+		MOV32MtoR(x86oldflag, prevstataddr); //move current (previous) status register to x86oldflag
+		XOR32RtoR(EAX, EAX); //Clear EAX for our new flag
 
-		SSE_CMPEQPS_M128_to_XMM(EEREC_TEMP, (uptr)&s_FloatMinMax[8]);
+		SSE_CMPEQPS_M128_to_XMM(EEREC_TEMP, (uptr)&s_FloatMinMax[8]); //if the result zero? 
+																	  //set to all F's (true) or All 0's on each vector (depending on result)
 		
-		SSE_MOVMSKPS_XMM_to_R32(x86newflag, EEREC_TEMP); // zero
+		SSE_MOVMSKPS_XMM_to_R32(x86newflag, EEREC_TEMP); // put the sign bit results from the previous calculation in x86newflag
+														 // so x86newflag == 0xf if EEREC_TEMP is zero and == 0x0 if it is all a value.
 
-		if( !(g_VUGameFixes&VUFIX_SIGNEDZERO) ) {
-			NOT32R(x86newflag);
-			AND32RtoR(x86macflag, x86newflag);
-		}
+		//if( !(g_VUGameFixes&VUFIX_SIGNEDZERO) ) {
+			NOT32R(x86newflag); //flip all bits from previous calculation, so now if the result was zero, the result here is 0's
+			AND32RtoR(x86macflag, x86newflag); //check non-zero macs against signs of initial register values
+											   // so if the result was zero, regardless of if its signed or not, it wont set the signed flags
+		//}
 
-		AND32ItoR(x86macflag, 0xf&flagmask);
-		pjmp = JZ8(0);
-		OR32ItoR(EAX, 2);
+		AND32ItoR(x86macflag, 0xf&flagmask); //seperate out the flags we are actually using?
+		pjmp = JZ8(0); //if none are the flags are set to 1 (aka the result is non-zero & positive, or they were zero) dont set the "signed" flag
+		OR32ItoR(EAX, 2); //else we are signed
 		x86SetJ8(pjmp);
 
-		if( !(g_VUGameFixes&VUFIX_SIGNEDZERO) ) {
-			NOT32R(x86newflag);
-		}
+		//if( !(g_VUGameFixes&VUFIX_SIGNEDZERO) ) { //Flip the bits back again so we have our "its zero" values
+			NOT32R(x86newflag); //flip!
+		//}
 
-		AND32ItoR(x86newflag, 0xf&flagmask);
-		pjmp = JZ8(0);
-		OR32ItoR(EAX, 1);
+		AND32ItoR(x86newflag, 0xf&flagmask); //mask out the vectors we didnt use
+		pjmp = JZ8(0);  //If none were zero skip
+		OR32ItoR(EAX, 1); //We had a zero, so set el status flag with "zero":p
 		x86SetJ8(pjmp);
 
-		SHL32ItoR(x86newflag, 4);
-		OR32RtoR(x86macflag, x86newflag);
+		SHL32ItoR(x86newflag, 4);    //Move our zero flags left 4
+		OR32RtoR(x86macflag, x86newflag); //then stick our signed flags intront of it
 	}
 
 	// x86macflag - new untransformed mac flag, EAX - new status bits, x86oldflag - old status flag
 	// x86macflag = zero_wzyx | sign_wzyx
     MOV8RmtoROffset(x86newflag, x86macflag, (u32)g_MACFlagTransform); // transform
-	MOV32RtoR(x86macflag, x86oldflag);
-	SHL32ItoR(x86macflag, 6);
-    OR32RtoR(x86oldflag, x86macflag);
+	//MOV32RtoR(x86macflag, x86newflag );
+	//MOV32RtoR(x86macflag, x86oldflag);
+	//SHL32ItoR(x86macflag, 6);
+    //OR32RtoR(x86oldflag, x86macflag);
     
     if( macaddr != 0 ) {
 
@@ -1134,14 +1141,17 @@ void recUpdateFlags(VURegs * VU, int reg, int info)
         MOV8RtoM(macaddr, x86newflag);
 
         // vampire night breaks with (g_VUGameFixes&VUFIX_EXTRAFLAGS), crazi taxi needs it
-        if( (g_VUGameFixes&VUFIX_EXTRAFLAGS) && flagmask != 0xf ) {
+       /* if( (g_VUGameFixes&VUFIX_EXTRAFLAGS) && flagmask != 0xf ) {
             MOV8MtoR(x86newflag, VU_VI_ADDR(REG_MAC_FLAG, 2)); // get previous written
             AND8ItoR(x86newflag, ~g_MACFlagTransform[(flagmask|(flagmask<<4))]);
             OR8RtoM(macaddr, x86newflag);
-        }	    
+        }	 */   
     }
 
-	AND32ItoR(x86oldflag, 0x0c0);
+	//AND32ItoR(x86oldflag, 0x0c0);
+	SHR32ItoR(x86oldflag, 6);
+	OR32RtoR(x86oldflag, EAX);
+	SHL32ItoR(x86oldflag, 6);
 	OR32RtoR(x86oldflag, EAX);
     //SHL32ItoR(EAX,6);
     //OR32RtoR(x86oldflag, EAX);
