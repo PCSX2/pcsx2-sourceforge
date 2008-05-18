@@ -1091,7 +1091,7 @@ void recUpdateFlags(VURegs * VU, int reg, int info)
 		OR32RtoR(x86macflag, x86newflag);
 	}
 	else {
-		SSE_MOVMSKPS_XMM_to_R32(x86macflag, reg); // mask is < 0 (including 80000000) Get sign bits of all 4 vectors 
+		SSE_MOVMSKPS_XMM_to_R32(x86macflag, EEREC_TEMP); // mask is < 0 (including 80000000) Get sign bits of all 4 vectors 
 												  // put results in lower 4 bits of x86macflag
 
 		MOV32MtoR(x86oldflag, prevstataddr); //move current (previous) status register to x86oldflag
@@ -3035,17 +3035,18 @@ void recVUMI_CLIP(VURegs *VU, int info)
 
 		MOV32MtoR(EAX, prevclipaddr);
 	
-		SSE_SUBPS_XMM_to_XMM(t1reg, EEREC_TEMP);
+		SSE_MOVAPS_XMM_to_XMM(t1reg, EEREC_TEMP);
+		SSE_ORPS_M128_to_XMM(t1reg, (uptr)&const_clip[4]);
 	}
 
-	SSE_CMPLTPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
-	SSE_CMPNLEPS_XMM_to_XMM(t1reg, EEREC_S);
+	SSE_CMPNLEPS_XMM_to_XMM(t1reg, EEREC_S);  //-w, -z, -y, -x
+	SSE_CMPLTPS_XMM_to_XMM(EEREC_TEMP, EEREC_S); //+w, +z, +y, +x
 
 	SHL32ItoR(EAX, 6);
 
-	SSE_MOVAPS_XMM_to_XMM(t2reg, EEREC_TEMP);
-	SSE_UNPCKLPS_XMM_to_XMM(EEREC_TEMP, t1reg);
-	SSE_UNPCKHPS_XMM_to_XMM(t2reg, t1reg);
+	SSE_MOVAPS_XMM_to_XMM(t2reg, EEREC_TEMP); //t2 = +w, +z, +y, +x
+	SSE_UNPCKLPS_XMM_to_XMM(EEREC_TEMP, t1reg); //EEREC_TEMP = -y,+y,-x,+x
+	SSE_UNPCKHPS_XMM_to_XMM(t2reg, t1reg); //t2reg = -w,+w,-z,+z
 	SSE_MOVMSKPS_XMM_to_R32(x86temp0, EEREC_TEMP); // -y,+y,-x,+x
 	SSE_MOVMSKPS_XMM_to_R32(x86temp1, t2reg); // -w,+w,-z,+z
 
@@ -3075,9 +3076,24 @@ void recVUMI_DIV(VURegs *VU, int info)
 	if( _Fs_ == 0 ) {
 
 		if( _Ft_ == 0 ) {
-			if( _Fsf_ < 3 ) MOV32ItoM(VU_VI_ADDR(REG_Q, 0), 0);
-			else if( _Ftf_ < 0 ) MOV32ItoM(VU_VI_ADDR(REG_Q, 0), 0x7f7fffff);
-			else MOV32ItoM(VU_VI_ADDR(REG_Q, 0), 0x3f800000);
+			if( _Fsf_ < 3 ) { // 0/ft
+				if( _Ftf_ < 3 ) { // 0/0
+					SysPrintf("DIV 0/0\n");
+					OR32ItoM(VU_VI_ADDR(REG_STATUS_FLAG, 2), 0x410); //Invalid Flag (only when 0/0)
+					MOV32ItoM(VU_VI_ADDR(REG_Q, 0), 0x7f7fffff);				
+				} else { // 0/1
+					SysPrintf("DIV 0/1\n");
+					OR32ItoM(VU_VI_ADDR(REG_STATUS_FLAG, 2), 0x820); //Zero divide (only when not 0/0)
+					MOV32ItoM(VU_VI_ADDR(REG_Q, 0), 0x7f7fffff);
+				}
+			}else if( _Ftf_ < 3 ) { // 1/0
+				SysPrintf("DIV 1/0\n");
+				OR32ItoM(VU_VI_ADDR(REG_STATUS_FLAG, 2), 0x820); //Zero divide (only when not 0/0)
+				MOV32ItoM(VU_VI_ADDR(REG_Q, 0), 0x7f7fffff);
+			} else { // 1/1
+				SysPrintf("DIV 1/1\n");
+				MOV32ItoM(VU_VI_ADDR(REG_Q, 0), 0x3f800000);
+			}
 			return;
 		}
 
@@ -3094,12 +3110,32 @@ void recVUMI_DIV(VURegs *VU, int info)
 				SSE_DIVSS_M32_to_XMM(EEREC_TEMP, (uptr)&VU->VF[_Ft_].UL[_Ftf_]);
 			}
 		}
-		else { // = 0
-			MOV32ItoR(VU_VI_ADDR(REG_Q, 0), 0);
+		else { // = 0 So result is -MAX/+MAX
+			SysPrintf("FS = 0, FT != 0\n");
+			OR32ItoM(VU_VI_ADDR(REG_STATUS_FLAG, 2), 0x410); //Invalid Flag (only when 0/0)
+			SSE_MOVSS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+			SSE_ORPS_M128_to_XMM(EEREC_TEMP, (u32)&g_maxvals);
+			SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(REG_Q, 0), EEREC_TEMP);
+			//MOV32ItoR(VU_VI_ADDR(REG_Q, 0), 0);
 			return;
 		}
 	}
 	else {
+		if( _Ft_ == 0 ) {
+			if( _Ftf_ < 3 ) { 
+				SysPrintf("FS != 0, FT == 0\n");
+				OR32ItoM(VU_VI_ADDR(REG_STATUS_FLAG, 2), 0x820); //Zero divide (only when not 0/0)
+				MOV32ItoM(VU_VI_ADDR(REG_Q, 0), 0x7f7fffff);
+				
+			} else {
+				SysPrintf("FS != 0, FT == 1\n");
+				if( _Fsf_ == 0 ) SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+				else _unpackVF_xyzw(EEREC_TEMP, EEREC_S, _Fsf_);
+				SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(REG_Q, 0), EEREC_TEMP);
+			}
+				
+			return;
+		}
 		if( _Fsf_ == 0 ) SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
 		else _unpackVF_xyzw(EEREC_TEMP, EEREC_S, _Fsf_);
 
@@ -3120,44 +3156,134 @@ void recVUMI_DIV(VURegs *VU, int info)
 
 void recVUMI_SQRT( VURegs *VU, int info )
 {
+	int vftemp = ALLOCTEMPX86(MODE_8BITREG);
+	u8* pjmp;
+
+	AND32ItoM(VU_VI_ADDR(REG_STATUS_FLAG, 2), 0xFDF); //Divide flag cleared regardless of result
+	
 	if( _Ftf_ ) {
 		if( xmmregs[EEREC_T].mode & MODE_WRITE ) {
-			SSE_MOVAPS_M128_to_XMM(EEREC_TEMP, (u32)const_clip);
-			SSE_ANDPS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+			//SSE_MOVAPS_M128_to_XMM(EEREC_TEMP, (u32)const_clip);
+			SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
 			_unpackVF_xyzw(EEREC_TEMP, EEREC_TEMP, _Ftf_);
 		}
 		else {
 			SSE_MOVSS_M32_to_XMM(EEREC_TEMP, (uptr)&VU->VF[_Ft_].UL[_Ftf_]);
-			SSE_ANDPS_M128_to_XMM(EEREC_TEMP, (u32)const_clip);
-		}
+			//SSE_ANDPS_M128_to_XMM(EEREC_TEMP, (u32)const_clip);
+			}
 	}
 	else {
-		SSE_MOVSS_M32_to_XMM(EEREC_TEMP, (u32)const_clip);
-		SSE_ANDPS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+		//SSE_MOVSS_M32_to_XMM(EEREC_TEMP, (u32)const_clip);
+		SSE_MOVSS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
 	}
+	/* Check for negative divide */
+	XOR32RtoR(vftemp, vftemp);
+	SSE_MOVMSKPS_XMM_to_R32(vftemp, EEREC_TEMP);
+	AND32ItoR(vftemp, 1);  //Check sign
+	pjmp = JZ8(0); //Skip if none are
+	//SysPrintf("Invalid SQRT\n");
+	OR32ItoM(VU_VI_ADDR(REG_STATUS_FLAG, 2), 0x410); //Invalid Flag - Negative number sqrt
+	SSE_ANDPS_M128_to_XMM(EEREC_TEMP, (u32)const_clip); //So we do a cardinal sqrt
+	x86SetJ8(pjmp);
+
+	//SSE_ANDPS_M128_to_XMM(EEREC_TEMP, (u32)const_clip);
 
 	SSE_SQRTSS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
 
+	SSE_MAXSS_M32_to_XMM(EEREC_TEMP, (uptr)&g_minvals[0]);
+	SSE_MINSS_M32_to_XMM(EEREC_TEMP, (uptr)&g_maxvals[0]);
+
 	SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(REG_Q, 0), EEREC_TEMP);
+	_freeX86reg(vftemp);
+	
 }
 
 void recVUMI_RSQRT(VURegs *VU, int info)
 {
+	int vftemp = ALLOCTEMPX86(MODE_8BITREG);
+	u8* njmp;
+	
 	if( _Ftf_ ) {
-		SSE_MOVAPS_M128_to_XMM(EEREC_TEMP, (u32)const_clip);
-		SSE_ANDPS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+		SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
 		_unpackVF_xyzw(EEREC_TEMP, EEREC_TEMP, _Ftf_);
 	}
 	else {
-		SSE_MOVSS_M32_to_XMM(EEREC_TEMP, (u32)const_clip);
-		SSE_ANDPS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+		SSE_MOVSS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
 	}
+	/* Check for negative divide */
+	XOR32RtoR(vftemp, vftemp);
+	SSE_MOVMSKPS_XMM_to_R32(vftemp, EEREC_TEMP);
+	AND32ItoR(vftemp, 1);  //Check sign
+	njmp = JZ8(0); //Skip if none are
+	//SysPrintf("Invalid RSQRT\n");
+	OR32ItoM(VU_VI_ADDR(REG_STATUS_FLAG, 2), 0x410); //Invalid Flag - Negative number sqrt
+	SSE_ANDPS_M128_to_XMM(EEREC_TEMP, (u32)const_clip); //So we do a cardinal sqrt
+	x86SetJ8(njmp);
+
+	//SSE_ANDPS_M128_to_XMM(EEREC_TEMP, (u32)const_clip);
 
 	if( _Fs_ == 0 ) {
-		if( _Fsf_ == 3 ) SSE_RSQRTSS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
-		else SSE_XORPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
+		if( _Fsf_ == 3 ) {
+			if(_Ft_ != 0 ||_Ftf_ == 3 )
+			{
+				//SysPrintf("_Fs_ = 0.3 _Ft_ != 0 || _Ft_ = 0.3 \n");
+				SSE_SQRTSS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);    //Dont use RSQRT, terrible accuracy
+				SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(REG_Q, 0), EEREC_TEMP);
+				SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+				_unpackVF_xyzw(EEREC_TEMP, EEREC_TEMP, _Fsf_);
+				SSE_DIVSS_M32_to_XMM(EEREC_TEMP, VU_VI_ADDR(REG_Q, 0));
+
+				
+			} 
+			else 
+			{
+				SysPrintf("FS0.3 / 0!\n");
+				SSE_XORPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
+				OR32ItoM(VU_VI_ADDR(REG_STATUS_FLAG, 2), 0x820); //Zero divide (only when not 0/0)
+				MOV32ItoM(VU_VI_ADDR(REG_Q, 0), 0x7f7fffff);
+				_freeX86reg(vftemp);
+				return;
+			}
+		}else {
+			if(_Ft_ != 0 || _Ftf_ == 3) {
+				SysPrintf("FS = 0 FT != 0\n");
+				//SSE_XORPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
+				OR32ItoM(VU_VI_ADDR(REG_STATUS_FLAG, 2), 0x820); //Zero divide (only when not 0/0)
+				MOV32ItoM(VU_VI_ADDR(REG_Q, 0), 0x7f7fffff); // +MAX, no negative in here :p
+				_freeX86reg(vftemp);
+				return;
+			} 
+			else 
+			{
+				SysPrintf("FS = 0 FT = 0!\n");
+				OR32ItoM(VU_VI_ADDR(REG_STATUS_FLAG, 2), 0x410); //Invalid Flag (only when 0/0)
+				MOV32ItoM(VU_VI_ADDR(REG_Q, 0), 0);
+				_freeX86reg(vftemp);
+				return;
+			}
+		}
 	}
 	else {
+		if( _Ft_ == 0 ) {
+			if( _Ftf_ < 3 ) {
+				SysPrintf("FS != 0 FT = 0!\n");
+				OR32ItoM(VU_VI_ADDR(REG_STATUS_FLAG, 2), 0x410); //Invalid Flag (only when 0/0)
+				SSE_MOVMSKPS_XMM_to_R32(vftemp, EEREC_S);
+				SHL32ItoR(vftemp, 31);  //Check sign				
+				OR32ItoR(vftemp, 0x7f7fffff);
+				MOV32RtoM(VU_VI_ADDR(REG_Q, 0), vftemp);
+				_freeX86reg(vftemp);
+				return;
+			}else { 
+				SysPrintf("FS != 0 FT = 1!\n");
+				OR32ItoM(VU_VI_ADDR(REG_STATUS_FLAG, 2), 0x820); //Zero divide (only when not 0/0)
+				MOV32ItoM(VU_VI_ADDR(REG_Q, 0), 0xff7fffff);
+				_freeX86reg(vftemp);
+				return;
+			} 
+			
+		} 
+		//SysPrintf("Normal RSQRT\n");
 		SSE_RSQRTSS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
 		if( _Fsf_ ) SSE_SHUFPS_XMM_to_XMM(EEREC_S, EEREC_S, (0xe4e4>>(2*_Fsf_))&0xff);
 		SSE_MULSS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
@@ -3169,7 +3295,9 @@ void recVUMI_RSQRT(VURegs *VU, int info)
 		SSE_MINSS_M32_to_XMM(EEREC_TEMP, (uptr)&g_maxvals[0]);
 	//}
 
+	
 	SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(REG_Q, 0), EEREC_TEMP);
+	_freeX86reg(vftemp);
 }
 
 void _addISIMMtoIT(VURegs *VU, s16 imm, int info)
@@ -3686,37 +3814,72 @@ void _saveEAX(VURegs *VU, int x86reg, uptr offset, int info)
 
 	switch(_X_Y_Z_W) {
 		case 1: // W
+			//SysPrintf("SAVE EAX W\n");
 			SSE_SHUFPS_XMM_to_XMM(EEREC_S, EEREC_S, 0x27);
 			if( x86reg >= 0 ) SSE_MOVSS_XMM_to_RmOffset(x86reg, EEREC_S, offset+12);
 			else SSE_MOVSS_XMM_to_M32(offset+12, EEREC_S);
 			SSE_SHUFPS_XMM_to_XMM(EEREC_S, EEREC_S, 0x27);
 			break;
 		case 2: // Z
+			//SysPrintf("SAVE EAX Z\n");
 			SSE_MOVHLPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
 			if( x86reg >= 0 ) SSE_MOVSS_XMM_to_RmOffset(x86reg, EEREC_TEMP, offset+8);
 			else SSE_MOVSS_XMM_to_M32(offset+8, EEREC_TEMP);
 			break;
 		case 3: // ZW
+			//SysPrintf("SAVE EAX ZW\n");
 			if( x86reg >= 0 ) SSE_MOVHPS_XMM_to_RmOffset(x86reg, EEREC_S, offset+8);
 			else SSE_MOVHPS_XMM_to_M64(offset+8, EEREC_S);
 			break;
+		case 5: // YW
+			//SysPrintf("SAVE EAX YW\n");
+			SSE_SHUFPS_XMM_to_XMM(EEREC_S, EEREC_S, 0xB1);
+			SSE_MOVHLPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+			if( x86reg >= 0 ) {
+				SSE_MOVLPS_XMM_to_RmOffset(x86reg, EEREC_S, offset+4);
+				SSE_MOVSS_XMM_to_RmOffset(x86reg, EEREC_TEMP, offset+12);
+			}
+			else {
+				SSE_MOVLPS_XMM_to_M64(offset+4, EEREC_S);
+				SSE_MOVSS_XMM_to_M32(offset+12, EEREC_TEMP);
+			}
+			SSE_SHUFPS_XMM_to_XMM(EEREC_S, EEREC_S, 0xB1);
+			break;
 		case 4: // Y
+			//SysPrintf("SAVE EAX Y\n");
 			SSE_SHUFPS_XMM_to_XMM(EEREC_S, EEREC_S, 0xe1);
 			if( x86reg >= 0 ) SSE_MOVSS_XMM_to_RmOffset(x86reg, EEREC_S, offset+4);
 			else SSE_MOVSS_XMM_to_M32(offset+4, EEREC_S);
 			SSE_SHUFPS_XMM_to_XMM(EEREC_S, EEREC_S, 0xe1);
 			break;
 		case 6: // YZ
+			//SysPrintf("SAVE EAX YZ\n");
 			SSE_SHUFPS_XMM_to_XMM(EEREC_S, EEREC_S, 0xc9);
 			if( x86reg >= 0 ) SSE_MOVLPS_XMM_to_RmOffset(x86reg, EEREC_S, offset+4);
 			else SSE_MOVLPS_XMM_to_M64(offset+4, EEREC_S);
 			SSE_SHUFPS_XMM_to_XMM(EEREC_S, EEREC_S, 0xd2);
 			break;
+		case 7: // YZW
+			//SysPrintf("SAVE EAX YZW\n");
+			SSE_SHUFPS_XMM_to_XMM(EEREC_S, EEREC_S, 0x39);
+			SSE_MOVHLPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+			if( x86reg >= 0 ) {
+				SSE_MOVLPS_XMM_to_RmOffset(x86reg, EEREC_S, offset+4);
+				SSE_MOVSS_XMM_to_RmOffset(x86reg, EEREC_TEMP, offset+12);
+			}
+			else {
+				SSE_MOVLPS_XMM_to_M64(offset+4, EEREC_S);
+				SSE_MOVSS_XMM_to_M32(offset+12, EEREC_TEMP);
+			}
+			SSE_SHUFPS_XMM_to_XMM(EEREC_S, EEREC_S, 0x93);
+			break;
 		case 8: // X
+			//SysPrintf("SAVE EAX X\n");
 			if( x86reg >= 0 ) SSE_MOVSS_XMM_to_RmOffset(x86reg, EEREC_S, offset);
 			else SSE_MOVSS_XMM_to_M32(offset, EEREC_S);
 			break;
 		case 9: // XW
+			//SysPrintf("SAVE EAX XW\n");
 			SSE_MOVHLPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
 			if( x86reg >= 0 ) SSE_MOVSS_XMM_to_RmOffset(x86reg, EEREC_S, offset);
 			else SSE_MOVSS_XMM_to_M32(offset, EEREC_S);
@@ -3729,11 +3892,28 @@ void _saveEAX(VURegs *VU, int x86reg, uptr offset, int info)
 
 			break;
 		case 12: // XY
+			//SysPrintf("SAVE EAX XY\n");
 			if( x86reg >= 0 ) SSE_MOVLPS_XMM_to_RmOffset(x86reg, EEREC_S, offset+0);
 			else SSE_MOVLPS_XMM_to_M64(offset, EEREC_S);
 			break;
 
+		case 13: // XYW
+			//SysPrintf("SAVE EAX XYW\n");
+			SSE_SHUFPS_XMM_to_XMM(EEREC_S, EEREC_S, 0xB4); //ZWYX
+			SSE_MOVHLPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+			if( x86reg >= 0 ) {
+				SSE_MOVLPS_XMM_to_RmOffset(x86reg, EEREC_S, offset+0);
+				SSE_MOVSS_XMM_to_RmOffset(x86reg, EEREC_TEMP, offset+12);
+			}
+			else {
+				SSE_MOVLPS_XMM_to_M64(offset, EEREC_S);
+				SSE_MOVSS_XMM_to_M32(offset+12, EEREC_TEMP);
+				
+			}
+			SSE_SHUFPS_XMM_to_XMM(EEREC_S, EEREC_S, 0xB4);
+			break;
 		case 14: // XYZ
+			//SysPrintf("SAVE EAX XYZ\n");
 			SSE_MOVHLPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
 			if( x86reg >= 0 ) {
 				SSE_MOVLPS_XMM_to_RmOffset(x86reg, EEREC_S, offset+0);
@@ -3745,6 +3925,7 @@ void _saveEAX(VURegs *VU, int x86reg, uptr offset, int info)
 			}
 			break;
 		case 15: // XYZW
+			//SysPrintf("SAVE EAX XYZW\n");
 			if( VU == &VU1 ) {
 				if( x86reg >= 0 ) SSE_MOVAPSRtoRmOffset(x86reg, EEREC_S, offset+0);
 				else SSE_MOVAPS_XMM_to_M128(offset, EEREC_S);
@@ -3758,7 +3939,7 @@ void _saveEAX(VURegs *VU, int x86reg, uptr offset, int info)
 			}
 			break;
 		default:
-	
+			//SysPrintf("SAVEEAX Default %d\n", _X_Y_Z_W);
 			// EEREC_D is a temp reg
 			// find the first nonwrite reg
 			t1reg = _vuGetTempXMMreg(info);
@@ -4509,11 +4690,14 @@ void vuSqSumXYZ(int regd, int regs, int regtemp)
 		SSE_MOVHLPS_XMM_to_XMM(regd, regd); // move to x
 	}
 	else {
-		SSE_MOVHLPS_XMM_to_XMM(regd, regtemp);
+		SSE_MOVSS_XMM_to_XMM(regd, regtemp);
+		SSE_SHUFPS_XMM_to_XMM(regtemp, regtemp, 0xE1);
 		SSE_ADDSS_XMM_to_XMM(regd, regtemp);
-		SSE_SHUFPS_XMM_to_XMM(regtemp, regtemp, 0x55);
+		SSE_SHUFPS_XMM_to_XMM(regtemp, regtemp, 0xD2);
 		SSE_ADDSS_XMM_to_XMM(regd, regtemp);
+		SSE_SHUFPS_XMM_to_XMM(regtemp, regtemp, 0xC6);
 	}
+		//SysPrintf("SUMXYZ\n");
 }
 
 void recVUMI_ESADD( VURegs *VU, int info)
@@ -4573,8 +4757,13 @@ void recVUMI_ERLENG( VURegs *VU, int info )
 {
 	assert( VU == &VU1 );
 	vuSqSumXYZ(EEREC_D, EEREC_S, EEREC_TEMP);
-	SSE_RSQRTSS_XMM_to_XMM(EEREC_TEMP, EEREC_D);
-	CheckForOverflowSS_(EEREC_TEMP, EEREC_D);
+	//SysPrintf("ERLENG\n");
+	SSE_SQRTSS_XMM_to_XMM(EEREC_TEMP, EEREC_D);
+	SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(REG_P, 0), EEREC_TEMP);
+	SSE_MOVSS_M32_to_XMM(EEREC_TEMP, (uptr)&VU->VF[0].UL[3]);
+	SSE_DIVSS_M32_to_XMM(EEREC_TEMP, VU_VI_ADDR(REG_P, 0));
+	//SSE_RSQRTSS_XMM_to_XMM(EEREC_TEMP, EEREC_D);
+	//CheckForOverflowSS_(EEREC_TEMP, EEREC_D);
 	//SSE_MINSS_M32_to_XMM(EEREC_TEMP, (uptr)&g_maxvals[0]);
 	//SSE_MAXSS_M32_to_XMM(EEREC_TEMP, (uptr)&g_minvals[0]);
 	
@@ -4751,21 +4940,26 @@ void recVUMI_ERSQRT( VURegs *VU, int info )
     // need to explicitly check for 0 (naruto ultimate ninja)
 	if( _Fsf_ ) {
 		if( xmmregs[EEREC_S].mode & MODE_WRITE ) {
+			//int t0reg = _allocTempXMMreg(XMMT_FPS, -1);
 			_unpackVF_xyzw(EEREC_TEMP, EEREC_S, _Fsf_);
             //SSE_XORPS_XMM_to_XMM(EEREC_D, EEREC_D);
             //SSE_CMPNESS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
-			SSE_RSQRTSS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
+			SysPrintf("ERSQRT\n");
+			SSE_SQRTSS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
+			SSE_DIVSS_M32_to_XMM(EEREC_TEMP, (uptr)&VU->VF[0].UL[3]);
             //SSE_ANDPS_XMM_to_XMM(EEREC_TEMP, EEREC_D);
 		}
 		else {
             //SSE_XORPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
             //CMP32ItoM((uptr)&VU->VF[_Fs_].UL[_Fsf_], 0);
             //j8Ptr[0] = JE8(0);
+			SysPrintf("ERSQRT2\n");
 			SSE_RSQRTSS_M32_to_XMM(EEREC_TEMP, (uptr)&VU->VF[_Fs_].UL[_Fsf_]);
             //x86SetJ8(j8Ptr[0]);
 		}
 	}
     else {
+		SysPrintf("ERSQRT3\n");
         SSE_RSQRTSS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
         //SSE_XORPS_XMM_to_XMM(EEREC_D, EEREC_D);
         //SSE_CMPNESS_XMM_to_XMM(EEREC_D, EEREC_S);

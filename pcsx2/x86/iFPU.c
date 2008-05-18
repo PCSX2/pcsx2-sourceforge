@@ -734,11 +734,7 @@ void recC_LE_xmm(int info )
 FPURECOMPILE_CONSTCODE(C_LE, XMMINFO_READS|XMMINFO_READT);
 
 ////////////////////////////////////////////////////
-static void (*recComOpXMM_to_XMM[] )(x86SSERegType, x86SSERegType) = {
-	SSE_ADDSS_XMM_to_XMM, SSE_MULSS_XMM_to_XMM, SSE_MAXSS_XMM_to_XMM, SSE_MINSS_XMM_to_XMM };
 
-static void (*recComOpM32_to_XMM[] )(x86SSERegType, uptr) = {
-	SSE_ADDSS_M32_to_XMM, SSE_MULSS_M32_to_XMM, SSE_MAXSS_M32_to_XMM, SSE_MINSS_M32_to_XMM };
 
 	// Doesnt seem to like negatives - Ruins katamari graphics
 	// I REPEAT THE SIGN BIT (THATS 0x80000000) MUST *NOT* BE SET, jeez.
@@ -776,6 +772,12 @@ void ClampValues2(regd){
 
     _freeXMMreg(t5reg); 
 }
+
+static void (*recComOpXMM_to_XMM[] )(x86SSERegType, x86SSERegType) = {
+	SSE_ADDSS_XMM_to_XMM, SSE_MULSS_XMM_to_XMM, SSE_MAXSS_XMM_to_XMM, SSE_MINSS_XMM_to_XMM };
+
+static void (*recComOpM32_to_XMM[] )(x86SSERegType, uptr) = {
+	SSE_ADDSS_M32_to_XMM, SSE_MULSS_M32_to_XMM, SSE_MAXSS_M32_to_XMM, SSE_MINSS_M32_to_XMM };
 
 int recCommutativeOp(int info, int regd, int op) {
 	switch(info & (PROCESS_EE_S|PROCESS_EE_T) ) {
@@ -899,29 +901,30 @@ static u32 PCSX2_ALIGNED16(s_pos[4]) = { 0x7fffffff, 0, 0, 0 };
 void recSQRT_S_xmm(int info)
 {
 	if( info & PROCESS_EE_T ) {
-		if( CHECK_FORCEABS ) {
+		//if( CHECK_FORCEABS ) {
 			if( EEREC_D == EEREC_T ) SSE_ANDPS_M128_to_XMM(EEREC_D, (uptr)&s_pos[0]);
 			else {
-				SSE_MOVSS_M32_to_XMM(EEREC_D, (uptr)&s_pos[0]);
-				SSE_ANDPS_XMM_to_XMM(EEREC_D, EEREC_T);
+				SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_T);
+				SSE_ANDPS_M128_to_XMM(EEREC_D, (uptr)&s_pos[0]);
+				
 			}
 
 			SSE_SQRTSS_XMM_to_XMM(EEREC_D, EEREC_D);
-		}
-		else {
+		//}
+		/*else {
 			SSE_SQRTSS_XMM_to_XMM(EEREC_D, EEREC_T);
-		}
+		}*/
 	}
 	else {
-		if( CHECK_FORCEABS ) {
+		//if( CHECK_FORCEABS ) {
 			SSE_MOVSS_M32_to_XMM(EEREC_D, (uptr)&fpuRegs.fpr[_Ft_]);
 			SSE_ANDPS_M128_to_XMM(EEREC_D, (uptr)&s_pos[0]);
 
 			SSE_SQRTSS_XMM_to_XMM(EEREC_D, EEREC_D);
-		}
+		/*}
 		else {
 			SSE_SQRTSS_M32_to_XMM(EEREC_D, (uptr)&fpuRegs.fpr[_Ft_]);
-		}
+		}*/
 	}
 	ClampValues(EEREC_D);
 }
@@ -978,45 +981,76 @@ FPURECOMPILE_CONSTCODE(NEG_S, XMMINFO_WRITED|XMMINFO_READS);
 
 void recRSQRT_S_xmm(int info)
 {	
+	int t0reg = _allocTempXMMreg(XMMT_FPS, -1);
 	switch(info & (PROCESS_EE_S|PROCESS_EE_T) ) {
 		case PROCESS_EE_S:
 			if( EEREC_D == EEREC_S ) {
-				int t0reg = _allocTempXMMreg(XMMT_FPS, -1);
-				SSE_RSQRTSS_M32_to_XMM(t0reg, (uptr)&fpuRegs.fpr[_Ft_]);
-				SSE_MULSS_XMM_to_XMM(EEREC_D, t0reg);
-				_freeXMMreg(t0reg);
+				///SysPrintf("RSQRT1\n");
+				SSE_SQRTSS_M32_to_XMM(t0reg, (uptr)&fpuRegs.fpr[_Ft_]);
+				SSE_DIVSS_XMM_to_XMM(EEREC_D, t0reg);
 			}
 			else {
-				SSE_RSQRTSS_M32_to_XMM(EEREC_D, (uptr)&fpuRegs.fpr[_Ft_]);
-				SSE_MULSS_XMM_to_XMM(EEREC_D, EEREC_S);
+				SysPrintf("RSQRT2\n");
+				SSE_SQRTSS_M32_to_XMM(t0reg, (uptr)&fpuRegs.fpr[_Ft_]);
+				SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_S);				
+				SSE_DIVSS_XMM_to_XMM(EEREC_D, t0reg);
 			}
 
 			break;
-		case PROCESS_EE_T:
-			SSE_RSQRTSS_XMM_to_XMM(EEREC_D, EEREC_T);
-			SSE_MULSS_M32_to_XMM(EEREC_D, (uptr)&fpuRegs.fpr[_Fs_]);
+		case PROCESS_EE_T:			
+			//SysPrintf("RSQRT3\n");
+			if(EEREC_D == EEREC_T) {
+				SSE_SQRTSS_XMM_to_XMM(t0reg, EEREC_T);
+				SSE_MOVSS_M32_to_XMM(EEREC_D, (uptr)&fpuRegs.fpr[_Fs_]);
+			}
+			if(EEREC_D == EEREC_S) {
+				SSE_SQRTSS_XMM_to_XMM(t0reg, EEREC_T);
+			} 
+			else SSE_MOVSS_M32_to_XMM(EEREC_D, (uptr)&fpuRegs.fpr[_Fs_]);
+						
+			SSE_DIVSS_XMM_to_XMM(EEREC_D, t0reg);
 			break;
 		default:
+			if( (info & PROCESS_EE_T) && (info & PROCESS_EE_S) ) {
+				//SysPrintf("RSQRT5\n");
+				if( EEREC_D == EEREC_T ){
+					SSE_SQRTSS_XMM_to_XMM(t0reg, EEREC_T);
+					SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_S);						
+					SSE_DIVSS_XMM_to_XMM(EEREC_D, t0reg);
+				}
+				else if( EEREC_D == EEREC_S ){
+					SSE_SQRTSS_XMM_to_XMM(t0reg, EEREC_T);
+					SSE_DIVSS_XMM_to_XMM(EEREC_D, t0reg);
+				} else {
+				SSE_SQRTSS_XMM_to_XMM(t0reg, EEREC_T);		
+				SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_S);
+				SSE_DIVSS_XMM_to_XMM(EEREC_D, t0reg);				
+				}
+			}else
 			if( EEREC_D == EEREC_S ) {
-				int t0reg;
-				if( g_pCurInstInfo->regs[_Ft_]&EEINST_LASTUSE ) {
+				/*if( g_pCurInstInfo->regs[_Ft_]&EEINST_LASTUSE ) {
 					_freeXMMreg(EEREC_T);
 					t0reg = EEREC_T;
+					SSE_SQRTSS_XMM_to_XMM(t0reg, EEREC_T);
 				}
-				else {
-					t0reg = _allocTempXMMreg(XMMT_FPS, -1);
-					_freeXMMreg(t0reg);
-				}
+				else {*/
+					SSE_SQRTSS_M32_to_XMM(t0reg, (uptr)&fpuRegs.fpr[_Ft_]);
+				//}
 
-				SSE_RSQRTSS_XMM_to_XMM(t0reg, EEREC_T);
-				SSE_MULSS_XMM_to_XMM(EEREC_D, t0reg);
+				SysPrintf("RSQRT4\n");
+				
+				SSE_DIVSS_XMM_to_XMM(EEREC_D, t0reg);
 			}
 			else {
-				SSE_RSQRTSS_XMM_to_XMM(EEREC_D, EEREC_T);
-				SSE_MULSS_XMM_to_XMM(EEREC_D, EEREC_S);
+				SysPrintf("RSQRT6\n");
+				SSE_SQRTSS_M32_to_XMM(t0reg, (uptr)&fpuRegs.fpr[_Ft_]);
+				SSE_MOVSS_M32_to_XMM(EEREC_D, (uptr)&fpuRegs.fpr[_Fs_]);		
+				SSE_DIVSS_XMM_to_XMM(EEREC_D, t0reg);				
 			}
+			
 			break;
 	}
+	_freeXMMreg(t0reg);
 	ClampValues(EEREC_D);
 }
 
