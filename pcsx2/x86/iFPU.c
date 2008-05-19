@@ -738,7 +738,7 @@ FPURECOMPILE_CONSTCODE(C_LE, XMMINFO_READS|XMMINFO_READT);
 
 	// Doesnt seem to like negatives - Ruins katamari graphics
 	// I REPEAT THE SIGN BIT (THATS 0x80000000) MUST *NOT* BE SET, jeez.
-static PCSX2_ALIGNED16(u32 s_overflowmask[]) = {0xBf000000, 0xffffffff, 0xffffffff, 0xffffffff};
+static PCSX2_ALIGNED16(u32 s_overflowmask[]) = {0x7f7fffff, 0x7f7fffff, 0x7f7fffff, 0x7f7fffff};
 extern int g_VuNanHandling;
 
 void ClampValues(regd){ 
@@ -747,7 +747,7 @@ void ClampValues(regd){
     SSE_XORPS_XMM_to_XMM(t5reg, t5reg); 
 	SSE_CMPORDSS_XMM_to_XMM(t5reg, regd); 
 
-   // if( g_VuNanHandling )
+    if( g_VuNanHandling )
         SSE_ORPS_M128_to_XMM(t5reg, (uptr)s_overflowmask);
 
 	SSE_ANDPS_XMM_to_XMM(regd, t5reg); 
