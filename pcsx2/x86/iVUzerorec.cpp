@@ -4276,11 +4276,11 @@ void recSVUMI_NOP()
     //ffxii text disappearing bug
     // NOP gets set that it will write the status flag. If it leaves it alone
     // s_PrevStatusWrite will get replaced with pStatusWrite, which is garbage and stuff breaks
-    if( !(s_vuInfo & PROCESS_VU_UPDATEFLAGS) )
-		return;
+    /*if( (s_vuInfo & PROCESS_VU_UPDATEFLAGS) )
+		return;*/
 
     // this is just a hack
-    s_pCurInst->regs[1].VIwrite &= ~(1<<REG_STATUS_FLAG);
+    //s_pCurInst->regs[1].VIwrite &= ~((1<<REG_STATUS_FLAG)|(1<<REG_MAC_FLAG));
 }
 
 void recSVUMI_CLIP() { recVUMI_CLIP(VU, s_vuInfo); }

@@ -221,8 +221,8 @@ __forceinline void memcpy_pcsx2(void* dest, const void* src, size_t n)
 #if defined(_WIN32) && !defined(__x86_64__)
 // faster memcpy
 void * memcpy_amd_(void *dest, const void *src, size_t n);
-//#define memcpy_fast memcpy_amd_
-#define memcpy_fast memcpy
+#define memcpy_fast memcpy_amd_
+//#define memcpy_fast memcpy //Dont use normal memcpy, it has sse in 2k5!
 #else
 // for now disable linux fast memcpy
 #define memcpy_fast memcpy_pcsx2
