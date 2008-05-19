@@ -234,6 +234,7 @@ void cpudetectInit( void )
          cpuinfo.x86PType  = (regs[ 0 ] >> 12) & 0x3;
          x86_64_8BITBRANDID = regs[1] & 0xff;
          cpuinfo.x86Flags  =  regs[ 3 ];
+         cpuinfo.x86Flags2 =  regs[ 2 ];
       }
    }
    if ( iCpuId( 0x80000000, regs ) != -1 )
@@ -302,6 +303,7 @@ void cpudetectInit( void )
    cpucaps.hasFastStreamingSIMDExtensionsSaveRestore    = ( cpuinfo.x86Flags >> 24 ) & 1;
    cpucaps.hasStreamingSIMDExtensions                   = ( cpuinfo.x86Flags >> 25 ) & 1; //sse
    cpucaps.hasStreamingSIMD2Extensions                  = ( cpuinfo.x86Flags >> 26 ) & 1; //sse2
+   cpucaps.hasStreamingSIMD4Extensions                  = ( cpuinfo.x86Flags2 >> 19 ) & 1; //sse4.1   
    cpucaps.hasSelfSnoop                                 = ( cpuinfo.x86Flags >> 27 ) & 1;
    cpucaps.hasHyperThreading                            = ( cpuinfo.x86Flags >> 28 ) & 1;
    cpucaps.hasThermalMonitor                            = ( cpuinfo.x86Flags >> 29 ) & 1;

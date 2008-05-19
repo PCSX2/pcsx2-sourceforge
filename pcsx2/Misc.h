@@ -208,7 +208,7 @@ __forceinline void memcpy_pcsx2(void* dest, const void* src, size_t n)
     //FreezeMMXRegs(1); // mmx not used
     FreezeXMMRegs(1);
     memcpy(dest, src, n);
-    // have to be unfroze by parent call!
+    // have to be unfrozen by parent call!
 }
 #else
 #define memcpy_pcsx2 memcpy
@@ -221,7 +221,8 @@ __forceinline void memcpy_pcsx2(void* dest, const void* src, size_t n)
 #if defined(_WIN32) && !defined(__x86_64__)
 // faster memcpy
 void * memcpy_amd_(void *dest, const void *src, size_t n);
-#define memcpy_fast memcpy_amd_
+//#define memcpy_fast memcpy_amd_
+#define memcpy_fast memcpy
 #else
 // for now disable linux fast memcpy
 #define memcpy_fast memcpy_pcsx2
@@ -269,8 +270,9 @@ extern __forceinline void pcsx2_aligned_free(void* pmem)
 
 // cross-platform atomic operations
 #if defined (_WIN32)
-
+/*
 #ifndef __x86_64__ // for some reason x64 doesn't like this
+
 LONG  __cdecl _InterlockedIncrement(LONG volatile *Addend);
 LONG  __cdecl _InterlockedDecrement(LONG volatile *Addend);
 LONG  __cdecl _InterlockedCompareExchange(LPLONG volatile Dest, LONG Exchange, LONG Comp);
@@ -286,7 +288,7 @@ LONG  __cdecl _InterlockedAnd(LPLONG volatile Addend, LONG Value);
 
 #pragma intrinsic (_InterlockedExchangeAdd)
 #define InterlockedExchangeAdd _InterlockedExchangeAdd
-
+*/
 #else
 
 typedef void* PVOID;

@@ -1315,6 +1315,41 @@ extern "C" void cpudetectSSE3(void* pfnCallSSE3)
 #endif
 }
 
+extern "C" void cpudetectSSE4(void* pfnCallSSE4)
+{
+return;
+	cpucaps.hasStreamingSIMD4Extensions = 1;
+
+#ifdef _MSC_VER
+	__try {
+		//__asm call pfnCallSSE4;
+        ((TESTFNPTR)pfnCallSSE4)();
+	}
+	__except(EXCEPTION_EXECUTE_HANDLER) {
+		cpucaps.hasStreamingSIMD4Extensions = 0;
+#ifdef PCSX2_VIRTUAL_MEM
+		// necessary since can potentially kill the custom handler
+		install_my_handler();
+#endif
+	}
+#else // linux
+
+#ifdef PCSX2_FORCESSE4
+    cpucaps.hasStreamingSIMD4Extensions = 1;
+#else
+    // exception handling doesn't work, so disable for x86 builds of linux
+    cpucaps.hasStreamingSIMD4Extensions = 0;
+#endif
+//    try {
+//        __asm__("call *%0" : : "m"(pfnCallSSE4) );
+//	}
+//    catch(...) {
+//        SysPrintf("no SSE4.1 found\n");
+//        cpucaps.hasStreamingSIMD4Extensions = 0;
+//    }
+#endif
+}
+
 struct BASEBLOCKS
 {
 	// 0 - ee, 1 - iop

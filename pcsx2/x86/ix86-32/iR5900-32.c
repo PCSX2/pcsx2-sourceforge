@@ -1538,19 +1538,26 @@ int recInit( void )
 
     cpudetectSSE3(recMem);
 
+	x86SetPtr(recMem);
+	SSE4_DPPS_XMM_to_XMM(XMM0, XMM0, 0);
+	RET();
+
+	cpudetectSSE4(recMem);
+
 	SysPrintf( "x86Init: \n" );
 	SysPrintf( "\tCPU vender name =  %s\n", cpuinfo.x86ID );
 	SysPrintf( "\tFamilyID	=  %x\n", cpuinfo.x86StepID );
 	SysPrintf( "\tx86Family =  %s\n", cpuinfo.x86Fam );
 	SysPrintf( "\tCPU speed =  %d.%03d Ghz\n", cpuinfo.cpuspeed / 1000, cpuinfo.cpuspeed%1000);
 	SysPrintf( "\tx86PType  =  %s\n", cpuinfo.x86Type );
-	SysPrintf( "\tx86Flags  =  %8.8x\n", cpuinfo.x86Flags );
+	SysPrintf( "\tx86Flags  =  %8.8x %8.8x\n", cpuinfo.x86Flags, cpuinfo.x86Flags2 );
 	SysPrintf( "\tx86EFlags =  %8.8x\n", cpuinfo.x86EFlags );
 	SysPrintf( "Features: \n" );
 	SysPrintf( "\t%sDetected MMX\n",    cpucaps.hasMultimediaExtensions     ? "" : "Not " );
 	SysPrintf( "\t%sDetected SSE\n",    cpucaps.hasStreamingSIMDExtensions  ? "" : "Not " );
 	SysPrintf( "\t%sDetected SSE2\n",   cpucaps.hasStreamingSIMD2Extensions ? "" : "Not " );
 	SysPrintf( "\t%sDetected SSE3\n",   cpucaps.hasStreamingSIMD3Extensions ? "" : "Not " );
+	SysPrintf( "\t%sDetected SSE4.1\n",   cpucaps.hasStreamingSIMD4Extensions ? "" : "Not " );
 
 	if ( cpuinfo.x86ID[0] == 'A' ) //AMD cpu
 	{

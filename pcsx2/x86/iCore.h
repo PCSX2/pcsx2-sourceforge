@@ -396,6 +396,7 @@ BASEBLOCKEX** GetAllBaseBlocks(int* pnum, int cpu);
 
 void SetMMXstate();
 void cpudetectSSE3(void* pfnCallSSE3);
+void cpudetectSSE4(void* pfnCallSSE4);
 
 void _recMove128MtoM(u32 to, u32 from);
 
