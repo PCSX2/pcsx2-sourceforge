@@ -133,20 +133,41 @@ static int SSEmovMask[ 16 ][ 4 ] =
 void VU_MERGE0(int dest, int src) { // 0000
 }
 void VU_MERGE1(int dest, int src) { // 1000
-	SSE_MOVHLPS_XMM_to_XMM(src, dest);
-	SSE_SHUFPS_XMM_to_XMM(dest, src, 0xc4);
+	if( cpucaps.hasStreamingSIMD4Extensions )
+	{
+		SSE4_INSERTPS_XMM_to_XMM(dest, src, _MM_MK_INSERTPS_NDX(3, 3, 0));
+	}
+	else
+	{
+		SSE_MOVHLPS_XMM_to_XMM(src, dest);
+		SSE_SHUFPS_XMM_to_XMM(dest, src, 0xc4);
+	}
 }
 void VU_MERGE2(int dest, int src) { // 0100
-	SSE_MOVHLPS_XMM_to_XMM(src, dest);
-	SSE_SHUFPS_XMM_to_XMM(dest, src, 0x64);
+	if( cpucaps.hasStreamingSIMD4Extensions )
+	{
+		SSE4_INSERTPS_XMM_to_XMM(dest, src, _MM_MK_INSERTPS_NDX(2, 2, 0));
+	}
+	else
+	{
+		SSE_MOVHLPS_XMM_to_XMM(src, dest);
+		SSE_SHUFPS_XMM_to_XMM(dest, src, 0x64);
+	}
 }
 void VU_MERGE3(int dest, int src) { // 1100
 	SSE_SHUFPS_XMM_to_XMM(dest, src, 0xe4);
 }
 void VU_MERGE4(int dest, int src) { // 0010s
-	SSE_MOVSS_XMM_to_XMM(src, dest);
-	SSE_SHUFPS_XMM_to_XMM(src, dest, 0xe4);
-	SSE_MOVAPS_XMM_to_XMM(dest, src);
+	if( cpucaps.hasStreamingSIMD4Extensions )
+	{
+		SSE4_INSERTPS_XMM_to_XMM(dest, src, _MM_MK_INSERTPS_NDX(1, 1, 0));
+	}
+	else
+	{
+		SSE_MOVSS_XMM_to_XMM(src, dest);
+		SSE_SHUFPS_XMM_to_XMM(src, dest, 0xe4);
+		SSE_MOVAPS_XMM_to_XMM(dest, src);
+	}
 }
 void VU_MERGE5(int dest, int src) { // 1010
 	SSE_SHUFPS_XMM_to_XMM(dest, src, 0xd8);
@@ -221,6 +242,7 @@ void _unpackVF_xyzw(int dstreg, int srcreg, int xyzw)
 		}
 	}
 	else {
+/*
 		switch (xyzw) {
 			case 0:
 				SSE3_MOVSLDUP_XMM_to_XMM(dstreg, srcreg);
@@ -239,35 +261,60 @@ void _unpackVF_xyzw(int dstreg, int srcreg, int xyzw)
 				SSE_MOVHLPS_XMM_to_XMM(dstreg, dstreg);
 				break;
 		}
+*/
+		switch (xyzw) {
+			case 0:
+				SSE2_PSHUFD_XMM_to_XMM(dstreg, srcreg, 0x00);
+				break;
+			case 1:
+				SSE2_PSHUFD_XMM_to_XMM(dstreg, srcreg, 0x55);
+				break;
+			case 2:
+				SSE2_PSHUFD_XMM_to_XMM(dstreg, srcreg, 0xaa);
+				break;
+			case 3:
+				SSE2_PSHUFD_XMM_to_XMM(dstreg, srcreg, 0xff);
+				break;
+		}
 	}
 }
 
 void _unpackVFSS_xyzw(int dstreg, int srcreg, int xyzw)
 {
-	switch (xyzw) {
-		case 0:
-			if( dstreg != srcreg ) SSE_MOVAPS_XMM_to_XMM(dstreg, srcreg);
-			break;
-		case 1:
-			if( cpucaps.hasStreamingSIMD3Extensions ) SSE3_MOVSHDUP_XMM_to_XMM(dstreg, srcreg);
-			else {
+	if( cpucaps.hasStreamingSIMD4Extensions ) {
+		switch (xyzw) {
+			case 0: SSE4_INSERTPS_XMM_to_XMM(dstreg, srcreg, _MM_MK_INSERTPS_NDX(0, 0, 0)); break;
+			case 1: SSE4_INSERTPS_XMM_to_XMM(dstreg, srcreg, _MM_MK_INSERTPS_NDX(1, 0, 0)); break;
+			case 2: SSE4_INSERTPS_XMM_to_XMM(dstreg, srcreg, _MM_MK_INSERTPS_NDX(2, 0, 0)); break;
+			case 3: SSE4_INSERTPS_XMM_to_XMM(dstreg, srcreg, _MM_MK_INSERTPS_NDX(3, 0, 0)); break;
+		}
+	}
+	else {
+		switch (xyzw) {
+			case 0:
 				if( dstreg != srcreg ) SSE_MOVAPS_XMM_to_XMM(dstreg, srcreg);
-				SSE_SHUFPS_XMM_to_XMM(dstreg, dstreg, 0x55);
-			}
-			break;
-		case 2:
-			SSE_MOVHLPS_XMM_to_XMM(dstreg, srcreg);
-			break;
-		case 3:
-			if( cpucaps.hasStreamingSIMD3Extensions && dstreg != srcreg ) {
-				SSE3_MOVSHDUP_XMM_to_XMM(dstreg, srcreg);
-				SSE_MOVHLPS_XMM_to_XMM(dstreg, dstreg);
-			}
-			else {
-				if( dstreg != srcreg ) SSE_MOVAPS_XMM_to_XMM(dstreg, srcreg);
-				SSE_SHUFPS_XMM_to_XMM(dstreg, dstreg, 0xff);
-			}
-			break;
+				break;
+			case 1:
+				if( cpucaps.hasStreamingSIMD3Extensions ) SSE3_MOVSHDUP_XMM_to_XMM(dstreg, srcreg);
+				else {
+					if( dstreg != srcreg ) SSE_MOVAPS_XMM_to_XMM(dstreg, srcreg);
+					SSE_SHUFPS_XMM_to_XMM(dstreg, dstreg, 0x55);
+				}
+				break;
+			case 2:
+				SSE_MOVHLPS_XMM_to_XMM(dstreg, srcreg);
+				break;
+			case 3:
+				if( cpucaps.hasStreamingSIMD3Extensions && dstreg != srcreg ) {
+					SSE3_MOVSHDUP_XMM_to_XMM(dstreg, srcreg);
+					SSE_MOVHLPS_XMM_to_XMM(dstreg, dstreg);
+				}
+				else {
+					if( dstreg != srcreg ) SSE_MOVAPS_XMM_to_XMM(dstreg, srcreg);
+					SSE_SHUFPS_XMM_to_XMM(dstreg, dstreg, 0xff);
+				}
+				break;
+		}
 	}
 }
 
@@ -927,6 +974,7 @@ int _vuGetTempXMMreg(int info)
 
 	if( _hasFreeXMMreg() ) {
 		t1reg = _allocTempXMMreg(XMMT_FPS, -1);
+		/*
 		if( t1reg == EEREC_TEMP && _hasFreeXMMreg() ) {
 			int t = _allocTempXMMreg(XMMT_FPS, -1);
 			_freeXMMreg(t1reg);
@@ -936,6 +984,18 @@ int _vuGetTempXMMreg(int info)
 		else {
 			_freeXMMreg(t1reg);
 			t1reg = -1;
+		}
+		*/
+		if( t1reg == EEREC_TEMP ) {
+			if( _hasFreeXMMreg() ) {
+				int t = _allocTempXMMreg(XMMT_FPS, -1);
+				_freeXMMreg(t1reg);
+				t1reg = t;
+			}
+			else {
+				_freeXMMreg(t1reg);
+				t1reg = -1;
+			}
 		}
 	}
 	
@@ -3073,6 +3133,8 @@ void recVUMI_CLIP(VURegs *VU, int info)
 
 void recVUMI_DIV(VURegs *VU, int info)
 {
+	int t1reg;
+
 	if( _Fs_ == 0 ) {
 
 		if( _Ft_ == 0 ) {
@@ -3101,10 +3163,31 @@ void recVUMI_DIV(VURegs *VU, int info)
 			// don't use RCPSS (very bad precision)
 			SSE_MOVSS_M32_to_XMM(EEREC_TEMP, (uptr)&VU->VF[0].UL[3]);
 
-			if( _Ftf_ == 0 || (xmmregs[EEREC_T].mode & MODE_WRITE) ) {
-				if( _Ftf_ ) SSE_SHUFPS_XMM_to_XMM(EEREC_T, EEREC_T, (0xe4e4>>(2*_Ftf_))&0xff);
-				SSE_DIVSS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
-				if( _Ftf_ ) SSE_SHUFPS_XMM_to_XMM(EEREC_T, EEREC_T, (0xe4e4>>(8-2*_Ftf_))&0xff);
+			if( _Ftf_ != 0 || (xmmregs[EEREC_T].mode & MODE_WRITE) )
+			{
+				if( _Ftf_ )
+				{
+					t1reg = _vuGetTempXMMreg(info);
+
+					if( t1reg >= 0 )
+					{
+						_unpackVFSS_xyzw(t1reg, EEREC_T, _Ftf_);
+
+						SSE_DIVSS_XMM_to_XMM(EEREC_TEMP, t1reg);
+
+						_freeXMMreg(t1reg);
+					}
+					else
+					{
+						SSE_SHUFPS_XMM_to_XMM(EEREC_T, EEREC_T, (0xe4e4>>(2*_Ftf_))&0xff);
+						SSE_DIVSS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+						SSE_SHUFPS_XMM_to_XMM(EEREC_T, EEREC_T, (0xe4e4>>(8-2*_Ftf_))&0xff); // revert
+					}
+				}
+				else
+				{
+					SSE_DIVSS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+				}
 			}
 			else {
 				SSE_DIVSS_M32_to_XMM(EEREC_TEMP, (uptr)&VU->VF[_Ft_].UL[_Ftf_]);
@@ -3136,14 +3219,33 @@ void recVUMI_DIV(VURegs *VU, int info)
 				
 			return;
 		}
+
 		if( _Fsf_ == 0 ) SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
 		else _unpackVF_xyzw(EEREC_TEMP, EEREC_S, _Fsf_);
 
-		if( _Ftf_ ) SSE_SHUFPS_XMM_to_XMM(EEREC_T, EEREC_T, (0xe4e4>>(2*_Ftf_))&0xff);
-		SSE_DIVSS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+		if( _Ftf_ )
+		{
+			t1reg = _vuGetTempXMMreg(info);
 
-		// revert
-		if( _Ftf_ ) SSE_SHUFPS_XMM_to_XMM(EEREC_T, EEREC_T, (0xe4e4>>(8-2*_Ftf_))&0xff);
+			if( t1reg >= 0 )
+			{
+				_unpackVFSS_xyzw(t1reg, EEREC_T, _Ftf_);
+
+				SSE_DIVSS_XMM_to_XMM(EEREC_TEMP, t1reg);
+
+				_freeXMMreg(t1reg);
+			}
+			else
+			{
+				SSE_SHUFPS_XMM_to_XMM(EEREC_T, EEREC_T, (0xe4e4>>(2*_Ftf_))&0xff);
+				SSE_DIVSS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+				SSE_SHUFPS_XMM_to_XMM(EEREC_T, EEREC_T, (0xe4e4>>(8-2*_Ftf_))&0xff); // revert
+			}
+		}
+		else
+		{
+			SSE_DIVSS_XMM_to_XMM(EEREC_TEMP, EEREC_T);
+		}
 	}
 
 	//if( !CHECK_FORCEABS ) {
@@ -3226,11 +3328,11 @@ void recVUMI_RSQRT(VURegs *VU, int info)
 		if( _Fsf_ == 3 ) {
 			if(_Ft_ != 0 ||_Ftf_ == 3 )
 			{
-				//SysPrintf("_Fs_ = 0.3 _Ft_ != 0 || _Ft_ = 0.3 \n");
+				SysPrintf("_Fs_ = 0.3 _Ft_ != 0 || _Ft_ = 0.3 \n");
 				SSE_SQRTSS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);    //Dont use RSQRT, terrible accuracy
 				SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(REG_Q, 0), EEREC_TEMP);
-				SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
-				_unpackVF_xyzw(EEREC_TEMP, EEREC_TEMP, _Fsf_);
+				//SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+				_unpackVF_xyzw(EEREC_TEMP, EEREC_S, _Fsf_);
 				SSE_DIVSS_M32_to_XMM(EEREC_TEMP, VU_VI_ADDR(REG_Q, 0));
 
 				
@@ -3283,7 +3385,7 @@ void recVUMI_RSQRT(VURegs *VU, int info)
 			} 
 			
 		} 
-		//SysPrintf("Normal RSQRT\n");
+		SysPrintf("Normal RSQRT\n");
 		SSE_RSQRTSS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
 		if( _Fsf_ ) SSE_SHUFPS_XMM_to_XMM(EEREC_S, EEREC_S, (0xe4e4>>(2*_Fsf_))&0xff);
 		SSE_MULSS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
@@ -4681,23 +4783,32 @@ void recVUMI_WAITP(VURegs *VU, int info)
 // in all EFU insts, EEREC_D is a temp reg
 void vuSqSumXYZ(int regd, int regs, int regtemp)
 {
-	SSE_MOVAPS_XMM_to_XMM(regtemp, regs);
-	SSE_MULPS_XMM_to_XMM(regtemp, regtemp);
+	if( cpucaps.hasStreamingSIMD4Extensions )
+	{
+		SSE_MOVAPS_XMM_to_XMM(regd, regs);
+		SSE4_DPPS_XMM_to_XMM(regd, regd, 0x71);
+	}
+	else 
+	{
+		SSE_MOVAPS_XMM_to_XMM(regtemp, regs);
+		SSE_MULPS_XMM_to_XMM(regtemp, regtemp);
 
-	if( cpucaps.hasStreamingSIMD3Extensions ) {
-		SSE3_HADDPS_XMM_to_XMM(regd, regtemp);
-		SSE_ADDPS_XMM_to_XMM(regd, regtemp); // regd.z = x+y+z
-		SSE_MOVHLPS_XMM_to_XMM(regd, regd); // move to x
+		if( cpucaps.hasStreamingSIMD3Extensions ) {
+			SSE3_HADDPS_XMM_to_XMM(regd, regtemp);
+			SSE_ADDPS_XMM_to_XMM(regd, regtemp); // regd.z = x+y+z
+			SSE_MOVHLPS_XMM_to_XMM(regd, regd); // move to x
+		}
+		else {
+			SSE_MOVSS_XMM_to_XMM(regd, regtemp);
+			SSE_SHUFPS_XMM_to_XMM(regtemp, regtemp, 0xE1);
+			SSE_ADDSS_XMM_to_XMM(regd, regtemp);
+			SSE_SHUFPS_XMM_to_XMM(regtemp, regtemp, 0xD2);
+			SSE_ADDSS_XMM_to_XMM(regd, regtemp);
+			SSE_SHUFPS_XMM_to_XMM(regtemp, regtemp, 0xC6);
+		}
 	}
-	else {
-		SSE_MOVSS_XMM_to_XMM(regd, regtemp);
-		SSE_SHUFPS_XMM_to_XMM(regtemp, regtemp, 0xE1);
-		SSE_ADDSS_XMM_to_XMM(regd, regtemp);
-		SSE_SHUFPS_XMM_to_XMM(regtemp, regtemp, 0xD2);
-		SSE_ADDSS_XMM_to_XMM(regd, regtemp);
-		SSE_SHUFPS_XMM_to_XMM(regtemp, regtemp, 0xC6);
-	}
-		//SysPrintf("SUMXYZ\n");
+	
+	//SysPrintf("SUMXYZ\n");
 }
 
 void recVUMI_ESADD( VURegs *VU, int info)
@@ -4717,23 +4828,33 @@ void recVUMI_ESADD( VURegs *VU, int info)
 void recVUMI_ERSADD( VURegs *VU, int info )
 {
 	assert( VU == &VU1 );
-	// almost same as vuSqSumXYZ
-	SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
-	SSE_MULPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
 
-	if( cpucaps.hasStreamingSIMD3Extensions ) {
-		SSE3_HADDPS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
-		SSE_ADDPS_XMM_to_XMM(EEREC_D, EEREC_TEMP); // EEREC_D.z = x+y+z
-		SSE_MOVSS_M32_to_XMM(EEREC_TEMP, (uptr)&VU->VF[0].UL[3]);
-		SSE_MOVHLPS_XMM_to_XMM(EEREC_D, EEREC_D); // move to x
+	// almost same as vuSqSumXYZ
+
+	if( cpucaps.hasStreamingSIMD4Extensions )
+	{
+		SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+		SSE4_DPPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP, 0x71);
 	}
-	else {
-		SSE_MOVHLPS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
-		SSE_ADDSS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
-		SSE_SHUFPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP, 0x55);
-		SSE_ADDSS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
-		SSE_MOVSS_M32_to_XMM(EEREC_TEMP, (uptr)&VU->VF[0].UL[3]);
+	else 
+	{
+		SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+		SSE_MULPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
+
+		if( cpucaps.hasStreamingSIMD3Extensions ) {
+			SSE3_HADDPS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+			SSE_ADDPS_XMM_to_XMM(EEREC_D, EEREC_TEMP); // EEREC_D.z = x+y+z
+			SSE_MOVHLPS_XMM_to_XMM(EEREC_D, EEREC_D); // move to x
+		}
+		else {
+			SSE_MOVHLPS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+			SSE_ADDSS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+			SSE_SHUFPS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP, 0x55);
+			SSE_ADDSS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
+		}
 	}
+
+	SSE_MOVSS_M32_to_XMM(EEREC_TEMP, (uptr)&VU->VF[0].UL[3]);
 
 	// don't use RCPSS (very bad precision)
 	SSE_DIVSS_XMM_to_XMM(EEREC_TEMP, EEREC_D);
@@ -4756,9 +4877,9 @@ void recVUMI_ELENG( VURegs *VU, int info )
 void recVUMI_ERLENG( VURegs *VU, int info )
 {
 	assert( VU == &VU1 );
-	vuSqSumXYZ(EEREC_D, EEREC_S, EEREC_TEMP);
-	//SysPrintf("ERLENG\n");
-	SSE_SQRTSS_XMM_to_XMM(EEREC_TEMP, EEREC_D);
+	vuSqSumXYZ(EEREC_TEMP, EEREC_S, EEREC_TEMP); //Dont want to use EEREC_D incase it overwrites something
+	SysPrintf("ERLENG\n");
+	SSE_SQRTSS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
 	SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(REG_P, 0), EEREC_TEMP);
 	SSE_MOVSS_M32_to_XMM(EEREC_TEMP, (uptr)&VU->VF[0].UL[3]);
 	SSE_DIVSS_M32_to_XMM(EEREC_TEMP, VU_VI_ADDR(REG_P, 0));
@@ -4946,7 +5067,9 @@ void recVUMI_ERSQRT( VURegs *VU, int info )
             //SSE_CMPNESS_XMM_to_XMM(EEREC_D, EEREC_TEMP);
 			SysPrintf("ERSQRT\n");
 			SSE_SQRTSS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
-			SSE_DIVSS_M32_to_XMM(EEREC_TEMP, (uptr)&VU->VF[0].UL[3]);
+			SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(REG_P, 0), EEREC_TEMP);
+			SSE_MOVSS_M32_to_XMM(EEREC_TEMP, (uptr)&VU->VF[0].UL[3]);
+			SSE_DIVSS_M32_to_XMM(EEREC_TEMP, VU_VI_ADDR(REG_P, 0));
             //SSE_ANDPS_XMM_to_XMM(EEREC_TEMP, EEREC_D);
 		}
 		else {

@@ -437,6 +437,7 @@ void SSE_ORPS_XMM_to_XMM( x86SSERegType to, x86SSERegType from )  { SSERtoR( 0x5
 //**********************************************************************************/
 //XORPS : Bitwise Logical XOR of Single-Precision FP Values                        *
 //**********************************************************************************
+
 void SSE_XORPS_M128_to_XMM( x86SSERegType to, uptr from )           { SSEMtoR( 0x570f, 0 ); }
 void SSE_XORPS_XMM_to_XMM( x86SSERegType to, x86SSERegType from ) { SSERtoR( 0x570f ); }
 
@@ -1148,6 +1149,45 @@ void SSE3_MOVSLDUP_XMM_to_XMM(x86SSERegType to, x86SSERegType from) {
 void SSE3_MOVSLDUP_M128_to_XMM(x86SSERegType to, uptr from) { write8(0xf3); SSEMtoR(0x120f, 0); }
 void SSE3_MOVSHDUP_XMM_to_XMM(x86SSERegType to, x86SSERegType from) { write8(0xf3); SSERtoR(0x160f); }
 void SSE3_MOVSHDUP_M128_to_XMM(x86SSERegType to, uptr from) { write8(0xf3); SSEMtoR(0x160f, 0); }
+
+// SSE4.1
+
+void SSE4_DPPS_XMM_to_XMM(x86SSERegType to, x86SSERegType from, u8 imm8) 
+{
+	write8(0x66);
+	write24(0x403A0F);
+	ModRM(3, to, from);
+	write8(imm8);
+}
+
+void SSE4_DPPS_M128_to_XMM(x86SSERegType to, uptr from, u8 imm8)
+{
+	const int overb = 0; // TODO: x64?
+
+	write8(0x66);
+	write24(0x403A0F);
+	ModRM(0, to, DISP32);
+	write32(MEMADDR(from, 4 + overb));
+	write8(imm8);
+}
+
+void SSE4_INSERTPS_XMM_to_XMM(x86SSERegType to, x86SSERegType from, u8 imm8)
+{
+	write8(0x66);
+    RexRB(0, to, from);
+	write24(0x213A0F);
+	ModRM(3, to, from);
+	write8(imm8);
+}
+
+void SSE4_EXTRACTPS_XMM_to_R32(x86IntRegType to, x86SSERegType from, u8 imm8)
+{
+	write8(0x66);
+    RexRB(0, to, from);
+	write24(0x173A0F);
+	ModRM(3, to, from);
+	write8(imm8);
+}
 
 // SSE-X
 void SSEX_MOVDQA_M128_to_XMM( x86SSERegType to, uptr from )

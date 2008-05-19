@@ -985,7 +985,7 @@ void recRSQRT_S_xmm(int info)
 	switch(info & (PROCESS_EE_S|PROCESS_EE_T) ) {
 		case PROCESS_EE_S:
 			if( EEREC_D == EEREC_S ) {
-				///SysPrintf("RSQRT1\n");
+				SysPrintf("RSQRT1\n");
 				SSE_SQRTSS_M32_to_XMM(t0reg, (uptr)&fpuRegs.fpr[_Ft_]);
 				SSE_DIVSS_XMM_to_XMM(EEREC_D, t0reg);
 			}
@@ -998,15 +998,19 @@ void recRSQRT_S_xmm(int info)
 
 			break;
 		case PROCESS_EE_T:			
-			//SysPrintf("RSQRT3\n");
+			SysPrintf("RSQRT3\n");
 			if(EEREC_D == EEREC_T) {
 				SSE_SQRTSS_XMM_to_XMM(t0reg, EEREC_T);
 				SSE_MOVSS_M32_to_XMM(EEREC_D, (uptr)&fpuRegs.fpr[_Fs_]);
-			}
+			}else
 			if(EEREC_D == EEREC_S) {
 				SSE_SQRTSS_XMM_to_XMM(t0reg, EEREC_T);
 			} 
-			else SSE_MOVSS_M32_to_XMM(EEREC_D, (uptr)&fpuRegs.fpr[_Fs_]);
+			else {
+				SysPrintf("RSQ3 Whoops\n");
+				SSE_SQRTSS_XMM_to_XMM(t0reg, EEREC_T);
+				SSE_MOVSS_M32_to_XMM(EEREC_D, (uptr)&fpuRegs.fpr[_Fs_]);
+			}
 						
 			SSE_DIVSS_XMM_to_XMM(EEREC_D, t0reg);
 			break;
@@ -1034,7 +1038,10 @@ void recRSQRT_S_xmm(int info)
 					SSE_SQRTSS_XMM_to_XMM(t0reg, EEREC_T);
 				}
 				else {*/
-					SSE_SQRTSS_M32_to_XMM(t0reg, (uptr)&fpuRegs.fpr[_Ft_]);
+				//SSE_MOVSS_XMM_to_XMM(t0reg, EEREC_D);
+				SSE_SQRTSS_M32_to_XMM(t0reg, (uptr)&fpuRegs.fpr[_Ft_]);
+					
+					
 				//}
 
 				SysPrintf("RSQRT4\n");

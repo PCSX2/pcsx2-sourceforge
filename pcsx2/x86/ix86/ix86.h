@@ -164,6 +164,7 @@ typedef struct {
    u32 hasThermalMonitor;
    u32 hasIntel64BitArchitecture;
    u32 hasStreamingSIMD3Extensions;
+   u32 hasStreamingSIMD4Extensions;
    //that is only for AMDs
    u32 hasMultimediaExtensionsExt;
    u32 hasAMD64BitArchitecture;
@@ -180,6 +181,7 @@ typedef struct {
    u32 x86PType;	   // Processor Type
    u32 x86StepID;	   // Stepping ID
    u32 x86Flags;	   // Feature Flags
+   u32 x86Flags2;	   // More Feature Flags
    u32 x86EFlags;	   // Extended Feature Flags
    //all the above returns hex values
    s8  x86ID[16];	   // Vendor ID  //the vendor creator (in %s)
@@ -1652,6 +1654,18 @@ void SSE3_MOVSLDUP_XMM_to_XMM(x86SSERegType to, x86SSERegType from);
 void SSE3_MOVSLDUP_M128_to_XMM(x86SSERegType to, uptr from);
 void SSE3_MOVSHDUP_XMM_to_XMM(x86SSERegType to, x86SSERegType from);
 void SSE3_MOVSHDUP_M128_to_XMM(x86SSERegType to, uptr from);
+
+// SSE4.1
+
+#ifndef _MM_MK_INSERTPS_NDX
+#define _MM_MK_INSERTPS_NDX(srcField, dstField, zeroMask) (((srcField)<<6) | ((dstField)<<4) | (zeroMask))
+#endif
+
+void SSE4_DPPS_XMM_to_XMM(x86SSERegType to, x86SSERegType from, u8 imm8);
+void SSE4_DPPS_M128_to_XMM(x86SSERegType to, uptr from, u8 imm8);
+void SSE4_INSERTPS_XMM_to_XMM(x86SSERegType to, x86SSERegType from, u8 imm8);
+void SSE4_EXTRACTPS_XMM_to_R32(x86SSERegType to, x86IntRegType from, u8 imm8);
+
 //*********************
 // SSE-X - uses both SSE,SSE2 code and tries to keep consistensies between the data
 // Uses g_xmmtypes to infer the correct type.
@@ -1753,6 +1767,16 @@ void SSE2EMU_MOVD_R_to_XMM( x86SSERegType to, x86IntRegType from );
 { \
 	*(u16*)x86Ptr = (u16)val; \
 	x86Ptr += 2;  \
+} \
+
+#define write24(val ) \
+{ \
+	*(u8*)x86Ptr = (u8)(val & 0xff); \
+	x86Ptr++;  \
+	*(u8*)x86Ptr = (u8)((val >> 8) & 0xff); \
+	x86Ptr++;  \
+	*(u8*)x86Ptr = (u8)((val >> 16) & 0xff); \
+	x86Ptr++;  \
 } \
 
 #define write32( val ) \
