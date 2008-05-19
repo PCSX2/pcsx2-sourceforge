@@ -1319,7 +1319,7 @@ void recVUMI_ADD_iq(VURegs *VU, uptr addr, int info)
 			_vuFlipRegSS(VU, EEREC_S);
 
 			// have to flip over EEREC_D if computing flags!
-			if( (info & PROCESS_VU_UPDATEFLAGS) )
+			//if( (info & PROCESS_VU_UPDATEFLAGS) )
 				_vuFlipRegSS(VU, EEREC_D);
 		}
 		else if( EEREC_D == EEREC_S ) {
@@ -1609,7 +1609,7 @@ void recVUMI_SUB_iq(VURegs *VU, int addr, int info)
 			_vuFlipRegSS(VU, EEREC_S);
 
 			// have to flip over EEREC_D if computing flags!
-			if( (info & PROCESS_VU_UPDATEFLAGS) )
+			//if( (info & PROCESS_VU_UPDATEFLAGS) )
 				_vuFlipRegSS(VU, EEREC_D);
 		}
 		else if( EEREC_D == EEREC_S ) {
@@ -1707,11 +1707,11 @@ void recVUMI_SUB_xyzw(VURegs *VU, int xyzw, int info)
 			SSE_SUBPS_XMM_to_XMM(EEREC_D, EEREC_T);
 
 			// have to flip over EEREC_D if computing flags!
-            if( (info & PROCESS_VU_UPDATEFLAGS) ) {
+            //if( (info & PROCESS_VU_UPDATEFLAGS) ) {
                 if( xyzw == 1 ) SSE_SHUFPS_XMM_to_XMM(EEREC_D, EEREC_D, 0xe1); // y
 	            else if( xyzw == 2 ) SSE_SHUFPS_XMM_to_XMM(EEREC_D, EEREC_D, 0xc6); // z
 	            else if( xyzw == 3 ) SSE_SHUFPS_XMM_to_XMM(EEREC_D, EEREC_D, 0x27); // w
-            }
+            //}
 		}
 		else {	
 		    if( xyzw == 0 ) {
@@ -2678,7 +2678,7 @@ void recVUMI_MAX_iq(VURegs *VU, int addr, int info)
 			_vuFlipRegSS(VU, EEREC_S);
 
 			// have to flip over EEREC_D if computing flags!
-			if( (info & PROCESS_VU_UPDATEFLAGS) )
+			//if( (info & PROCESS_VU_UPDATEFLAGS) )
 				_vuFlipRegSS(VU, EEREC_D);
 		}
 		else if( EEREC_D == EEREC_S ) {
@@ -2843,7 +2843,7 @@ void recVUMI_MINI_iq(VURegs *VU, int addr, int info)
 			_vuFlipRegSS(VU, EEREC_S);
 
 			// have to flip over EEREC_D if computing flags!
-			if( (info & PROCESS_VU_UPDATEFLAGS) )
+			//if( (info & PROCESS_VU_UPDATEFLAGS) )
 				_vuFlipRegSS(VU, EEREC_D);
 		}
 		else if( EEREC_D == EEREC_S ) {
@@ -5037,8 +5037,10 @@ __declspec(naked) void tempERSQRT()
 
 void recVUMI_ERSQRT( VURegs *VU, int info )
 {
+		int t1reg;
+ 
 	assert( VU == &VU1 );
-
+ 
 //    if( _Fsf_ ) {
 //		if( xmmregs[EEREC_S].mode & MODE_WRITE ) {
 //			_unpackVF_xyzw(EEREC_TEMP, EEREC_S, _Fsf_);        
@@ -5057,7 +5059,7 @@ void recVUMI_ERSQRT( VURegs *VU, int info )
 //    CALLFunc((uptr)tempERSQRT);
 //    MOV32MtoR(EAX, (uptr)&tempsqrt);
 //    MOV32RtoM(VU_VI_ADDR(REG_P, 0), EAX);
-
+/*
     // need to explicitly check for 0 (naruto ultimate ninja)
 	if( _Fsf_ ) {
 		if( xmmregs[EEREC_S].mode & MODE_WRITE ) {
@@ -5088,8 +5090,39 @@ void recVUMI_ERSQRT( VURegs *VU, int info )
         //SSE_CMPNESS_XMM_to_XMM(EEREC_D, EEREC_S);
         //SSE_ANDPS_XMM_to_XMM(EEREC_TEMP, EEREC_D);
     }
-
-    SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(REG_P, 0), EEREC_TEMP);
+*/
+	SysPrintf("ERSQRT\n");
+	if( xmmregs[EEREC_S].mode & MODE_WRITE ) {
+		if( _Fsf_ ) {
+			_unpackVF_xyzw(EEREC_TEMP, EEREC_S, _Fsf_);
+		}
+		else {
+			SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
+		}
+	}
+	else {
+		SSE_MOVSS_M32_to_XMM(EEREC_TEMP, (uptr)&VU->VF[_Fs_].UL[_Fsf_]);
+	}
+ 
+	SSE_SQRTSS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
+ 
+	t1reg = _vuGetTempXMMreg(info);
+ 
+	if( t1reg >= 0 )
+	{
+		SSE_MOVSS_M32_to_XMM(t1reg, (uptr)&VU->VF[0].UL[3]);
+		SSE_DIVSS_XMM_to_XMM(t1reg, EEREC_TEMP);
+		SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(REG_P, 0), t1reg);
+ 
+		_freeXMMreg(t1reg);
+	}
+	else
+	{
+		SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(REG_P, 0), EEREC_TEMP);
+		SSE_MOVSS_M32_to_XMM(EEREC_TEMP, (uptr)&VU->VF[0].UL[3]);
+		SSE_DIVSS_M32_to_XMM(EEREC_TEMP, VU_VI_ADDR(REG_P, 0));
+		SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(REG_P, 0), EEREC_TEMP);
+	}
 }
 
 void recVUMI_ESIN( VURegs *VU, int info )
