@@ -3366,6 +3366,7 @@ void recVUMI_RSQRT(VURegs *VU, int info)
 		}
 	}
 	else {
+		int t1reg;
 		if( _Ft_ == 0 ) {
 			if( _Ftf_ < 3 ) {
 				SysPrintf("FS != 0 FT = 0!\n");
@@ -3386,10 +3387,24 @@ void recVUMI_RSQRT(VURegs *VU, int info)
 			
 		} 
 		SysPrintf("Normal RSQRT\n");
-		SSE_RSQRTSS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
-		if( _Fsf_ ) SSE_SHUFPS_XMM_to_XMM(EEREC_S, EEREC_S, (0xe4e4>>(2*_Fsf_))&0xff);
-		SSE_MULSS_XMM_to_XMM(EEREC_TEMP, EEREC_S);
-		if( _Fsf_ ) SSE_SHUFPS_XMM_to_XMM(EEREC_S, EEREC_S, (0xe4e4>>(8-2*_Fsf_))&0xff);
+ 
+		SSE_SQRTSS_XMM_to_XMM(EEREC_TEMP, EEREC_TEMP);
+ 
+		t1reg = _vuGetTempXMMreg(info);
+ 
+		if( t1reg >= 0 )
+		{
+			_unpackVFSS_xyzw(t1reg, EEREC_S, _Fsf_);
+			SSE_DIVSS_XMM_to_XMM(t1reg, EEREC_TEMP);
+			SSE_MOVAPS_XMM_to_XMM(EEREC_TEMP, t1reg);
+			_freeXMMreg(t1reg);
+		}
+		else
+		{
+			SSE_MOVSS_XMM_to_M32(VU_VI_ADDR(REG_Q, 0), EEREC_TEMP);
+			_unpackVFSS_xyzw(EEREC_TEMP, EEREC_S, _Fsf_);
+			SSE_DIVSS_M32_to_XMM(EEREC_TEMP, VU_VI_ADDR(REG_Q, 0));
+		}
 	}
 
 	//if( !CHECK_FORCEABS ) {
