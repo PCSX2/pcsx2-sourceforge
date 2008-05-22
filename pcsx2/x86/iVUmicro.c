@@ -133,41 +133,20 @@ static int SSEmovMask[ 16 ][ 4 ] =
 void VU_MERGE0(int dest, int src) { // 0000
 }
 void VU_MERGE1(int dest, int src) { // 1000
-	if( cpucaps.hasStreamingSIMD4Extensions )
-	{
-		SSE4_INSERTPS_XMM_to_XMM(dest, src, _MM_MK_INSERTPS_NDX(3, 3, 0));
-	}
-	else
-	{
-		SSE_MOVHLPS_XMM_to_XMM(src, dest);
-		SSE_SHUFPS_XMM_to_XMM(dest, src, 0xc4);
-	}
+	SSE_MOVHLPS_XMM_to_XMM(src, dest);
+	SSE_SHUFPS_XMM_to_XMM(dest, src, 0xc4);
 }
 void VU_MERGE2(int dest, int src) { // 0100
-	if( cpucaps.hasStreamingSIMD4Extensions )
-	{
-		SSE4_INSERTPS_XMM_to_XMM(dest, src, _MM_MK_INSERTPS_NDX(2, 2, 0));
-	}
-	else
-	{
-		SSE_MOVHLPS_XMM_to_XMM(src, dest);
-		SSE_SHUFPS_XMM_to_XMM(dest, src, 0x64);
-	}
+	SSE_MOVHLPS_XMM_to_XMM(src, dest);
+	SSE_SHUFPS_XMM_to_XMM(dest, src, 0x64);
 }
 void VU_MERGE3(int dest, int src) { // 1100
 	SSE_SHUFPS_XMM_to_XMM(dest, src, 0xe4);
 }
 void VU_MERGE4(int dest, int src) { // 0010s
-	if( cpucaps.hasStreamingSIMD4Extensions )
-	{
-		SSE4_INSERTPS_XMM_to_XMM(dest, src, _MM_MK_INSERTPS_NDX(1, 1, 0));
-	}
-	else
-	{
-		SSE_MOVSS_XMM_to_XMM(src, dest);
-		SSE_SHUFPS_XMM_to_XMM(src, dest, 0xe4);
-		SSE_MOVAPS_XMM_to_XMM(dest, src);
-	}
+	SSE_MOVSS_XMM_to_XMM(src, dest);
+	SSE_SHUFPS_XMM_to_XMM(src, dest, 0xe4);
+	SSE_MOVAPS_XMM_to_XMM(dest, src);
 }
 void VU_MERGE5(int dest, int src) { // 1010
 	SSE_SHUFPS_XMM_to_XMM(dest, src, 0xd8);
@@ -220,13 +199,36 @@ static VUMERGEFN s_VuMerge[16] = {
 	VU_MERGE4, VU_MERGE5, VU_MERGE6, VU_MERGE7,
 	VU_MERGE8, VU_MERGE9, VU_MERGE10, VU_MERGE11,
 	VU_MERGE12, VU_MERGE13, VU_MERGE14, VU_MERGE15 };
-
+/*
 #define VU_MERGE_REGS(dest, src) { \
 	if( dest != src ) s_VuMerge[_X_Y_Z_W](dest, src); \
 } \
 
 #define VU_MERGE_REGS_CUSTOM(dest, src, xyzw) { \
 	if( dest != src ) s_VuMerge[xyzw](dest, src); \
+} \
+*/
+void VU_MERGE_REGS_CUSTOM(int dest, int src, int xyzw)
+{
+	xyzw &= 0xf;
+
+	if(dest != src && xyzw != 0)
+	{
+		if(cpucaps.hasStreamingSIMD4Extensions)
+		{
+			xyzw = ((xyzw & 1) << 3) | ((xyzw & 2) << 1) | ((xyzw & 4) >> 1) | ((xyzw & 8) >> 3); 
+
+			SSE4_BLENDPS_XMM_to_XMM(dest, src, xyzw);
+		}
+		else
+		{
+			s_VuMerge[xyzw](dest, src); 
+		}
+	}
+}
+
+#define VU_MERGE_REGS(dest, src) { \
+	VU_MERGE_REGS_CUSTOM(dest, src, _X_Y_Z_W); \
 } \
 
 void _unpackVF_xyzw(int dstreg, int srcreg, int xyzw)
@@ -1042,6 +1044,8 @@ void CheckForOverflowSS_(int fdreg, int t0reg)
 //	SSE_ANDPS_XMM_to_XMM(fdreg, t0reg);
 }
 
+	
+	
 void CheckForOverflow_(int fdreg, int t0reg, int keepxyzw)
 {
 //	SSE_MAXPS_M128_to_XMM(fdreg, (u32)g_minvals);
@@ -1050,8 +1054,8 @@ void CheckForOverflow_(int fdreg, int t0reg, int keepxyzw)
     SSE_XORPS_XMM_to_XMM(t0reg, t0reg);
     SSE_CMPORDPS_XMM_to_XMM(t0reg, fdreg);
 
-    if( g_VuNanHandling )
-        SSE_ORPS_M128_to_XMM(t0reg, (uptr)s_overflowmask);
+    /*if( g_VuNanHandling )
+        SSE_ORPS_M128_to_XMM(t0reg, (uptr)s_overflowmask);*/
 
     // for partial masks, sometimes regs can be integers
     if( keepxyzw != 15 )
@@ -1073,13 +1077,14 @@ void CheckForOverflow(VURegs *VU, int info, int regd)
 	}
 }
 
-// if unordered replaces with 0x7f7fffff (note, loses sign)
+// if unordered replaces with 0x7f7fffff
 void ClampUnordered(int regd, int t0reg, int dosign)
 {
 	SSE_XORPS_XMM_to_XMM(t0reg, t0reg);
 	SSE_CMPORDPS_XMM_to_XMM(t0reg, regd);
+	SSE_ORPS_M128_to_XMM(t0reg, (uptr)&const_clip[4]);
 	SSE_ANDPS_XMM_to_XMM(regd, t0reg);
-	SSE_ANDNPS_M128_to_XMM(t0reg, (u32)g_maxvals);
+	SSE_ANDNPS_M128_to_XMM(t0reg, (uptr)g_maxvals);
 	SSE_ORPS_XMM_to_XMM(regd, t0reg);
 }
 
@@ -4553,7 +4558,7 @@ void recVUMI_FCOR( VURegs *VU, int info )
 	MOV32MtoR( EAX, VU_VI_ADDR(REG_CLIP_FLAG, 1));
 	//AND32ItoR( EAX, 0xffffff);
 	XOR32RtoR(ftreg, ftreg);
-	OR32ItoR( EAX, (VU->code & 0xFFFFFF)|0xff000000 );
+	OR32ItoR( EAX, VU->code | 0xff000000 );
 	ADD32ItoR(EAX, 1);
 
 	// set to 1 if EAX is 0

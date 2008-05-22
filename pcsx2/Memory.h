@@ -231,6 +231,8 @@ int recMemConstWrite32(u32 mem, int mmreg);
 int recMemConstWrite64(u32 mem, int mmreg);
 int recMemConstWrite128(u32 mem, int xmmreg);
 
+extern int SysPageFaultExceptionFilter(struct _EXCEPTION_POINTERS* eps);
+
 #else
 
 #define _eeReadConstMem8 0&&

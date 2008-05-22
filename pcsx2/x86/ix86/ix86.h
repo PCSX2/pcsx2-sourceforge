@@ -1664,7 +1664,8 @@ void SSE3_MOVSHDUP_M128_to_XMM(x86SSERegType to, uptr from);
 void SSE4_DPPS_XMM_to_XMM(x86SSERegType to, x86SSERegType from, u8 imm8);
 void SSE4_DPPS_M128_to_XMM(x86SSERegType to, uptr from, u8 imm8);
 void SSE4_INSERTPS_XMM_to_XMM(x86SSERegType to, x86SSERegType from, u8 imm8);
-void SSE4_EXTRACTPS_XMM_to_R32(x86SSERegType to, x86IntRegType from, u8 imm8);
+void SSE4_EXTRACTPS_XMM_to_R32(x86IntRegType to, x86SSERegType from, u8 imm8);
+void SSE4_BLENDPS_XMM_to_XMM(x86SSERegType to, x86SSERegType from, u8 imm8);
 
 //*********************
 // SSE-X - uses both SSE,SSE2 code and tries to keep consistensies between the data

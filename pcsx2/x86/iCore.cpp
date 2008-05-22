@@ -1276,26 +1276,16 @@ EEINSTWRITEBACK* _recCheckWriteBack(int cycle)
 	return NULL;
 }
 
-#ifdef _MSC_VER
-extern "C" BOOL install_my_handler();
-typedef void (*TESTFNPTR)();
-#endif
-
 extern "C" void cpudetectSSE3(void* pfnCallSSE3)
 {
 	cpucaps.hasStreamingSIMD3Extensions = 1;
 
 #ifdef _MSC_VER
 	__try {
-		//__asm call pfnCallSSE3;
-        ((TESTFNPTR)pfnCallSSE3)();
+        ((void (*)())pfnCallSSE3)();
 	}
 	__except(EXCEPTION_EXECUTE_HANDLER) {
 		cpucaps.hasStreamingSIMD3Extensions = 0;
-#ifdef PCSX2_VIRTUAL_MEM
-		// necessary since can potentially kill the custom handler
-		install_my_handler();
-#endif
 	}
 #else // linux
 
@@ -1322,15 +1312,10 @@ return;
 
 #ifdef _MSC_VER
 	__try {
-		//__asm call pfnCallSSE4;
-        ((TESTFNPTR)pfnCallSSE4)();
+        ((void (*)())pfnCallSSE4)();
 	}
 	__except(EXCEPTION_EXECUTE_HANDLER) {
 		cpucaps.hasStreamingSIMD4Extensions = 0;
-#ifdef PCSX2_VIRTUAL_MEM
-		// necessary since can potentially kill the custom handler
-		install_my_handler();
-#endif
 	}
 #else // linux
 

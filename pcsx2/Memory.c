@@ -135,8 +135,6 @@ PSMEMORYMAP initMemoryMap(ULONG_PTR* aPFNs, ULONG_PTR* aVFNs)
 #define VM_HACK
 #endif
 
-static int XmmExtendedRegOffset = 160;
-
 // virtual memory blocks
 PSMEMORYMAP *memLUT = NULL;
 
@@ -153,130 +151,6 @@ PSMEMORYMAP *memLUT = NULL;
 	VirtualFree(ptr, size, MEM_DECOMMIT); \
 	VirtualFree(ptr, 0, MEM_RELEASE); \
 } \
-
-static int s_testmem[4] = { 0xfafafafa, 0xbabababa, 0xbfa8123f, 0xa123fde0 };
-
-INT FindXmmOffsetException(LPEXCEPTION_POINTERS pexdata)
-{
-	int i;
-	u32* p = (u32*)pexdata->ContextRecord->ExtendedRegisters;
-
-	assert( pexdata->ExceptionRecord->ExceptionCode == EXCEPTION_ACCESS_VIOLATION);
-
-	XmmExtendedRegOffset = 160;
-
-	for(i = 0; i < sizeof(pexdata->ContextRecord->ExtendedRegisters)/4; ++i, ++p ) {
-		if( p[0] == s_testmem[0] && p[1] == s_testmem[1] && p[2] == s_testmem[2] && p[3] == s_testmem[3] ) {
-			XmmExtendedRegOffset = i*4;
-			break;
-		}
-	}
-
-	pexdata->ContextRecord->Eip += 7;
-
-	return EXCEPTION_CONTINUE_EXECUTION;
-}
-
-#if _MSC_VER < 1400
-#define VC_HANDLER _except_handler3
-#else
-#define VC_HANDLER _except_handler4
-#endif
-
-//C's default exception handler
-EXCEPTION_DISPOSITION  VC_HANDLER(
-     struct _EXCEPTION_RECORD *ExceptionRecord,
-     void * EstablisherFrame,
-     struct _CONTEXT *ContextRecord,
-     void * DispatcherContext
-     );
-
-char cpp_handler_instructions[5];
-BOOL saved_handler_instructions = FALSE;
-
-//Exception handler that replaces C's default handler.
-EXCEPTION_DISPOSITION SysPageFaultExceptionFilter(
-        struct _EXCEPTION_RECORD *ExceptionRecord,
-        void * EstablisherFrame,
-        struct _CONTEXT *ContextRecord,
-        void * DispatcherContext
-        );
-
-#pragma pack(1)
-typedef struct _jmp_instr
-{
-    unsigned char jmp;
-    DWORD         offset;
-} jmp_instr;
-#pragma pack()
-
-BOOL WriteMemory(void * loc, void * buffer, int size)
-{
-	DWORD o2;
-    HANDLE hProcess = GetCurrentProcess();
-    
-    //change the protection of pages containing range of memory 
-    //[loc, loc+size] to READ WRITE
-    DWORD old_protection;
-    
-    BOOL ret;
-    ret = VirtualProtectEx(hProcess, loc, size, 
-                        PAGE_READWRITE, &old_protection);
-    if(ret == FALSE)
-        return FALSE;
-
-    ret = WriteProcessMemory(hProcess, loc, buffer, size, NULL);
-    
-    //restore old protection
-    VirtualProtectEx(hProcess, loc, size, old_protection, &o2);
-
-	return (ret == TRUE);
-}
-
-BOOL ReadMemory(void *loc, void *buffer, DWORD size)
-{
-    HANDLE hProcess = GetCurrentProcess();
-    DWORD bytes_read = 0;
-    BOOL ret;
-    ret = ReadProcessMemory(hProcess, loc, buffer, size, &bytes_read);
-    return (ret == TRUE && bytes_read == size);
-}
-
-BOOL install_my_handler()
-{
-    void * my_hdlr = SysPageFaultExceptionFilter;
-    void * cpp_hdlr = VC_HANDLER;
-
-    jmp_instr jmp_my_hdlr; 
-    jmp_my_hdlr.jmp = 0xE9;
-
-    //We actually calculate the offset from __CxxFrameHandler+5
-    //as the jmp instruction is 5 byte length.
-    jmp_my_hdlr.offset = (char*)(my_hdlr) - 
-                ((char*)(cpp_hdlr) + 5);
-    
-    if(!saved_handler_instructions)
-    {
-        if(!ReadMemory(cpp_hdlr, cpp_handler_instructions,
-                    sizeof(cpp_handler_instructions)))
-            return FALSE;
-        saved_handler_instructions = TRUE;
-    }
-
-    return WriteMemory(cpp_hdlr, &jmp_my_hdlr, sizeof(jmp_my_hdlr));
-}
-
-BOOL restore_cpp_handler()
-{
-    if(!saved_handler_instructions)
-        return FALSE;
-    else
-    {
-        void *loc = VC_HANDLER;
-        return WriteMemory(loc, cpp_handler_instructions, 
-                        sizeof(cpp_handler_instructions));
-    }
-}
 
 int memInit() {
 
@@ -345,24 +219,6 @@ int memInit() {
 	if (psxInit() == -1)
 		goto eCleanupAndExit;
 
-	// figure out xmm reg offset
-//	__asm movups xmm0, s_testmem
-//	__try {
-//		u8* p = 0;
-//		__asm {
-// 			mov eax, dword ptr [p]
-//		}
-//	}
-//	__except( FindXmmOffsetException( GetExceptionInformation() ) ) {
-//	}
-
-//#ifdef WIN32_FILE_MAPPING
-	if( !install_my_handler() ) {
-		SysPrintf("Failed to install custom exception handler!\n");
-		return -1;
-	}
-//#endif
-
 	return 0;
 
 eCleanupAndExit:
@@ -408,9 +264,6 @@ void memShutdown()
 	VirtualAlloc(PS2MEM_BASE, 0x40000000, MEM_RESERVE, PAGE_NOACCESS);
 }
 
-#define GET_REGVALUE(code) *((u32*)&pexdata->ContextRecord->Eax + (((code)>>11)&7))
-#define GET_XMMVALUE(xmm) ((u64*)((u8*)pexdata->ContextRecord->ExtendedRegisters + XmmExtendedRegOffset + ((xmm)<<4)))
-
 //NOTE: A lot of the code reading depends on the registers being less than 8
 // MOV8 88/8A
 // MOV16 6689
@@ -420,7 +273,7 @@ void memShutdown()
 // SSEMtoR128 280f
 // SSERtoM128 290f
 
-#define SKIP_WRITE(pexdata) { \
+#define SKIP_WRITE() { \
 	switch(code&0xff) { \
 		case 0x88: \
 			if( !(code&0x8000) ) goto DefaultHandler; \
@@ -445,7 +298,7 @@ void memShutdown()
 	} \
 } \
 
-#define SKIP_READ(pexdata) { \
+#define SKIP_READ() { \
 	switch(code&0xff) { \
 		case 0x8A: \
 			if( !(code&0x8000) ) goto DefaultHandler; \
@@ -473,13 +326,11 @@ void memShutdown()
 	} \
 } \
 
-EXCEPTION_DISPOSITION SysPageFaultExceptionFilter(
-        struct _EXCEPTION_RECORD *ExceptionRecord,
-        void * EstablisherFrame,
-        struct _CONTEXT *ContextRecord,
-        void * DispatcherContext
-        )
+int SysPageFaultExceptionFilter(struct _EXCEPTION_POINTERS* eps)
 {
+	struct _EXCEPTION_RECORD* ExceptionRecord = eps->ExceptionRecord;
+	struct _CONTEXT* ContextRecord = eps->ContextRecord;
+
 	u32 addr;
 
 	C_ASSERT(sizeof(ContextRecord->Eax) == 4);
@@ -487,12 +338,7 @@ EXCEPTION_DISPOSITION SysPageFaultExceptionFilter(
 	// If the exception is not a page fault, exit.
 	if (ExceptionRecord->ExceptionCode != EXCEPTION_ACCESS_VIOLATION)
 	{
-		// call old handler
-		EXCEPTION_DISPOSITION d;
-		restore_cpp_handler();
-		d = VC_HANDLER(ExceptionRecord, EstablisherFrame, ContextRecord, DispatcherContext);
-		install_my_handler();
-		return d;
+		return EXCEPTION_CONTINUE_SEARCH;
 	}
 
 	// get bad virtual address
@@ -526,13 +372,13 @@ EXCEPTION_DISPOSITION SysPageFaultExceptionFilter(
 
 			pmap->aVFNs[0] = addr&~0xfff;
 			if( SysMapUserPhysicalPages((void*)(addr&~0xfff), 1, pmap->aPFNs, 0) )
-				return ExceptionContinueExecution;
+				return EXCEPTION_CONTINUE_EXECUTION;
 
 			// try allocing the virtual mem
 			pnewaddr = VirtualAlloc((void*)(addr&~0xffff), 0x10000, MEM_RESERVE|MEM_PHYSICAL, PAGE_READWRITE);
 
 			if( SysMapUserPhysicalPages((void*)(addr&~0xfff), 1, pmap->aPFNs, 0) )
-				return ExceptionContinueExecution;
+				return EXCEPTION_CONTINUE_EXECUTION;
 
 			SysPrintf("Fatal error, virtual page 0x%x cannot be found %d (p:%x,v:%x)\n",
 				addr-(u32)PS2MEM_BASE, GetLastError(), pmap->aPFNs[0], pmap->aVFNs[0]);
@@ -548,39 +394,30 @@ EXCEPTION_DISPOSITION SysPageFaultExceptionFilter(
 			s_psVuMem.aVFNs[1] = addr&~0xfff;
 			SysMapUserPhysicalPages((void*)addr, 1, s_psVuMem.aPFNs, 1);
 
-			return ExceptionContinueExecution;//EXCEPTION_CONTINUE_EXECUTION;
+			return EXCEPTION_CONTINUE_EXECUTION;
 		}
 	}
-	
-	{
-		// call old handler
-		EXCEPTION_DISPOSITION d;
 
 #ifdef VM_HACK
+	{
 		u32 code = *(u32*)ExceptionRecord->ExceptionAddress;
 		u32 rd = 0;
 
 		if( ExceptionRecord->ExceptionInformation[0] ) {
-			//SKIP_WRITE(ptrs);
+			//SKIP_WRITE();
 			// shouldn't be writing
 		}
 		else {
 			SysPrintf("vmhack ");
-			SKIP_READ(ptrs);
+			SKIP_READ();
 			//((u32*)&ContextRecord->Eax)[rd] = 0;
-			return ExceptionContinueExecution;
+			return EXCEPTION_CONTINUE_EXECUTION; // TODO: verify this!!!
 		}
-		
+	}
 DefaultHandler:
 #endif
- 		restore_cpp_handler();
-		d = VC_HANDLER(ExceptionRecord, EstablisherFrame, ContextRecord, DispatcherContext);
-		install_my_handler();
-		return d;
-	}
 
-	// continue execution
-	return EXCEPTION_CONTINUE_EXECUTION;
+	return EXCEPTION_CONTINUE_SEARCH;
 }
 
 #else // linux implementation
@@ -3327,4 +3164,5 @@ void memSetUserMode() {
 	MemMode = 2;
 #endif
 }
+
 

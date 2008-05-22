@@ -291,8 +291,8 @@ static void recCTC2()
 #ifdef __x86_64__
                 _callFunctionArg1((uptr)FreezeXMMRegs_, MEM_CONSTTAG, 1);
 #else
-				PUSH32I(1);
-                CALLFunc((uptr)FreezeXMMRegs_);
+				/*PUSH32I(1);
+                CALLFunc((uptr)FreezeXMMRegs_);*/
 #endif
 			
                 CALLFunc((uptr)Cpu->ExecuteVU0Block);
@@ -300,8 +300,8 @@ static void recCTC2()
 #ifdef __x86_64__
                 _callFunctionArg1((uptr)FreezeXMMRegs_, MEM_CONSTTAG, 0);
 #else
-				PUSH32I(0);
-                CALLFunc((uptr)FreezeXMMRegs_);
+				/*PUSH32I(0);
+                CALLFunc((uptr)FreezeXMMRegs_);*/
                 ADD32ItoR(ESP, 4);
 #endif
                 x86SetJ8(j8Ptr[0]);
