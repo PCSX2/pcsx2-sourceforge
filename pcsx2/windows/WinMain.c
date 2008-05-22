@@ -430,8 +430,6 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	if( !SysLoggedSetLockPagesPrivilege( GetCurrentProcess(), TRUE ) )
 		return -1;
 
-	
-
 	lpMemReserved = VirtualAlloc(PS2MEM_BASE, 0x40000000, MEM_RESERVE, PAGE_NOACCESS);
 
 	if( lpMemReserved == NULL || lpMemReserved!= PS2MEM_BASE ) {
@@ -440,6 +438,10 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 		MessageBox(NULL, str, "SysError", MB_OK);
 		return -1;
 	}
+
+	__try 
+	{
+
 #endif
 
 	gApp.hInstance = hInstance;
@@ -544,6 +546,12 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine
 	RunGui();
 
 #ifdef PCSX2_VIRTUAL_MEM
+
+	}
+	__except(SysPageFaultExceptionFilter(GetExceptionInformation()))
+	{
+	}
+
 	VirtualFree(PS2MEM_BASE, 0, MEM_RELEASE);
 #endif
 

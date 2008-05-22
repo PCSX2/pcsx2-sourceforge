@@ -1057,12 +1057,17 @@ void hwWrite32(u32 mem, u32 value) {
 #ifdef HW_LOG
 			HW_LOG("INTC_MASK Write 32bit %x\n", value);
 #endif
+/*
 			for (i=0; i<16; i++) { // reverse on 1
 				if (value & (1<<i)) {
 					if (psHu32(0xf010) & (1<<i)) psHu32(0xf010)&= ~(1<<i);
 					else psHu32(0xf010)|= 1<<i;
 				}
 			}
+*/
+			// omg, just xor it
+			psHu32(0xf010) ^= value;
+
 			if ((cpuRegs.CP0.n.Status.val & 0x10407) == 0x10401)
                 cpuTestINTCInts();
 			break;

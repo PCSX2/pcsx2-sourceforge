@@ -1189,6 +1189,15 @@ void SSE4_EXTRACTPS_XMM_to_R32(x86IntRegType to, x86SSERegType from, u8 imm8)
 	write8(imm8);
 }
 
+void SSE4_BLENDPS_XMM_to_XMM(x86IntRegType to, x86SSERegType from, u8 imm8)
+{
+	write8(0x66);
+    RexRB(0, to, from);
+	write24(0x0C3A0F);
+	ModRM(3, to, from);
+	write8(imm8);
+}
+
 // SSE-X
 void SSEX_MOVDQA_M128_to_XMM( x86SSERegType to, uptr from )
 {

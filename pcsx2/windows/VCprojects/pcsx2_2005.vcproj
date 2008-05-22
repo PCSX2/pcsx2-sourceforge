@@ -5,6 +5,7 @@
 	Name="pcsx2"
 	ProjectGUID="{1CEFD830-2B76-4596-A4EE-BCD7280A60BD}"
 	RootNamespace="pcsx2"
+	TargetFrameworkVersion="131072"
 	>
 	<Platforms>
 		<Platform
@@ -19,13 +20,12 @@
 	<Configurations>
 		<Configuration
 			Name="Release|Win32"
-			OutputDirectory=".\Release"
-			IntermediateDirectory=".\Release"
 			ConfigurationType="1"
-			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
+			InheritedPropertySheets=".\vsprops\common.vsprops;.\vsprops\release.vsprops;.\vsprops\virtualmem.vsprops;.\vsprops\devbuild.vsprops"
 			UseOfMFC="0"
 			ATLMinimizesCRunTimeLibraryUsage="false"
 			CharacterSet="2"
+			WholeProgramOptimization="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -52,52 +52,19 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				Optimization="2"
-				InlineFunctionExpansion="2"
-				EnableIntrinsicFunctions="true"
-				FavorSizeOrSpeed="1"
-				OmitFramePointers="true"
-				EnableFiberSafeOptimizations="true"
-				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../x86/ix86-32&quot;;../libs"
-				PreprocessorDefinitions="NDEBUG,WIN32,_WINDOWS,__MSCW32__,__WIN32__,__i386__,ENABLE_NLS,PACKAGE=\&quot;pcsx2\&quot;;PCSX2_VIRTUAL_MEM;PCSX2_DEVBUILD;_CRT_SECURE_NO_DEPRECATE;TIXML_USE_STL"
-				StringPooling="true"
-				MinimalRebuild="false"
-				ExceptionHandling="1"
-				RuntimeLibrary="0"
-				StructMemberAlignment="5"
-				BufferSecurityCheck="false"
-				EnableFunctionLevelLinking="false"
-				EnableEnhancedInstructionSet="0"
-				PrecompiledHeaderFile=".\Release/pcsx2.pch"
-				AssemblerListingLocation=".\Release/"
-				ObjectFile=".\Release/"
-				ProgramDataBaseFileName=".\Release/"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
-				CompileAs="0"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="NDEBUG"
-				Culture="1032"
 			/>
 			<Tool
 				Name="VCPreLinkEventTool"
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/MACHINE:I386"
-				AdditionalDependencies="odbc32.lib odbccp32.lib comctl32.lib ../libs/gnu_gettext.lib ws2_32.lib winmm.lib ../libs/pthreadVC2.lib"
 				OutputFile="..\..\..\bin\pcsx2.exe"
-				LinkIncremental="1"
-				SuppressStartupBanner="true"
-				AdditionalLibraryDirectories="..\;..\libs"
-				ProgramDatabaseFile=".\Release/pcsx2.pdb"
-				SubSystem="2"
-				TargetMachine="1"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -116,9 +83,6 @@
 			/>
 			<Tool
 				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCWebDeploymentTool"
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
@@ -127,10 +91,8 @@
 		</Configuration>
 		<Configuration
 			Name="Debug|Win32"
-			OutputDirectory=".\Debug"
-			IntermediateDirectory=".\Debug"
 			ConfigurationType="1"
-			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
+			InheritedPropertySheets=".\vsprops\common.vsprops;.\vsprops\debug.vsprops;.\vsprops\virtualmem.vsprops;.\vsprops\devbuild.vsprops"
 			UseOfMFC="0"
 			ATLMinimizesCRunTimeLibraryUsage="false"
 			CharacterSet="2"
@@ -160,30 +122,12 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				Optimization="0"
-				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../x86/ix86-32&quot;;../libs"
-				PreprocessorDefinitions="_DEBUG,WIN32,_WINDOWS,__MSCW32__,__WIN32__,__i386__,ENABLE_NLS,PACKAGE=\&quot;pcsx2\&quot;;PCSX2_VIRTUAL_MEM;PCSX2_DEVBUILD;_CRT_SECURE_NO_DEPRECATE;TIXML_USE_STL"
-				BasicRuntimeChecks="3"
-				RuntimeLibrary="1"
-				StructMemberAlignment="5"
-				EnableEnhancedInstructionSet="0"
-				RuntimeTypeInfo="true"
-				PrecompiledHeaderFile=".\Debug/pcsx2.pch"
-				AssemblerListingLocation=".\Debug/"
-				ObjectFile=".\Debug/"
-				ProgramDataBaseFileName=".\Debug/"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
-				DebugInformationFormat="3"
-				CompileAs="0"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="_DEBUG"
-				Culture="1032"
 			/>
 			<Tool
 				Name="VCPreLinkEventTool"
@@ -191,14 +135,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalOptions="/MACHINE:I386"
-				AdditionalDependencies="odbc32.lib odbccp32.lib comctl32.lib ../libs/gnu_gettext.lib ws2_32.lib winmm.lib ../libs/pthreadVC2.lib"
-				OutputFile="..\..\..\bin\pcsx2d.exe"
-				LinkIncremental="1"
-				SuppressStartupBanner="true"
-				AdditionalLibraryDirectories="..\;..\libs"
-				GenerateDebugInformation="true"
-				ProgramDatabaseFile="..\..\..\bin\pcsx2d.pdb"
-				SubSystem="2"
+				OutputFile="D:\Files\ps2\pcsx2SSE2-0.8.1\PCSX2094\pcsx2d.exe"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -217,9 +154,6 @@
 			/>
 			<Tool
 				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCWebDeploymentTool"
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
@@ -228,10 +162,8 @@
 		</Configuration>
 		<Configuration
 			Name="Debug TLB|Win32"
-			OutputDirectory="$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="1"
-			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
+			InheritedPropertySheets=".\vsprops\common.vsprops;.\vsprops\debug.vsprops;.\vsprops\devbuild.vsprops"
 			UseOfMFC="0"
 			ATLMinimizesCRunTimeLibraryUsage="false"
 			CharacterSet="2"
@@ -261,30 +193,12 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				Optimization="0"
-				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../x86/ix86-32&quot;;../libs"
-				PreprocessorDefinitions="_DEBUG,WIN32,_WINDOWS,__MSCW32__,__WIN32__,__i386__,ENABLE_NLS,PACKAGE=\&quot;pcsx2\&quot;;PCSX2_DEVBUILD;_CRT_SECURE_NO_DEPRECATE;TIXML_USE_STL"
-				BasicRuntimeChecks="3"
-				RuntimeLibrary="1"
-				StructMemberAlignment="5"
-				EnableEnhancedInstructionSet="0"
-				RuntimeTypeInfo="true"
-				PrecompiledHeaderFile=".\Debug TLB/pcsx2.pch"
-				AssemblerListingLocation=".\Debug TLB/"
-				ObjectFile=".\Debug TLB/"
-				ProgramDataBaseFileName=".\Debug TLB/"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
-				DebugInformationFormat="3"
-				CompileAs="0"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="_DEBUG"
-				Culture="1032"
 			/>
 			<Tool
 				Name="VCPreLinkEventTool"
@@ -292,14 +206,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalOptions="/MACHINE:I386"
-				AdditionalDependencies="odbc32.lib odbccp32.lib comctl32.lib ../libs/gnu_gettext.lib ws2_32.lib winmm.lib ../libs/pthreadVC2.lib"
-				OutputFile="..\..\..\bin\pcsx2td.exe"
-				LinkIncremental="1"
-				SuppressStartupBanner="true"
-				AdditionalLibraryDirectories="..\;..\libs"
-				GenerateDebugInformation="true"
-				ProgramDatabaseFile="..\..\..\bin\pcsx2td.pdb"
-				SubSystem="2"
+				OutputFile="D:\Files\ps2\pcsx2SSE2-0.8.1\PCSX2094\pcsx2td.exe"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -318,9 +225,6 @@
 			/>
 			<Tool
 				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCWebDeploymentTool"
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
@@ -329,13 +233,12 @@
 		</Configuration>
 		<Configuration
 			Name="Release TLB|Win32"
-			OutputDirectory="$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="1"
-			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
+			InheritedPropertySheets=".\vsprops\common.vsprops;.\vsprops\release.vsprops;.\vsprops\devbuild.vsprops"
 			UseOfMFC="0"
 			ATLMinimizesCRunTimeLibraryUsage="false"
 			CharacterSet="2"
+			WholeProgramOptimization="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -362,52 +265,19 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalOptions="/Ob0"
-				Optimization="2"
-				InlineFunctionExpansion="0"
-				EnableIntrinsicFunctions="true"
-				FavorSizeOrSpeed="1"
-				OmitFramePointers="true"
-				EnableFiberSafeOptimizations="true"
-				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../x86/ix86-32&quot;;../libs"
-				PreprocessorDefinitions="NDEBUG,WIN32,_WINDOWS,__MSCW32__,__WIN32__,__i386__,ENABLE_NLS,PACKAGE=\&quot;pcsx2\&quot;;PCSX2_DEVBUILD;_CRT_SECURE_NO_DEPRECATE;TIXML_USE_STL"
-				StringPooling="true"
-				ExceptionHandling="1"
-				RuntimeLibrary="0"
-				StructMemberAlignment="5"
-				BufferSecurityCheck="false"
-				EnableFunctionLevelLinking="false"
-				EnableEnhancedInstructionSet="0"
-				PrecompiledHeaderFile=".\ReleaseTLB/pcsx2.pch"
-				AssemblerListingLocation=".\ReleaseTLB/"
-				ObjectFile=".\ReleaseTLB/"
-				ProgramDataBaseFileName=".\ReleaseTLB/"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
-				CompileAs="0"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="NDEBUG"
-				Culture="1032"
 			/>
 			<Tool
 				Name="VCPreLinkEventTool"
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/MACHINE:I386"
-				AdditionalDependencies="odbc32.lib odbccp32.lib comctl32.lib ../libs/gnu_gettext.lib ws2_32.lib winmm.lib ../libs/pthreadVC2.lib"
 				OutputFile="..\..\..\bin\pcsx2t.exe"
-				LinkIncremental="1"
-				SuppressStartupBanner="true"
-				AdditionalLibraryDirectories="..\;..\libs"
-				ProgramDatabaseFile=".\ReleaseTLB/pcsx2.pdb"
-				SubSystem="2"
-				TargetMachine="1"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -426,9 +296,6 @@
 			/>
 			<Tool
 				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCWebDeploymentTool"
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
@@ -437,13 +304,12 @@
 		</Configuration>
 		<Configuration
 			Name="Release (to Public)|Win32"
-			OutputDirectory="$(ConfigurationName)"
-			IntermediateDirectory="$(ConfigurationName)"
 			ConfigurationType="1"
-			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
+			InheritedPropertySheets=".\vsprops\common.vsprops;.\vsprops\release.vsprops;.\vsprops\virtualmem.vsprops"
 			UseOfMFC="0"
 			ATLMinimizesCRunTimeLibraryUsage="false"
 			CharacterSet="2"
+			WholeProgramOptimization="1"
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
@@ -470,55 +336,19 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalOptions="/Ob0"
-				Optimization="2"
-				InlineFunctionExpansion="0"
-				EnableIntrinsicFunctions="true"
-				FavorSizeOrSpeed="1"
-				OmitFramePointers="true"
-				EnableFiberSafeOptimizations="true"
-				WholeProgramOptimization="false"
-				AdditionalIncludeDirectories="./;../../;../../IPU;../../ZLIB;../../DebugTools;../../x86;&quot;../../x86/ix86-32&quot;;../libs"
-				PreprocessorDefinitions="NDEBUG,WIN32,_WINDOWS,__MSCW32__,__WIN32__,__i386__,ENABLE_NLS,PACKAGE=\&quot;pcsx2\&quot;,PCSX2_VIRTUAL_MEM,_CRT_SECURE_NO_DEPRECATE,TIXML_USE_STL"
-				StringPooling="true"
-				MinimalRebuild="false"
-				ExceptionHandling="1"
-				RuntimeLibrary="0"
-				StructMemberAlignment="5"
-				BufferSecurityCheck="false"
-				EnableFunctionLevelLinking="false"
-				EnableEnhancedInstructionSet="0"
-				PrecompiledHeaderFile=".\$(ConfigurationName)/pcsx2.pch"
-				AssemblerListingLocation=".\$(ConfigurationName)/"
-				ObjectFile=".\$(ConfigurationName)/"
-				ProgramDataBaseFileName=".\$(ConfigurationName)/"
-				WarningLevel="3"
-				SuppressStartupBanner="true"
-				CompileAs="0"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
 			/>
 			<Tool
 				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="NDEBUG"
-				Culture="1032"
 			/>
 			<Tool
 				Name="VCPreLinkEventTool"
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalOptions="/MACHINE:I386"
-				AdditionalDependencies="odbc32.lib odbccp32.lib comctl32.lib ../libs/gnu_gettext.lib ws2_32.lib winmm.lib ../libs/pthreadVC2.lib"
 				OutputFile="..\..\..\bin\pcsx2r.exe"
-				LinkIncremental="1"
-				SuppressStartupBanner="true"
-				AdditionalLibraryDirectories="..\;..\libs"
-				ProgramDatabaseFile=".\$(ConfigurationName)/pcsx2.pdb"
-				SubSystem="2"
-				LinkTimeCodeGeneration="0"
-				TargetMachine="1"
 			/>
 			<Tool
 				Name="VCALinkTool"
@@ -537,9 +367,6 @@
 			/>
 			<Tool
 				Name="VCAppVerifierTool"
-			/>
-			<Tool
-				Name="VCWebDeploymentTool"
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
@@ -578,7 +405,7 @@
 				>
 			</File>
 			<File
-				RelativePath="..\McdsDlg.cpp"
+				RelativePath="..\McdsDlg.c"
 				>
 			</File>
 			<File
@@ -668,46 +495,6 @@
 			<File
 				RelativePath="..\..\Vif.c"
 				>
-				<FileConfiguration
-					Name="Release|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						AssemblerOutput="4"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						AssemblerOutput="4"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Debug TLB|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						AssemblerOutput="4"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release TLB|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						AssemblerOutput="4"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release (to Public)|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						AssemblerOutput="4"
-					/>
-				</FileConfiguration>
 			</File>
 			<File
 				RelativePath="..\..\Vif.h"
@@ -957,8 +744,6 @@
 					>
 					<Tool
 						Name="VCCLCompilerTool"
-						OmitFramePointers="false"
-						EnableFiberSafeOptimizations="false"
 						RuntimeLibrary="0"
 					/>
 				</FileConfiguration>
@@ -967,8 +752,6 @@
 					>
 					<Tool
 						Name="VCCLCompilerTool"
-						OmitFramePointers="false"
-						EnableFiberSafeOptimizations="false"
 						RuntimeLibrary="0"
 					/>
 				</FileConfiguration>
@@ -1171,90 +954,10 @@
 				<File
 					RelativePath="..\..\Ipu\mpeg2lib\Idct.c"
 					>
-					<FileConfiguration
-						Name="Release|Win32"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							ObjectFile="$(IntDir)/$(InputName)1.obj"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug|Win32"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							ObjectFile="$(IntDir)/$(InputName)1.obj"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug TLB|Win32"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							ObjectFile="$(IntDir)/$(InputName)1.obj"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release TLB|Win32"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							ObjectFile="$(IntDir)/$(InputName)1.obj"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release (to Public)|Win32"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							ObjectFile="$(IntDir)/$(InputName)1.obj"
-						/>
-					</FileConfiguration>
 				</File>
 				<File
 					RelativePath="..\..\Ipu\mpeg2lib\Mpeg.c"
 					>
-					<FileConfiguration
-						Name="Release|Win32"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							ObjectFile="$(IntDir)/$(InputName)1.obj"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug|Win32"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							ObjectFile="$(IntDir)/$(InputName)1.obj"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Debug TLB|Win32"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							ObjectFile="$(IntDir)/$(InputName)1.obj"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release TLB|Win32"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							ObjectFile="$(IntDir)/$(InputName)1.obj"
-						/>
-					</FileConfiguration>
-					<FileConfiguration
-						Name="Release (to Public)|Win32"
-						>
-						<Tool
-							Name="VCCLCompilerTool"
-							ObjectFile="$(IntDir)/$(InputName)1.obj"
-						/>
-					</FileConfiguration>
 				</File>
 				<File
 					RelativePath="..\..\Ipu\mpeg2lib\Mpeg.h"
@@ -1274,7 +977,11 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\Docs\readme 0.9.4.txt"
+				RelativePath="..\..\Docs\Readme.txt"
+				>
+			</File>
+			<File
+				RelativePath="..\..\Docs\ToDo.txt"
 				>
 			</File>
 		</Filter>
@@ -1691,6 +1398,10 @@
 			>
 		</File>
 		<File
+			RelativePath="..\ps2_silver.jpg"
+			>
+		</File>
+		<File
 			RelativePath="..\..\Stats.c"
 			>
 		</File>
@@ -1700,5 +1411,9 @@
 		</File>
 	</Files>
 	<Globals>
+		<Global
+			Name="RESOURCE_FILE"
+			Value="\Files\ps2\publicsvn\pcsx2\windows\pcsx2.rc"
+		/>
 	</Globals>
 </VisualStudioProject>

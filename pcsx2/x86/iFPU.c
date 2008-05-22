@@ -842,6 +842,7 @@ int recNonCommutativeOp(int info, int regd, int op)
 				SSE_MOVSS_M32_to_XMM(t0reg, (uptr)&fpuRegs.fpr[_Fs_]);
 				recNonComOpXMM_to_XMM[op](t0reg, EEREC_T);
 				SSE_MOVSS_XMM_to_XMM(regd, t0reg);
+				_freeXMMreg(t0reg);
 			}
 			else {
 				SSE_MOVSS_M32_to_XMM(regd, (uptr)&fpuRegs.fpr[_Fs_]);
@@ -855,6 +856,7 @@ int recNonCommutativeOp(int info, int regd, int op)
 				SSE_MOVSS_XMM_to_XMM(t0reg, EEREC_S);
 				recNonComOpXMM_to_XMM[op](t0reg, EEREC_T);
 				SSE_MOVSS_XMM_to_XMM(regd, t0reg);
+				_freeXMMreg(t0reg);
 			}
 			else if (regd == EEREC_S) {
 				recNonComOpXMM_to_XMM[op](regd, EEREC_T);				
