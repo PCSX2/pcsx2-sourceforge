@@ -795,8 +795,18 @@ int recCommutativeOp(int info, int regd, int op) {
 				recComOpM32_to_XMM[op](regd, (uptr)&fpuRegs.fpr[_Fs_]);
 			}
 			break;
+		case (PROCESS_EE_S|PROCESS_EE_T):
+		//	SysPrintf("Hello2 :)\n");
+			if (regd == EEREC_S) recComOpXMM_to_XMM[op](regd, EEREC_T);
+			else if (regd == EEREC_T) recComOpXMM_to_XMM[op](regd, EEREC_S);
+			else {
+				SSE_MOVSS_XMM_to_XMM(regd, EEREC_S);
+				recComOpXMM_to_XMM[op](regd, EEREC_T);
+			}
+			break;
 		default:
-			if (regd == EEREC_S) {
+			SysPrintf("But we dont have regs2 :(\n");
+			/*if (regd == EEREC_S) {
 				recComOpXMM_to_XMM[op](regd, EEREC_T);
 			}
 			else if (regd == EEREC_T) {
@@ -805,7 +815,9 @@ int recCommutativeOp(int info, int regd, int op) {
 			else {
 				SSE_MOVSS_XMM_to_XMM(regd, EEREC_S);
 				recComOpXMM_to_XMM[op](regd, EEREC_T);
-			}
+			}*/
+			SSE_MOVSS_M32_to_XMM(regd, (uptr)&fpuRegs.fpr[_Fs_]);
+			recComOpM32_to_XMM[op](regd, (uptr)&fpuRegs.fpr[_Ft_]);
 			break;
 	}
 	return regd;
@@ -829,19 +841,33 @@ int recNonCommutativeOp(int info, int regd, int op)
 				int t0reg = _allocTempXMMreg(XMMT_FPS, -1);
 				SSE_MOVSS_M32_to_XMM(t0reg, (uptr)&fpuRegs.fpr[_Fs_]);
 				recNonComOpXMM_to_XMM[op](t0reg, EEREC_T);
-
-				// swap regs
-				xmmregs[t0reg] = xmmregs[regd];
-				xmmregs[regd].inuse = 0;
-				return t0reg;
+				SSE_MOVSS_XMM_to_XMM(regd, t0reg);
 			}
 			else {
 				SSE_MOVSS_M32_to_XMM(regd, (uptr)&fpuRegs.fpr[_Fs_]);
 				recNonComOpXMM_to_XMM[op](regd, EEREC_T);
 			}
 			break;
+		case (PROCESS_EE_S|PROCESS_EE_T):
+			//SysPrintf("Hello1 :)\n");
+			if (regd == EEREC_T) {
+				int t0reg = _allocTempXMMreg(XMMT_FPS, -1);
+				SSE_MOVSS_XMM_to_XMM(t0reg, EEREC_S);
+				recNonComOpXMM_to_XMM[op](t0reg, EEREC_T);
+				SSE_MOVSS_XMM_to_XMM(regd, t0reg);
+			}
+			else if (regd == EEREC_S) {
+				recNonComOpXMM_to_XMM[op](regd, EEREC_T);				
+			}
+			else 
+			{
+				SSE_MOVSS_XMM_to_XMM(regd, EEREC_S);
+				recNonComOpXMM_to_XMM[op](regd, EEREC_T);
+			}
+			break;
 		default:
-			if (regd == EEREC_S) {
+			SysPrintf("But we dont have regs1 :(\n");
+			/*if (regd == EEREC_S) {
 				recNonComOpXMM_to_XMM[op](regd, EEREC_T);
 			} else
 			if (regd == EEREC_T) {
@@ -857,7 +883,9 @@ int recNonCommutativeOp(int info, int regd, int op)
 			else {
 				SSE_MOVSS_XMM_to_XMM(regd, EEREC_S);
 				recNonComOpXMM_to_XMM[op](regd, EEREC_T);
-			}
+			}*/
+			SSE_MOVSS_M32_to_XMM(regd, (uptr)&fpuRegs.fpr[_Fs_]);
+			recNonComOpM32_to_XMM[op](regd, (uptr)&fpuRegs.fpr[_Ft_]);
 			break;
 	}
 
@@ -933,15 +961,18 @@ FPURECOMPILE_CONSTCODE(SQRT_S, XMMINFO_WRITED|XMMINFO_READT);
 
 void recABS_S_xmm(int info)
 {	
+	SysPrintf("ABS\n");
 	if( info & PROCESS_EE_S ) {
 		if( EEREC_D != EEREC_S ) SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_S);
 		SSE_ANDPS_M128_to_XMM(EEREC_D, (uptr)&s_pos[0]);
 	}
 	else {
 		if( _Fs_ == _Fd_ ) {
-			AND32ItoM((uptr)&fpuRegs.fpr[_Fs_], 0x7fffffff);
+			SysPrintf("Bit i did :p\n");
+			//AND32ItoM((uptr)&fpuRegs.fpr[_Fs_], 0x7fffffff);
 			SSE_MOVSS_M32_to_XMM(EEREC_D, (uptr)&fpuRegs.fpr[_Fs_]);
-			xmmregs[EEREC_D].mode &= ~MODE_WRITE;
+			SSE_ANDPS_M128_to_XMM(EEREC_D, (uptr)&s_pos[0]);
+			//xmmregs[EEREC_D].mode &= ~MODE_WRITE;
 		}
 		else {
 			SSE_MOVSS_M32_to_XMM(EEREC_D, (uptr)&fpuRegs.fpr[_Fs_]);
