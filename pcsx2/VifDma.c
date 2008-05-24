@@ -203,9 +203,9 @@ __forceinline void vif0FLUSH() {
 	int _cycles;
 	_cycles = VU0.cycle;
 
-	FreezeXMMRegs(1);
+	//FreezeXMMRegs(1);
 	vu0Finish();
-	FreezeXMMRegs(0);
+	//FreezeXMMRegs(0);
 	g_vifCycles+= (VU0.cycle - _cycles)*BIAS;
 }
 
@@ -214,14 +214,14 @@ __forceinline void vif1FLUSH() {
 	_cycles = VU1.cycle;
 
 	if( VU0.VI[REG_VPU_STAT].UL & 0x100 ) {
-		FreezeXMMRegs(1);
+		//FreezeXMMRegs(1);
 		do {
 			Cpu->ExecuteVU1Block();
 		} while(VU0.VI[REG_VPU_STAT].UL & 0x100);
 
 //		FreezeXMMRegs(0);
 //		FreezeMMXRegs(0);
-		FreezeXMMRegs(0);
+		//FreezeXMMRegs(0);
 		g_vifCycles+= (VU1.cycle - _cycles)*BIAS;
 	}
 }
@@ -811,7 +811,7 @@ static void vuExecMicro( u32 addr, const u32 VIFdmanum )
 			VU->vifRegs->stat |= 0x80;
 		}
 	}
-	FreezeXMMRegs(1);
+	//FreezeXMMRegs(1);
 	if (VIFdmanum == 0) {
 		_cycles = VU0.cycle;
 		vu0ExecMicro(addr);
@@ -823,7 +823,7 @@ static void vuExecMicro( u32 addr, const u32 VIFdmanum )
 		// too much delay
 		//g_vifCycles+= (VU1.cycle - _cycles)*BIAS;
 	}
-	FreezeXMMRegs(0);
+	//FreezeXMMRegs(0);
 }
 
 u8 s_maskwrite[256];

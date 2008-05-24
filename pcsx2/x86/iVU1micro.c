@@ -156,6 +156,11 @@ void recExecuteVU1Block(void)
 	}
 #endif
 
+	if((VU0.VI[REG_VPU_STAT].UL & 0x100) == 0){
+		//SysPrintf("Execute block VU1, VU1 not busy\n");
+		return;
+	}
+	
 	if (CHECK_VU1REC)
 	{
 		if (VU1.VI[REG_TPC].UL >= VU1.maxmicro) { 
@@ -177,11 +182,13 @@ void recExecuteVU1Block(void)
 //		iDumpVU1Registers();
 //		vudump |= 8;
 
+		FreezeXMMRegs(1);
 		// while loop needed since not always will return finished
 		do {
 			SuperVUExecuteProgram(VU1.VI[ REG_TPC ].UL, 1);
 		}
 		while( VU0.VI[ REG_VPU_STAT ].UL&0x100 );
+		FreezeXMMRegs(0);
 
 //		__Log("eVU: %x\n", VU1.VI[ REG_TPC ].UL);
 //		iDumpVU1Registers();

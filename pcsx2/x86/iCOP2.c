@@ -249,26 +249,26 @@ static void recCTC2()
                         _checkX86reg(X86TYPE_VI, REG_TPC, 0) < 0 );
 
 				// ignore if VU1 is operating
-				TEST32ItoM((uptr)&VU0.VI[REG_VPU_STAT].UL, 0x100);
+				/*TEST32ItoM((uptr)&VU0.VI[REG_VPU_STAT].UL, 0x100);
 				j8Ptr[0] = JNZ8(0);
 
-				MOV32ItoM((uptr)&VU1.VI[REG_TPC].UL, g_cpuConstRegs[_Rt_].UL[0]&0xffff);
+				MOV32ItoM((uptr)&VU1.VI[REG_TPC].UL, g_cpuConstRegs[_Rt_].UL[0]&0xffff);*/
                 // Execute VU1 Micro SubRoutine
 #ifdef __x86_64__
                 _callFunctionArg1((uptr)FreezeXMMRegs_, MEM_CONSTTAG, 1);
 #else
-				PUSH32I(1);
-                CALLFunc((uptr)FreezeXMMRegs_);
+				/*PUSH32I(1);
+                CALLFunc((uptr)FreezeXMMRegs_);*/
 #endif
 				_callFunctionArg1((uptr)vu1ExecMicro, MEM_CONSTTAG, g_cpuConstRegs[_Rt_].UL[0]&0xffff);
 #ifdef __x86_64__
                 _callFunctionArg1((uptr)FreezeXMMRegs_, MEM_CONSTTAG, 0);
 #else
-				PUSH32I(0);
-                CALLFunc((uptr)FreezeXMMRegs_);
-                ADD32ItoR(ESP, 4);
+				/*PUSH32I(0);
+                CALLFunc((uptr)FreezeXMMRegs_);*/
+                //ADD32ItoR(ESP, 4);
 #endif
-				x86SetJ8( j8Ptr[0] );
+				//x86SetJ8( j8Ptr[0] );
 				break;
 			default:
                 if( _Fs_ < 16 )
@@ -285,8 +285,8 @@ static void recCTC2()
                 // a lot of games have vu0 spinning on some integer
                 // then they modify the register and expect vu0 to stop spinning within 10 cycles (donald duck)
                 iFlushCall(IS_X8664?(FLUSH_FREE_TEMPX86|FLUSH_FREE_VU0):FLUSH_NOCONST);
-                TEST32ItoM((uptr)&VU0.VI[REG_VPU_STAT].UL, 1);
-                j8Ptr[0] = JZ8(0);
+               /* TEST32ItoM((uptr)&VU0.VI[REG_VPU_STAT].UL, 1);
+                j8Ptr[0] = JZ8(0);*/
 
 #ifdef __x86_64__
                 _callFunctionArg1((uptr)FreezeXMMRegs_, MEM_CONSTTAG, 1);
@@ -302,9 +302,9 @@ static void recCTC2()
 #else
 				/*PUSH32I(0);
                 CALLFunc((uptr)FreezeXMMRegs_);*/
-                ADD32ItoR(ESP, 4);
+                //ADD32ItoR(ESP, 4);
 #endif
-                x86SetJ8(j8Ptr[0]);
+                //x86SetJ8(j8Ptr[0]);
 				break;
 		}
 	}
@@ -340,15 +340,15 @@ static void recCTC2()
 				iFlushCall(IS_X8664?FLUSH_FREE_TEMPX86:FLUSH_NOCONST); // since CALLFunc
 
 				// ignore if VU1 is operating
-				TEST32ItoM((uptr)&VU0.VI[REG_VPU_STAT].UL, 0x100);
-				j8Ptr[0] = JNZ8(0);
+				/*TEST32ItoM((uptr)&VU0.VI[REG_VPU_STAT].UL, 0x100);
+				j8Ptr[0] = JNZ8(0);*/
 
 				_eeMoveGPRtoR(EAX, _Rt_);
-				MOV16RtoM((uptr)&VU1.VI[REG_TPC].UL,EAX);
-				FreezeXMMRegs(1);
+				//MOV16RtoM((uptr)&VU1.VI[REG_TPC].UL,EAX);
+				/*FreezeXMMRegs(1);*/
 				_callFunctionArg1((uptr)vu1ExecMicro, MEM_X86TAG|EAX, 0);	// Execute VU1 Micro SubRoutine
-				FreezeXMMRegs(0);
-				x86SetJ8( j8Ptr[0] );
+				/*FreezeXMMRegs(0);*/
+				//x86SetJ8( j8Ptr[0] );
 				break;
 			default:
 #ifdef __x86_64__
@@ -362,23 +362,23 @@ static void recCTC2()
                 // a lot of games have vu0 spinning on some integer
                 // then they modify the register and expect vu0 to stop spinning within 10 cycles (donald duck)
                 iFlushCall(IS_X8664?(FLUSH_FREE_VU0|FLUSH_FREE_TEMPX86):FLUSH_NOCONST);
-                TEST32ItoM((uptr)&VU0.VI[REG_VPU_STAT].UL, 1);
-                j8Ptr[0] = JZ8(0);
+                /*TEST32ItoM((uptr)&VU0.VI[REG_VPU_STAT].UL, 1);
+                j8Ptr[0] = JZ8(0);*/
 #ifdef __x86_64__
                 _callFunctionArg1((uptr)FreezeXMMRegs_, MEM_CONSTTAG, 1);
 #else
-				PUSH32I(1);
-                CALLFunc((uptr)FreezeXMMRegs_);
+				/*PUSH32I(1);
+                CALLFunc((uptr)FreezeXMMRegs_);*/
 #endif
-                CALLFunc((uptr)Cpu->ExecuteVU0Block);
+               // CALLFunc((uptr)Cpu->ExecuteVU0Block);
 #ifdef __x86_64__
                 _callFunctionArg1((uptr)FreezeXMMRegs_, MEM_CONSTTAG, 0);
 #else
-				PUSH32I(0);
-                CALLFunc((uptr)FreezeXMMRegs_);
-                ADD32ItoR(ESP, 4);
+				/*PUSH32I(0);
+                CALLFunc((uptr)FreezeXMMRegs_);*/
+                //ADD32ItoR(ESP, 4);
 #endif
-                x86SetJ8(j8Ptr[0]);
+              //  x86SetJ8(j8Ptr[0]);
 				break;
 		}
 	}

@@ -488,10 +488,16 @@ void recDIV_S_(int info)
 
 void recSQRT_S_(int info)
 {
-    SetFPUstate();
+    static u32 tmp;
+
+	SysPrintf("SQRT\n");
+	SetFPUstate();
 	SaveCW(1);
 
-	FLD32( (uptr)&fpuRegs.fpr[ _Ft_ ].f );
+	MOV32MtoR( EAX, (uptr)&fpuRegs.fpr[ _Ft_ ].f );
+	AND32ItoR( EAX, 0x7fffffff);
+	MOV32RtoM((uptr)&tmp, EAX);
+	FLD32( (uptr)&tmp );
 	FSQRT( );
 	FSTP32( (uptr)&fpuRegs.fpr[ _Fd_ ].f );
 }
@@ -520,10 +526,14 @@ void recRSQRT_S_(int info)
 {
 	static u32 tmp;
 
+	SysPrintf("RSQRT\n");
 	SetFPUstate();
 	SaveCW(1);
 
-	FLD32( (uptr)&fpuRegs.fpr[ _Ft_ ].f );
+	MOV32MtoR( EAX, (uptr)&fpuRegs.fpr[ _Ft_ ].f );
+	AND32ItoR( EAX, 0x7fffffff);
+	MOV32RtoM((uptr)&tmp, EAX);
+	FLD32( (uptr)&tmp );
 	FSQRT( );
 	FSTP32( (uptr)&tmp );
 
@@ -739,6 +749,7 @@ FPURECOMPILE_CONSTCODE(C_LE, XMMINFO_READS|XMMINFO_READT);
 	// Doesnt seem to like negatives - Ruins katamari graphics
 	// I REPEAT THE SIGN BIT (THATS 0x80000000) MUST *NOT* BE SET, jeez.
 static PCSX2_ALIGNED16(u32 s_overflowmask[]) = {0x7f7fffff, 0x7f7fffff, 0x7f7fffff, 0x7f7fffff};
+static u32 s_signbit = 0x80000000;
 extern int g_VuNanHandling;
 
 void ClampValues(regd){ 
@@ -963,23 +974,15 @@ FPURECOMPILE_CONSTCODE(SQRT_S, XMMINFO_WRITED|XMMINFO_READT);
 
 void recABS_S_xmm(int info)
 {	
-	SysPrintf("ABS\n");
+
 	if( info & PROCESS_EE_S ) {
 		if( EEREC_D != EEREC_S ) SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_S);
 		SSE_ANDPS_M128_to_XMM(EEREC_D, (uptr)&s_pos[0]);
 	}
 	else {
-		if( _Fs_ == _Fd_ ) {
-			SysPrintf("Bit i did :p\n");
-			//AND32ItoM((uptr)&fpuRegs.fpr[_Fs_], 0x7fffffff);
 			SSE_MOVSS_M32_to_XMM(EEREC_D, (uptr)&fpuRegs.fpr[_Fs_]);
 			SSE_ANDPS_M128_to_XMM(EEREC_D, (uptr)&s_pos[0]);
 			//xmmregs[EEREC_D].mode &= ~MODE_WRITE;
-		}
-		else {
-			SSE_MOVSS_M32_to_XMM(EEREC_D, (uptr)&fpuRegs.fpr[_Fs_]);
-			SSE_ANDPS_M128_to_XMM(EEREC_D, (uptr)&s_pos[0]);
-		}
 	}
 	ClampValues(EEREC_D);
 }
@@ -1018,12 +1021,10 @@ void recRSQRT_S_xmm(int info)
 	switch(info & (PROCESS_EE_S|PROCESS_EE_T) ) {
 		case PROCESS_EE_S:
 			if( EEREC_D == EEREC_S ) {
-				SysPrintf("RSQRT1\n");
 				SSE_SQRTSS_M32_to_XMM(t0reg, (uptr)&fpuRegs.fpr[_Ft_]);
 				SSE_DIVSS_XMM_to_XMM(EEREC_D, t0reg);
 			}
 			else {
-				SysPrintf("RSQRT2\n");
 				SSE_SQRTSS_M32_to_XMM(t0reg, (uptr)&fpuRegs.fpr[_Ft_]);
 				SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_S);				
 				SSE_DIVSS_XMM_to_XMM(EEREC_D, t0reg);
@@ -1031,25 +1032,13 @@ void recRSQRT_S_xmm(int info)
 
 			break;
 		case PROCESS_EE_T:			
-			SysPrintf("RSQRT3\n");
-			if(EEREC_D == EEREC_T) {
 				SSE_SQRTSS_XMM_to_XMM(t0reg, EEREC_T);
 				SSE_MOVSS_M32_to_XMM(EEREC_D, (uptr)&fpuRegs.fpr[_Fs_]);
-			}else
-			if(EEREC_D == EEREC_S) {
-				SSE_SQRTSS_XMM_to_XMM(t0reg, EEREC_T);
-			} 
-			else {
-				SysPrintf("RSQ3 Whoops\n");
-				SSE_SQRTSS_XMM_to_XMM(t0reg, EEREC_T);
-				SSE_MOVSS_M32_to_XMM(EEREC_D, (uptr)&fpuRegs.fpr[_Fs_]);
-			}
 						
 			SSE_DIVSS_XMM_to_XMM(EEREC_D, t0reg);
 			break;
 		default:
 			if( (info & PROCESS_EE_T) && (info & PROCESS_EE_S) ) {
-				//SysPrintf("RSQRT5\n");
 				if( EEREC_D == EEREC_T ){
 					SSE_SQRTSS_XMM_to_XMM(t0reg, EEREC_T);
 					SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_S);						
@@ -1063,26 +1052,7 @@ void recRSQRT_S_xmm(int info)
 				SSE_MOVSS_XMM_to_XMM(EEREC_D, EEREC_S);
 				SSE_DIVSS_XMM_to_XMM(EEREC_D, t0reg);				
 				}
-			}else
-			if( EEREC_D == EEREC_S ) {
-				/*if( g_pCurInstInfo->regs[_Ft_]&EEINST_LASTUSE ) {
-					_freeXMMreg(EEREC_T);
-					t0reg = EEREC_T;
-					SSE_SQRTSS_XMM_to_XMM(t0reg, EEREC_T);
-				}
-				else {*/
-				//SSE_MOVSS_XMM_to_XMM(t0reg, EEREC_D);
-				SSE_SQRTSS_M32_to_XMM(t0reg, (uptr)&fpuRegs.fpr[_Ft_]);
-					
-					
-				//}
-
-				SysPrintf("RSQRT4\n");
-				
-				SSE_DIVSS_XMM_to_XMM(EEREC_D, t0reg);
-			}
-			else {
-				SysPrintf("RSQRT6\n");
+			}else{
 				SSE_SQRTSS_M32_to_XMM(t0reg, (uptr)&fpuRegs.fpr[_Ft_]);
 				SSE_MOVSS_M32_to_XMM(EEREC_D, (uptr)&fpuRegs.fpr[_Fs_]);		
 				SSE_DIVSS_XMM_to_XMM(EEREC_D, t0reg);				
@@ -1119,94 +1089,86 @@ void recMADDtemp(int info, int regd)
 {
 	int vreg;
 	u32 mreg;	
+	int t0reg;
 
 	switch(info & (PROCESS_EE_S|PROCESS_EE_T) ) {
 		case PROCESS_EE_S:
-		case PROCESS_EE_T:
-			vreg = (info&PROCESS_EE_S)?EEREC_S:EEREC_T;
-			mreg = (info&PROCESS_EE_S)?(uptr)&fpuRegs.fpr[_Ft_]:(uptr)&fpuRegs.fpr[_Fs_];
-
-			if (regd == vreg) {
-				SSE_MULSS_M32_to_XMM(regd, mreg);
-				if( info & PROCESS_EE_ACC ) SSE_ADDSS_XMM_to_XMM(regd, EEREC_ACC);
+			if(regd == EEREC_S) {
+				SSE_MULSS_M32_to_XMM(regd, (uptr)&fpuRegs.fpr[_Ft_]);
+				if((info&PROCESS_EE_ACC))SSE_ADDSS_XMM_to_XMM(regd, EEREC_ACC);
+				else SSE_ADDSS_M32_to_XMM(regd, (uptr)&fpuRegs.ACC);
+			} else 
+			if(regd == EEREC_ACC){
+				t0reg = _allocTempXMMreg(XMMT_FPS, -1);
+				SSE_MOVSS_M32_to_XMM(t0reg, (uptr)&fpuRegs.fpr[_Ft_]);
+				SSE_MULSS_XMM_to_XMM(t0reg, EEREC_S);
+				SSE_ADDSS_XMM_to_XMM(regd, t0reg);
+				_freeXMMreg(t0reg);
+			} else {
+				SSE_MOVSS_M32_to_XMM(regd, (uptr)&fpuRegs.fpr[_Ft_]);
+				SSE_MULSS_XMM_to_XMM(regd, EEREC_S);
+				if((info&PROCESS_EE_ACC))SSE_ADDSS_XMM_to_XMM(regd, EEREC_ACC);
 				else SSE_ADDSS_M32_to_XMM(regd, (uptr)&fpuRegs.ACC);
 			}
-			else if( (info&PROCESS_EE_ACC) && regd == EEREC_ACC ) {
-				int t0reg;
-				if( g_pCurInstInfo->regs[(info&PROCESS_EE_S)?_Fs_:_Ft_] & EEINST_LASTUSE ) {
-					_freeXMMreg(vreg);
-					t0reg = vreg;
-					SSE_MULSS_M32_to_XMM(t0reg, mreg);
-				}
-				else {
-					t0reg = _allocTempXMMreg(XMMT_FPS, -1);
-					SSE_MOVSS_XMM_to_XMM(t0reg, vreg);
-					SSE_MULSS_M32_to_XMM(vreg, mreg);
-					
-					// swap regs for better timing
-					xmmregs[t0reg] = xmmregs[vreg];
-					xmmregs[vreg].inuse = 0;
-
-					t0reg = vreg;
-				}
-
+			break;
+		case PROCESS_EE_T:	
+			if(regd == EEREC_T) {
+				SSE_MULSS_M32_to_XMM(regd, (uptr)&fpuRegs.fpr[_Fs_]);
+				if((info&PROCESS_EE_ACC))SSE_ADDSS_XMM_to_XMM(regd, EEREC_ACC);
+			} else 
+			if(regd == EEREC_ACC){
+				t0reg = _allocTempXMMreg(XMMT_FPS, -1);
+				SSE_MOVSS_M32_to_XMM(t0reg, (uptr)&fpuRegs.fpr[_Fs_]);
+				SSE_MULSS_XMM_to_XMM(t0reg, EEREC_T);
 				SSE_ADDSS_XMM_to_XMM(regd, t0reg);
-			}
-			else {
-				SSE_MOVSS_M32_to_XMM(regd, mreg);
-				SSE_MULSS_XMM_to_XMM(regd, vreg);
-				if( info & PROCESS_EE_ACC ) SSE_ADDSS_XMM_to_XMM(regd, EEREC_ACC);
+				_freeXMMreg(t0reg);
+			} else {
+				SSE_MOVSS_M32_to_XMM(regd, (uptr)&fpuRegs.fpr[_Fs_]);
+				SSE_MULSS_XMM_to_XMM(regd, EEREC_T);
+				if((info&PROCESS_EE_ACC))SSE_ADDSS_XMM_to_XMM(regd, EEREC_ACC);
 				else SSE_ADDSS_M32_to_XMM(regd, (uptr)&fpuRegs.ACC);
 			}
 			break;
 		default:
-			if (regd == EEREC_S) {
-				SSE_MULSS_XMM_to_XMM(regd, EEREC_T);
-				if( info & PROCESS_EE_ACC ) {
-					assert( regd != EEREC_ACC );
-					SSE_ADDSS_XMM_to_XMM(regd, EEREC_ACC);
-				}
-				else SSE_ADDSS_M32_to_XMM(regd, (uptr)&fpuRegs.ACC);
-			}
-			else if (regd == EEREC_T) {
-				SSE_MULSS_XMM_to_XMM(regd, EEREC_S);
-				if( info & PROCESS_EE_ACC ) {
-					assert( regd != EEREC_ACC );
-					SSE_ADDSS_XMM_to_XMM(regd, EEREC_ACC);
-				}
-				else SSE_ADDSS_M32_to_XMM(regd, (uptr)&fpuRegs.ACC);
-			}
-			else if( (info&PROCESS_EE_ACC) && regd == EEREC_ACC ) {
-				int t0reg ;
-				if( g_pCurInstInfo->regs[_Fs_] & EEINST_LASTUSE ) {
-					_freeXMMreg(EEREC_S);
-					t0reg = EEREC_S;
-					SSE_MULSS_XMM_to_XMM(t0reg, EEREC_T);
-				}
-				else if( g_pCurInstInfo->regs[_Ft_] & EEINST_LASTUSE ) {
-					_freeXMMreg(EEREC_T);
-					t0reg = EEREC_T;
-					SSE_MULSS_XMM_to_XMM(t0reg, EEREC_S);
-				}
-				else {
+			if((info & PROCESS_EE_S) && (info & PROCESS_EE_T)){
+				if(regd == EEREC_S) {
+					SSE_MULSS_XMM_to_XMM(regd, EEREC_T);
+					if((info&PROCESS_EE_ACC))SSE_ADDSS_XMM_to_XMM(regd, EEREC_ACC);
+					else SSE_ADDSS_M32_to_XMM(regd, (uptr)&fpuRegs.ACC);
+				} else 
+				if(regd == EEREC_T) {
+					SSE_MULSS_XMM_to_XMM(regd, EEREC_S);
+					if((info&PROCESS_EE_ACC))SSE_ADDSS_XMM_to_XMM(regd, EEREC_ACC);
+					else SSE_ADDSS_M32_to_XMM(regd, (uptr)&fpuRegs.ACC);
+				} else 
+				if(regd == EEREC_ACC){
 					t0reg = _allocTempXMMreg(XMMT_FPS, -1);
 					SSE_MOVSS_XMM_to_XMM(t0reg, EEREC_S);
-					SSE_MULSS_XMM_to_XMM(EEREC_S, EEREC_T);
-					
-					// swap regs for better timing
-					xmmregs[t0reg] = xmmregs[EEREC_S];
-					xmmregs[EEREC_S].inuse = 0;
-
-					t0reg = EEREC_S;
+					SSE_MULSS_XMM_to_XMM(t0reg, EEREC_T);
+					SSE_ADDSS_XMM_to_XMM(regd, t0reg);
+					_freeXMMreg(t0reg);
+				} else {
+					SSE_MOVSS_XMM_to_XMM(regd, EEREC_S);
+					SSE_MULSS_XMM_to_XMM(regd, EEREC_T);
+					if((info&PROCESS_EE_ACC))SSE_ADDSS_XMM_to_XMM(regd, EEREC_ACC);
+					else SSE_ADDSS_M32_to_XMM(regd, (uptr)&fpuRegs.ACC);
 				}
-
-				SSE_ADDSS_XMM_to_XMM(regd, t0reg);
-			}
-			else {
-				SSE_MOVSS_XMM_to_XMM(regd, EEREC_S);
-				SSE_MULSS_XMM_to_XMM(regd, EEREC_T);
-				if( info & PROCESS_EE_ACC ) SSE_ADDSS_XMM_to_XMM(regd, EEREC_ACC);
-				else SSE_ADDSS_M32_to_XMM(regd, (uptr)&fpuRegs.ACC);
+				break;
+			} else {
+				if(regd == EEREC_ACC){
+					t0reg = _allocTempXMMreg(XMMT_FPS, -1);
+					SSE_MOVSS_M32_to_XMM(t0reg, (uptr)&fpuRegs.fpr[_Fs_]);
+					SSE_MULSS_M32_to_XMM(t0reg, (uptr)&fpuRegs.fpr[_Ft_]);
+					SSE_ADDSS_XMM_to_XMM(regd, t0reg);
+					_freeXMMreg(t0reg);
+				} 
+				else
+				{
+					SSE_MOVSS_M32_to_XMM(regd, (uptr)&fpuRegs.fpr[_Fs_]);
+					SSE_MULSS_M32_to_XMM(regd, (uptr)&fpuRegs.fpr[_Ft_]);
+					if((info&PROCESS_EE_ACC))SSE_ADDSS_XMM_to_XMM(regd, EEREC_ACC);
+					else SSE_ADDSS_M32_to_XMM(regd, (uptr)&fpuRegs.ACC);
+				}
 			}
 			break;
 	}
@@ -1233,118 +1195,117 @@ void recMSUBtemp(int info, int regd)
 {
 	int vreg;
 	u32 mreg;	
+	int t0reg;
 
-	if( !(info&PROCESS_EE_ACC)) {
-		int regacc = _allocFPACCtoXMMreg(-1, MODE_WRITE|MODE_READ);
-		info |= PROCESS_EE_SET_ACC(regacc)|PROCESS_EE_ACC;
-	}
 
 	switch(info & (PROCESS_EE_S|PROCESS_EE_T) ) {
 		case PROCESS_EE_S:
-		case PROCESS_EE_T:
-			vreg = (info&PROCESS_EE_S)?EEREC_S:EEREC_T;
-			mreg = (info&PROCESS_EE_S)?(uptr)&fpuRegs.fpr[_Ft_]:(uptr)&fpuRegs.fpr[_Fs_];
-
-			if (regd == vreg) {
-				assert( regd != EEREC_ACC );
-				_freeXMMreg(EEREC_ACC);
-				SSE_MULSS_M32_to_XMM(regd, mreg);
-				SSE_SUBSS_XMM_to_XMM(EEREC_ACC, regd);
-				xmmregs[EEREC_ACC] = xmmregs[regd];
-				xmmregs[regd].inuse = 0;
-                ClampValues(EEREC_ACC);
+			if(regd == EEREC_S) {
+				t0reg = _allocTempXMMreg(XMMT_FPS, -1);					
+				SSE_MOVSS_XMM_to_XMM(t0reg, EEREC_S);
+				SSE_MULSS_M32_to_XMM(t0reg, (uptr)&fpuRegs.fpr[_Ft_]);
+				if((info&PROCESS_EE_ACC))SSE_MOVSS_XMM_to_XMM(regd, EEREC_ACC);
+				else SSE_MOVSS_M32_to_XMM(regd, (uptr)&fpuRegs.ACC);
+				SSE_SUBSS_XMM_to_XMM(regd, t0reg);		
+				_freeXMMreg(t0reg);
+			} else 
+			if(regd == EEREC_ACC){
+				t0reg = _allocTempXMMreg(XMMT_FPS, -1);
+				SSE_MOVSS_XMM_to_XMM(t0reg, EEREC_S);
+				SSE_MULSS_M32_to_XMM(t0reg, (uptr)&fpuRegs.fpr[_Ft_]);
+				SSE_SUBSS_XMM_to_XMM(regd, t0reg);		
+				_freeXMMreg(t0reg);
+			} else {
+				t0reg = _allocTempXMMreg(XMMT_FPS, -1);				
+				SSE_MOVSS_XMM_to_XMM(t0reg, EEREC_S);
+				SSE_MULSS_M32_to_XMM(t0reg, (uptr)&fpuRegs.fpr[_Ft_]);
+				if((info&PROCESS_EE_ACC))SSE_MOVSS_XMM_to_XMM(regd, EEREC_ACC);
+				else SSE_MOVSS_M32_to_XMM(regd, (uptr)&fpuRegs.ACC);
+				SSE_SUBSS_XMM_to_XMM(regd, t0reg);		
+				_freeXMMreg(t0reg);
 			}
-			else if( regd == EEREC_ACC ) {
-				int t0reg;
-				if( g_pCurInstInfo->regs[(info&PROCESS_EE_S)?_Fs_:_Ft_] & EEINST_LASTUSE ) {
-					_freeXMMreg(vreg);
-					t0reg = vreg;
-					SSE_MULSS_M32_to_XMM(t0reg, mreg);
-				}
-				else {
-					t0reg = _allocTempXMMreg(XMMT_FPS, -1);
-					SSE_MOVSS_XMM_to_XMM(t0reg, vreg);
-					SSE_MULSS_M32_to_XMM(vreg, mreg);
-					
-					// swap regs for better timing
-					xmmregs[t0reg] = xmmregs[vreg];
-					xmmregs[vreg].inuse = 0;
-
-					t0reg = vreg;
-				}
-
-				SSE_SUBSS_XMM_to_XMM(regd, t0reg);
-                ClampValues(regd);
+			break;
+		case PROCESS_EE_T:	
+			if(regd == EEREC_T) {
+				t0reg = _allocTempXMMreg(XMMT_FPS, -1);									
+				SSE_MOVSS_M32_to_XMM(t0reg, (uptr)&fpuRegs.fpr[_Fs_]);
+				SSE_MULSS_XMM_to_XMM(t0reg, EEREC_T);
+				if((info&PROCESS_EE_ACC))SSE_MOVSS_XMM_to_XMM(regd, EEREC_ACC);
+				else SSE_MOVSS_M32_to_XMM(regd, (uptr)&fpuRegs.ACC);				
+				SSE_SUBSS_XMM_to_XMM(regd, t0reg);		
+				_freeXMMreg(t0reg);
+			} else 
+			if(regd == EEREC_ACC){
+				t0reg = _allocTempXMMreg(XMMT_FPS, -1);
+				SSE_MOVSS_M32_to_XMM(t0reg, (uptr)&fpuRegs.fpr[_Fs_]);
+				SSE_MULSS_XMM_to_XMM(t0reg, EEREC_T);
+				SSE_SUBSS_XMM_to_XMM(regd, t0reg);		
+				_freeXMMreg(t0reg);
+			} else {
+				t0reg = _allocTempXMMreg(XMMT_FPS, -1);
+				SSE_MOVSS_M32_to_XMM(t0reg, (uptr)&fpuRegs.fpr[_Fs_]);
+				SSE_MULSS_XMM_to_XMM(t0reg, EEREC_T);
+				
+				if((info&PROCESS_EE_ACC))SSE_MOVSS_XMM_to_XMM(regd, EEREC_ACC);
+				else SSE_MOVSS_M32_to_XMM(regd, (uptr)&fpuRegs.ACC);				
+				SSE_SUBSS_XMM_to_XMM(regd, t0reg);		
+				_freeXMMreg(t0reg);
 			}
-			else {
-				if( regd != EEREC_ACC ) {
-					_freeXMMreg(EEREC_ACC);
-					xmmregs[EEREC_ACC] = xmmregs[regd];
-					xmmregs[regd].inuse = 0;
-				}
-				SSE_MOVSS_M32_to_XMM(regd, mreg);
-				SSE_MULSS_XMM_to_XMM(regd, vreg);
-				SSE_SUBSS_XMM_to_XMM(EEREC_ACC, regd);
-                ClampValues(EEREC_ACC);
-			}
-
 			break;
 		default:
-			if (regd == EEREC_S) {
-				assert( regd != EEREC_ACC );
-				_freeXMMreg(EEREC_ACC);
-				SSE_MULSS_XMM_to_XMM(regd, EEREC_T);
-				SSE_SUBSS_XMM_to_XMM(EEREC_ACC, regd);
-				xmmregs[EEREC_ACC] = xmmregs[regd];
-				xmmregs[regd].inuse = 0;
-                ClampValues(EEREC_ACC);
-			}
-			else if (regd == EEREC_T) {
-				assert( regd != EEREC_ACC );
-				_freeXMMreg(EEREC_ACC);
-				SSE_MULSS_XMM_to_XMM(regd, EEREC_S);
-				SSE_SUBSS_XMM_to_XMM(EEREC_ACC, regd);
-				xmmregs[EEREC_ACC] = xmmregs[regd];
-				xmmregs[regd].inuse = 0;
-                ClampValues(EEREC_ACC);
-			}
-			else if( regd == EEREC_ACC ) {
-				int t0reg ;
-				if( g_pCurInstInfo->regs[_Fs_] & EEINST_LASTUSE ) {
-					_freeXMMreg(EEREC_S);
-					t0reg = EEREC_S;
+			if((info & PROCESS_EE_S) && (info & PROCESS_EE_T)){
+				if(regd == EEREC_S) {
+					t0reg = _allocTempXMMreg(XMMT_FPS, -1);					
+					SSE_MOVSS_XMM_to_XMM(t0reg, EEREC_S);
 					SSE_MULSS_XMM_to_XMM(t0reg, EEREC_T);
-				}
-				else if( g_pCurInstInfo->regs[_Ft_] & EEINST_LASTUSE ) {
-					_freeXMMreg(EEREC_T);
-					t0reg = EEREC_T;
-					SSE_MULSS_XMM_to_XMM(t0reg, EEREC_S);
-				}
-				else {
+					if((info&PROCESS_EE_ACC))SSE_MOVSS_XMM_to_XMM(regd, EEREC_ACC);
+					else SSE_MOVSS_M32_to_XMM(regd, (uptr)&fpuRegs.ACC);
+					SSE_SUBSS_XMM_to_XMM(regd, t0reg);		
+					_freeXMMreg(t0reg);
+				} else 
+				if(regd == EEREC_T) {
+					t0reg = _allocTempXMMreg(XMMT_FPS, -1);						
+					SSE_MOVSS_XMM_to_XMM(t0reg, EEREC_S);
+					SSE_MULSS_XMM_to_XMM(t0reg, EEREC_T);
+					if((info&PROCESS_EE_ACC))SSE_MOVSS_XMM_to_XMM(regd, EEREC_ACC);
+					else SSE_MOVSS_M32_to_XMM(regd, (uptr)&fpuRegs.ACC);
+					SSE_SUBSS_XMM_to_XMM(regd, t0reg);		
+					_freeXMMreg(t0reg);
+				} else 
+				if(regd == EEREC_ACC){
+					t0reg = _allocTempXMMreg(XMMT_FPS, -1);					
+					SSE_MOVSS_XMM_to_XMM(t0reg, EEREC_S);
+					SSE_MULSS_XMM_to_XMM(t0reg, EEREC_T);
+					SSE_SUBSS_XMM_to_XMM(regd, t0reg);		
+					_freeXMMreg(t0reg);
+				} else {
 					t0reg = _allocTempXMMreg(XMMT_FPS, -1);
 					SSE_MOVSS_XMM_to_XMM(t0reg, EEREC_S);
-					SSE_MULSS_XMM_to_XMM(EEREC_S, EEREC_T);
-					
-					// swap regs for better timing
-					xmmregs[t0reg] = xmmregs[EEREC_S];
-					xmmregs[EEREC_S].inuse = 0;
-
-					t0reg = EEREC_S;
+					SSE_MULSS_XMM_to_XMM(t0reg, EEREC_T);
+					if((info&PROCESS_EE_ACC))SSE_MOVSS_XMM_to_XMM(regd, EEREC_ACC);
+					else SSE_MOVSS_M32_to_XMM(regd, (uptr)&fpuRegs.ACC);
+					SSE_SUBSS_XMM_to_XMM(regd, t0reg);		
+					_freeXMMreg(t0reg);
 				}
-
-				SSE_SUBSS_XMM_to_XMM(regd, t0reg);
-                ClampValues(regd);
-			}
-			else {
-				if( regd != EEREC_ACC ) {
-					_freeXMMreg(EEREC_ACC);
-					xmmregs[EEREC_ACC] = xmmregs[regd];
-					xmmregs[regd].inuse = 0;
+				break;
+			} else {
+				if(regd == EEREC_ACC){
+					t0reg = _allocTempXMMreg(XMMT_FPS, -1);
+					SSE_MOVSS_M32_to_XMM(t0reg, (uptr)&fpuRegs.fpr[_Fs_]);
+					SSE_MULSS_M32_to_XMM(t0reg, (uptr)&fpuRegs.fpr[_Ft_]);	
+					SSE_SUBSS_XMM_to_XMM(regd, t0reg);
+					_freeXMMreg(t0reg);	
+				} 
+				else
+				{
+					t0reg = _allocTempXMMreg(XMMT_FPS, -1);
+					if((info&PROCESS_EE_ACC))SSE_MOVSS_XMM_to_XMM(regd, EEREC_ACC);
+					else SSE_MOVSS_M32_to_XMM(regd, (uptr)&fpuRegs.ACC);
+					SSE_MOVSS_M32_to_XMM(t0reg, (uptr)&fpuRegs.fpr[_Fs_]);
+					SSE_MULSS_M32_to_XMM(t0reg, (uptr)&fpuRegs.fpr[_Ft_]);
+					SSE_SUBSS_XMM_to_XMM(regd, t0reg);
+					_freeXMMreg(t0reg);	
 				}
-				SSE_MOVSS_XMM_to_XMM(regd, EEREC_S);
-				SSE_MULSS_XMM_to_XMM(regd, EEREC_T);
-				SSE_SUBSS_XMM_to_XMM(EEREC_ACC, regd);
-                ClampValues(EEREC_ACC);
 			}
 			break;
 	}
@@ -1401,30 +1362,37 @@ void recCVT_W()
 		if( regs >= 0 ) {
 			t0reg = _allocTempXMMreg(XMMT_FPS, -1);
 			_freeXMMreg(t0reg);
-			SSE_XORPS_XMM_to_XMM(t0reg, t0reg);
+			SSE_MOVSS_M32_to_XMM(t0reg, (u32)&s_signbit);
 			SSE_CVTTSS2SI_XMM_to_R32(EAX, regs);
+			SSE_MOVSS_XMM_to_M32((uptr)&fpuRegs.fpr[ _Fs_ ], regs);
 		}
 		else SSE_CVTTSS2SI_M32_to_R32(EAX, (uptr)&fpuRegs.fpr[ _Fs_ ]);
 		_deleteFPtoXMMreg(_Fd_, 2);
 
-		CMP32ItoR(EAX, 0x80000000);
-		j8Ptr[0] = JNE8(0);
+		MOV32MtoR(ECX, (uptr)&fpuRegs.fpr[ _Fs_ ]);
+		AND32ItoR(ECX, 0x7f800000);
+		CMP32ItoR(ECX, 0x4E800000);
+		j8Ptr[0] = JLE8(0);
 
 		// need to detect if reg is positive
-		if( regs >= 0 ) {
+		/*if( regs >= 0 ) {
 			SSE_UCOMISS_XMM_to_XMM(regs, t0reg);
 			j8Ptr[2] = JB8(0);
 		}
-		else {
-			TEST32ItoM((uptr)&fpuRegs.fpr[_Fs_], 0x80000000);
+		else {*/
+			TEST32ItoM((uptr)&fpuRegs.fpr[ _Fs_ ], 0x80000000);
 			j8Ptr[2] = JNZ8(0);
-		}
+		//}
 
 		MOV32ItoM((uptr)&fpuRegs.fpr[_Fd_], 0x7fffffff);
 		j8Ptr[1] = JMP8(0);
 
-		x86SetJ8( j8Ptr[0] );
 		x86SetJ8( j8Ptr[2] );
+		MOV32ItoM((uptr)&fpuRegs.fpr[_Fd_], 0x80000000);
+		j8Ptr[1] = JMP8(0);
+
+		x86SetJ8( j8Ptr[0] );
+		
 		MOV32RtoM((uptr)&fpuRegs.fpr[_Fd_], EAX);
 
 		x86SetJ8( j8Ptr[1] );

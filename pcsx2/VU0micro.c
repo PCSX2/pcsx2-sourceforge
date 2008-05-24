@@ -201,11 +201,17 @@ void vu0ExecMicro(u32 addr) {
 #ifdef VUM_LOG
 	VUM_LOG("vu0ExecMicro %x\n", addr);
 #endif
+	if(VU0.VI[REG_VPU_STAT].UL & 0x1) {
+		SysPrintf("Previous Microprogram still running on VU0\n");
+		vu0Finish();
+	}
 	VU0.VI[REG_VPU_STAT].UL|= 0x1;
 	VU0.VI[REG_VPU_STAT].UL&= ~0xAE;
 	if (addr != -1) VU0.VI[REG_TPC].UL = addr;
 	_vuExecMicroDebug(VU0);
+	FreezeXMMRegs(1);
 	Cpu->ExecuteVU0Block();
+	FreezeXMMRegs(0);
 }
 
 void _vu0ExecUpper(VURegs* VU, u32 *ptr) {
