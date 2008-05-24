@@ -57,8 +57,11 @@ void recExecuteVU0Block( void )
 	//SysPrintf("executeVU0 %x\n", VU0.VI[ REG_TPC ].UL);
 	//QueryPerformanceCounter(&vu0base);
 
-	assert( VU0.VI[REG_VPU_STAT].UL & 1 );
-
+//	assert( VU0.VI[REG_VPU_STAT].UL & 1 );
+	if((VU0.VI[REG_VPU_STAT].UL & 1) == 0){
+		//SysPrintf("Execute block VU0, VU0 not busy\n");
+		return;
+	}
 #ifdef _DEBUG
 	vuprogcount++;
 
@@ -75,8 +78,10 @@ void recExecuteVU0Block( void )
 #endif
 
 	//while( (VU0.VI[ REG_VPU_STAT ].UL&1) ) {
-		if( CHECK_VU0REC) {			
+		if( CHECK_VU0REC) {		
+			FreezeXMMRegs(1);
 			SuperVUExecuteProgram(VU0.VI[ REG_TPC ].UL&0xfff, 0);
+			FreezeXMMRegs(0);
 		}
 		else {
 			intExecuteVU0Block();

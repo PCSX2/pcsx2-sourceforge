@@ -144,6 +144,15 @@ static int count;
 
 void vu1ExecMicro(u32 addr)
 {
+	if(VU0.VI[REG_VPU_STAT].UL & 0x100) {
+		SysPrintf("Previous Microprogram still running on VU1\n");
+
+		if( VU0.VI[REG_VPU_STAT].UL & 0x100 ) {
+			do {
+				Cpu->ExecuteVU1Block();
+			} while(VU0.VI[REG_VPU_STAT].UL & 0x100);
+		}
+	}
 #ifdef VUM_LOG
 	VUM_LOG("vu1ExecMicro %x\n", addr);
 	VUM_LOG("vu1ExecMicro %x (count=%d)\n", addr, count++);
@@ -156,7 +165,9 @@ void vu1ExecMicro(u32 addr)
 
 	
 	//do {
+	FreezeXMMRegs(1);
 		Cpu->ExecuteVU1Block();
+	FreezeXMMRegs(0);
 	//} while(VU0.VI[REG_VPU_STAT].UL & 0x100);
 	// rec can call vu1ExecMicro
 	
