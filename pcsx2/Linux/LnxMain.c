@@ -207,8 +207,8 @@ int main(int argc, char *argv[]) {
         if (UseGui) gtk_init(NULL, NULL);
 
 		memset(&Config, 0, sizeof(Config));
-		strcpy(Config.BiosDir,    DEFAULT_BIOS_DIR);
-		strcpy(Config.PluginsDir, "plugins/");
+		strcpy(Config.BiosDir,    DEFAULT_BIOS_DIR "/");
+		strcpy(Config.PluginsDir, DEFAULT_PLUGINS_DIR "/");
 		Config.Patch = 1;
         Config.Options = PCSX2_EEREC|PCSX2_VU0REC|PCSX2_VU1REC|PCSX2_COP2REC;
 
