@@ -83,9 +83,9 @@ int main(int argc, char *argv[]) {
 #endif
 
     printf("\n");
-    mkdir("inis", 0755);
+    mkdir(CONFIG_DIR, 0755);
 
-    strcpy(cfgfile, "inis/pcsx2.cfg");
+    strcpy(cfgfile, CONFIG_DIR "/pcsx2.cfg");
 
 #ifdef PCSX2_DEVBUILD
     memset(&g_TestRun, 0, sizeof(g_TestRun));

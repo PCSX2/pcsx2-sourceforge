@@ -1,6 +1,8 @@
 #ifndef PATCHES_H_INCLUDED
 #define PATCHES_H_INCLUDED
 
+#define CONFIG_DIR "inis"
+
 #define DEFAULT_BIOS_DIR "bios"
 #define DEFAULT_PLUGINS_DIR "plugins"
 

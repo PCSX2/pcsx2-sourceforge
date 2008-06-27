@@ -27,6 +27,8 @@
 #include "win32.h"
 #include <sys/stat.h>
 
+#include "Paths.h"
+
 int LoadConfig() {
    FILE *fp;
 
@@ -42,11 +44,11 @@ int LoadConfig() {
 	szTemp = strrchr(szIniFile, '\\');
 
 	if(!szTemp) return -1;
-	strcpy(szTemp, "\\inis\\pcsx2.ini");
-    fp=fopen("inis\\pcsx2.ini","rt");//check if pcsx2.ini really exists
+	strcpy(szTemp, "\\" CONFIG_DIR "\\pcsx2.ini");
+    fp=fopen(CONFIG_DIR "\\pcsx2.ini","rt");//check if pcsx2.ini really exists
 	if (!fp)
 	{
-		CreateDirectory("inis",NULL); 
+		CreateDirectory(CONFIG_DIR,NULL); 
 		return -1;
 	}
 	fclose(fp);
@@ -124,7 +126,7 @@ void SaveConfig() {
 	szTemp = strrchr(szIniFile, '\\');
 
 	if(!szTemp) return;
-	strcpy(szTemp, "\\inis\\pcsx2.ini");
+	strcpy(szTemp, "\\" CONFIG_DIR "\\pcsx2.ini");
     //interface
     sprintf(szValue,"%s",Conf->Bios);
     WritePrivateProfileString("Interface","Bios",szValue,szIniFile);
