@@ -34,6 +34,8 @@
 #include "interface.h"
 #include "Linux.h"
 
+#include "Paths.h"
+
 
 static int needReset = 1;
 int confret;
@@ -322,7 +324,7 @@ void UpdateMenuSlots(GtkMenuItem *menuitem, gpointer user_data) {
 	int i;
 
 	for (i=0; i<5; i++) {
-		sprintf(str, "sstates/%8.8X.%3.3d", ElfCRC, i);
+		sprintf(str, SSTATES_DIR "/%8.8X.%3.3d", ElfCRC, i);
 		Slots[i] = CheckState(str);
 	}
 }
@@ -334,7 +336,7 @@ void States_Load(int num) {
 	efile = 2;
 	RunExecute(0);
 
-	sprintf (Text, "sstates/%8.8X.%3.3d", ElfCRC, num);
+	sprintf (Text, SSTATES_DIR "/%8.8X.%3.3d", ElfCRC, num);
 	ret = LoadState(Text);
 /*	if (ret == 0)
 		 sprintf (Text, _("*PCSX2*: Loaded State %d"), num+1);
@@ -348,7 +350,7 @@ void States_Save(int num) {
 	char Text[256];
 	int ret;
 
-	sprintf (Text, "sstates/%8.8X.%3.3d", ElfCRC, num);
+	sprintf (Text, SSTATES_DIR "/%8.8X.%3.3d", ElfCRC, num);
 	ret = SaveState(Text);
     if (ret == 0)
 		 sprintf(Text, _("*PCSX2*: Saving State %d"), num+1);
@@ -394,7 +396,7 @@ void OnStates_LoadOther(GtkMenuItem *menuitem, gpointer user_data) {
 	GtkWidget *Ok,*Cancel;
 
 	FileSel = gtk_file_selection_new(_("Select State File"));
-	gtk_file_selection_set_filename(GTK_FILE_SELECTION(FileSel), "sstates/");
+	gtk_file_selection_set_filename(GTK_FILE_SELECTION(FileSel), SSTATES_DIR "/");
 
 	Ok = GTK_FILE_SELECTION(FileSel)->ok_button;
 	gtk_signal_connect (GTK_OBJECT(Ok), "clicked", GTK_SIGNAL_FUNC(OnLoadOther_Ok), NULL);
@@ -442,7 +444,7 @@ void OnStates_SaveOther(GtkMenuItem *menuitem, gpointer user_data) {
 	GtkWidget *Ok,*Cancel;
 
 	FileSel = gtk_file_selection_new(_("Select State File"));
-	gtk_file_selection_set_filename(GTK_FILE_SELECTION(FileSel), "sstates/");
+	gtk_file_selection_set_filename(GTK_FILE_SELECTION(FileSel), SSTATES_DIR "/");
 
 	Ok = GTK_FILE_SELECTION(FileSel)->ok_button;
 	gtk_signal_connect (GTK_OBJECT(Ok), "clicked", GTK_SIGNAL_FUNC(OnSaveOther_Ok), NULL);

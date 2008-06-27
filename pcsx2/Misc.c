@@ -40,6 +40,8 @@
 
 #include "Cache.h"
 
+#include "Paths.h"
+
 u32 dwSaveVersion = 0x7a300010;
 u32 dwCurSaveStateVer = 0;
 extern u32 s_iLastCOP0Cycle;
@@ -766,7 +768,7 @@ int LoadGSState(char *file)
 	f = gzopen(file, "rb");
 	if (f == NULL) {
 		
-		sprintf(strfile, "sstates/%s", file);
+		sprintf(strfile, SSTATES_DIR "/%s", file);
 		// try prefixing with sstates
 		f = gzopen(strfile, "rb");
 		if( f == NULL ) {
@@ -892,7 +894,7 @@ void ProcessFKeys(int fkey, int shift)
     assert(fkey >= 1 && fkey <= 12 );
     switch(fkey) {
         case 1:
-			sprintf(Text, "sstates/%8.8X.%3.3d", ElfCRC, StatesC);
+			sprintf(Text, SSTATES_DIR "/%8.8X.%3.3d", ElfCRC, StatesC);
 			ret = SaveState(Text);
 			break;
 		case 2:
@@ -902,12 +904,12 @@ void ProcessFKeys(int fkey, int shift)
 				StatesC = (StatesC+1)%NUM_STATES;
 			SysPrintf("*PCSX2*: Selected State %ld\n", StatesC);
 			if( GSchangeSaveState != NULL ) {
-				sprintf(Text, "sstates/%8.8X.%3.3d", ElfCRC, StatesC);
+				sprintf(Text, SSTATES_DIR "/%8.8X.%3.3d", ElfCRC, StatesC);
 				GSchangeSaveState(StatesC, Text);
 			}
 			break;
 		case 3:			
-			sprintf (Text, "sstates/%8.8X.%3.3d", ElfCRC, StatesC);
+			sprintf (Text, SSTATES_DIR "/%8.8X.%3.3d", ElfCRC, StatesC);
 			ret = LoadState(Text);
 			break;	
 
@@ -992,10 +994,10 @@ void ProcessFKeys(int fkey, int shift)
 					tok = strtok(NULL, " ");
 					if( tok != NULL ) strcat(name, tok);
 
-					sprintf(Text, "sstates/%s.%d.gs", name, StatesC);
+					sprintf(Text, SSTATES_DIR "/%s.%d.gs", name, StatesC);
 				}
 				else
-					sprintf(Text, "sstates/%8.8X.%d.gs", ElfCRC, StatesC);
+					sprintf(Text, SSTATES_DIR "/%8.8X.%d.gs", ElfCRC, StatesC);
 
 				SaveGSState(Text);
 			}

@@ -23,6 +23,8 @@
 #include "PsxCommon.h"
 #include "Stats.h"
 
+#include "Paths.h"
+
 void statsOpen() {
 	stats.vsyncCount = 0;
 	stats.vsyncTime = time(NULL);
@@ -38,9 +40,9 @@ void statsClose() {
 
 	t = time(NULL) - stats.vsyncTime;
 #ifdef _WIN32
-	f = fopen("logs\\stats.txt", "w");
+	f = fopen(LOGS_DIR "\\stats.txt", "w");
 #else
-	f = fopen("logs/stats.txt", "w");
+	f = fopen(LOGS_DIR "/stats.txt", "w");
 #endif
 	if (!f) { SysPrintf("Can't open stats.txt\n"); return; }
 	fprintf(f, "-- PCSX2 v%s statics--\n\n", PCSX2_VERSION);

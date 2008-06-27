@@ -27,6 +27,8 @@
 #include "VUmicro.h"
 #include "GS.h"
 
+#include "Paths.h"
+
 static int inter;
 
 PCSX2_ALIGNED16(cpuRegisters cpuRegs);
@@ -404,7 +406,7 @@ void cpuBranchTest()
 
 //	if( !loaded && cpuRegs.cycle > 0x20000000 ) {
 //		char strstate[255];
-//		sprintf(strstate, "sstates/%8.8X.000", ElfCRC);
+//		sprintf(strstate, SSTATES_DIR "/%8.8X.000", ElfCRC);
 //		LoadState(strstate);
 //		loaded = 1;
 //	}
