@@ -49,6 +49,8 @@
 
 #include "cheats/cheats.h"
 
+#include "../Paths.h"
+
 #define COMPILEDATE         __DATE__
 
 static int efile;
@@ -1348,16 +1350,16 @@ void ChangeLanguage(char *lang) {
 static int sinit=0;
 
 int SysInit() {
-	CreateDirectory("memcards", NULL);
-	CreateDirectory("sstates", NULL);
+	CreateDirectory(MEMCARDS_DIR, NULL);
+	CreateDirectory(SSTATES_DIR, NULL);
 #ifdef EMU_LOG
-	CreateDirectory("logs", NULL);
+	CreateDirectory(LOGS_DIR, NULL);
 
 #ifdef PCSX2_DEVBUILD
 	if( g_TestRun.plogname != NULL )
 		emuLog = fopen(g_TestRun.plogname, "w");
 	if( emuLog == NULL )
-		emuLog = fopen("logs\\emuLog.txt","w");
+		emuLog = fopen(LOGS_DIR "\\emuLog.txt","w");
 #endif
 
 	if( emuLog != NULL )

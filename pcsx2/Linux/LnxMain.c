@@ -40,6 +40,8 @@
 #include "PsxCommon.h"
 #include "Linux.h"
 
+#include "../Paths.h"
+
 int UseGui = 1;
 int needReset = 1;
 int RunExe = 0;
@@ -205,7 +207,7 @@ int main(int argc, char *argv[]) {
         if (UseGui) gtk_init(NULL, NULL);
 
 		memset(&Config, 0, sizeof(Config));
-		strcpy(Config.BiosDir,    "bios/");
+		strcpy(Config.BiosDir,    DEFAULT_BIOS_DIR);
 		strcpy(Config.PluginsDir, "plugins/");
 		Config.Patch = 1;
         Config.Options = PCSX2_EEREC|PCSX2_VU0REC|PCSX2_VU1REC|PCSX2_COP2REC;
@@ -290,7 +292,7 @@ int main(int argc, char *argv[]) {
 DIR *dir;
 
 void InitLanguages() {
-	dir = opendir("Langs");
+	dir = opendir(LANGS_DIR);
 }
 
 char *GetLanguageNext() {
@@ -381,17 +383,17 @@ void KeyEvent(keyEvent* ev) {
 }
 
 int SysInit() {
-	mkdir("sstates", 0755);
-	mkdir("memcards", 0755);
+	mkdir(SSTATES_DIR, 0755);
+	mkdir(MEMCARDS_DIR, 0755);
 
 #ifdef EMU_LOG
-	mkdir("logs", 0755);
+	mkdir(LOGS_DIR, 0755);
 
 #ifdef PCSX2_DEVBUILD
     if( g_TestRun.plogname != NULL )
 		emuLog = fopen(g_TestRun.plogname, "w");
     if( emuLog == NULL ) 
-        emuLog = fopen("logs/emuLog.txt","wb");
+        emuLog = fopen(LOGS_DIR "/emuLog.txt","wb");
 #endif
 
     if( emuLog != NULL )

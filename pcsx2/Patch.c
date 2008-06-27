@@ -24,6 +24,8 @@
 
 #include "PsxCommon.h"
 
+#include "Paths.h"
+
 #ifdef _WIN32
 #include "windows/cheats/cheats.h"
 #endif
@@ -497,9 +499,9 @@ void inifile_read( char * name )
 
    patchnumber = 0;
 #ifdef _WIN32
-   sprintf( buffer, "patches\\%s.pnach", name );
+   sprintf( buffer, PATCHES_DIR "\\%s.pnach", name );
 #else
-   sprintf( buffer, "patches/%s.pnach", name );
+   sprintf( buffer, PATCHES_DIR "/%s.pnach", name );
 #endif
 
    f1 = fopen( buffer, "rt" );

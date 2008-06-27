@@ -23,6 +23,8 @@
 
 #include "PsxCommon.h"
 
+#include "Paths.h"
+
 #ifdef _WIN32
 #pragma warning(disable:4244)
 #endif
@@ -575,7 +577,7 @@ FILE *LoadMcd(int mcd) {
 	} else {
 		strcpy(str, Config.Mcd2);
 	}
-	if (*str == 0) sprintf(str, "memcards/Mcd00%d.ps2", mcd);
+	if (*str == 0) sprintf(str, MEMCARDS_DIR "/Mcd00%d.ps2", mcd);
 	f = fopen(str, "r+b");
 	if (f == NULL) {
 		CreateMcd(str);

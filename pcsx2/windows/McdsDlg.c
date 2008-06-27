@@ -27,6 +27,8 @@
 #include "resource.h"
 #include "Win32.h"
 
+#include "Paths.h"
+
 
 HWND mcdDlg;
 
@@ -60,7 +62,7 @@ void Open_Mcd_Proc(HWND hW, int mcd) {
     ofn.nFilterIndex		= 1;
     ofn.lpstrFile			= szFileName;
     ofn.nMaxFile			= 256;
-    ofn.lpstrInitialDir		= "memcards";
+    ofn.lpstrInitialDir		= MEMCARDS_DIR;
     ofn.lpstrFileTitle		= szFileTitle;
     ofn.nMaxFileTitle		= 256;
     ofn.lpstrTitle			= NULL;
