@@ -1493,7 +1493,7 @@ int recMemConstWrite32(u32 mem, int mmreg)
 				CALLFunc((u32)Cpu->ClearVU0);
 				ADD32ItoR(ESP, 8);
 			}
-			else if( mem >= 0x11008000 && mem < 0x1100c0000 ) {
+			else if( mem >= 0x11008000 && mem < 0x1100c000 ) {
 				PUSH32I(1);
 				PUSH32I(mem&0x3ff8);
 				CALLFunc((u32)Cpu->ClearVU1);
