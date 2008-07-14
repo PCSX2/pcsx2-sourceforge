@@ -50,7 +50,6 @@
 
 #define CHECK_MULTIGS (Config.Options&PCSX2_GSMULTITHREAD)
 #define CHECK_DUALCORE (Config.Options&PCSX2_DUALCORE)
-#define CHECK_EEREC (Config.Options&PCSX2_EEREC)
 #define CHECK_COP2REC (Config.Options&PCSX2_COP2REC) // goes with ee option
 #define CHECK_FORCEABS (~(Config.Hacks >> 1) & 1) // always on, (Config.Options&PCSX2_FORCEABS)
 
@@ -184,22 +183,11 @@ u32 GetBiosVersion();
 int IsBIOS(char *filename, char *description);
 
 // check to see if needs freezing
-#ifdef PCSX2_NORECBUILD
-#define FreezeMMXRegs(save)
-#define FreezeXMMRegs(save)
-#else
 void FreezeXMMRegs_(int save);
 extern u32 g_EEFreezeRegs;
 #define FreezeXMMRegs(save) if( g_EEFreezeRegs ) { FreezeXMMRegs_(save); }
-
-#ifndef __x86_64__
 void FreezeMMXRegs_(int save);
 #define FreezeMMXRegs(save) if( g_EEFreezeRegs ) { FreezeMMXRegs_(save); }
-#else
-#define FreezeMMXRegs(save)
-#endif
-
-#endif
 
 // define a PCS2 specific memcpy and make sure it is used all in real-time code
 #if _MSC_VER >= 1400 // vs2005+ uses xmm/mmx in memcpy
@@ -214,22 +202,10 @@ __forceinline void memcpy_pcsx2(void* dest, const void* src, size_t n)
 #define memcpy_pcsx2 memcpy
 #endif
 
-#ifdef PCSX2_NORECBUILD
-#define memcpy_fast memcpy
-#else
-
-#if defined(_WIN32) && !defined(__x86_64__)
 // faster memcpy
 void * memcpy_amd_(void *dest, const void *src, size_t n);
 #define memcpy_fast memcpy_amd_
 //#define memcpy_fast memcpy //Dont use normal memcpy, it has sse in 2k5!
-#else
-// for now disable linux fast memcpy
-#define memcpy_fast memcpy_pcsx2
-#endif
-
-#endif
-
 u8 memcmp_mmx(const void* src1, const void* src2, int cmpsize);
 void memxor_mmx(void* dst, const void* src1, int cmpsize);
 

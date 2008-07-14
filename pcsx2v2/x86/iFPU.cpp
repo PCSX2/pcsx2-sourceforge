@@ -15,10 +15,6 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
  */
-
-// stop compiling if NORECBUILD build (only for Visual Studio)
-#if !(defined(_MSC_VER) && defined(PCSX2_NORECBUILD))
-
 #include "Common.h"
 #include "InterTables.h"
 #include "ix86/ix86.h"
@@ -335,40 +331,6 @@ void recCOP1_W( void )
 #endif
     recCP1W[ _Funct_ ]( );
 }
-
-#ifndef FPU_RECOMPILE
-
-
-REC_FPUFUNC(ADD_S);
-REC_FPUFUNC(SUB_S);
-REC_FPUFUNC(MUL_S);
-REC_FPUFUNC(DIV_S);
-REC_FPUFUNC(SQRT_S);
-REC_FPUFUNC(RSQRT_S);
-REC_FPUFUNC(ABS_S);
-REC_FPUFUNC(MOV_S);
-REC_FPUFUNC(NEG_S);
-REC_FPUFUNC(ADDA_S);
-REC_FPUFUNC(SUBA_S);
-REC_FPUFUNC(MULA_S);
-REC_FPUFUNC(MADD_S);
-REC_FPUFUNC(MSUB_S);
-REC_FPUFUNC(MADDA_S);
-REC_FPUFUNC(MSUBA_S);
-REC_FPUFUNC(CVT_S);
-REC_FPUFUNC(CVT_W);
-REC_FPUFUNC(MIN_S);
-REC_FPUFUNC(MAX_S);
-REC_FPUBRANCH(BC1F);
-REC_FPUBRANCH(BC1T);
-REC_FPUBRANCH(BC1FL);
-REC_FPUBRANCH(BC1TL);
-REC_FPUFUNC(C_F);
-REC_FPUFUNC(C_EQ);
-REC_FPUFUNC(C_LE);
-REC_FPUFUNC(C_LT);
-
-#else
 
 // define the FPU ops using the x86 FPU. x86-64 doesn't use FPU
 #ifndef __x86_64__
@@ -1501,7 +1463,3 @@ void recBC1TL( void ) {
 	LoadBranchState();
 	SetBranchImm(pc);
 }
-
-#endif
-
-#endif // PCSX2_NORECBUILD

@@ -25,9 +25,6 @@
 #include "ix86/ix86.h"
 #include "iR5900.h"
 
-// stop compiling if NORECBUILD build (only for Visual Studio)
-#if !(defined(_MSC_VER) && defined(PCSX2_NORECBUILD))
-
 #ifdef _WIN32
 #pragma warning(disable:4244)
 #pragma warning(disable:4761)
@@ -659,5 +656,3 @@ void recXORI( void )
 }
 
 #endif
-
-#endif // PCSX2_NORECBUILD

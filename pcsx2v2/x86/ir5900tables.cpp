@@ -17,10 +17,6 @@
  */
 
 // Holds instruction tables for the r5900 recompiler
-
-// stop compiling if NORECBUILD build (only for Visual Studio)
-#if !(defined(_MSC_VER) && defined(PCSX2_NORECBUILD))
-
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
@@ -1281,5 +1277,3 @@ void rpropMMI3(EEINST* prev, EEINST* pinst)
 			break;
 	}
 }
-
-#endif // PCSX2_NORECBUILD

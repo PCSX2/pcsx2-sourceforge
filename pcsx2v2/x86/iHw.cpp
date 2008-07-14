@@ -15,10 +15,6 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
  */
-
-// stop compiling if NORECBUILD build (only for Visual Studio)
-#if !(defined(_MSC_VER) && defined(PCSX2_NORECBUILD))
-
 #include <string.h>
 #include <malloc.h>
 #include <assert.h>
@@ -1293,5 +1289,3 @@ void hwConstWrite128(u32 mem, int mmreg)
 			break;
 	}
 }
-
-#endif // PCSX2_NORECBUILD

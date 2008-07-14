@@ -20,9 +20,6 @@
 // Recompiled completely rewritten to add block level recompilation/reg-caching/
 // liveness analysis/constant propagation Apr06 (zerofrog@gmail.com)
 
-// stop compiling if NORECBUILD build (only for Visual Studio)
-#if !(defined(_MSC_VER) && defined(PCSX2_NORECBUILD))
-
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
@@ -143,7 +140,6 @@ void iDumpBlock( int startpc, char * ptr )
 	char filename[ 256 ];
 	u32 i, j;
 	EEINST* pcur;
-	extern char *disRNameGPR[];
 	u8 used[34];
 	u8 fpuused[33];
 	int numused, count, fpunumused;
@@ -166,12 +162,6 @@ void iDumpBlock( int startpc, char * ptr )
 //	system( command );
 
 	f = fopen( filename, "w" );
-
-    if( disR5900GetSym(startpc) != NULL )
-        fprintf(f, "%s\n", disR5900GetSym(startpc));
-	for ( i = startpc; i < s_nEndBlock; i += 4 ) {
-		fprintf( f, "%s\n", disR5900Fasm( PSMu32( i ), i ) );
-	}
 
 	// write the instruction info
 
@@ -206,9 +196,6 @@ void iDumpBlock( int startpc, char * ptr )
 	fprintf(f, "\n");
 
 	fprintf(f, "       ");
-	for(i = 0; i < ARRAYSIZE(s_pInstCache->regs); ++i) {
-		if( used[i] ) fprintf(f, "%s ", disRNameGPR[i]);
-	}
 	for(i = 0; i < ARRAYSIZE(s_pInstCache->fpuregs); ++i) {
 		if( fpuused[i] ) fprintf(f, "%s ", i<32?"FR":"FA");
 	}
@@ -2300,10 +2287,6 @@ REC_SYS(COP2);
 
 void recCOP2( void )
 { 
-#ifdef CPU_LOG
-	CPU_LOG( "Recompiling COP2:%s\n", disR5900Fasm( cpuRegs.code, cpuRegs.pc ) );
-#endif
-
 	if ( !cpucaps.hasStreamingSIMDExtensions ) {
 		MOV32ItoM( (u32)&cpuRegs.code, cpuRegs.code ); 
 		MOV32ItoM( (u32)&cpuRegs.pc, pc ); 
@@ -2717,16 +2700,8 @@ void iDumpRegisters(u32 startpc, u32 temp)
 	int i;
 	char* pstr = temp ? "t" : "";
 	const u32 dmacs[] = {0x8000, 0x9000, 0xa000, 0xb000, 0xb400, 0xc000, 0xc400, 0xc800, 0xd000, 0xd400 };
-	extern char *disRNameGPR[];
-    char* psymb;
 	
-    psymb = disR5900GetSym(startpc);
-
-    if( psymb != NULL )
-        __Log("%sreg(%s): %x %x c:%x\n", pstr, psymb, startpc, cpuRegs.interrupt, cpuRegs.cycle);
-    else
-        __Log("%sreg: %x %x c:%x\n", pstr, startpc, cpuRegs.interrupt, cpuRegs.cycle);
-	for(i = 1; i < 32; ++i) __Log("%s: %x_%x_%x_%x\n", disRNameGPR[i], cpuRegs.GPR.r[i].UL[3], cpuRegs.GPR.r[i].UL[2], cpuRegs.GPR.r[i].UL[1], cpuRegs.GPR.r[i].UL[0]);
+    __Log("%sreg: %x %x c:%x\n", pstr, startpc, cpuRegs.interrupt, cpuRegs.cycle);
     //for(i = 0; i < 32; i+=4) __Log("cp%d: %x_%x_%x_%x\n", i, cpuRegs.CP0.r[i], cpuRegs.CP0.r[i+1], cpuRegs.CP0.r[i+2], cpuRegs.CP0.r[i+3]);
 	//for(i = 0; i < 32; ++i) __Log("%sf%d: %f %x\n", pstr, i, fpuRegs.fpr[i].f, fpuRegs.fprc[i]);
 	//for(i = 1; i < 32; ++i) __Log("%svf%d: %f %f %f %f, vi: %x\n", pstr, i, VU0.VF[i].F[3], VU0.VF[i].F[2], VU0.VF[i].F[1], VU0.VF[i].F[0], VU0.VI[i].UL);
@@ -3319,5 +3294,3 @@ R5900cpu recCpu = {
 	recClearVU1,
 	recShutdown
 };
-
-#endif // PCSX2_NORECBUILD

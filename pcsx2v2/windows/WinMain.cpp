@@ -879,35 +879,6 @@ LRESULT WINAPI MainWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 				return TRUE;
 
 #ifdef PCSX2_DEVBUILD
-			case ID_DEBUG_ENTERDEBUGGER:
-				RunExecute(0);
-                DialogBox(gApp.hInstance, MAKEINTRESOURCE(IDD_DEBUG), NULL, (DLGPROC)DebuggerProc);
-                
-				CreateMainWindow(SW_SHOWNORMAL);
-				RunGui();
-                return TRUE;
-
-			case ID_DEBUG_REMOTEDEBUGGING:
-				//read debugging params
-				if (Config.Options & PCSX2_EEREC){
-					MessageBox(hWnd, _("Nah, you have to be in\nInterpreter Mode to debug"), 0, 0);
-					return FALSE;
-				} else {
-					remoteDebugBios=DialogBox(gApp.hInstance, MAKEINTRESOURCE(IDD_RDEBUGPARAMS), NULL, (DLGPROC)RemoteDebuggerParamsProc);
-					if (remoteDebugBios){
-						RunExecute(0);
-
-						DialogBox(gApp.hInstance, MAKEINTRESOURCE(IDD_RDEBUG), NULL, (DLGPROC)RemoteDebuggerProc);
-						CreateMainWindow(SW_SHOWNORMAL);
-						RunGui();
-					}
-				}
-                return TRUE;
-
-			case ID_DEBUG_MEMORY_DUMP:
-			    DialogBox(gApp.hInstance, MAKEINTRESOURCE(IDD_MEMORY), hWnd, (DLGPROC)MemoryProc);
-				return TRUE;
-
 			case ID_DEBUG_LOGGING:
 			    DialogBox(gApp.hInstance, MAKEINTRESOURCE(IDD_LOGGING), hWnd, (DLGPROC)LogProc);
 				return TRUE;
@@ -1126,9 +1097,6 @@ void CreateMainMenu() {
 #ifdef PCSX2_DEVBUILD
 	ADDSUBMENU(0, _("&Debug"));
 	ADDMENUITEM(0,_("&Logging"), ID_DEBUG_LOGGING);
-	ADDMENUITEM(0,_("Memory Dump"), ID_DEBUG_MEMORY_DUMP);
-	ADDMENUITEM(0,_("&Remote Debugging"), ID_DEBUG_REMOTEDEBUGGING);
-	ADDMENUITEM(0,_("Enter &Debugger..."), ID_DEBUG_ENTERDEBUGGER);
 #endif
 
 	ADDSUBMENU(0, _("&Misc"));

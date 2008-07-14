@@ -558,20 +558,16 @@ int AddPatch(int Mode, int Place, int Address, int Size, u64 data)
 
 void patchFunc_fastmemory( char * cmd, char * param )
 {
-#ifndef PCSX2_NORECBUILD
 	// only valid for recompilers
 	SetFastMemory(1);
-#endif
 }
 
 extern void SetVUNanMode(int mode);
 
 void patchFunc_vunanmode( char * cmd, char * param )
 {
-#ifndef PCSX2_NORECBUILD
 	// only valid for recompilers
     SetVUNanMode(param != NULL ? atoi(param) : 1);
-#endif
 }
 
 extern int path3hack;
@@ -632,7 +628,5 @@ void patchFunc_zerogs(char* cmd, char* param)
 void SetRoundMode(u32 ee, u32 vu)
 {
 	// don't set a state for interpreter only
-#ifndef PCSX2_NORECBUILD
 	SetCPUState(0x9f80|ee, 0x9f80|vu);
-#endif
 }

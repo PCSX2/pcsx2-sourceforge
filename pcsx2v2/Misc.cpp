@@ -364,8 +364,6 @@ int GetPS2ElfName(char *name){
 			}
 			if (buffer[i] == 0) break;
 			buffer[i] = 0;
-	
-			disR5900AddSym(addr, buffer);
 		}
 		fclose(fp);
 	}
@@ -643,33 +641,27 @@ int LoadState(char *file) {
 	for (i=0; i<48; i++) ClearTLB(i);
 
 	Cpu->Reset();
-#ifndef PCSX2_NORECBUILD
 	recResetVU0();
 	recResetVU1();
-#endif
 	psxCpu->Reset();
 
 	SysPrintf("Loading memory\n");
 
-#ifdef PCSX2_VIRTUAL_MEM
 	// make sure can write
 	VirtualProtect(PS2MEM_ROM, 0x00400000, PAGE_READWRITE, (PDWORD)&OldProtect);
 	VirtualProtect(PS2MEM_ROM1, 0x00040000, PAGE_READWRITE, (PDWORD)&OldProtect);
 	VirtualProtect(PS2MEM_ROM2, 0x00080000, PAGE_READWRITE, (PDWORD)&OldProtect);
 	VirtualProtect(PS2MEM_EROM, 0x001C0000, PAGE_READWRITE, (PDWORD)&OldProtect);
-#endif
 
 	gzread(f, PS2MEM_BASE, 0x02000000);         // 32 MB main memory   
 	gzread(f, PS2MEM_ROM, 0x00400000);         // 4 mb rom memory
 	gzread(f, PS2MEM_ROM1,0x00040000);         // 256kb rom1 memory
 	gzread(f, PS2MEM_SCRATCH, 0x00004000);         // scratch pad 
 
-#ifdef PCSX2_VIRTUAL_MEM
 	VirtualProtect(PS2MEM_ROM, 0x00400000, PAGE_READONLY, (PDWORD)&OldProtect);
 	VirtualProtect(PS2MEM_ROM1, 0x00040000, PAGE_READONLY, (PDWORD)&OldProtect);
 	VirtualProtect(PS2MEM_ROM2, 0x00080000, PAGE_READONLY, (PDWORD)&OldProtect);
 	VirtualProtect(PS2MEM_EROM, 0x001C0000, PAGE_READONLY, (PDWORD)&OldProtect);
-#endif
 
 	gzread(f, PS2MEM_HW, 0x00010000);         // hardware memory
 
@@ -918,9 +910,6 @@ void ProcessFKeys(int fkey, int shift)
 
 		case 4:
 
-#ifdef PCSX2_NORECBUILD
-            SysPrintf("frame skipping only valid for recompiler build\n");
-#else
 			// cycle
             if( shift ) {
                 // previous
@@ -951,7 +940,6 @@ void ProcessFKeys(int fkey, int shift)
 					break;
 			}
             SaveConfig();
-#endif
 			break;
 		// note: VK_F5-VK_F7 are reserved for GS
 		case 8:
@@ -961,9 +949,6 @@ void ProcessFKeys(int fkey, int shift)
 #ifdef PCSX2_DEVBUILD
 		case 10:
 		{
-#ifdef PCSX2_NORECBUILD
-            SysPrintf("Block performances times only valid for recompiler builds\n");
-#else
 			int num;
 			FILE* f;
 			BASEBLOCKEX** ppblocks = GetAllBaseBlocks(&num, 0);
@@ -979,7 +964,6 @@ void ProcessFKeys(int fkey, int shift)
 			}
 			fclose(f);
 			SysPrintf("perflog.txt written\n");
-#endif
 			break;
 		}
 		
@@ -1010,10 +994,8 @@ void ProcessFKeys(int fkey, int shift)
 		case 12:
             if( shift ) {
 #ifdef PCSX2_DEVBUILD
-#ifndef PCSX2_NORECBUILD
 			    iDumpRegisters(cpuRegs.pc, 0);
 			    SysPrintf("hardware registers dumped EE:%x, IOP:%x\n", cpuRegs.pc, psxRegs.pc);
-#endif
 #endif
             }
             else {
@@ -1094,63 +1076,3 @@ void injectIRX(char *filename){
 	rd[i].fileSize=filesize;
 	rd[i].extInfoSize=0;
 }
-
-// failed inline calls, this is because of inline hell and gcc syntax
-#ifndef _WIN32
-
-void InterlockedExchangePointer(PVOID volatile* Target, void* Value)
-{
-#ifdef __x86_64__
-	__asm__ __volatile__(".intel_syntax\n"
-						 "lock xchg [%0], %%rax\n"
-						 ".att_syntax\n" : : "r"(Target), "a"(Value) : "memory" );
-#else
-	__asm__ __volatile__(".intel_syntax\n"
-						 "lock xchg [%0], %%eax\n"
-						 ".att_syntax\n" : : "r"(Target), "a"(Value) : "memory" );
-#endif
-}
-
-long InterlockedExchange(long volatile* Target, long Value)
-{
-	__asm__ __volatile__(".intel_syntax\n"
-						 "lock xchg [%0], %%eax\n"
-						 ".att_syntax\n" : : "r"(Target), "a"(Value) : "memory" );
-}
-
-long InterlockedExchangeAdd(long volatile* Addend, long Value)
-{
-	__asm__ __volatile__(".intel_syntax\n"
-						 "lock xadd [%0], %%eax\n"
-						 ".att_syntax\n" : : "r"(Addend), "a"(Value) : "memory" );
-}
-
-u32 timeGetTime()
-{
-	struct timeb t;
-	ftime(&t);
-	return (u32)(t.time*1000+t.millitm);
-}
-
-void* pcsx2_aligned_malloc(size_t size, size_t align)
-{
-    assert( align < 0x10000 );
-	char* p = (char*)malloc(size+align);
-	int off = 2+align - ((int)(uptr)(p+2) % align);
-
-	p += off;
-	*(u16*)(p-2) = off;
-
-	return p;
-}
-
-void pcsx2_aligned_free(void* pmem)
-{
-    if( pmem != NULL ) {
-        char* p = (char*)pmem;
-        free(p - (int)*(u16*)(p-2));
-    }
-}
-
-#endif
-

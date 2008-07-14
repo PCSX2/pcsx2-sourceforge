@@ -43,9 +43,6 @@
 //****************************************************************
 
 void COP1() {
-#ifdef FPU_LOG
-	FPU_LOG("%s\n", disR5900F(cpuRegs.code, cpuRegs.pc));
-#endif
 	Int_COP1PrintTable[_Rs_]();
 }
 

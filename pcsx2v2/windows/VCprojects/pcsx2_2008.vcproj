@@ -52,6 +52,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
+				EnableEnhancedInstructionSet="2"
 			/>
 			<Tool
 				Name="VCManagedResourceCompilerTool"
@@ -66,6 +67,8 @@
 				Name="VCLinkerTool"
 				AdditionalOptions="/FORCE:MULTIPLE /IGNORE:4006"
 				OutputFile="..\..\..\bin\pcsx2.exe"
+				OptimizeForWindows98="1"
+				LinkTimeCodeGeneration="1"
 				TurnOffAssemblyGeneration="false"
 				TargetMachine="0"
 			/>
@@ -480,10 +483,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\InterTables.h"
-				>
-			</File>
-			<File
 				RelativePath="..\..\MMI.cpp"
 				>
 			</File>
@@ -549,26 +548,6 @@
 			</File>
 		</Filter>
 		<Filter
-			Name="Debugger"
-			>
-			<File
-				RelativePath=".\..\Debugger.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\..\Debugger.h"
-				>
-			</File>
-			<File
-				RelativePath=".\..\DebugMemory.cpp"
-				>
-			</File>
-			<File
-				RelativePath=".\..\Debugreg.cpp"
-				>
-			</File>
-		</Filter>
-		<Filter
 			Name="Elf"
 			>
 			<File
@@ -616,51 +595,7 @@
 			Name="Debug"
 			>
 			<File
-				RelativePath="..\..\DebugTools\cpuopsDebug.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\DebugTools\cpuopsDebug.h"
-				>
-			</File>
-			<File
 				RelativePath="..\..\DebugTools\Debug.h"
-				>
-			</File>
-			<File
-				RelativePath="..\..\DebugTools\DisASM.h"
-				>
-			</File>
-			<File
-				RelativePath="..\..\DebugTools\DisR3000A.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\DebugTools\DisR3000asm.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\DebugTools\DisR5900.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\DebugTools\DisR5900asm.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\DebugTools\DisVU0Micro.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\DebugTools\DisVU1Micro.cpp"
-				>
-			</File>
-			<File
-				RelativePath="..\..\DebugTools\DisVUmicro.h"
-				>
-			</File>
-			<File
-				RelativePath="..\..\DebugTools\DisVUops.h"
 				>
 			</File>
 		</Filter>
@@ -793,10 +728,6 @@
 			</File>
 			<File
 				RelativePath="..\..\VUflags.h"
-				>
-			</File>
-			<File
-				RelativePath="..\..\VUmicro.h"
 				>
 			</File>
 			<File

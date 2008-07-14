@@ -58,22 +58,15 @@ int cpuInit()
 	InitFPUOps();
 
 	cpuRegs.constzero = 0;
-#ifdef PCSX2_NORECBUILD
-	Cpu = &intCpu;
-#else
 	cpudetectInit();
-	Cpu = CHECK_EEREC ? &recCpu : &intCpu;
-#endif
+	Cpu = &recCpu;
 
 	ret = Cpu->Init();
-	if (ret == -1 && CHECK_EEREC) {
-		SysMessage(_("Error initializing Recompiler, switching to Interpreter"));
-		Config.Options &= ~(PCSX2_EEREC|PCSX2_VU1REC|PCSX2_VU0REC);
-		Cpu = &intCpu;
-		ret = Cpu->Init();
+	if (ret == -1)
+	{
+		return -1;
 	}
 
-#ifdef PCSX2_VIRTUAL_MEM
 	if (memInit() == -1) {
 		PROCESS_INFORMATION pi;
 		STARTUPINFO si;
@@ -99,13 +92,9 @@ int cpuInit()
 
 		return -1;
 	}
-#endif
 	if (hwInit() == -1) return -1;
 	if (vu0Init() == -1) return -1;
 	if (vu1Init() == -1) return -1;
-#ifndef PCSX2_VIRTUAL_MEM
-	if (memInit() == -1) return -1;
-#endif
 
 #ifdef PCSX2_DEVBUILD
 	Log = 0;
@@ -149,8 +138,6 @@ void cpuShutdown()
 	vu1Shutdown();
 	memShutdown();
 	gsShutdown();
-	disR5900FreeSyms();
-
 	Cpu->Shutdown();
 }
 
@@ -396,15 +383,13 @@ extern void gsWaitGS();
 
 void cpuBranchTest()
 {
-#ifndef PCSX2_NORECBUILD
     // dont' remove this check unless doing an official release
     if( g_globalXMMSaved X86_32CODE(|| g_globalMMXSaved) )
         SysPrintf("frozen regs have not been restored!!!\n");
 	assert( !g_globalXMMSaved X86_32CODE(&& !g_globalMMXSaved) );
 	g_EEFreezeRegs = 0;
-#endif
 
-//	if( !loaded && cpuRegs.cycle > 0x20000000 ) {
+	//	if( !loaded && cpuRegs.cycle > 0x20000000 ) {
 //		char strstate[255];
 //		sprintf(strstate, SSTATES_DIR "/%8.8X.000", ElfCRC);
 //		LoadState(strstate);
@@ -449,10 +434,8 @@ void cpuBranchTest()
 	if( (int)cpuRegs.cycle-(int)g_nextBranchCycle > 0 )
 		g_nextBranchCycle = cpuRegs.cycle+1;
 
-#ifndef PCSX2_NORECBUILD
 	assert( !g_globalXMMSaved X86_32CODE(&& !g_globalMMXSaved) );
 	g_EEFreezeRegs = 1;
-#endif
 }
 
 static void _cpuTestINTC() {
@@ -504,14 +487,11 @@ void cpuTestTIMRInts() {
 void cpuExecuteBios()
 {
 	// filter CPU options
-	if( CHECK_EEREC ) Config.Options |= PCSX2_COP2REC;
-	else Config.Options &= ~PCSX2_COP2REC;
-
-#ifndef PCSX2_NORECBUILD
+	Config.Options |= PCSX2_COP2REC;
+	
 	if( !cpucaps.hasStreamingSIMDExtensions ) {
 		Config.Options &= ~(PCSX2_VU1REC|PCSX2_VU0REC);
 	}
-#endif
 
 	// remove frame skipping if GS doesn't support it
 	switch(CHECK_FRAMELIMIT) {
@@ -563,7 +543,7 @@ void cpuExecuteBios()
 //	REC_CLEARM(0x00200008);
 //	REC_CLEARM(0x00100008);
 //	REC_CLEARM(cpuRegs.pc);
-	if( CHECK_EEREC ) Cpu->Reset();
+	Cpu->Reset();
 
 	SysPrintf("* PCSX2 *: ExecuteBios Complete\n");
 	GSprintf(5, "PCSX2 v" PCSX2_VERSION "\nExecuteBios Complete\n");
@@ -571,12 +551,7 @@ void cpuExecuteBios()
 
 void cpuRestartCPU()
 {
-#ifdef PCSX2_NORECBUILD
-	Cpu = &intCpu;
-#else
-	Cpu = CHECK_EEREC ? &recCpu : &intCpu;
-#endif
-
+	Cpu = &recCpu;
 	// restart vus
 	if (Cpu->Init() == -1) {
 		SysClose();
@@ -592,9 +567,7 @@ void cpuRestartCPU()
 // for interpreter only
 void IntcpuBranchTest()
 {
-#ifndef PCSX2_NORECBUILD
 	g_EEFreezeRegs = 0;
-#endif
 
     g_nextBranchCycle = cpuRegs.cycle + EE_WAIT_CYCLE;
 
@@ -627,7 +600,5 @@ void IntcpuBranchTest()
 	if( (int)cpuRegs.cycle-(int)g_nextBranchCycle > 0 )
 		g_nextBranchCycle = cpuRegs.cycle+1;
 
-#ifndef PCSX2_NORECBUILD
 	g_EEFreezeRegs = 1;
-#endif
 }
