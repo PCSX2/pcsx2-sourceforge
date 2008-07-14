@@ -28,14 +28,10 @@
 #define PS2MEM_BASE_	0x15000000
 #define PS2MEM_PSX_		(PS2MEM_BASE_+0x1c000000)
 
-#ifdef PCSX2_VIRTUAL_MEM
-
-#ifdef _WIN32
 typedef struct _PSMEMORYMAP
 {
 	uptr* aPFNs, *aVFNs;
 } PSMEMORYMAP;
-#endif
 
 #define TRANSFORM_ADDR(memaddr) ( ((u32)(memaddr)>=0x40000000) ? ((memaddr)&~0xa0000000) : (memaddr) )
 
@@ -64,39 +60,6 @@ typedef struct _PSMEMORYMAP
 #define PS2MEM_BA0		((u8*)((u32)PS2MEM_BASE+0x1a000000))
 
 #define PSM(mem)	(PS2MEM_BASE + TRANSFORM_ADDR(mem))
-
-#else
-
-extern u8  *psM; //32mb Main Ram
-extern u8  *psR; //4mb rom area
-extern u8  *psR1; //256kb rom1 area (actually 196kb, but can't mask this)
-extern u8  *psR2; // 0x00080000
-extern u8  *psER; // 0x001C0000
-extern u8  *psS; //0.015 mb, scratch pad
-
-#define PS2MEM_BASE		psM
-#define PS2MEM_HW		psH
-#define PS2MEM_ROM		psR
-#define PS2MEM_ROM1		psR1
-#define PS2MEM_ROM2		psR2
-#define PS2MEM_EROM		psER
-#define PS2MEM_SCRATCH	psS
-
-extern u8 g_RealGSMem[0x2000];
-#define PS2MEM_GS	g_RealGSMem
-
-//#define _PSM(mem)	(memLUTR[(mem) >> 12] == 0 ? NULL : (void*)(memLUTR[(mem) >> 12] + ((mem) & 0xfff)))
-#define PSM(mem)	((void*)(memLUTR[(mem) >> 12] + ((mem) & 0xfff)))
-#define FREE(ptr) _aligned_free(ptr)
-
-extern uptr *memLUTR;
-extern uptr *memLUTW;
-extern uptr *memLUTRK;
-extern uptr *memLUTWK;
-extern uptr *memLUTRU;
-extern uptr *memLUTWU;
-
-#endif
 
 #define psMs8(mem)	(*(s8 *)&PS2MEM_BASE[(mem) & 0x1ffffff])
 #define psMs16(mem)	(*(s16*)&PS2MEM_BASE[(mem) & 0x1ffffff])
@@ -201,9 +164,6 @@ void recMemWrite32();
 void recMemWrite64();
 void recMemWrite128();
 
-// VM only functions
-#ifdef PCSX2_VIRTUAL_MEM
-
 void _eeReadConstMem8(int mmreg, u32 mem, int sign);
 void _eeReadConstMem16(int mmreg, u32 mem, int sign);
 void _eeReadConstMem32(int mmreg, u32 mem);
@@ -232,36 +192,5 @@ int recMemConstWrite64(u32 mem, int mmreg);
 int recMemConstWrite128(u32 mem, int xmmreg);
 
 extern int SysPageFaultExceptionFilter(struct _EXCEPTION_POINTERS* eps);
-
-#else
-
-#define _eeReadConstMem8 0&&
-#define _eeReadConstMem16 0&&
-#define _eeReadConstMem32 0&&
-#define _eeReadConstMem128 0&&
-#define _eeWriteConstMem8 0&&
-#define _eeWriteConstMem16 0&&
-#define _eeWriteConstMem32 0&&
-#define _eeWriteConstMem64 0&&
-#define _eeWriteConstMem128 0&&
-#define _eeMoveMMREGtoR 0&&
-
-// extra ops
-#define _eeWriteConstMem16OP 0&&
-#define _eeWriteConstMem32OP 0&&
-
-#define recMemConstRead8 0&&
-#define recMemConstRead16 0&&
-#define recMemConstRead32 0&&
-#define recMemConstRead64 0&&
-#define recMemConstRead128 0&&
-
-#define recMemConstWrite8 0&&
-#define recMemConstWrite16 0&&
-#define recMemConstWrite32 0&&
-#define recMemConstWrite64 0&&
-#define recMemConstWrite128 0&&
-
-#endif
 
 #endif
