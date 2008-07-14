@@ -29,16 +29,10 @@ void COP0() {
 }
 
 void COP0_BC0() {
-#ifdef COP0_LOG
-	COP0_LOG("%s\n", disR5900F(cpuRegs.code, cpuRegs.pc));
-#endif
     Int_COP0BC0PrintTable[(cpuRegs.code >> 16) & 0x03]();
 }
 
 void COP0_Func() {
-#ifdef COP0_LOG
-	COP0_LOG("%s\n", disR5900F(cpuRegs.code, cpuRegs.pc));
-#endif
     Int_COP0C0PrintTable[_Funct_]();
 }
 
@@ -67,81 +61,6 @@ void WriteCP0Status(u32 value) {
 
 extern u32 s_iLastCOP0Cycle;
 extern u32 s_iLastPERFCycle[2];
-
-void MFC0() {
-	if (!_Rt_) return;
-#ifdef COP0_LOG
-	if (_Rd_ != 9) { COP0_LOG("%s\n", disR5900F(cpuRegs.code, cpuRegs.pc)); }
-#endif
-
-	//if(bExecBIOS == FALSE && _Rd_ == 25) SysPrintf("MFC0 _Rd_ %x = %x\n", _Rd_, cpuRegs.CP0.r[_Rd_]);
-	switch (_Rd_) {
-		
-		case 12: cpuRegs.GPR.r[_Rt_].UD[0] = (s64)(cpuRegs.CP0.r[_Rd_] & 0xf0c79c1f); break;
-		case 25: 
-		    switch(_Imm_ & 0x3F){
-			    case 0: cpuRegs.GPR.r[_Rt_].UD[0] = (s64)cpuRegs.PERF.n.pccr; break;
-			    case 1:
-					if((cpuRegs.PERF.n.pccr & 0x800003E0) == 0x80000020) {
-						cpuRegs.PERF.n.pcr0 += cpuRegs.cycle-s_iLastPERFCycle[0];
-						s_iLastPERFCycle[0] = cpuRegs.cycle;
-					}
-        
-                    cpuRegs.GPR.r[_Rt_].UD[0] = (s64)cpuRegs.PERF.n.pcr0;
-                    break;
-			    case 3:
-					if((cpuRegs.PERF.n.pccr & 0x800F8000) == 0x80008000) {
-						cpuRegs.PERF.n.pcr1 += cpuRegs.cycle-s_iLastPERFCycle[1];
-						s_iLastPERFCycle[1] = cpuRegs.cycle;
-					}
-					cpuRegs.GPR.r[_Rt_].UD[0] = (s64)cpuRegs.PERF.n.pcr1;
-					break;
-		    }
-		    /*SysPrintf("MFC0 PCCR = %x PCR0 = %x PCR1 = %x IMM= %x\n", 
-		    cpuRegs.PERF.n.pccr, cpuRegs.PERF.n.pcr0, cpuRegs.PERF.n.pcr1, _Imm_ & 0x3F);*/
-		    break;
-		case 24: 
-			SysPrintf("MFC0 Breakpoint debug Registers code = %x\n", cpuRegs.code & 0x3FF);
-			break;
-		case 9:
-			// update
-			cpuRegs.CP0.n.Count += cpuRegs.cycle-s_iLastCOP0Cycle;
-			s_iLastCOP0Cycle = cpuRegs.cycle;
-		default: cpuRegs.GPR.r[_Rt_].UD[0] = (s64)cpuRegs.CP0.r[_Rd_];
-	}
-}
-
-void MTC0() {
-#ifdef COP0_LOG
-	COP0_LOG("%s\n", disR5900F(cpuRegs.code, cpuRegs.pc));
-#endif
-	//if(bExecBIOS == FALSE && _Rd_ == 25) SysPrintf("MTC0 _Rd_ %x = %x\n", _Rd_, cpuRegs.CP0.r[_Rd_]);
-	switch (_Rd_) {
-		case 25: 
-			/*if(bExecBIOS == FALSE && _Rd_ == 25) SysPrintf("MTC0 PCCR = %x PCR0 = %x PCR1 = %x IMM= %x\n", 
-				cpuRegs.PERF.n.pccr, cpuRegs.PERF.n.pcr0, cpuRegs.PERF.n.pcr1, _Imm_ & 0x3F);*/
-			switch(_Imm_ & 0x3F){
-				case 0:
-					if((cpuRegs.PERF.n.pccr & 0x800003E0) == 0x80000020)
-						cpuRegs.PERF.n.pcr0 += cpuRegs.cycle-s_iLastPERFCycle[0];
-					if((cpuRegs.PERF.n.pccr & 0x800F8000) == 0x80008000)
-						cpuRegs.PERF.n.pcr1 += cpuRegs.cycle-s_iLastPERFCycle[1];
-					cpuRegs.PERF.n.pccr = cpuRegs.GPR.r[_Rt_].UL[0];
-					s_iLastPERFCycle[0] = cpuRegs.cycle;
-					s_iLastPERFCycle[1] = cpuRegs.cycle;
-					break;
-				case 1: cpuRegs.PERF.n.pcr0 = cpuRegs.GPR.r[_Rt_].UL[0]; s_iLastPERFCycle[0] = cpuRegs.cycle; break;
-				case 3: cpuRegs.PERF.n.pcr1 = cpuRegs.GPR.r[_Rt_].UL[0]; s_iLastPERFCycle[1] = cpuRegs.cycle; break;
-			}
-			break;
-		case 24: 
-			SysPrintf("MTC0 Breakpoint debug Registers code = %x\n", cpuRegs.code & 0x3FF);
-			break;
-		case 12: WriteCP0Status(cpuRegs.GPR.r[_Rt_].UL[0]); break;
-		case 9: s_iLastCOP0Cycle = cpuRegs.cycle; cpuRegs.CP0.r[9] = cpuRegs.GPR.r[_Rt_].UL[0]; break;
-		default: cpuRegs.CP0.r[_Rd_] = cpuRegs.GPR.r[_Rt_].UL[0]; break;
-	}
-}
 
 int CPCOND0() {
 	if(((psHu16(DMAC_STAT) & psHu16(DMAC_PCR)) & 0x3ff) == (psHu16(DMAC_PCR) & 0x3ff)) return 1;

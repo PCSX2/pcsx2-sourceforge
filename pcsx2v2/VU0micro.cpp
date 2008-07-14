@@ -113,11 +113,9 @@ int  vu0Init()
 	VU0.vuExec = vu0Exec;
 	VU0.vifRegs = vif0Regs;
 
-#ifndef PCSX2_NORECBUILD
 	if( CHECK_VU0REC ) {
 		SuperVUInit(0);
 	}
-#endif
 
 	vu0Reset();
 
@@ -126,21 +124,14 @@ int  vu0Init()
 
 void vu0Shutdown()
 {
-#ifndef PCSX2_NORECBUILD
 	if( CHECK_VU0REC ) {
 		SuperVUDestroy(0);
 	}
-#endif
 
-#ifdef PCSX2_VIRTUAL_MEM
 	if( !SysMapUserPhysicalPages(VU0.Mem, 16, NULL, 0) )
 		SysPrintf("err releasing vu0 mem %d\n", GetLastError());
 	if( VirtualFree(VU0.Mem, 0, MEM_RELEASE) == 0 )
 		SysPrintf("err freeing vu0 %d\n", GetLastError());
-#else
-	_aligned_free(VU0.Mem);
-	_aligned_free(VU0.Micro);
-#endif
 
 	VU0.Mem = NULL;
 	VU0.Micro = NULL;
@@ -173,11 +164,9 @@ void vu0Reset()
 
 void recResetVU0( void )
 {
-#ifndef PCSX2_NORECBUILD
 	if( CHECK_VU0REC ) {
 		SuperVUReset(0);
 	}
-#endif
 }
 
 void vu0Freeze(gzFile f, int Mode) {
@@ -215,13 +204,11 @@ void vu0ExecMicro(u32 addr) {
 
 void _vu0ExecUpper(VURegs* VU, u32 *ptr) {
 	VU->code = ptr[1]; 
-	IdebugUPPER(VU0);
 	VU0_UPPER_OPCODE[VU->code & 0x3f](); 
 }
 
 void _vu0ExecLower(VURegs* VU, u32 *ptr) {
 	VU->code = ptr[0]; 
-	IdebugLOWER(VU0);
 	VU0_LOWER_OPCODE[VU->code >> 25](); 
 }
 

@@ -20,56 +20,11 @@
 *   cached MMI opcodes                                   *
 *                                                        *
 *********************************************************/
-// stop compiling if NORECBUILD build (only for Visual Studio)
-#if !(defined(_MSC_VER) && defined(PCSX2_NORECBUILD))
-
 #include "Common.h"
 #include "InterTables.h"
 #include "ix86/ix86.h"
 #include "iR5900.h"
 #include "iMMI.h"
-
-#ifndef MMI_RECOMPILE
-
-REC_FUNC( PLZCW, _Rd_ );
-
-#ifndef MMI0_RECOMPILE
-
-REC_FUNC( MMI0, _Rd_ );
-
-#endif
-
-#ifndef MMI1_RECOMPILE
-
-REC_FUNC( MMI1, _Rd_ );
-
-#endif
-
-#ifndef MMI2_RECOMPILE
-
-REC_FUNC( MMI2, _Rd_ );
-
-#endif
-
-#ifndef MMI3_RECOMPILE
-
-REC_FUNC( MMI3, _Rd_ );
-
-#endif
-
-REC_FUNC( PMFHL, _Rd_ );
-REC_FUNC( PMTHL, _Rd_ );
-
-REC_FUNC( PSRLW, _Rd_ );
-REC_FUNC( PSRLH, _Rd_ );
-
-REC_FUNC( PSRAH, _Rd_ );
-REC_FUNC( PSRAW, _Rd_ );
-
-REC_FUNC( PSLLH, _Rd_ );
-REC_FUNC( PSLLW, _Rd_ );
-
-#else
 
 void recPLZCW()
 {
@@ -562,81 +517,31 @@ void recPLZCW( void )
 }
 */  
 
-#ifdef MMI0_RECOMPILE
-
 void recMMI0( void )
 {
 	recMMI0t[ _Sa_ ]( );
 }
-
-#endif
-
-#ifdef MMI1_RECOMPILE
 
 void recMMI1( void )
 {
 	recMMI1t[ _Sa_ ]( );
 }
 
-#endif
-
-#ifdef MMI2_RECOMPILE
-
 void recMMI2( void )
 {
 	recMMI2t[ _Sa_ ]( );
 }
-
-#endif
-
-#ifdef MMI3_RECOMPILE
 
 void recMMI3( void )
 {
 	recMMI3t[ _Sa_ ]( );
 }
 
-#endif
-
-#endif
 
 /*********************************************************
 *   MMI0 opcodes                                         *
 *                                                        *
 *********************************************************/
-#ifndef MMI0_RECOMPILE
-
-REC_FUNC( PADDB, _Rd_);
-REC_FUNC( PADDH, _Rd_);
-REC_FUNC( PADDW, _Rd_);
-REC_FUNC( PADDSB, _Rd_);
-REC_FUNC( PADDSH, _Rd_);
-REC_FUNC( PADDSW, _Rd_);
-REC_FUNC( PSUBB, _Rd_);
-REC_FUNC( PSUBH, _Rd_);
-REC_FUNC( PSUBW, _Rd_);
-REC_FUNC( PSUBSB, _Rd_);
-REC_FUNC( PSUBSH, _Rd_);
-REC_FUNC( PSUBSW, _Rd_);
-
-REC_FUNC( PMAXW, _Rd_);
-REC_FUNC( PMAXH, _Rd_);        
-
-REC_FUNC( PCGTW, _Rd_);
-REC_FUNC( PCGTH, _Rd_);
-REC_FUNC( PCGTB, _Rd_);
-
-REC_FUNC( PEXTLW, _Rd_);
-
-REC_FUNC( PPACW, _Rd_);        
-REC_FUNC( PEXTLH, _Rd_);
-REC_FUNC( PPACH, _Rd_);        
-REC_FUNC( PEXTLB, _Rd_);
-REC_FUNC( PPACB, _Rd_);
-REC_FUNC( PEXT5, _Rd_);
-REC_FUNC( PPAC5, _Rd_);
-
-#else
 
 ////////////////////////////////////////////////////
 void recPMAXW()
@@ -1529,40 +1434,10 @@ CPU_SSE_XMMCACHE_END
 	MOV16MtoR(EAX, (uptr)&cpuRegs.GPR.r[_Rt_].US[0]);
 	MOV16RtoM((uptr)&cpuRegs.GPR.r[_Rd_].US[0], EAX);
 }
-
-#endif
-
 /*********************************************************
 *   MMI1 opcodes                                         *
 *                                                        *
 *********************************************************/
-#ifndef MMI1_RECOMPILE
-
-REC_FUNC( PABSW, _Rd_);
-REC_FUNC( PABSH, _Rd_);
-
-REC_FUNC( PMINW, _Rd_); 
-REC_FUNC( PADSBH, _Rd_);
-REC_FUNC( PMINH, _Rd_);
-REC_FUNC( PCEQB, _Rd_);   
-REC_FUNC( PCEQH, _Rd_);
-REC_FUNC( PCEQW, _Rd_);
-
-REC_FUNC( PADDUB, _Rd_);
-REC_FUNC( PADDUH, _Rd_);
-REC_FUNC( PADDUW, _Rd_);
-
-REC_FUNC( PSUBUB, _Rd_);
-REC_FUNC( PSUBUH, _Rd_);
-REC_FUNC( PSUBUW, _Rd_);
-
-REC_FUNC( PEXTUW, _Rd_);   
-REC_FUNC( PEXTUH, _Rd_);
-REC_FUNC( PEXTUB, _Rd_);
-REC_FUNC( QFSRV, _Rd_); 
-
-#else
-
 ////////////////////////////////////////////////////
 PCSX2_ALIGNED16(int s_MaskHighBitD[4]) = { 0x80000000, 0x80000000, 0x80000000, 0x80000000 };
 PCSX2_ALIGNED16(int s_MaskHighBitW[4]) = { 0x80008000, 0x80008000, 0x80008000, 0x80008000 };
@@ -1836,10 +1711,12 @@ CPU_SSE_XMMCACHE_END
 ////////////////////////////////////////////////////
 void recQFSRV()
 {
-	//u8* pshift1, *pshift2, *poldptr, *pnewptr;
+	s8* pshift1, *pshift2, *poldptr, *pnewptr;
 
 	if ( ! _Rd_ ) return;
-/*
+	REC_FUNC_INLINE( QFSRV, _Rd_ );
+	return;
+
 CPU_SSE2_XMMCACHE_START((_Rs_!=0?XMMINFO_READS:0)|XMMINFO_READT|XMMINFO_WRITED)
 
 	if( _Rs_ == 0 ) {
@@ -1891,9 +1768,7 @@ CPU_SSE2_XMMCACHE_START((_Rs_!=0?XMMINFO_READS:0)|XMMINFO_READT|XMMINFO_WRITED)
 		_freeXMMreg(t0reg);
 	}
 
-CPU_SSE_XMMCACHE_END*/
-
-	REC_FUNC_INLINE( QFSRV, _Rd_ );
+CPU_SSE_XMMCACHE_END
 }
 
 
@@ -2029,11 +1904,6 @@ CPU_SSE_XMMCACHE_END
 			MOVQRtoM( (uptr)&cpuRegs.GPR.r[ _Rd_ ].UD[ 1 ], t1reg );
 			SetMMXstate();
 			)
-	}
-	else {
-		MOV32ItoM( (uptr)&cpuRegs.code, cpuRegs.code );
-		MOV32ItoM( (uptr)&cpuRegs.pc, pc );
-		CALLFunc( (u32)PMINH ); 
 	}
 }
 
@@ -2195,39 +2065,10 @@ CPU_SSE_XMMCACHE_END
 		)
 }
 
-#endif
 /*********************************************************
 *   MMI2 opcodes                                         *
 *                                                        *
 *********************************************************/
-#ifndef MMI2_RECOMPILE
-
-REC_FUNC( PMFHI, _Rd_);
-REC_FUNC( PMFLO, _Rd_);
-REC_FUNC( PCPYLD, _Rd_);
-REC_FUNC( PAND, _Rd_);
-REC_FUNC( PXOR, _Rd_); 
-
-REC_FUNC( PMADDW, _Rd_);
-REC_FUNC( PSLLVW, _Rd_);
-REC_FUNC( PSRLVW, _Rd_); 
-REC_FUNC( PMSUBW, _Rd_);
-REC_FUNC( PINTH, _Rd_);
-REC_FUNC( PMULTW, _Rd_);
-REC_FUNC( PDIVW, _Rd_);
-REC_FUNC( PMADDH, _Rd_);
-REC_FUNC( PHMADH, _Rd_);
-REC_FUNC( PMSUBH, _Rd_);
-REC_FUNC( PHMSBH, _Rd_);
-REC_FUNC( PEXEH, _Rd_);
-REC_FUNC( PREVH, _Rd_); 
-REC_FUNC( PMULTH, _Rd_);
-REC_FUNC( PDIVBW, _Rd_);
-REC_FUNC( PEXEW, _Rd_);
-REC_FUNC( PROT3W, _Rd_ ); 
-
-#else
-
 ////////////////////////////////////////////////////
 void recPMADDW()
 {
@@ -2936,30 +2777,10 @@ CPU_SSE_XMMCACHE_END
 		MOV32RtoM( (uptr)&cpuRegs.GPR.r[_Rd_].UL[3], EAX);
 	}
 }
-
-#endif
 /*********************************************************
 *   MMI3 opcodes                                         *
 *                                                        *
 *********************************************************/
-#ifndef MMI3_RECOMPILE
-
-REC_FUNC( PMADDUW, _Rd_);
-REC_FUNC( PSRAVW, _Rd_); 
-REC_FUNC( PMTHI, _Rd_);
-REC_FUNC( PMTLO, _Rd_);
-REC_FUNC( PINTEH, _Rd_);
-REC_FUNC( PMULTUW, _Rd_);
-REC_FUNC( PDIVUW, _Rd_);
-REC_FUNC( PCPYUD, _Rd_);
-REC_FUNC( POR, _Rd_);
-REC_FUNC( PNOR, _Rd_);  
-REC_FUNC( PCPYH, _Rd_); 
-REC_FUNC( PEXCW, _Rd_);
-REC_FUNC( PEXCH, _Rd_);
-
-#else
-
 ////////////////////////////////////////////////////
 REC_FUNC( PSRAVW, _Rd_ ); 
 
@@ -3370,7 +3191,3 @@ CPU_SSE_XMMCACHE_END
 	MOV32RtoM( (uptr)&cpuRegs.GPR.r[ _Rd_ ].UL[ 3 ], EDX );
 	//POP32R( EBX );
 }
-
-#endif
-
-#endif // PCSX2_NORECBUILD

@@ -113,8 +113,6 @@ static const VIFUnpackFuncTable VIFfuncTable[16] = {
 
 extern "C"
 {
-#if !defined(PCSX2_NORECBUILD)
-
 typedef struct {
 	// regular 0, 1, 2; mask 0, 1, 2
 	UNPACKPARTFUNCTYPESSE       funcU[9], funcS[9];
@@ -193,7 +191,6 @@ static const VIFSSEUnpackTable VIFfuncTableSSE[16] = {
 	{ _UNPACK_TABLE_SSE(V4_5, u), _UNPACK_TABLE_SSE(V4_5, u) },
 };
 
-#endif
 }
 
 __forceinline void vif0FLUSH() {
@@ -541,8 +538,6 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
             
         }
 
-#if !defined(PCSX2_NORECBUILD)
-
 		if( size >= ft->gsize && !(v->addr&0xf) && cpucaps.hasStreamingSIMD2Extensions) {
 			const UNPACKPARTFUNCTYPESSE* pfn;
 			int writemask;
@@ -558,11 +553,6 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 //			memset(dest, 0xcd, 64*4);
 //			VIFfuncTableSSE[1].funcS[6](dest, (u32*)tempdata, 8);
 
-#ifdef _MSC_VER
-
-#ifdef __x86_64__
-            _vifCol = VIFdmanum ? g_vifCol1 : g_vifCol0;
-#else
 			if( VIFdmanum ) {
 				__asm movaps XMM_ROW, qword ptr [g_vifRow1]
 				__asm movaps XMM_COL, qword ptr [g_vifCol1]
@@ -571,22 +561,6 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 				__asm movaps XMM_ROW, qword ptr [g_vifRow0]
 				__asm movaps XMM_COL, qword ptr [g_vifCol0]
 			}
-#endif
-
-#else
-			if( VIFdmanum ) {
-				__asm__(".intel_syntax\n"
-						"movaps %%xmm6, qword ptr [%0]\n"
-						"movaps %%xmm7, qword ptr [%1]\n"
-						".att_syntax\n" : :"r"(g_vifRow1), "r"(g_vifCol1) );
-			}
-			else {
-				__asm__(".intel_syntax\n"
-						"movaps %%xmm6, qword ptr [%0]\n"
-						"movaps %%xmm7, qword ptr [%1]\n"
-						".att_syntax\n" : : "r"(g_vifRow0), "r"(g_vifCol0) );
-			}
-#endif
 
 			if( vifRegs->cycle.cl == 0 || vifRegs->cycle.wl == 0 || (vifRegs->cycle.cl == vifRegs->cycle.wl && !(vifRegs->code&0x10000000)) ) {
 				oldcycle = *(u32*)&vifRegs->cycle;
@@ -626,7 +600,6 @@ static void VIFunpack(u32 *data, vifCode *v, int size, const unsigned int VIFdma
 			//((LARGE_INTEGER*)g_nCounters)->QuadPart += lfinal.QuadPart - lbase.QuadPart;
 		}
 		else
-#endif // !PCSX2_NORECBUILD
 		{
 
 			if(unpackType == 0xC && vifRegs->cycle.cl == vifRegs->cycle.wl) { //No use when SSE is available

@@ -293,10 +293,6 @@ u64 ipuRead64(u32 mem)
 	return *(u64*)(((u8*)ipuRegs)+(mem&0xff));
 }
 
-#ifndef PCSX2_NORECBUILD
-
-#ifndef __x86_64__
-
 int ipuConstRead32(u32 x86reg, u32 mem)
 {
 	int workingreg, tempreg, tempreg2;
@@ -399,22 +395,6 @@ void ipuConstRead64(u32 mem, int mmreg)
 	}
 }
 
-#else
-
-int ipuConstRead32(u32 x86reg, u32 mem)
-{
-	assert(0);
-}
-
-void ipuConstRead64(u32 mem, int mmreg)
-{
-	assert(0);
-}
-
-#endif // __x86_64__
-
-#endif // !defined(PCSX2_NORECBUILD)
-
 void ipuSoftReset()
 {
 	if (!mpeg2_inited){
@@ -505,10 +485,6 @@ void ipuWrite64(u32 mem, u64 value)
 	}
 }
 
-#ifndef PCSX2_NORECBUILD
-
-#ifndef __x86_64__
-
 void ipuConstWrite32(u32 mem, int mmreg)
 {
 	iFlushCall(0);
@@ -578,22 +554,6 @@ void ipuConstWrite64(u32 mem, int mmreg)
 			break;
 	}
 }
-
-#else
-
-void ipuConstWrite32(u32 mem, int mmreg)
-{
-	assert(0);
-}
-
-void ipuConstWrite64(u32 mem, int mmreg)
-{
-	assert(0);
-}
-
-#endif
-
-#endif
 
 ///////////////////////////////////////////
 // IPU Commands (exec on worker thread only)

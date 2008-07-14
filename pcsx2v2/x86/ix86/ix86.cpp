@@ -22,10 +22,6 @@
  *           goldfinger
  *			 zerofrog(@gmail.com)
  */
-
-// stop compiling if NORECBUILD build (only for Visual Studio)
-#if !(defined(_MSC_VER) && defined(PCSX2_NORECBUILD))
-
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
@@ -3286,5 +3282,3 @@ void LEA32RStoR(x86IntRegType to, x86IntRegType from, u32 scale)
 		LEA32RStoR(to, to, scale);
 	}
 }
-
-#endif

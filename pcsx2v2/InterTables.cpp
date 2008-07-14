@@ -115,7 +115,7 @@ void (*Int_MMI3PrintTable[32])() =
 
 void (*Int_COP0PrintTable[32])() = 
 {
-    MFC0,         COP0_Unknown, COP0_Unknown, COP0_Unknown, MTC0,         COP0_Unknown, COP0_Unknown, COP0_Unknown,
+    COP0_Unknown,         COP0_Unknown, COP0_Unknown, COP0_Unknown, COP0_Unknown,         COP0_Unknown, COP0_Unknown, COP0_Unknown,
     COP0_BC0,     COP0_Unknown, COP0_Unknown, COP0_Unknown, COP0_Unknown, COP0_Unknown, COP0_Unknown, COP0_Unknown,
     COP0_Func,    COP0_Unknown, COP0_Unknown, COP0_Unknown, COP0_Unknown, COP0_Unknown, COP0_Unknown, COP0_Unknown,
     COP0_Unknown, COP0_Unknown, COP0_Unknown, COP0_Unknown, COP0_Unknown, COP0_Unknown, COP0_Unknown, COP0_Unknown,

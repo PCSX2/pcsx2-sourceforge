@@ -52,15 +52,8 @@ BIOS
 #include <stdlib.h>
 #include <malloc.h>
 #include <sys/stat.h>
-
 #include "Common.h"
-
-#ifdef PCSX2_NORECBUILD
-#define REC_CLEARM(mem)
-#else
 #include "iR5900.h"
-#endif
-
 #include "PsxMem.h"
 #include "R3000A.h"
 #include "PsxHw.h"
@@ -1356,7 +1349,7 @@ int recMemConstWrite32(u32 mem, int mmreg)
 				CALLFunc((u32)Cpu->ClearVU0);
 				ADD32ItoR(ESP, 8);
 			}
-			else if( mem >= 0x11008000 && mem < 0x1100c0000 ) {
+			else if( mem >= 0x11008000 && mem < 0x1100c000 ) {
 				PUSH32I(1);
 				PUSH32I(mem&0x3ff8);
 				CALLFunc((u32)Cpu->ClearVU1);
@@ -1912,9 +1905,7 @@ void memWrite8 (u32 mem, u8  value)   {
 		default:
 			*(u8*)(PS2MEM_BASE+mem) = value;
 			
-			if (CHECK_EEREC) {
-				REC_CLEARM(mem&~3);
-			}
+			REC_CLEARM(mem&~3);
 			return;
 	}
 
@@ -1940,9 +1931,7 @@ void memWrite16(u32 mem, u16 value)   {
 
 		default:
 			*(u16*)(PS2MEM_BASE+mem) = value;
-			if (CHECK_EEREC) {
-				REC_CLEARM(mem&~3);
-			}
+			REC_CLEARM(mem&~3);
 			return;
 	}
 
@@ -1968,10 +1957,7 @@ void memWrite32(u32 mem, u32 value)
 
 		default:
 			*(u32*)(PS2MEM_BASE+mem) = value;
-	
-			if (CHECK_EEREC) {
-				REC_CLEARM(mem);
-			}
+			REC_CLEARM(mem);
 			return;
 	}
 
@@ -1990,11 +1976,8 @@ void memWrite64(u32 mem, u64 value)   {
 
 		default:
 			*(u64*)(PS2MEM_BASE+mem) = value;
-
-			if (CHECK_EEREC) {
-				REC_CLEARM(mem);
-				REC_CLEARM(mem+4);
-			}
+			REC_CLEARM(mem);
+			REC_CLEARM(mem+4);
 			return;
 	}
 
@@ -2017,13 +2000,10 @@ void memWrite128(u32 mem, u64 *value) {
 		default:
 			*(u64*)(PS2MEM_BASE+mem) = value[0];
 			*(u64*)(PS2MEM_BASE+mem+8) = value[1];
-
-			if (CHECK_EEREC) {
-				REC_CLEARM(mem);
-				REC_CLEARM(mem+4);
-				REC_CLEARM(mem+8);
-				REC_CLEARM(mem+12);
-			}
+			REC_CLEARM(mem);
+			REC_CLEARM(mem+4);
+			REC_CLEARM(mem+8);
+			REC_CLEARM(mem+12);
 			return;
 	}
 

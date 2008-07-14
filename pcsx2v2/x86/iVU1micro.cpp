@@ -15,10 +15,6 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
  */
-
-// stop compiling if NORECBUILD build (only for Visual Studio)
-#if !(defined(_MSC_VER) && defined(PCSX2_NORECBUILD))
-
 #include <stdlib.h>
 #include <string.h>
 #include <float.h>
@@ -112,10 +108,7 @@ void recResetVU1( void ) {
 
 static void iDumpBlock()
 {
-	FILE *f;
 	char filename[ 256 ];
-	u32 *mem;
-	u32 i;
 
 #ifdef _WIN32
 	CreateDirectory("dumps", NULL);
@@ -125,19 +118,6 @@ static void iDumpBlock()
 	sprintf( filename, "dumps/vu%.4X.txt", VU1.VI[ REG_TPC ].UL );
 #endif
 	SysPrintf( "dump1 %x => %x (%s)\n", VU1.VI[ REG_TPC ].UL, pc, filename );
-
-	f = fopen( filename, "wb" );
-	for ( i = VU1.VI[REG_TPC].UL; i < pc; i += 8 ) {
-		char* pstr;
-		mem = (u32*)&VU1.Micro[i];
-
-		pstr = disVU1MicroUF( mem[1], i+4 );
-		fprintf(f, "%x: %-40s ",  i, pstr);
-		
-		pstr = disVU1MicroLF( mem[0], i );
-		fprintf(f, "%s\n",  pstr);
-	}
-	fclose( f );
 }
 
 u32 g_VUProgramId = 0;
@@ -214,5 +194,3 @@ void recClearVU1( u32 Addr, u32 Size ) {
 		SuperVUClear(Addr, Size*4, 1);
 	}
 }
-
-#endif

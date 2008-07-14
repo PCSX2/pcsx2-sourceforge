@@ -15,18 +15,9 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
  */
-
-// stop compiling if NORECBUILD build (only for Visual Studio)
-#if !(defined(_MSC_VER) && defined(PCSX2_NORECBUILD))
-
 #include "PS2Etypes.h"
-
-#if defined(_WIN32)
 #include <windows.h>
-#endif
-
 #include <assert.h>
-
 #include <vector>
 #include <list>
 
@@ -509,5 +500,3 @@ void gsConstRead128(u32 mem, int xmmreg)
 #endif
 	_eeReadConstMem128( xmmreg, (uptr)PS2GS_BASE(mem));
 }
-
-#endif // PCSX2_NORECBUILD

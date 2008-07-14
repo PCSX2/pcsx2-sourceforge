@@ -17,10 +17,6 @@
  */
 
 // Super VU recompiler - author: zerofrog(@gmail.com)
-
-// stop compiling if NORECBUILD build (only for Visual Studio)
-#if !(defined(_MSC_VER) && defined(PCSX2_NORECBUILD))
-
 #include <stdlib.h>
 #include <string.h>
 #include <float.h>
@@ -61,9 +57,6 @@ extern "C" {
 extern u32 vudump;
 extern void iDumpVU0Registers();
 extern void iDumpVU1Registers();
-
-extern char* disVU1MicroUF(u32 code, u32 pc);
-extern char* disVU1MicroLF(u32 code, u32 pc);
 
 extern _GSgifTransfer1 GSgifTransfer1;
 
@@ -555,10 +548,7 @@ void SuperVUDumpBlock(list<VuBaseBlock*>& blocks, int vuindex)
 			}
 			else {
 				mem = (u32*)&VU->Micro[i];
-				char* pstr = disVU1MicroUF( mem[1], i+4 );
-				fprintf(f, "%.4x: %-40s",  i, pstr);
 				if( mem[1] & 0x80000000 ) fprintf(f, " I=%f(%.8x)\n", *(float*)mem, mem[0]);
-				else fprintf(f, "%s\n", disVU1MicroLF( mem[0], i ));
 				i += 8;
 			}
 
@@ -4559,5 +4549,3 @@ void recSVUunknown( void )
 { 
 	SysPrintf("Unknown SVU micromode opcode called\n"); 
 }
-
-#endif // PCX2_NORECBUILD

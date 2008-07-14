@@ -19,9 +19,6 @@
 // recompiler reworked to add dynamic linking Jan06
 // and added reg caching, const propagation, block analysis Jun06
 // zerofrog(@gmail.com)
-// stop compiling if NORECBUILD build (only for Visual Studio)
-#if !(defined(_MSC_VER) && defined(PCSX2_NORECBUILD))
-
 #ifdef _WIN32
 #pragma warning(disable:4244)
 #pragma warning(disable:4761)
@@ -60,8 +57,6 @@
 
 extern u32 psxNextCounter, psxNextsCounter;
 u32 g_psxMaxRecMem = 0;
-extern char *disRNameGPR[];
-extern char* disR3000Fasm(u32 code, u32 pc);
 
 void psxRecRecompile(u32 startpc);
 
@@ -161,9 +156,6 @@ sprintf( filename, "dumps\\psxdump%.8X.txt", startpc);
 
 	f = fopen( filename, "w" );
 	assert( f != NULL );
-	for ( i = startpc; i < s_nEndBlock; i += 4 ) {
-		fprintf( f, "%s\n", disR3000Fasm( *(u32*)PSXM( i ), i ) );
-	}
 
 	// write the instruction info
 	fprintf(f, "\n\nlive0 - %x, lastuse - %x used - %x\n", EEINST_LIVE0, EEINST_LASTUSE, EEINST_USED);
@@ -184,9 +176,6 @@ sprintf( filename, "dumps\\psxdump%.8X.txt", startpc);
 	fprintf(f, "\n");
 
 	fprintf(f, "       ");
-	for(i = 0; i < ARRAYSIZE(s_pInstCache->regs); ++i) {
-		if( used[i] ) fprintf(f, "%s ", disRNameGPR[i]);
-	}
 	fprintf(f, "\n");
 
 	pcur = s_pInstCache+1;
@@ -1165,7 +1154,6 @@ void iDumpPsxRegisters(u32 startpc, u32 temp)
 	const char* pstr = temp ? "t" : "";
 
     __Log("%spsxreg: %x %x ra:%x k0: %x %x\n", pstr, startpc, psxRegs.cycle, psxRegs.GPR.n.ra, psxRegs.GPR.n.k0, *(int*)PSXM(0x13c128));
-    for(i = 0; i < 34; i+=2) __Log("%spsx%s: %x %x\n", pstr, disRNameGPR[i], psxRegs.GPR.r[i], psxRegs.GPR.r[i+1]);
 	__Log("%scycle: %x %x %x %x; counters %x %x\n", pstr, psxRegs.cycle, g_psxNextBranchCycle, EEsCycle, IOPoCycle,
 		(uptr)psxNextsCounter, (uptr)psxNextCounter);
 
@@ -1516,5 +1504,3 @@ R3000Acpu psxRec = {
 	recClear,
 	recShutdown
 };
-
-#endif // PCSX2_NORECBUILD

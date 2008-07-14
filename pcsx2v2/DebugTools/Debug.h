@@ -27,27 +27,6 @@
 #include "Misc.h"
 
 extern FILE *emuLog;
-
-char* disR5900F(u32 code, u32 pc);
-char* disR5900Fasm(u32 code, u32 pc);
-char* disR3000Fasm(u32 code, u32 pc);
-
-void  disR5900AddSym(u32 addr, char *name);
-char* disR5900GetSym(u32 addr);
-char* disR5900GetUpperSym(u32 addr);
-void  disR5900FreeSyms();
-
-char* disVU0MicroUF(u32 code, u32 pc);
-char* disVU0MicroLF(u32 code, u32 pc);
-char* disVU1MicroUF(u32 code, u32 pc);
-char* disVU1MicroLF(u32 code, u32 pc);
-
-char* disR3000AF(u32 code, u32 pc);
-
-extern char *CP2VFnames[];
-extern char *disRNameCP2f[];
-extern char *disRNameCP2i[];
-
 //that way is slower but you now not need to compile every time ;P
 #ifdef PCSX2_DEVBUILD
 

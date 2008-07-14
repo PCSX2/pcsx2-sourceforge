@@ -15,9 +15,6 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
  */
-
-#if !(defined(_MSC_VER) && defined(PCSX2_NORECBUILD))
-
 #include "Common.h"
 #include "InterTables.h"
 #include "ix86/ix86.h"
@@ -28,27 +25,6 @@
 *   COP0 opcodes                                         *
 *                                                        *
 *********************************************************/
-
-#ifndef CP0_RECOMPILE
-
-REC_SYS(MFC0);
-REC_SYS(MTC0);
-REC_SYS(BC0F);
-REC_SYS(BC0T);
-REC_SYS(BC0FL);
-REC_SYS(BC0TL);
-REC_SYS(TLBR);
-REC_SYS(TLBWI);
-REC_SYS(TLBWR);
-REC_SYS(TLBP);
-REC_SYS(ERET);
-REC_SYS(DI);
-REC_SYS(EI);
-
-#else
-
-////////////////////////////////////////////////////
-//REC_SYS(MTC0);
 ////////////////////////////////////////////////////
 REC_SYS(BC0F);
 ////////////////////////////////////////////////////
@@ -359,7 +335,3 @@ void rec(TLBP) {
 void rec(ERET) {
 }
 */
-
-#endif
-
-#endif // PCSX2_NORECBUILD

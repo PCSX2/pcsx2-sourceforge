@@ -89,7 +89,7 @@ BOOL CALLBACK CpuDlgProc(HWND hW, UINT uMsg, WPARAM wParam, LPARAM lParam)
 			}
 			SetDlgItemText(hW, IDC_FEATURESINPUT, features);
 
-			CheckDlgButton(hW, IDC_CPU_EEREC, !!CHECK_EEREC);
+			CheckDlgButton(hW, IDC_CPU_EEREC, 1);
 
 //#ifdef PCSX2_DEVBUILD
 			CheckDlgButton(hW, IDC_CPU_VU0REC, !!CHECK_VU0REC);

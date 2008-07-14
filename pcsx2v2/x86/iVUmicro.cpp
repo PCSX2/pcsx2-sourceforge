@@ -15,10 +15,6 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
  */
-
-// stop compiling if NORECBUILD build (only for Visual Studio)
-#if !(defined(_MSC_VER) && defined(PCSX2_NORECBUILD))
-
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
@@ -735,10 +731,6 @@ void _vurecAnalyzeOp(VURegs *VU, _vuopinfo *info) {
 	ptr = (int*)&VU->Micro[pc]; 
 	pc += 8; 
 
-/*	SysPrintf("_vurecAnalyzeOp Upper: %s\n", disVU1MicroUF( ptr[1], pc ) );
-	if ((ptr[1] & 0x80000000) == 0) {
-		SysPrintf("_vurecAnalyzeOp Lower: %s\n", disVU1MicroLF( ptr[0], pc ) );
-	}*/
 	if (ptr[1] & 0x40000000) {
 		branch |= 8; 
 	} 
@@ -5342,5 +5334,3 @@ void recVUMI_XGKICK( VURegs *VU, int info )
 		//FreezeXMMRegs(0);
 	}
 }
-
-#endif // PCSX2_NORECBUILD

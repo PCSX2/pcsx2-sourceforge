@@ -53,8 +53,7 @@ void statsClose() {
 #endif
 	fprintf(f, "Total EE  Instructions Executed: %lld\n", stats.eeCycles);
 	fprintf(f, "Total IOP Instructions Executed: %lld\n", stats.iopCycles);
-	if (!CHECK_EEREC) fprintf(f, "Interpreter Mode\n");
-	else fprintf(f, "Recompiler Mode: VUrec1 %s, VUrec0 %s\n", 
+	fprintf(f, "Recompiler Mode: VUrec1 %s, VUrec0 %s\n", 
 		CHECK_VU1REC ? "Enabled" : "Disabled", CHECK_VU0REC ? "Enabled" : "Disabled");
 	fclose(f);
 }

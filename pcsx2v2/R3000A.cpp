@@ -33,7 +33,7 @@ PCSX2_ALIGNED16(psxRegisters psxRegs);
 
 int psxInit()
 {
-	psxCpu = CHECK_EEREC ? &psxRec : &psxInt;
+	psxCpu = &psxRec;
 
 #ifdef PCSX2_DEVBUILD
 	Log=0;
@@ -94,44 +94,6 @@ void psxException(u32 code, u32 bd) {
 	// Set the Status
 	psxRegs.CP0.n.Status = (psxRegs.CP0.n.Status &~0x3f) |
 						  ((psxRegs.CP0.n.Status & 0xf) << 2);
-
-	/*if ((((PSXMu32(psxRegs.CP0.n.EPC) >> 24) & 0xfe) == 0x4a)) {
-		// "hokuto no ken" / "Crash Bandicot 2" ... fix
-		PSXMu32(psxRegs.CP0.n.EPC)&= ~0x02000000;
-	}*/
-
-	if (Config.PsxOut && !CHECK_EEREC) {
-		u32 call = psxRegs.GPR.n.t1 & 0xff;
-		switch (psxRegs.pc & 0x1fffff) {
-			case 0xa0:
-#ifdef PSXBIOS_LOG
-				if (call != 0x28 && call != 0xe) {
-					PSXBIOS_LOG("Bios call a0: %s (%x) %x,%x,%x,%x\n", biosA0n[call], call, psxRegs.GPR.n.a0, psxRegs.GPR.n.a1, psxRegs.GPR.n.a2, psxRegs.GPR.n.a3); }
-#endif
-				if (biosA0[call])
-			   		biosA0[call]();
-				break;
-			case 0xb0:
-#ifdef PSXBIOS_LOG
-				if (call != 0x17 && call != 0xb) {
-					PSXBIOS_LOG("Bios call b0: %s (%x) %x,%x,%x,%x\n", biosB0n[call], call, psxRegs.GPR.n.a0, psxRegs.GPR.n.a1, psxRegs.GPR.n.a2, psxRegs.GPR.n.a3); }
-#endif
-				if (biosB0[call])
-			   		biosB0[call]();
-				break;
-			case 0xc0:
-#ifdef PSXBIOS_LOG
-				PSXBIOS_LOG("Bios call c0: %s (%x) %x,%x,%x,%x\n", biosC0n[call], call, psxRegs.GPR.n.a0, psxRegs.GPR.n.a1, psxRegs.GPR.n.a2, psxRegs.GPR.n.a3);
-#endif
-				if (biosC0[call])
-			   		biosC0[call]();
-				break;
-		}
-	}
-
-	/*if (psxRegs.CP0.n.Cause == 0x400 && (!(psxHu32(0x1450) & 0x8))) {
-		hwIntcIrq(1);
-	}*/
 }
 
 #define PSX_TESTINT(n, callback) \
@@ -208,7 +170,7 @@ void psxExecuteBios() {
 void psxRestartCPU()
 {
 	psxCpu->Shutdown();
-	psxCpu = CHECK_EEREC ? &psxRec : &psxInt;
+	psxCpu = &psxRec;
 
 	if (psxCpu->Init() == -1) {
 		SysClose();

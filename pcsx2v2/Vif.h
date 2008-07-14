@@ -91,11 +91,7 @@ extern "C" u32* _vifRow, *_vifCol;
 extern "C" VIFregisters *_vifRegs;
 extern "C" PCSX2_ALIGNED16(u32 s_TempDecompress[4]);
 
-#ifndef PCSX2_NORECBUILD
 void SetNewMask(u32* vif1masks, u32* hasmask, u32 mask, u32 oldmask);
-#else
-#define SetNewMask 0&&
-#endif
 
 #define XMM_R0			xmm0
 #define XMM_R1			xmm1

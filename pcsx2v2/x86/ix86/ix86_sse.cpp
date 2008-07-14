@@ -15,9 +15,6 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
  */
-// stop compiling if NORECBUILD build (only for Visual Studio)
-#if !(defined(_MSC_VER) && defined(PCSX2_NORECBUILD))
-
 #include <assert.h>
 #include "ix86.h"
 
@@ -1539,5 +1536,3 @@ void SSE2EMU_MOVD_R_to_XMM( x86SSERegType to, x86IntRegType from ) {
 	MOV32ItoM((u32)p+12, 0);
 	SSE_MOVAPS_M128_to_XMM(to, (u32)p);
 }
-
-#endif

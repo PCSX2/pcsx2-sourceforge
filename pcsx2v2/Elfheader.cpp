@@ -545,17 +545,6 @@ BOOL loadSectionHeaders( char * Exepath )
 		SymNames = (char*)&elfdata[elfSectH[ i_dt ].sh_offset];
 		eS = (Elf32_Sym*)&elfdata[elfSectH[ i_st ].sh_offset];
 		SysPrintf("found %d symbols\n", elfSectH[ i_st ].sh_size / sizeof( Elf32_Sym ));
-
-		for ( i = 1; i < (int)( elfSectH[ i_st ].sh_size / sizeof( Elf32_Sym ) ); i++ ) {
-			if ( ( eS[ i ].st_value != 0 ) && ( ELF32_ST_TYPE( eS[ i ].st_info ) == 2 ) ) {
-//				SysPrintf("%x:%s\n", eS[i].st_value, &SymNames[eS[i].st_name]);
-				disR5900AddSym( eS[i].st_value, &SymNames[ eS[ i ].st_name ] );
-/*				if (!strcmp(&SymNames[eS[i].st_name], "sceSifCheckStatRpc")) {
-					psMu32(eS[i].st_value & 0x1ffffff) = (0x3b << 26) | 1;
-					SysPrintf("found sceSifCheckStatRpc!!\n");
-				}*/
-			}
-		}
 	}
 
 	return TRUE;
