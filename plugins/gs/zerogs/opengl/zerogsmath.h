@@ -5,6 +5,8 @@
 #include <alloca.h>
 #endif
 
+#include <string.h>
+
 #ifndef PI
 #define PI ((dReal)3.141592654)
 #endif
