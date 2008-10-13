@@ -822,10 +822,10 @@ s_clut16mask2:
 .globl WriteCLUT_T16_I4_CSM1_sse2
         .type WriteCLUT_T16_I4_CSM1_sse2, @function
 WriteCLUT_T16_I4_CSM1_sse2:
-		movdqa %xmm0, qword ptr [%ecx]
-		movdqa %xmm1, qword ptr [%ecx+16]
-		movdqa %xmm2, qword ptr [%ecx+32]
-		movdqa %xmm3, qword ptr [%ecx+48]
+		movdqa %xmm0, xmmword ptr [%ecx]
+		movdqa %xmm1, xmmword ptr [%ecx+16]
+		movdqa %xmm2, xmmword ptr [%ecx+32]
+		movdqa %xmm3, xmmword ptr [%ecx+48]
 
 		// rearrange
 		pshuflw %xmm0, %xmm0, 0x88
