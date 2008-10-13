@@ -527,7 +527,8 @@ int TransferHostLocal##psm(const void* pbyMem, u32 nQWordSize) \
     \
     if( (gs.imageEndX-gs.trxpos.dx)%widthlimit ) { \
         /* hack */ \
-        if( abs((int)nSize - (gs.imageEndY-i)*(gs.imageEndX-gs.trxpos.dx)+(j-gs.trxpos.dx)) <= widthlimit ) { \
+        int testwidth = (int)nSize - (gs.imageEndY-i)*(gs.imageEndX-gs.trxpos.dx)+(j-gs.trxpos.dx); \
+        if( testwidth <= widthlimit && testwidth >= -widthlimit ) { \
             /* don't transfer */ \
             /*printf("bad texture %s: %d %d %d\n", #psm, gs.trxpos.dx, gs.imageEndX, nQWordSize);*/ \
             gs.imageTransfer = -1; \
