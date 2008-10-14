@@ -48,6 +48,7 @@
 #include <stdio.h>
 #include <stdexcept>
 #include <string>
+#include <string.h>
 #include <assert.h>
 #include <limits.h>
 
