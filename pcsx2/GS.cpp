@@ -24,6 +24,8 @@
 #include <windows.h>
 #endif
 
+#include <stdlib.h>
+#include <string.h>
 #include <assert.h>
 
 #include <vector>
